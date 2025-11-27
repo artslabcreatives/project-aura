@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ea0dd38cc4fa6c3265128bfecad5c211",
+    "content-hash": "40d21c7f3b5a8e47823f347cf87e300c",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1081,6 +1081,68 @@
                 }
             ],
             "time": "2025-03-06T22:45:56+00:00"
+        },
+        {
+            "name": "elliottlawson/mcp-laravel-sdk",
+            "version": "v0.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/elliottlawson/mcp-laravel-sdk.git",
+                "reference": "d10b8ae5936be27440910aeefa0523d09280748f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/elliottlawson/mcp-laravel-sdk/zipball/d10b8ae5936be27440910aeefa0523d09280748f",
+                "reference": "d10b8ae5936be27440910aeefa0523d09280748f",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.0",
+                "laravel/framework": "^10.48.29|^11.0|^12.0",
+                "laravel/helpers": "^1.6",
+                "php": "^8.2",
+                "sajya/server": "^7.0",
+                "symfony/http-foundation": "^6.0|^7.0"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.13",
+                "orchestra/testbench": "^7.0|^8.0|^9.0|^10.0|^11.0",
+                "phpunit/phpunit": "^9.0|^10.0|^11.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "Mcp": "ElliottLawson\\LaravelMcp\\Facades\\Mcp"
+                    },
+                    "providers": [
+                        "ElliottLawson\\LaravelMcp\\Providers\\McpServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "ElliottLawson\\LaravelMcp\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Elliott Lawson"
+                }
+            ],
+            "description": "Laravel-native implementation of the Model Context Protocol (MCP)",
+            "support": {
+                "issues": "https://github.com/elliottlawson/mcp-laravel-sdk/issues",
+                "source": "https://github.com/elliottlawson/mcp-laravel-sdk/tree/v0.4.0"
+            },
+            "time": "2025-06-15T06:20:26+00:00"
         },
         {
             "name": "filament/actions",
@@ -2328,6 +2390,63 @@
                 "source": "https://github.com/laravel/framework"
             },
             "time": "2025-09-30T14:56:54+00:00"
+        },
+        {
+            "name": "laravel/helpers",
+            "version": "v1.8.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/laravel/helpers.git",
+                "reference": "98499eea4c1cca76fb0fb37ed365a468773daf0a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/laravel/helpers/zipball/98499eea4c1cca76fb0fb37ed365a468773daf0a",
+                "reference": "98499eea4c1cca76fb0fb37ed365a468773daf0a",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "~5.8.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
+                "php": "^7.2.0|^8.0"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^1.10",
+                "phpunit/phpunit": "^7.0|^8.0|^9.0|^10.0|^11.0|^12.0"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "1.x-dev"
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Taylor Otwell",
+                    "email": "taylor@laravel.com"
+                },
+                {
+                    "name": "Dries Vints",
+                    "email": "dries@laravel.com"
+                }
+            ],
+            "description": "Provides backwards compatibility for helpers in the latest Laravel release.",
+            "keywords": [
+                "helpers",
+                "laravel"
+            ],
+            "support": {
+                "source": "https://github.com/laravel/helpers/tree/v1.8.2"
+            },
+            "time": "2025-11-25T14:46:28+00:00"
         },
         {
             "name": "laravel/prompts",
@@ -4928,6 +5047,80 @@
                 }
             ],
             "time": "2025-02-25T09:09:36+00:00"
+        },
+        {
+            "name": "sajya/server",
+            "version": "7.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/sajya/server.git",
+                "reference": "de5411d9cca32c24d9e347e2ff2221d36ce36e84"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/sajya/server/zipball/de5411d9cca32c24d9e347e2ff2221d36ce36e84",
+                "reference": "de5411d9cca32c24d9e347e2ff2221d36ce36e84",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "laravel/framework": "^10.0|^11.0|^12.0"
+            },
+            "conflict": {
+                "laravel/framework": ">=10.0.0,<=10.48.27 || >11.0.0,<=11.42.0",
+                "league/flysystem": "<3.0.16",
+                "mockery/mockery": "<1.6.1",
+                "orchestra/testbench": ">=9.0.0,<9.8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^v1.20",
+                "orchestra/testbench": "^8.0|^9.0|^10.0",
+                "phpunit/php-code-coverage": "^10.|^11.0|^12.0",
+                "phpunit/phpunit": "^10.5|^11.0",
+                "vimeo/psalm": "^5.0 | ^6.0"
+            },
+            "suggest": {
+                "ext-zlib": "Required to compress the response into gzip",
+                "sajya/client": "HTTP(S) client for JSON-RPC 2.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "RPC": "Sajya\\Server\\Facades\\RPC"
+                    },
+                    "providers": [
+                        "Sajya\\Server\\ServerServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Sajya\\Server\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Alexandr Chernyaev",
+                    "email": "bliz48rus@gmail.com"
+                }
+            ],
+            "description": "Easy implementation of the JSON-RPC 2.0 server for the Laravel framework.",
+            "homepage": "https://sajya.github.io",
+            "keywords": [
+                "api",
+                "json-prc",
+                "rpc"
+            ],
+            "support": {
+                "issues": "https://github.com/sajya/server/issues",
+                "source": "https://github.com/sajya/server/tree/7.0.0"
+            },
+            "time": "2025-03-09T02:00:15+00:00"
         },
         {
             "name": "spatie/color",
