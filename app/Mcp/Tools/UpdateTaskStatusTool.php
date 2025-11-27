@@ -45,11 +45,13 @@ class UpdateTaskStatusTool extends BaseTool
             return ['error' => 'Task not found'];
         }
 
-        $task->update(['user_status' => $params['user_status']]);
+        $updateData = ['user_status' => $params['user_status']];
         
         if ($params['user_status'] === 'complete') {
-            $task->update(['completed_at' => now()]);
+            $updateData['completed_at'] = now();
         }
+
+        $task->update($updateData);
 
         return $task->fresh()->load(['project', 'assignee', 'projectStage'])->toArray();
     }
