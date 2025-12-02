@@ -3,35 +3,32 @@
 namespace App\Mcp\Resources;
 
 use App\Models\Project;
-use ElliottLawson\LaravelMcp\Resources\BaseResource;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Resource;
 
-class ProjectResource extends BaseResource
+class ProjectResource extends Resource
 {
-    public function __construct()
-    {
-        parent::__construct('projects', [
-            'description' => 'Access project data including name, description, department, stages, and tasks',
-        ]);
-    }
+    protected string $description = 'Access project data including name, description, department, stages, and tasks';
 
-    /**
-     * Get project data.
-     *
-     * @param array $params Parameters for filtering projects
-     * @return array The project data
-     */
-    public function getData(array $params = []): array
+    protected string $mimeType = 'application/json';
+
+    public function handle(Request $request): Response
     {
         $query = Project::with(['department', 'stages', 'tasks']);
 
-        if (isset($params['id'])) {
-            return $query->find($params['id'])?->toArray() ?? [];
+        $id = $request->get('id');
+        if ($id) {
+            $data = $query->find($id)?->toArray() ?? [];
+            return Response::blob(json_encode($data));
         }
 
-        if (isset($params['department_id'])) {
-            $query->where('department_id', $params['department_id']);
+        $departmentId = $request->get('department_id');
+        if ($departmentId) {
+            $query->where('department_id', $departmentId);
         }
 
-        return $query->get()->toArray();
+        $data = $query->get()->toArray();
+        return Response::blob(json_encode($data));
     }
 }

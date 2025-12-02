@@ -3,47 +3,42 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Project;
-use ElliottLawson\LaravelMcp\Tools\BaseTool;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Tool;
 
-class CreateProjectTool extends BaseTool
+class CreateProjectTool extends Tool
 {
-    public function __construct()
-    {
-        parent::__construct('create_project', [
-            'type' => 'object',
-            'properties' => [
-                'name' => [
-                    'type' => 'string',
-                    'description' => 'The name of the project',
-                ],
-                'description' => [
-                    'type' => 'string',
-                    'description' => 'The description of the project',
-                ],
-                'department_id' => [
-                    'type' => 'integer',
-                    'description' => 'The ID of the department this project belongs to',
-                ],
-            ],
-            'required' => ['name'],
-        ], [
-            'description' => 'Create a new project',
-        ]);
-    }
+    protected string $name = 'create_project';
+
+    protected string $description = 'Create a new project';
 
     /**
-     * Execute the tool to create a new project.
-     *
-     * @param array $params The parameters for creating the project
-     * @return array The created project data
+     * @return array<string, mixed>
      */
-    public function execute(array $params = []): array
+    public function schema($schema): array
     {
-        if (!$this->validateParameters($params)) {
-            return ['error' => 'Invalid parameters'];
-        }
+        return [
+            'name' => $schema->string()
+                ->description('The name of the project')
+                ->required(),
+            'description' => $schema->string()
+                ->description('The description of the project'),
+            'department_id' => $schema->integer()
+                ->description('The ID of the department this project belongs to'),
+        ];
+    }
 
-        $project = Project::create($params);
-        return $project->load(['department', 'stages'])->toArray();
+    public function handle(Request $request): Response
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'department_id' => 'nullable|integer|exists:departments,id',
+        ]);
+
+        $project = Project::create($validated);
+        $data = $project->load(['department', 'stages'])->toArray();
+        return Response::text(json_encode($data));
     }
 }

@@ -37,12 +37,18 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
+            'password' => 'nullable|string|min:8',
             'role' => 'sometimes|in:user,team-lead,admin',
             'department_id' => 'nullable|exists:departments,id',
         ]);
 
-        $validated['password'] = Hash::make($validated['password']);
+        // Auto-generate password if not provided
+        if (empty($validated['password'])) {
+            $validated['password'] = Hash::make(bin2hex(random_bytes(16)));
+        } else {
+            $validated['password'] = Hash::make($validated['password']);
+        }
+        
         $user = User::create($validated);
         return response()->json($user->load('department'), 201);
     }

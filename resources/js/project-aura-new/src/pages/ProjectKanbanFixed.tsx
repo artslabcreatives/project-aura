@@ -90,6 +90,37 @@ export default function ProjectKanbanFixed() {
 		if (!currentUser || !project) return;
 		const taskToUpdate = tasks.find(t => t.id === taskId); if (!taskToUpdate) return;
 		try {
+			console.log('[KANBAN] Incoming task update', { taskId, updates });
+			// Auto transition when marking complete without explicit projectStage
+			if (updates.userStatus === 'complete' && !updates.projectStage) {
+				const currentStage = project.stages.find(s => s.id === taskToUpdate.projectStage);
+				if (currentStage) {
+					let targetStageId: string | undefined;
+					if (currentStage.linkedReviewStageId) {
+						targetStageId = currentStage.linkedReviewStageId;
+					} else {
+						const ordered = [...project.stages].sort((a, b) => a.order - b.order);
+						const idx = ordered.findIndex(s => s.id === currentStage.id);
+						if (idx >= 0 && idx < ordered.length - 1) targetStageId = ordered[idx + 1].id;
+					}
+					if (targetStageId) {
+						const targetStage = project.stages.find(s => s.id === targetStageId);
+						updates.projectStage = targetStageId;
+						if (targetStage?.isReviewStage) {
+							// Preserve previous stage for revision flow
+							updates.previousStage = currentStage.id;
+							updates.originalAssignee = taskToUpdate.assignee;
+							updates.assignee = taskToUpdate.assignee;
+							updates.isInSpecificStage = true;
+						}
+						// If not review stage, reset status for progress
+						if (!targetStage?.isReviewStage) {
+							updates.userStatus = 'pending';
+						}
+						console.log('[KANBAN] Auto transition after complete', { from: currentStage.id, to: targetStageId, review: !!targetStage?.isReviewStage });
+					}
+				}
+			}
 			if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
 				if (!('assignee' in updates)) {
 					const targetStage = project.stages.find(s => s.id === updates.projectStage);
@@ -112,7 +143,15 @@ export default function ProjectKanbanFixed() {
 			if (updates.assignee && updates.assignee !== taskToUpdate.assignee) {
 				addHistoryEntry({ action: 'UPDATE_TASK_ASSIGNEE', entityId: taskId, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { from: taskToUpdate.assignee, to: updates.assignee } });
 			}
-			await taskService.update(taskId, updates);
+			// Map fields for backend (IDs) while keeping local string fields
+			const assigneeId = updates.assignee ? teamMembers.find(m => m.name === updates.assignee)?.id : undefined;
+			const projectStageId = updates.projectStage ? parseInt(String(updates.projectStage), 10) : undefined;
+			await taskService.update(taskId, {
+				...updates,
+				assigneeId: assigneeId ? parseInt(String(assigneeId), 10) : undefined,
+				projectStageId,
+			});
+			console.log('[KANBAN] Applied update', { taskId, assigneeId, projectStageId });
 			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
 		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to update task.', variant: 'destructive' }); }
 	};
@@ -120,13 +159,28 @@ export default function ProjectKanbanFixed() {
 	const handleSaveTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
 		if (!currentUser || !project) return;
 		try {
+			// Map names to IDs
+			const assigneeId = task.assignee ? teamMembers.find(m => m.name === task.assignee)?.id : undefined;
+			const projectStageId = task.projectStage ? parseInt(task.projectStage) : undefined;
+
+			// Remove string fields and add ID fields
+			const { project: projectName, assignee, projectStage, ...cleanTask } = task;
+			const taskPayload = {
+				...cleanTask,
+				projectId: project.id,
+				assigneeId: assigneeId ? parseInt(assigneeId) : undefined,
+				projectStageId,
+			};
+
 			if (editingTask) {
-				await taskService.update(editingTask.id, task);
-				setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...task } : t));
+				console.log('[KANBAN] Saving existing task', { id: editingTask.id, taskPayload });
+				await taskService.update(editingTask.id, taskPayload);
+				setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...task, projectId: project.id, assigneeId } : t));
 				addHistoryEntry({ action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { from: editingTask, to: { ...editingTask, ...task } } });
 				toast({ title: 'Task updated', description: 'Task updated successfully.' });
 			} else {
-				const newTask = await taskService.create({ ...task, projectId: project.id });
+				console.log('[KANBAN] Creating new task', { taskPayload });
+				const newTask = await taskService.create(taskPayload);
 				setTasks([...tasks, newTask]);
 				addHistoryEntry({ action: 'CREATE_TASK', entityId: newTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { title: newTask.title } });
 				toast({ title: 'Task created', description: 'Task created successfully.' });

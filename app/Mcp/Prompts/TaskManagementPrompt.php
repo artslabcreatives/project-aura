@@ -2,22 +2,20 @@
 
 namespace App\Mcp\Prompts;
 
-use ElliottLawson\LaravelMcp\Prompts\BasePrompt;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Prompt;
 
-class TaskManagementPrompt extends BasePrompt
+class TaskManagementPrompt extends Prompt
 {
-    public function __construct()
-    {
-        parent::__construct('task_management', 'When helping with task management:
-1. Always confirm the project context before creating tasks
-2. Suggest appropriate priorities based on due dates
-3. Recommend suitable team members based on their current workload
-4. Track task status changes and notify relevant stakeholders
-5. Ensure tasks have clear descriptions and acceptance criteria
+    protected string $name = 'task_management';
 
-Available task statuses: pending, in-progress, complete
-Available priorities: low, medium, high', [
-            'description' => 'Prompt for task management operations',
-        ]);
+    protected string $description = 'Prompt for task management operations';
+
+    public function handle(Request $request): Response
+    {
+        $content = "When helping with task management:\n1. Always confirm the project context before creating tasks\n2. Suggest appropriate priorities based on due dates\n3. Recommend suitable team members based on their current workload\n4. Track task status changes and notify relevant stakeholders\n5. Ensure tasks have clear descriptions and acceptance criteria\n\nAvailable task statuses: pending, in-progress, complete\nAvailable priorities: low, medium, high";
+
+        return Response::text($content)->asAssistant();
     }
 }

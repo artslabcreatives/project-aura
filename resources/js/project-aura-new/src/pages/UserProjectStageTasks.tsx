@@ -185,8 +185,29 @@ export default function UserProjectStageTasks() {
 			}, 10000);
 		}
 
-		// Persist via API if needed
-		// Note: For this view, we only update local UI; full updates happen elsewhere
+		// Persist to backend so project stage & assignee stay in sync
+		try {
+			const task = tasks.find(t => t.id === taskId);
+			const projectId = task?.projectId || (project ? project.id : undefined);
+			const assigneeName = storageUpdates.assignee;
+			const assigneeId = assigneeName ? teamMembers.find(m => m.name === assigneeName)?.id : undefined;
+			const projectStageId = storageUpdates.projectStage ? parseInt(String(storageUpdates.projectStage), 10) : undefined;
+			// Build payload mapping to service expectations
+			if (projectId) {
+				void taskService.update(taskId, {
+					projectId,
+					assigneeId: assigneeId ? parseInt(String(assigneeId), 10) : undefined,
+					projectStageId,
+					userStatus: storageUpdates.userStatus,
+					previousStage: storageUpdates.previousStage,
+					originalAssignee: storageUpdates.originalAssignee,
+					revisionComment: storageUpdates.revisionComment,
+					isInSpecificStage: storageUpdates.isInSpecificStage,
+				});
+			}
+		} catch (e) {
+			console.error('Failed to persist task stage update', e);
+		}
 	};
 
 	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">) => {

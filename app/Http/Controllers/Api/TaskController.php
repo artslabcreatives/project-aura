@@ -51,7 +51,7 @@ class TaskController extends Controller
             'project_stage_id' => 'nullable|exists:stages,id',
             'priority' => 'sometimes|in:low,medium,high',
             'tags' => 'nullable|array',
-            'start_date' => 'nullable|date_format:Y-m-d\TH:i:s|date',
+            'start_date' => 'nullable|date',
             'is_in_specific_stage' => 'sometimes|boolean',
             'revision_comment' => 'nullable|string',
         ]);
@@ -83,12 +83,12 @@ class TaskController extends Controller
             'project_stage_id' => 'nullable|exists:stages,id',
             'priority' => 'sometimes|in:low,medium,high',
             'tags' => 'nullable|array',
-            'start_date' => 'nullable|date_format:Y-m-d\TH:i:s|date',
+            'start_date' => 'nullable|date',
             'is_in_specific_stage' => 'sometimes|boolean',
             'revision_comment' => 'nullable|string',
             'previous_stage_id' => 'nullable|exists:stages,id',
             'original_assignee_id' => 'nullable|exists:users,id',
-            'completed_at' => 'nullable|date_format:Y-m-d\TH:i:s|date',
+            'completed_at' => 'nullable|date',
         ]);
 
         $task->update($validated);

@@ -3,31 +3,27 @@
 namespace App\Mcp\Resources;
 
 use App\Models\Department;
-use ElliottLawson\LaravelMcp\Resources\BaseResource;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Resource;
 
-class DepartmentResource extends BaseResource
+class DepartmentResource extends Resource
 {
-    public function __construct()
-    {
-        parent::__construct('departments', [
-            'description' => 'Access department data including users and projects',
-        ]);
-    }
+    protected string $description = 'Access department data including users and projects';
 
-    /**
-     * Get department data.
-     *
-     * @param array $params Parameters for filtering departments
-     * @return array The department data
-     */
-    public function getData(array $params = []): array
+    protected string $mimeType = 'application/json';
+
+    public function handle(Request $request): Response
     {
         $query = Department::with(['users', 'projects']);
 
-        if (isset($params['id'])) {
-            return $query->find($params['id'])?->toArray() ?? [];
+        $id = $request->get('id');
+        if ($id) {
+            $data = $query->find($id)?->toArray() ?? [];
+            return Response::blob(json_encode($data));
         }
 
-        return $query->get()->toArray();
+        $data = $query->get()->toArray();
+        return Response::blob(json_encode($data));
     }
 }

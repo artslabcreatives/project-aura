@@ -3,47 +3,47 @@
 namespace App\Mcp\Resources;
 
 use App\Models\Task;
-use ElliottLawson\LaravelMcp\Resources\BaseResource;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Resource;
 
-class TaskResource extends BaseResource
+class TaskResource extends Resource
 {
-    public function __construct()
-    {
-        parent::__construct('tasks', [
-            'description' => 'Access task data including title, description, assignee, status, priority, and attachments',
-        ]);
-    }
+    protected string $description = 'Access task data including title, description, assignee, status, priority, and attachments';
 
-    /**
-     * Get task data.
-     *
-     * @param array $params Parameters for filtering tasks
-     * @return array The task data
-     */
-    public function getData(array $params = []): array
+    protected string $mimeType = 'application/json';
+
+    public function handle(Request $request): Response
     {
         $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories']);
 
-        if (isset($params['id'])) {
-            return $query->find($params['id'])?->toArray() ?? [];
+        $id = $request->get('id');
+        if ($id) {
+            $data = $query->find($id)?->toArray() ?? [];
+            return Response::blob(json_encode($data));
         }
 
-        if (isset($params['project_id'])) {
-            $query->where('project_id', $params['project_id']);
+        $projectId = $request->get('project_id');
+        if ($projectId) {
+            $query->where('project_id', $projectId);
         }
 
-        if (isset($params['assignee_id'])) {
-            $query->where('assignee_id', $params['assignee_id']);
+        $assigneeId = $request->get('assignee_id');
+        if ($assigneeId) {
+            $query->where('assignee_id', $assigneeId);
         }
 
-        if (isset($params['user_status'])) {
-            $query->where('user_status', $params['user_status']);
+        $userStatus = $request->get('user_status');
+        if ($userStatus) {
+            $query->where('user_status', $userStatus);
         }
 
-        if (isset($params['priority'])) {
-            $query->where('priority', $params['priority']);
+        $priority = $request->get('priority');
+        if ($priority) {
+            $query->where('priority', $priority);
         }
 
-        return $query->get()->toArray();
+        $data = $query->get()->toArray();
+        return Response::blob(json_encode($data));
     }
 }

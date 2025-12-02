@@ -3,60 +3,53 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Task;
-use ElliottLawson\LaravelMcp\Tools\BaseTool;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Tool;
 
-class CreateTaskTool extends BaseTool
+class CreateTaskTool extends Tool
 {
-    public function __construct()
-    {
-        parent::__construct('create_task', [
-            'type' => 'object',
-            'properties' => [
-                'title' => [
-                    'type' => 'string',
-                    'description' => 'The title of the task',
-                ],
-                'description' => [
-                    'type' => 'string',
-                    'description' => 'The description of the task',
-                ],
-                'project_id' => [
-                    'type' => 'integer',
-                    'description' => 'The ID of the project this task belongs to',
-                ],
-                'assignee_id' => [
-                    'type' => 'integer',
-                    'description' => 'The ID of the user assigned to this task',
-                ],
-                'due_date' => [
-                    'type' => 'string',
-                    'description' => 'The due date of the task (YYYY-MM-DD)',
-                ],
-                'priority' => [
-                    'type' => 'string',
-                    'enum' => ['low', 'medium', 'high'],
-                    'description' => 'The priority level of the task',
-                ],
-            ],
-            'required' => ['title', 'project_id'],
-        ], [
-            'description' => 'Create a new task in a project',
-        ]);
-    }
+    protected string $name = 'create_task';
+
+    protected string $description = 'Create a new task in a project';
 
     /**
-     * Execute the tool to create a new task.
-     *
-     * @param array $params The parameters for creating the task
-     * @return array The created task data
+     * @return array<string, mixed>
      */
-    public function execute(array $params = []): array
+    public function schema($schema): array
     {
-        if (!$this->validateParameters($params)) {
-            return ['error' => 'Invalid parameters'];
-        }
+        return [
+            'title' => $schema->string()
+                ->description('The title of the task')
+                ->required(),
+            'description' => $schema->string()
+                ->description('The description of the task'),
+            'project_id' => $schema->integer()
+                ->description('The ID of the project this task belongs to')
+                ->required(),
+            'assignee_id' => $schema->integer()
+                ->description('The ID of the user assigned to this task'),
+            'due_date' => $schema->string()
+                ->description('The due date of the task (YYYY-MM-DD)'),
+            'priority' => $schema->string()
+                ->enum(['low', 'medium', 'high'])
+                ->description('The priority level of the task'),
+        ];
+    }
 
-        $task = Task::create($params);
-        return $task->load(['project', 'assignee'])->toArray();
+    public function handle(Request $request): Response
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'project_id' => 'required|integer|exists:projects,id',
+            'assignee_id' => 'nullable|integer|exists:users,id',
+            'due_date' => 'nullable|date',
+            'priority' => 'nullable|in:low,medium,high',
+        ]);
+
+        $task = Task::create($validated);
+        $data = $task->load(['project', 'assignee'])->toArray();
+        return Response::text(json_encode($data));
     }
 }

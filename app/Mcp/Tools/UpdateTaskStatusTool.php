@@ -3,56 +3,49 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Task;
-use ElliottLawson\LaravelMcp\Tools\BaseTool;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Tool;
 
-class UpdateTaskStatusTool extends BaseTool
+class UpdateTaskStatusTool extends Tool
 {
-    public function __construct()
-    {
-        parent::__construct('update_task_status', [
-            'type' => 'object',
-            'properties' => [
-                'task_id' => [
-                    'type' => 'integer',
-                    'description' => 'The ID of the task to update',
-                ],
-                'user_status' => [
-                    'type' => 'string',
-                    'enum' => ['pending', 'in-progress', 'complete'],
-                    'description' => 'The new status for the task',
-                ],
-            ],
-            'required' => ['task_id', 'user_status'],
-        ], [
-            'description' => 'Update the status of an existing task',
-        ]);
-    }
+    protected string $name = 'update_task_status';
+
+    protected string $description = 'Update the status of an existing task';
 
     /**
-     * Execute the tool to update task status.
-     *
-     * @param array $params The parameters for updating the task status
-     * @return array The updated task data
+     * @return array<string, mixed>
      */
-    public function execute(array $params = []): array
+    public function schema($schema): array
     {
-        if (!$this->validateParameters($params)) {
-            return ['error' => 'Invalid parameters'];
-        }
+        return [
+            'task_id' => $schema->integer()
+                ->description('The ID of the task to update')
+                ->required(),
+            'user_status' => $schema->string()
+                ->enum(['pending', 'in-progress', 'complete'])
+                ->description('The new status for the task')
+                ->required(),
+        ];
+    }
 
-        $task = Task::find($params['task_id']);
-        if (!$task) {
-            return ['error' => 'Task not found'];
-        }
+    public function handle(Request $request): Response
+    {
+        $validated = $request->validate([
+            'task_id' => 'required|integer|exists:tasks,id',
+            'user_status' => 'required|in:pending,in-progress,complete',
+        ]);
 
-        $updateData = ['user_status' => $params['user_status']];
-        
-        if ($params['user_status'] === 'complete') {
+        $task = Task::find($validated['task_id']);
+
+        $updateData = ['user_status' => $validated['user_status']];
+        if ($validated['user_status'] === 'complete') {
             $updateData['completed_at'] = now();
         }
 
         $task->update($updateData);
 
-        return $task->fresh()->load(['project', 'assignee', 'projectStage'])->toArray();
+        $data = $task->fresh()->load(['project', 'assignee', 'projectStage'])->toArray();
+        return Response::text(json_encode($data));
     }
 }

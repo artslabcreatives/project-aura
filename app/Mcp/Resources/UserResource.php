@@ -3,39 +3,37 @@
 namespace App\Mcp\Resources;
 
 use App\Models\User;
-use ElliottLawson\LaravelMcp\Resources\BaseResource;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Resource;
 
-class UserResource extends BaseResource
+class UserResource extends Resource
 {
-    public function __construct()
-    {
-        parent::__construct('users', [
-            'description' => 'Access user data including name, email, role, department, and assigned tasks',
-        ]);
-    }
+    protected string $description = 'Access user data including name, email, role, department, and assigned tasks';
 
-    /**
-     * Get user data.
-     *
-     * @param array $params Parameters for filtering users
-     * @return array The user data
-     */
-    public function getData(array $params = []): array
+    protected string $mimeType = 'application/json';
+
+    public function handle(Request $request): Response
     {
         $query = User::with(['department', 'assignedTasks']);
 
-        if (isset($params['id'])) {
-            return $query->find($params['id'])?->toArray() ?? [];
+        $id = $request->get('id');
+        if ($id) {
+            $data = $query->find($id)?->toArray() ?? [];
+            return Response::blob(json_encode($data));
         }
 
-        if (isset($params['department_id'])) {
-            $query->where('department_id', $params['department_id']);
+        $departmentId = $request->get('department_id');
+        if ($departmentId) {
+            $query->where('department_id', $departmentId);
         }
 
-        if (isset($params['role'])) {
-            $query->where('role', $params['role']);
+        $role = $request->get('role');
+        if ($role) {
+            $query->where('role', $role);
         }
 
-        return $query->get()->toArray();
+        $data = $query->get()->toArray();
+        return Response::blob(json_encode($data));
     }
 }

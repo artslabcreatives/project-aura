@@ -74,7 +74,11 @@ export const taskService = {
 			is_in_specific_stage: task.isInSpecificStage,
 			revision_comment: task.revisionComment,
 		};
+		console.log('=== TASK CREATE DEBUG ===');
+		console.log('Input task:', task);
+		console.log('Payload to backend:', payload);
 		const { data } = await api.post('/tasks', payload);
+		console.log('Response from backend:', data);
 		return mapTask(data);
 	},
 

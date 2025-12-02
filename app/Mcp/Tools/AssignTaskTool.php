@@ -3,48 +3,47 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Task;
-use ElliottLawson\LaravelMcp\Tools\BaseTool;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Tool;
 
-class AssignTaskTool extends BaseTool
+class AssignTaskTool extends Tool
 {
-    public function __construct()
+    protected string $name = 'assign_task';
+
+    protected string $description = 'Assign a task to a user';
+
+    /**
+     * Get the tool's input schema.
+     *
+     * @return array<string, mixed>
+     */
+    public function schema($schema): array
     {
-        parent::__construct('assign_task', [
-            'type' => 'object',
-            'properties' => [
-                'task_id' => [
-                    'type' => 'integer',
-                    'description' => 'The ID of the task to assign',
-                ],
-                'assignee_id' => [
-                    'type' => 'integer',
-                    'description' => 'The ID of the user to assign the task to',
-                ],
-            ],
-            'required' => ['task_id', 'assignee_id'],
-        ], [
-            'description' => 'Assign a task to a user',
-        ]);
+        return [
+            'task_id' => $schema->integer()
+                ->description('The ID of the task to assign')
+                ->required(),
+            'assignee_id' => $schema->integer()
+                ->description('The ID of the user to assign the task to')
+                ->required(),
+        ];
     }
 
     /**
-     * Execute the tool to assign a task.
-     *
-     * @param array $params The parameters for assigning the task
-     * @return array The updated task data
+     * Handle the tool request.
      */
-    public function execute(array $params = []): array
+    public function handle(Request $request): Response
     {
-        if (!$this->validateParameters($params)) {
-            return ['error' => 'Invalid parameters'];
-        }
+        $validated = $request->validate([
+            'task_id' => 'required|integer|exists:tasks,id',
+            'assignee_id' => 'required|integer|exists:users,id',
+        ]);
 
-        $task = Task::find($params['task_id']);
-        if (!$task) {
-            return ['error' => 'Task not found'];
-        }
+        $task = Task::find($validated['task_id']);
+        $task->update(['assignee_id' => $validated['assignee_id']]);
 
-        $task->update(['assignee_id' => $params['assignee_id']]);
-        return $task->fresh()->load(['project', 'assignee', 'projectStage'])->toArray();
+        $data = $task->fresh()->load(['project', 'assignee', 'projectStage'])->toArray();
+        return Response::text(json_encode($data));
     }
 }

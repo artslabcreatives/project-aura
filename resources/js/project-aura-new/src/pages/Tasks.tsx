@@ -56,6 +56,8 @@ export default function Tasks() {
 				const tasksData = await taskService.getAll();
 				setAllTasks(tasksData);
 				const usersData = await userService.getAll();
+				console.log('🔍 LOADED TEAM MEMBERS:', usersData);
+				console.log('🔍 First member example:', usersData[0]);
 				setTeamMembers(usersData);
 				const departmentsData = await departmentService.getAll();
 				setDepartments(departmentsData);
@@ -156,12 +158,47 @@ export default function Tasks() {
 
 	const handleTaskSave = async (taskData: Omit<Task, "id" | "createdAt">) => {
 		try {
+			console.log('=== HANDLE TASK SAVE DEBUG ===');
+			console.log('Raw taskData:', taskData);
+			console.log('All projects:', allProjects);
+			console.log('Team members:', teamMembers);
+
+			// Map project name to ID and assignee name to ID
+			const projectId = allProjects.find(p => p.name === taskData.project)?.id;
+			const assigneeId = teamMembers.find(m => m.name === taskData.assignee)?.id;
+			const projectStageId = taskData.projectStage ? parseInt(taskData.projectStage) : undefined;
+
+			console.log('Found projectId:', projectId);
+			console.log('Found assigneeId:', assigneeId);
+			console.log('Found projectStageId:', projectStageId);
+
+			// Create clean payload with only the fields we want to send
+			const { project, assignee, projectStage, ...cleanTaskData } = taskData;
+			const payload = {
+				...cleanTaskData,
+				projectId,
+				assigneeId,
+				projectStageId,
+			};
+
+			console.log('Final payload:', payload);
+			console.log('Payload keys:', Object.keys(payload));
+			console.log('Payload.projectId:', payload.projectId);
+			console.log('Payload.assigneeId:', payload.assigneeId);
+			console.log('Payload.projectStageId:', payload.projectStageId);
+
 			if (editingTask) {
 				// Update existing task
-				await taskService.update(editingTask.id, taskData);
+				await taskService.update(editingTask.id, payload);
 				setAllTasks((prev) =>
 					prev.map((task) =>
-						task.id === editingTask.id ? { ...task, ...taskData } : task
+						task.id === editingTask.id ? {
+							...task,
+							...taskData,
+							projectId,
+							assigneeId,
+							projectStage: projectStageId ? String(projectStageId) : undefined,
+						} : task
 					)
 				);
 				toast({
@@ -171,7 +208,7 @@ export default function Tasks() {
 			} else {
 				// Create new task
 				const newTask = await taskService.create({
-					...taskData,
+					...payload,
 					userStatus: "pending", // New tasks start as pending
 				});
 				setAllTasks((prev) => [...prev, newTask]);

@@ -114,6 +114,34 @@ export default function ProjectKanban() {
 		const taskToUpdate = tasks.find(task => task.id === taskId);
 		if (!taskToUpdate) return;
 		try {
+			// Auto transition when marking complete without explicit projectStage
+			if (updates.userStatus === 'complete' && !updates.projectStage) {
+				const currentStage = project.stages.find(s => s.id === taskToUpdate.projectStage);
+				if (currentStage) {
+					let targetStageId: string | undefined;
+					if (currentStage.linkedReviewStageId) {
+						targetStageId = currentStage.linkedReviewStageId;
+					} else {
+						const ordered = [...project.stages].sort((a, b) => a.order - b.order);
+						const idx = ordered.findIndex(s => s.id === currentStage.id);
+						if (idx >= 0 && idx < ordered.length - 1) targetStageId = ordered[idx + 1].id;
+					}
+					if (targetStageId) {
+						const targetStage = project.stages.find(s => s.id === targetStageId);
+						updates.projectStage = targetStageId;
+						if (targetStage?.isReviewStage) {
+							updates.previousStage = currentStage.id;
+							updates.originalAssignee = taskToUpdate.assignee;
+							updates.assignee = taskToUpdate.assignee;
+							updates.isInSpecificStage = true;
+						}
+						if (!targetStage?.isReviewStage) {
+							updates.userStatus = 'pending';
+						}
+						console.log('[KANBAN] Auto transition after complete', { from: currentStage.id, to: targetStageId, review: !!targetStage?.isReviewStage });
+					}
+				}
+			}
 			if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
 				if (!('assignee' in updates)) {
 					const targetStage = project.stages.find(s => s.id === updates.projectStage);
@@ -455,6 +483,33 @@ export default function ProjectKanban() {
 		if (!taskToUpdate) return;
 
 		try {
+			if (updates.userStatus === 'complete' && !updates.projectStage) {
+				const currentStage = project.stages.find(s => s.id === taskToUpdate.projectStage);
+				if (currentStage) {
+					let targetStageId: string | undefined;
+					if (currentStage.linkedReviewStageId) {
+						targetStageId = currentStage.linkedReviewStageId;
+					} else {
+						const ordered = [...project.stages].sort((a, b) => a.order - b.order);
+						const idx = ordered.findIndex(s => s.id === currentStage.id);
+						if (idx >= 0 && idx < ordered.length - 1) targetStageId = ordered[idx + 1].id;
+					}
+					if (targetStageId) {
+						const targetStage = project.stages.find(s => s.id === targetStageId);
+						updates.projectStage = targetStageId;
+						if (targetStage?.isReviewStage) {
+							updates.previousStage = currentStage.id;
+							updates.originalAssignee = taskToUpdate.assignee;
+							updates.assignee = taskToUpdate.assignee;
+							updates.isInSpecificStage = true;
+						}
+						if (!targetStage?.isReviewStage) {
+							updates.userStatus = 'pending';
+						}
+						console.log('[KANBAN] Auto transition after complete', { from: currentStage.id, to: targetStageId, review: !!targetStage?.isReviewStage });
+					}
+				}
+			}
 			if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
 				if (!('assignee' in updates) && project) {
 					const targetStage = project.stages.find(s => s.id === updates.projectStage);

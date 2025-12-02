@@ -3,39 +3,37 @@
 namespace App\Mcp\Resources;
 
 use App\Models\Stage;
-use ElliottLawson\LaravelMcp\Resources\BaseResource;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Resource;
 
-class StageResource extends BaseResource
+class StageResource extends Resource
 {
-    public function __construct()
-    {
-        parent::__construct('stages', [
-            'description' => 'Access stage data including project, responsible users, and tasks',
-        ]);
-    }
+    protected string $description = 'Access stage data including project, responsible users, and tasks';
 
-    /**
-     * Get stage data.
-     *
-     * @param array $params Parameters for filtering stages
-     * @return array The stage data
-     */
-    public function getData(array $params = []): array
+    protected string $mimeType = 'application/json';
+
+    public function handle(Request $request): Response
     {
         $query = Stage::with(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2', 'tasks']);
 
-        if (isset($params['id'])) {
-            return $query->find($params['id'])?->toArray() ?? [];
+        $id = $request->get('id');
+        if ($id) {
+            $data = $query->find($id)?->toArray() ?? [];
+            return Response::blob(json_encode($data));
         }
 
-        if (isset($params['project_id'])) {
-            $query->where('project_id', $params['project_id']);
+        $projectId = $request->get('project_id');
+        if ($projectId) {
+            $query->where('project_id', $projectId);
         }
 
-        if (isset($params['type'])) {
-            $query->where('type', $params['type']);
+        $type = $request->get('type');
+        if ($type) {
+            $query->where('type', $type);
         }
 
-        return $query->orderBy('order')->get()->toArray();
+        $data = $query->orderBy('order')->get()->toArray();
+        return Response::blob(json_encode($data));
     }
 }
