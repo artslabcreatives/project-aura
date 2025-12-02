@@ -22,6 +22,7 @@ class ApiClient {
 
 		const config: RequestInit = {
 			...options,
+			credentials: 'include', // Include cookies for session-based auth
 			headers: {
 				'Content-Type': 'application/json',
 				'Accept': 'application/json',
@@ -33,6 +34,10 @@ class ApiClient {
 			const response = await fetch(url, config);
 
 			if (!response.ok) {
+				if (response.status === 401) {
+					// Redirect to login on unauthorized
+					window.location.href = '/';
+				}
 				throw new Error(`API Error: ${response.statusText}`);
 			}
 
