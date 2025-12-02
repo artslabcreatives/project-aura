@@ -90,25 +90,26 @@ class AutoReallocateTasksTool extends Tool
      */
     private function findAvailableUser(?int $departmentId): ?User
     {
-        $users = User::where('department_id', $departmentId)
-            ->whereNotIn('status', ['on_leave', 'blocked'])
-            ->with('assignedTasks')
-            ->get();
+        // First try users from the same department
+        $query = User::where('department_id', $departmentId)
+            ->whereNotIn('status', ['on_leave', 'blocked']);
 
-        if ($users->isEmpty()) {
-            // Fallback to users from any department
-            $users = User::whereNotIn('status', ['on_leave', 'blocked'])
-                ->with('assignedTasks')
-                ->get();
+        $user = $query->withSum(['assignedTasks' => function ($query) {
+            $query->where('user_status', '!=', 'complete');
+        }], 'estimated_hours')
+            ->orderBy('assigned_tasks_sum_estimated_hours', 'asc')
+            ->first();
+
+        if ($user) {
+            return $user;
         }
 
-        // Sort by workload (ascending)
-        $users = $users->sortBy(function ($user) {
-            return $user->assignedTasks()
-                ->where('user_status', '!=', 'complete')
-                ->sum('estimated_hours');
-        });
-
-        return $users->first();
+        // Fallback to users from any department
+        return User::whereNotIn('status', ['on_leave', 'blocked'])
+            ->withSum(['assignedTasks' => function ($query) {
+                $query->where('user_status', '!=', 'complete');
+            }], 'estimated_hours')
+            ->orderBy('assigned_tasks_sum_estimated_hours', 'asc')
+            ->first();
     }
 }

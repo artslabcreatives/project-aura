@@ -26,7 +26,11 @@ class GetPendingReviewTasksTool extends Tool
 
     public function handle(Request $request): Response
     {
-        $hoursThreshold = $request->get('hours_threshold', 24);
+        $validated = $request->validate([
+            'hours_threshold' => 'nullable|integer|min:1',
+        ]);
+
+        $hoursThreshold = $validated['hours_threshold'] ?? 24;
 
         $tasks = Task::with(['project', 'assignee', 'projectStage'])
             ->whereHas('projectStage', function ($query) {

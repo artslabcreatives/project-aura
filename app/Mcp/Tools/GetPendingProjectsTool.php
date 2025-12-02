@@ -26,7 +26,11 @@ class GetPendingProjectsTool extends Tool
 
     public function handle(Request $request): Response
     {
-        $daysThreshold = $request->get('days_threshold', 7);
+        $validated = $request->validate([
+            'days_threshold' => 'nullable|integer|min:1',
+        ]);
+
+        $daysThreshold = $validated['days_threshold'] ?? 7;
 
         $projects = Project::with(['department', 'stages', 'tasks.assignee', 'creator'])
             ->get()

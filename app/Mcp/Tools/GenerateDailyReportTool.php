@@ -28,7 +28,11 @@ class GenerateDailyReportTool extends Tool
 
     public function handle(Request $request): Response
     {
-        $date = $request->get('date', now()->toDateString());
+        $validated = $request->validate([
+            'date' => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $date = $validated['date'] ?? now()->toDateString();
 
         // Get pending projects
         $pendingProjects = Project::with(['tasks'])
