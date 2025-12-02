@@ -27,6 +27,8 @@ class HistoryEntry extends Model
 
     /**
      * Boot the model.
+     * Sets the timestamp field (event time) automatically if not provided.
+     * Note: This is separate from Laravel's created_at/updated_at timestamps.
      */
     protected static function boot()
     {

@@ -31,7 +31,7 @@ class TaskAttachmentController extends Controller
     {
         $validated = $request->validate([
             'task_id' => 'required|exists:tasks,id',
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'file' => 'nullable|file|max:10240', // Max 10MB
             'url' => 'nullable|string|max:2048',
             'type' => 'sometimes|in:file,link',
@@ -43,8 +43,16 @@ class TaskAttachmentController extends Controller
             $path = $file->store('task-attachments', 'public');
             $validated['url'] = '/storage/' . $path;
             $validated['type'] = 'file';
-            if (!isset($validated['name'])) {
+            if (empty($validated['name'])) {
                 $validated['name'] = $file->getClientOriginalName();
+            }
+        } else {
+            // For non-file attachments (links), name is required
+            if (empty($validated['name'])) {
+                return response()->json([
+                    'message' => 'The name field is required for link attachments.',
+                    'errors' => ['name' => ['The name field is required.']]
+                ], 422);
             }
         }
 
