@@ -7,11 +7,11 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
-class CreateProjectTool extends Tool
+class UpdateProjectTool extends Tool
 {
-    protected string $name = 'create_project';
+    protected string $name = 'update_project';
 
-    protected string $description = 'Create a new project';
+    protected string $description = 'Update an existing project';
 
     /**
      * @return array<string, mixed>
@@ -19,9 +19,11 @@ class CreateProjectTool extends Tool
     public function schema($schema): array
     {
         return [
-            'name' => $schema->string()
-                ->description('The name of the project')
+            'project_id' => $schema->integer()
+                ->description('The ID of the project to update')
                 ->required(),
+            'name' => $schema->string()
+                ->description('The name of the project'),
             'description' => $schema->string()
                 ->description('The description of the project'),
             'department_id' => $schema->integer()
@@ -36,15 +38,20 @@ class CreateProjectTool extends Tool
     public function handle(Request $request): Response
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'project_id' => 'required|integer|exists:projects,id',
+            'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'department_id' => 'nullable|integer|exists:departments,id',
             'deadline' => 'nullable|date',
             'created_by' => 'nullable|integer|exists:users,id',
         ]);
 
-        $project = Project::create($validated);
-        $data = $project->load(['department', 'stages', 'creator'])->toArray();
+        $project = Project::find($validated['project_id']);
+        $updateData = array_filter($validated, fn ($key) => $key !== 'project_id', ARRAY_FILTER_USE_KEY);
+
+        $project->update($updateData);
+
+        $data = $project->fresh()->load(['department', 'stages', 'creator'])->toArray();
 
         return Response::text(json_encode($data));
     }

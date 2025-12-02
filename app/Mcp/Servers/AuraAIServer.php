@@ -36,6 +36,27 @@ class AuraAIServer extends Server
         \App\Mcp\Tools\CreateStageTool::class,
         \App\Mcp\Tools\CreateTaskTool::class,
         \App\Mcp\Tools\UpdateTaskStatusTool::class,
+        // New project tools
+        \App\Mcp\Tools\UpdateProjectTool::class,
+        \App\Mcp\Tools\GetPendingProjectsTool::class,
+        // New stage tools
+        \App\Mcp\Tools\UpdateStageTool::class,
+        \App\Mcp\Tools\GetStagesByProjectTool::class,
+        // New task tools
+        \App\Mcp\Tools\ReassignTaskTool::class,
+        \App\Mcp\Tools\GetOverdueTasksTool::class,
+        \App\Mcp\Tools\GetUnassignedTasksTool::class,
+        \App\Mcp\Tools\GetBlockedTasksTool::class,
+        \App\Mcp\Tools\GetPendingReviewTasksTool::class,
+        // New user tools
+        \App\Mcp\Tools\UpdateUserStatusTool::class,
+        \App\Mcp\Tools\GetUsersOnLeaveTool::class,
+        \App\Mcp\Tools\GetOverworkedUsersTool::class,
+        \App\Mcp\Tools\GetIdleUsersTool::class,
+        // New automation tools
+        \App\Mcp\Tools\SendReminderTool::class,
+        \App\Mcp\Tools\GenerateDailyReportTool::class,
+        \App\Mcp\Tools\AutoReallocateTasksTool::class,
     ];
 
     /**

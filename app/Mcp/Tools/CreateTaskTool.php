@@ -34,6 +34,8 @@ class CreateTaskTool extends Tool
             'priority' => $schema->string()
                 ->enum(['low', 'medium', 'high'])
                 ->description('The priority level of the task'),
+            'estimated_hours' => $schema->integer()
+                ->description('Estimated hours to complete the task'),
         ];
     }
 
@@ -46,10 +48,12 @@ class CreateTaskTool extends Tool
             'assignee_id' => 'nullable|integer|exists:users,id',
             'due_date' => 'nullable|date',
             'priority' => 'nullable|in:low,medium,high',
+            'estimated_hours' => 'nullable|integer|min:0',
         ]);
 
         $task = Task::create($validated);
         $data = $task->load(['project', 'assignee'])->toArray();
+
         return Response::text(json_encode($data));
     }
 }
