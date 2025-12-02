@@ -8,28 +8,16 @@ export const api = axios.create({
 		'Content-Type': 'application/json',
 		'Accept': 'application/json',
 	},
-	withCredentials: false,
+	withCredentials: true, // Enable credentials for session-based auth
 });
-
-// Request interceptor to add auth token if needed
-api.interceptors.request.use(
-	(config) => {
-		const token = localStorage.getItem('auth_token');
-		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
-		}
-		return config;
-	},
-	(error) => Promise.reject(error)
-);
 
 // Response interceptor for error handling
 api.interceptors.response.use(
 	(response) => response,
 	async (error) => {
 		if (error.response?.status === 401) {
-			// Handle unauthorized - could redirect to login in the future
-			localStorage.removeItem('auth_token');
+			// Handle unauthorized - redirect to login
+			window.location.href = '/';
 		}
 		return Promise.reject(error);
 	}

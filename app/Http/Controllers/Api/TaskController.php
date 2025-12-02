@@ -56,6 +56,11 @@ class TaskController extends Controller
             'revision_comment' => 'nullable|string',
         ]);
 
+        // If assignee_id is not provided, assign to the authenticated user
+        if (!isset($validated['assignee_id'])) {
+            $validated['assignee_id'] = $request->user()->id;
+        }
+
         $task = Task::create($validated);
         return response()->json($task->load(['project', 'assignee', 'projectStage']), 201);
     }

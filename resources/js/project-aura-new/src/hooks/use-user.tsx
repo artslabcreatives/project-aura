@@ -4,9 +4,11 @@ import { api } from '@/lib/api';
 
 interface UserContextType {
 	currentUser: User | null;
-	setCurrentUser: (user: User | null) => void;
 	teamMembers: User[];
 	isLoading: boolean;
+	isAuthenticated: boolean;
+	logout: () => Promise<void>;
+	refreshUser: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -15,43 +17,71 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+	const fetchAuthenticatedUser = async () => {
+		try {
+			const user = await api.get<User>('/user');
+			setCurrentUser(user);
+			setIsAuthenticated(true);
+			return user;
+		} catch (error) {
+			console.error('Failed to fetch authenticated user:', error);
+			setCurrentUser(null);
+			setIsAuthenticated(false);
+			throw error;
+		}
+	};
+
+	const fetchUsers = async () => {
+		try {
+			const users = await api.get<User[]>('/users');
+			setTeamMembers(users);
+		} catch (error) {
+			console.error('Failed to fetch users:', error);
+			setTeamMembers([]);
+		}
+	};
+
+	const refreshUser = async () => {
+		setIsLoading(true);
+		try {
+			await fetchAuthenticatedUser();
+			await fetchUsers();
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const logout = async () => {
+		try {
+			await api.post('/logout', {});
+			setCurrentUser(null);
+			setIsAuthenticated(false);
+			setTeamMembers([]);
+		} catch (error) {
+			console.error('Failed to logout:', error);
+		}
+	};
 
 	useEffect(() => {
-		const fetchUsers = async () => {
+		const initAuth = async () => {
 			try {
 				setIsLoading(true);
-				const users = await api.get<User[]>('/users');
-				setTeamMembers(users);
-
-				// Set the first user as the current user by default
-				if (users.length > 0) {
-					setCurrentUser(users[0]);
-				}
+				await fetchAuthenticatedUser();
+				await fetchUsers();
 			} catch (error) {
-				console.error('Failed to fetch users:', error);
-				// Fallback to localStorage if API fails
-				const savedTeamMembers = localStorage.getItem("taskflow_team_members");
-				if (savedTeamMembers) {
-					try {
-						const loadedMembers: User[] = JSON.parse(savedTeamMembers);
-						setTeamMembers(loadedMembers);
-						if (loadedMembers.length > 0) {
-							setCurrentUser(loadedMembers[0]);
-						}
-					} catch (error) {
-						console.error('Failed to parse localStorage users:', error);
-					}
-				}
+				// User is not authenticated
 			} finally {
 				setIsLoading(false);
 			}
 		};
 
-		fetchUsers();
+		initAuth();
 	}, []);
 
 	return (
-		<UserContext.Provider value={{ currentUser, setCurrentUser, teamMembers, isLoading }}>
+		<UserContext.Provider value={{ currentUser, teamMembers, isLoading, isAuthenticated, logout, refreshUser }}>
 			{children}
 		</UserContext.Provider>
 	);

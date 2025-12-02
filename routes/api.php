@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
@@ -22,16 +23,19 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+// Authentication routes (public)
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout']);
+Route::get('/user', [AuthController::class, 'user']);
 
-// Public API routes (CSRF exempt)
-Route::apiResource('departments', DepartmentController::class);
-Route::apiResource('projects', ProjectController::class);
-Route::apiResource('stages', StageController::class);
-Route::apiResource('tasks', TaskController::class);
-Route::apiResource('task-attachments', TaskAttachmentController::class);
-Route::apiResource('revision-histories', RevisionHistoryController::class);
-Route::apiResource('history-entries', HistoryEntryController::class);
-Route::apiResource('users', UserController::class);
+// Protected API routes (require authentication)
+Route::middleware('auth:web')->group(function () {
+    Route::apiResource('departments', DepartmentController::class);
+    Route::apiResource('projects', ProjectController::class);
+    Route::apiResource('stages', StageController::class);
+    Route::apiResource('tasks', TaskController::class);
+    Route::apiResource('task-attachments', TaskAttachmentController::class);
+    Route::apiResource('revision-histories', RevisionHistoryController::class);
+    Route::apiResource('history-entries', HistoryEntryController::class);
+    Route::apiResource('users', UserController::class);
+});

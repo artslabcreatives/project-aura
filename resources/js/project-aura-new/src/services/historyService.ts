@@ -29,9 +29,8 @@ export const historyService = {
 	},
 
 	create: async (entry: Omit<HistoryEntry, 'id' | 'timestamp'>): Promise<HistoryEntry> => {
-		// Ensure numeric fields are numbers, not strings, to satisfy backend validation (integer/exists rules)
+		// user_id is automatically added by the backend from the authenticated user
 		const payload = {
-			user_id: parseInt(entry.userId, 10),
 			action: entry.action,
 			entity_id: parseInt(entry.entityId, 10),
 			entity_type: entry.entityType,
