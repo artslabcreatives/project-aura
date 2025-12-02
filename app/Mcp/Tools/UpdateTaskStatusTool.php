@@ -23,7 +23,7 @@ class UpdateTaskStatusTool extends Tool
                 ->description('The ID of the task to update')
                 ->required(),
             'user_status' => $schema->string()
-                ->enum(['pending', 'in-progress', 'complete'])
+                ->enum(['pending', 'in-progress', 'complete', 'blocked', 'reviewing'])
                 ->description('The new status for the task')
                 ->required(),
         ];
@@ -33,7 +33,7 @@ class UpdateTaskStatusTool extends Tool
     {
         $validated = $request->validate([
             'task_id' => 'required|integer|exists:tasks,id',
-            'user_status' => 'required|in:pending,in-progress,complete',
+            'user_status' => 'required|in:pending,in-progress,complete,blocked,reviewing',
         ]);
 
         $task = Task::find($validated['task_id']);
@@ -46,6 +46,7 @@ class UpdateTaskStatusTool extends Tool
         $task->update($updateData);
 
         $data = $task->fresh()->load(['project', 'assignee', 'projectStage'])->toArray();
+
         return Response::text(json_encode($data));
     }
 }

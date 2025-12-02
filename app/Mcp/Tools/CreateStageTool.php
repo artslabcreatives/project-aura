@@ -46,6 +46,7 @@ class CreateStageTool extends Tool
 
         $stage = Stage::create($validated);
         $data = $stage->load(['project', 'mainResponsible'])->toArray();
+
         return Response::text(json_encode($data));
     }
 }

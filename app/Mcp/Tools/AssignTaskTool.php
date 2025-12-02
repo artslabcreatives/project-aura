@@ -44,6 +44,7 @@ class AssignTaskTool extends Tool
         $task->update(['assignee_id' => $validated['assignee_id']]);
 
         $data = $task->fresh()->load(['project', 'assignee', 'projectStage'])->toArray();
+
         return Response::text(json_encode($data));
     }
 }

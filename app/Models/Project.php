@@ -17,11 +17,14 @@ class Project extends Model
         'department_id',
         'emails',
         'phone_numbers',
+        'deadline',
+        'created_by',
     ];
 
     protected $casts = [
         'emails' => 'array',
         'phone_numbers' => 'array',
+        'deadline' => 'date',
     ];
 
     /**
@@ -54,5 +57,13 @@ class Project extends Model
     public function historyEntries(): HasMany
     {
         return $this->hasMany(HistoryEntry::class);
+    }
+
+    /**
+     * Get the user who created the project.
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }
