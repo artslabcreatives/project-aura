@@ -26,6 +26,20 @@ class HistoryEntry extends Model
     ];
 
     /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($historyEntry) {
+            if (empty($historyEntry->timestamp)) {
+                $historyEntry->timestamp = now();
+            }
+        });
+    }
+
+    /**
      * Get the user who performed the action.
      */
     public function user(): BelongsTo

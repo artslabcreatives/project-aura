@@ -38,13 +38,15 @@ class HistoryEntryController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
             'action' => 'required|string|max:255',
             'entity_id' => 'required|integer',
             'entity_type' => 'required|in:task,stage,project',
             'project_id' => 'required|exists:projects,id',
             'details' => 'nullable|array',
         ]);
+
+        // Automatically use the authenticated user's ID
+        $validated['user_id'] = $request->user()->id;
 
         $entry = HistoryEntry::create($validated);
         return response()->json($entry->load(['user', 'project']), 201);

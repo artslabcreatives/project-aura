@@ -55,7 +55,7 @@ export const projectService = {
 		const payload: any = {
 			name: project.name,
 			description: project.description,
-			department_id: project.department ? project.department.id : "ss",
+			department_id: project.department ? project.department.id : null,
 			emails: project.emails,
 			phone_numbers: project.phoneNumbers,
 		};

@@ -32,9 +32,24 @@ class TaskAttachmentController extends Controller
         $validated = $request->validate([
             'task_id' => 'required|exists:tasks,id',
             'name' => 'required|string|max:255',
-            'url' => 'required|string|max:2048',
+            'file' => 'nullable|file|max:10240', // Max 10MB
+            'url' => 'nullable|string|max:2048',
             'type' => 'sometimes|in:file,link',
         ]);
+
+        // Handle file upload
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $path = $file->store('task-attachments', 'public');
+            $validated['url'] = '/storage/' . $path;
+            $validated['type'] = 'file';
+            if (!isset($validated['name'])) {
+                $validated['name'] = $file->getClientOriginalName();
+            }
+        }
+
+        // Remove the uploaded file from validated data as it's not a fillable field
+        unset($validated['file']);
 
         $attachment = TaskAttachment::create($validated);
         return response()->json($attachment, 201);
