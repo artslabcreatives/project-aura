@@ -6,14 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     /**
-     * Login user and return user data
+     * Login user and return bearer token
      */
     public function login(Request $request): JsonResponse
     {
@@ -30,24 +29,23 @@ class AuthController extends Controller
             ]);
         }
 
-        // Login the user using session-based authentication
-        Auth::login($user, $request->boolean('remember'));
+        // Create a new token for stateless auth
+        $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
             'user' => $user->load('department'),
+            'token' => $token,
         ]);
     }
 
     /**
-     * Logout user
+     * Logout user - revoke current token
      */
     public function logout(Request $request): JsonResponse
     {
-        Auth::logout();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        // Revoke the current token
+        $request->user()->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Logout successful',
@@ -59,12 +57,6 @@ class AuthController extends Controller
      */
     public function user(Request $request): JsonResponse
     {
-        if (!Auth::check()) {
-            return response()->json([
-                'message' => 'Unauthenticated',
-            ], 401);
-        }
-
-        return response()->json(Auth::user()->load('department'));
+        return response()->json($request->user()->load('department'));
     }
 }

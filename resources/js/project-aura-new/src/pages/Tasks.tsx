@@ -20,6 +20,7 @@ import { projectService } from "@/services/projectService";
 import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
+import { attachmentService } from "@/services/attachmentService";
 
 // Define the three fixed stages for the /tasks page
 const fixedKanbanStages: Stage[] = [
@@ -156,7 +157,7 @@ export default function Tasks() {
 		}
 	};
 
-	const handleTaskSave = async (taskData: Omit<Task, "id" | "createdAt">) => {
+	const handleTaskSave = async (taskData: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		try {
 			console.log('=== HANDLE TASK SAVE DEBUG ===');
 			console.log('Raw taskData:', taskData);
@@ -211,6 +212,31 @@ export default function Tasks() {
 					...payload,
 					userStatus: "pending", // New tasks start as pending
 				});
+
+				// Upload pending files after task creation
+				if (pendingFiles && pendingFiles.length > 0) {
+					try {
+						const uploadedAttachments = await attachmentService.uploadFiles(newTask.id, pendingFiles);
+						newTask.attachments = [...(newTask.attachments || []), ...uploadedAttachments];
+					} catch (uploadError) {
+						console.error('Failed to upload attachments:', uploadError);
+						toast({ title: 'Warning', description: 'Task created but some attachments failed to upload.', variant: 'destructive' });
+					}
+				}
+
+				// Add pending links after task creation
+				if (pendingLinks && pendingLinks.length > 0) {
+					try {
+						for (const link of pendingLinks) {
+							const uploadedLink = await attachmentService.addLink(newTask.id, link.name, link.url);
+							newTask.attachments = [...(newTask.attachments || []), uploadedLink];
+						}
+					} catch (linkError) {
+						console.error('Failed to add links:', linkError);
+						toast({ title: 'Warning', description: 'Task created but some links failed to add.', variant: 'destructive' });
+					}
+				}
+
 				setAllTasks((prev) => [...prev, newTask]);
 				toast({
 					title: "Task created",

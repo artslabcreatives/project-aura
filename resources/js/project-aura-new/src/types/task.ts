@@ -41,6 +41,14 @@ export interface Task {
 	completedAt?: string; // ISO 8601 date string
 }
 
+export interface SuggestedTask {
+	id: string;
+	title: string;
+	description: string;
+	source: "whatsapp" | "email";
+	suggestedAt: string;
+}
+
 export interface User {
 	id: string;
 	name: string;

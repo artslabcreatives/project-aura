@@ -52,6 +52,14 @@ class Project extends Model
     }
 
     /**
+     * Get the suggested tasks for the project.
+     */
+    public function suggestedTasks(): HasMany
+    {
+        return $this->hasMany(SuggestedTask::class);
+    }
+
+    /**
      * Get the history entries for the project.
      */
     public function historyEntries(): HasMany

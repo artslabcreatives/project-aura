@@ -72,4 +72,55 @@ class ProjectController extends Controller
         $project->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Get suggested tasks for the project.
+     */
+    public function suggestedTasks(Project $project): JsonResponse
+    {
+        return response()->json($project->suggestedTasks);
+    }
+
+	/**
+	 * Create a new suggested task for the project.
+	 */
+	public function createSuggestedTasks(Request $request, Project $project): JsonResponse
+	{
+		$validated = $request->validate([
+			'title' => 'required|string|max:255',
+			'description' => 'nullable|string',
+			'project_stage_id' => 'nullable|exists:stages,id',
+			'assignee_id' => 'nullable|exists:users,id',
+			'original_assignee_id' => 'nullable|exists:users,id',
+		]);
+		$suggestedTask = $project->tasks()->create($validated);
+		return response()->json($suggestedTask, 201);
+	}
+
+    /**
+     * Search projects by WhatsApp Group ID.
+     */
+    public function searchByWhatsapp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'group_id' => 'required|string',
+        ]);
+
+        $groupId = $request->input('group_id');
+
+        // Search in the phone_numbers JSON column
+        // Assuming phone_numbers is an array of strings or objects. 
+        // If it's a simple array of strings: JSON_CONTAINS(phone_numbers, '"groupId"')
+        // But user said "phone_numbers json has the whatsapp group id". 
+        // It might be a key-value pair or just one of the values.
+        // Let's assume it's one of the values in the array for now, or we can use whereJsonContains.
+        
+        $projects = Project::whereJsonContains('phone_numbers', $groupId)
+            ->with(['department', 'stages', 'tasks'])
+            ->get();
+
+        return response()->json($projects);
+    }
+
+	//get tasks
 }

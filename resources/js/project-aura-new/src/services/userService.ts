@@ -36,10 +36,17 @@ export const userService = {
 			name: user.name,
 			email: user.email,
 			role: user.role,
-			department_id: user.department, // Frontend sends department as ID string
+			department_id: user.department ? parseInt(user.department, 10) : null,
 		};
 		const { data } = await api.post('/users', payload);
-		return data;
+		// Map response back to frontend format
+		return {
+			id: String(data.id),
+			name: data.name,
+			email: data.email,
+			role: data.role,
+			department: data.department_id != null ? String(data.department_id) : '',
+		};
 	},
 
 	update: async (id: string, updates: Partial<User>): Promise<User> => {
@@ -50,10 +57,17 @@ export const userService = {
 			role: updates.role,
 		};
 		if (updates.department) {
-			payload.department_id = updates.department;
+			payload.department_id = parseInt(updates.department, 10);
 		}
 		const { data } = await api.put(`/users/${id}`, payload);
-		return data;
+		// Map response back to frontend format
+		return {
+			id: String(data.id),
+			name: data.name,
+			email: data.email,
+			role: data.role,
+			department: data.department_id != null ? String(data.department_id) : '',
+		};
 	},
 
 	delete: async (id: string): Promise<void> => {

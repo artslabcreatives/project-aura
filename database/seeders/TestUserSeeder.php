@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use App\Models\Department;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -18,12 +17,10 @@ class TestUserSeeder extends Seeder
         // Create departments if they don't exist
         $digitalDept = Department::firstOrCreate(
             ['name' => 'Digital'],
-            ['description' => 'Digital department']
         );
 
         $designDept = Department::firstOrCreate(
             ['name' => 'Design'],
-            ['description' => 'Design department']
         );
 
         // Create test users with password 'password'
@@ -54,6 +51,18 @@ class TestUserSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'role' => 'user',
                 'department_id' => $designDept->id,
+            ]
+        );
+
+        // Create a sample project to trigger suggested tasks creation
+        $adminUser = User::where('email', 'admin@example.com')->first();
+        \App\Models\Project::firstOrCreate(
+            ['name' => 'Website Redesign'],
+            [
+                'description' => 'Redesign the corporate website.',
+                'department_id' => $digitalDept->id,
+                'deadline' => now()->addMonth(),
+                'created_by' => $adminUser->id,
             ]
         );
 

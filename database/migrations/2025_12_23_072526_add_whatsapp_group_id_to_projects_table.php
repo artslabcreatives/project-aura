@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('tasks', function (Blueprint $table) {
-            $table->integer('estimated_hours')->default(0)->after('priority');
+        Schema::table('projects', function (Blueprint $table) {
+            $table->string('whatsapp_group_id')->nullable()->after('description')->index();
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('tasks', function (Blueprint $table) {
-            $table->dropColumn('estimated_hours');
+        Schema::table('projects', function (Blueprint $table) {
+            $table->dropColumn('whatsapp_group_id');
         });
     }
 };

@@ -54,6 +54,7 @@ class TaskController extends Controller
             'start_date' => 'nullable|date',
             'is_in_specific_stage' => 'sometimes|boolean',
             'revision_comment' => 'nullable|string',
+            'estimated_hours' => 'nullable|numeric|min:0',
         ]);
 
         // If assignee_id is not provided, assign to the authenticated user
@@ -94,6 +95,7 @@ class TaskController extends Controller
             'previous_stage_id' => 'nullable|exists:stages,id',
             'original_assignee_id' => 'nullable|exists:users,id',
             'completed_at' => 'nullable|date',
+            'estimated_hours' => 'nullable|numeric|min:0',
         ]);
 
         $task->update($validated);

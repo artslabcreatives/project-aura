@@ -1,6 +1,12 @@
 // API client for communicating with Laravel backend
 
 const API_BASE_URL = '/api';
+const TOKEN_KEY = 'auth_token';
+
+// Token management
+export const getToken = (): string | null => localStorage.getItem(TOKEN_KEY);
+export const setToken = (token: string): void => localStorage.setItem(TOKEN_KEY, token);
+export const removeToken = (): void => localStorage.removeItem(TOKEN_KEY);
 
 export interface ApiResponse<T> {
 	data: T;
@@ -19,13 +25,14 @@ class ApiClient {
 		options?: RequestInit
 	): Promise<T> {
 		const url = `${this.baseUrl}${endpoint}`;
+		const token = getToken();
 
 		const config: RequestInit = {
 			...options,
-			credentials: 'include', // Include cookies for session-based auth
 			headers: {
 				'Content-Type': 'application/json',
 				'Accept': 'application/json',
+				...(token ? { 'Authorization': `Bearer ${token}` } : {}),
 				...options?.headers,
 			},
 		};
@@ -35,10 +42,10 @@ class ApiClient {
 
 			if (!response.ok) {
 				if (response.status === 401) {
-					// Redirect to login on unauthorized
-					window.location.href = '/';
+					// Clear invalid token
+					removeToken();
 				}
-				throw new Error(`API Error: ${response.statusText}`);
+				throw Error(`API Error: ${response.statusText}`);
 			}
 
 			// Handle 204 No Content

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types/task';
-import { api } from '@/lib/api';
+import { api, getToken, removeToken } from '@/lib/api';
 
 interface UserContextType {
 	currentUser: User | null;
@@ -20,13 +20,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
 
 	const fetchAuthenticatedUser = async () => {
+		// Check if we have a token first
+		if (!getToken()) {
+			setCurrentUser(null);
+			setIsAuthenticated(false);
+			throw new Error('No token');
+		}
+
 		try {
-			const user = await api.get<User>('/user');
+			const response = await api.get<any>('/user');
+			// Map backend response to frontend User type
+			const user: User = {
+				id: String(response.id),
+				name: response.name,
+				email: response.email,
+				role: response.role,
+				department: response.department_id ? String(response.department_id) : '',
+			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);
 			return user;
 		} catch (error) {
 			console.error('Failed to fetch authenticated user:', error);
+			removeToken();
 			setCurrentUser(null);
 			setIsAuthenticated(false);
 			throw error;
@@ -35,7 +51,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
 	const fetchUsers = async () => {
 		try {
-			const users = await api.get<User[]>('/users');
+			const response = await api.get<any[]>('/users');
+			// Map backend response to frontend User type
+			const users: User[] = response.map((u: any) => ({
+				id: String(u.id),
+				name: u.name,
+				email: u.email,
+				role: u.role,
+				department: u.department_id ? String(u.department_id) : '',
+			}));
 			setTeamMembers(users);
 		} catch (error) {
 			console.error('Failed to fetch users:', error);
@@ -47,7 +71,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
 		setIsLoading(true);
 		try {
 			await fetchAuthenticatedUser();
-			await fetchUsers();
+			// Fetch users in background, don't block login if it fails
+			try {
+				await fetchUsers();
+			} catch (error) {
+				console.error('Failed to fetch team members (non-critical):', error);
+			}
 		} finally {
 			setIsLoading(false);
 		}
@@ -56,11 +85,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	const logout = async () => {
 		try {
 			await api.post('/logout', {});
+		} catch (error) {
+			console.error('Failed to logout:', error);
+		} finally {
+			// Always clear local state
+			removeToken();
 			setCurrentUser(null);
 			setIsAuthenticated(false);
 			setTeamMembers([]);
-		} catch (error) {
-			console.error('Failed to logout:', error);
 		}
 	};
 

@@ -1,6 +1,7 @@
 import { api } from './api';
 import { Project } from '@/types/project';
 import { Stage } from '@/types/stage';
+import { SuggestedTask } from '@/types/task';
 
 // Map backend stage (snake_case) to frontend Stage interface
 function mapStage(raw: any): Stage {
@@ -55,7 +56,7 @@ export const projectService = {
 		const payload: any = {
 			name: project.name,
 			description: project.description,
-			department_id: project.department ? project.department.id : null,
+			department_id: project.department ? parseInt(project.department.id, 10) : null,
 			emails: project.emails,
 			phone_numbers: project.phoneNumbers,
 		};
@@ -67,7 +68,7 @@ export const projectService = {
 		const payload: any = {
 			name: updates.name,
 			description: updates.description,
-			department_id: updates.department ? updates.department.id : undefined,
+			department_id: updates.department ? parseInt(updates.department.id, 10) : undefined,
 			emails: updates.emails,
 			phone_numbers: updates.phoneNumbers,
 		};
@@ -77,5 +78,16 @@ export const projectService = {
 
 	delete: async (id: string): Promise<void> => {
 		await api.delete(`/projects/${id}`);
+	},
+
+	getSuggestedTasks: async (projectId: string): Promise<SuggestedTask[]> => {
+		const { data } = await api.get(`/projects/${projectId}/suggested-tasks`);
+		return Array.isArray(data) ? data.map((raw: any) => ({
+			id: String(raw.id),
+			title: raw.title,
+			description: raw.description,
+			source: raw.source,
+			suggestedAt: raw.suggested_at,
+		})) : [];
 	},
 };

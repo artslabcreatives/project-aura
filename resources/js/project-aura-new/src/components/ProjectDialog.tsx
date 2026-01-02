@@ -301,12 +301,20 @@ export function ProjectDialog({
 						<div className="grid gap-2">
 							<Label htmlFor="department">Department</Label>
 							<Select
-								value={department?.id}
+								value={department?.id?.toString() ?? ""}
 								onValueChange={(value) => {
+									console.log("Department selected:", value);
+									if (!value || value === "") {
+										setDepartment(undefined);
+										return;
+									}
 									const selectedDept = departments.find(
-										(dept) => dept.id === value
+										(dept) => dept.id.toString() === value
 									);
-									setDepartment(selectedDept);
+									console.log("Found department:", selectedDept);
+									if (selectedDept) {
+										setDepartment(selectedDept);
+									}
 								}}
 								disabled={currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
 							>
@@ -319,14 +327,14 @@ export function ProjectDialog({
 										departments
 											.filter(dept => dept.name.toLowerCase() === "digital" || dept.name.toLowerCase() === "design")
 											.map((dept) => (
-												<SelectItem key={dept.id} value={dept.id}>
+												<SelectItem key={dept.id} value={dept.id.toString()}>
 													{dept.name}
 												</SelectItem>
 											))
 									) : (
 										// Other users see all departments
 										departments.map((dept) => (
-											<SelectItem key={dept.id} value={dept.id}>
+											<SelectItem key={dept.id} value={dept.id.toString()}>
 												{dept.name}
 											</SelectItem>
 										))

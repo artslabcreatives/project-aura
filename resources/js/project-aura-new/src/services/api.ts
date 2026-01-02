@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getToken, removeToken } from '@/lib/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://auraai.dev.artslabcreatives.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const api = axios.create({
 	baseURL: API_BASE_URL,
@@ -8,16 +9,26 @@ export const api = axios.create({
 		'Content-Type': 'application/json',
 		'Accept': 'application/json',
 	},
-	withCredentials: true, // Enable credentials for session-based auth
 });
+
+// Request interceptor to add bearer token
+api.interceptors.request.use(
+	(config) => {
+		const token = getToken();
+		if (token) {
+			config.headers.Authorization = `Bearer ${token}`;
+		}
+		return config;
+	},
+	(error) => Promise.reject(error)
+);
 
 // Response interceptor for error handling
 api.interceptors.response.use(
 	(response) => response,
 	async (error) => {
 		if (error.response?.status === 401) {
-			// Handle unauthorized - redirect to login
-			window.location.href = '/';
+			removeToken();
 		}
 		return Promise.reject(error);
 	}

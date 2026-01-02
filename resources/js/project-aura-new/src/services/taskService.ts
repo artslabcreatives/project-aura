@@ -82,7 +82,7 @@ export const taskService = {
 		return mapTask(data);
 	},
 
-	update: async (id: string, updates: Partial<Task> & { projectId?: number; assigneeId?: number; projectStageId?: number }): Promise<Task> => {
+	update: async (id: string, updates: Partial<Task> & { projectId?: number; assigneeId?: number; projectStageId?: number; originalAssigneeId?: number }): Promise<Task> => {
 		const payload: any = {
 			title: updates.title,
 			description: updates.description,
@@ -97,7 +97,7 @@ export const taskService = {
 			is_in_specific_stage: updates.isInSpecificStage,
 			revision_comment: updates.revisionComment,
 			previous_stage_id: updates.previousStage,
-			original_assignee_id: updates.originalAssignee,
+			original_assignee_id: updates.originalAssigneeId,
 			completed_at: updates.completedAt,
 		};
 		const { data } = await api.put(`/tasks/${id}`, payload);

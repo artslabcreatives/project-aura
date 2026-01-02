@@ -21,6 +21,8 @@ import { projectService } from "@/services/projectService";
 import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
+import { attachmentService } from "@/services/attachmentService";
+import { stageService } from "@/services/stageService";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -91,7 +93,6 @@ export default function ProjectKanbanFixed() {
 		const taskToUpdate = tasks.find(t => t.id === taskId); if (!taskToUpdate) return;
 		try {
 			console.log('[KANBAN] Incoming task update', { taskId, updates });
-			// Auto transition when marking complete without explicit projectStage
 			if (updates.userStatus === 'complete' && !updates.projectStage) {
 				const currentStage = project.stages.find(s => s.id === taskToUpdate.projectStage);
 				if (currentStage) {
@@ -107,13 +108,11 @@ export default function ProjectKanbanFixed() {
 						const targetStage = project.stages.find(s => s.id === targetStageId);
 						updates.projectStage = targetStageId;
 						if (targetStage?.isReviewStage) {
-							// Preserve previous stage for revision flow
 							updates.previousStage = currentStage.id;
 							updates.originalAssignee = taskToUpdate.assignee;
 							updates.assignee = taskToUpdate.assignee;
 							updates.isInSpecificStage = true;
 						}
-						// If not review stage, reset status for progress
 						if (!targetStage?.isReviewStage) {
 							updates.userStatus = 'pending';
 						}
@@ -143,7 +142,6 @@ export default function ProjectKanbanFixed() {
 			if (updates.assignee && updates.assignee !== taskToUpdate.assignee) {
 				addHistoryEntry({ action: 'UPDATE_TASK_ASSIGNEE', entityId: taskId, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { from: taskToUpdate.assignee, to: updates.assignee } });
 			}
-			// Map fields for backend (IDs) while keeping local string fields
 			const assigneeId = updates.assignee ? teamMembers.find(m => m.name === updates.assignee)?.id : undefined;
 			const projectStageId = updates.projectStage ? parseInt(String(updates.projectStage), 10) : undefined;
 			await taskService.update(taskId, {
@@ -156,14 +154,12 @@ export default function ProjectKanbanFixed() {
 		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to update task.', variant: 'destructive' }); }
 	};
 
-	const handleSaveTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
+	const handleSaveTask = async (task: Omit<Task, 'id' | 'createdAt'>, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (!currentUser || !project) return;
 		try {
-			// Map names to IDs
 			const assigneeId = task.assignee ? teamMembers.find(m => m.name === task.assignee)?.id : undefined;
 			const projectStageId = task.projectStage ? parseInt(task.projectStage) : undefined;
 
-			// Remove string fields and add ID fields
 			const { project: projectName, assignee, projectStage, ...cleanTask } = task;
 			const taskPayload = {
 				...cleanTask,
@@ -173,19 +169,40 @@ export default function ProjectKanbanFixed() {
 			};
 
 			if (editingTask) {
-				console.log('[KANBAN] Saving existing task', { id: editingTask.id, taskPayload });
 				await taskService.update(editingTask.id, taskPayload);
 				setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...task, projectId: project.id, assigneeId } : t));
 				addHistoryEntry({ action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { from: editingTask, to: { ...editingTask, ...task } } });
 				toast({ title: 'Task updated', description: 'Task updated successfully.' });
 			} else {
-				console.log('[KANBAN] Creating new task', { taskPayload });
-				const newTask = await taskService.create(taskPayload);
+				const newTask = await taskService.create(taskPayload as any);
+
+				if (pendingFiles && pendingFiles.length > 0) {
+					try {
+						const uploadedAttachments = await attachmentService.uploadFiles(newTask.id, pendingFiles);
+						newTask.attachments = [...(newTask.attachments || []), ...uploadedAttachments];
+					} catch (uploadError) {
+						console.error('Failed to upload attachments:', uploadError);
+						toast({ title: 'Warning', description: 'Task created but some attachments failed to upload.', variant: 'destructive' });
+					}
+				}
+
+				if (pendingLinks && pendingLinks.length > 0) {
+					try {
+						for (const link of pendingLinks) {
+							const uploadedLink = await attachmentService.addLink(newTask.id, link.name, link.url);
+							newTask.attachments = [...(newTask.attachments || []), uploadedLink];
+						}
+					} catch (linkError) {
+						console.error('Failed to add links:', linkError);
+						toast({ title: 'Warning', description: 'Task created but some links failed to add.', variant: 'destructive' });
+					}
+				}
+
 				setTasks([...tasks, newTask]);
 				addHistoryEntry({ action: 'CREATE_TASK', entityId: newTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { title: newTask.title } });
 				toast({ title: 'Task created', description: 'Task created successfully.' });
+				setIsTaskDialogOpen(false); setEditingTask(null);
 			}
-			setIsTaskDialogOpen(false); setEditingTask(null);
 		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to save task.', variant: 'destructive' }); }
 	};
 
@@ -210,19 +227,39 @@ export default function ProjectKanbanFixed() {
 		const updatedStages = project.stages.filter(s => s.id !== stageId);
 		updateProjectInStorage({ ...project, stages: updatedStages });
 	};
-	const handleSaveStage = (stage: Omit<Stage, 'order'>) => {
+	const handleSaveStage = async (stage: Omit<Stage, 'order'>) => {
 		if (!project || !currentUser) return;
-		let updatedStages: Stage[];
-		if (editingStage) {
-			updatedStages = project.stages.map(s => s.id === editingStage.id ? { ...s, ...stage } : s);
-			addHistoryEntry({ action: 'UPDATE_STAGE', entityId: editingStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { from: editingStage, to: { ...editingStage, ...stage } } });
-		} else {
-			const newStage: Stage = { ...stage, order: project.stages.length, id: `stage-${Date.now()}` };
-			updatedStages = [...project.stages, newStage];
-			addHistoryEntry({ action: 'CREATE_STAGE', entityId: newStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: newStage.title } });
+		try {
+			if (editingStage) {
+				const updatedStage = await stageService.update(editingStage.id, stage);
+				const updatedStages = project.stages.map(s => s.id === editingStage.id ? { ...s, ...updatedStage } : s);
+				setProject({ ...project, stages: updatedStages });
+				addHistoryEntry({ action: 'UPDATE_STAGE', entityId: editingStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { from: editingStage, to: { ...editingStage, ...stage } } });
+				toast({ title: 'Stage updated', description: 'Stage updated successfully.' });
+			} else {
+				const nonArchiveStages = project.stages.filter(s => s.title.toLowerCase().trim() !== 'archive');
+				const maxNonArchiveOrder = nonArchiveStages.length > 0
+					? Math.max(...nonArchiveStages.map(s => s.order))
+					: 1;
+				const newOrder = maxNonArchiveOrder + 1;
+
+				const newStage = await stageService.create({
+					...stage,
+					order: newOrder,
+					project_id: project.id,
+				} as any);
+
+				const updatedStages = [...project.stages, newStage];
+				setProject({ ...project, stages: updatedStages });
+				addHistoryEntry({ action: 'CREATE_STAGE', entityId: newStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: newStage.title } });
+				toast({ title: 'Stage created', description: 'Stage created successfully.' });
+			}
+			setIsStageDialogOpen(false);
+			setEditingStage(null);
+		} catch (error) {
+			console.error('Error saving stage:', error);
+			toast({ title: 'Error', description: 'Failed to save stage.', variant: 'destructive' });
 		}
-		updateProjectInStorage({ ...project, stages: updatedStages });
-		setIsStageDialogOpen(false); setEditingStage(null);
 	};
 
 	const handleApproveTask = (taskId: string, targetStageId: string, comment?: string) => {
@@ -250,63 +287,134 @@ export default function ProjectKanbanFixed() {
 	if (isLoading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
+	const sortedStages = [...project.stages].sort((a, b) => {
+		const getPriority = (s: Stage) => {
+			const t = s.title.toLowerCase().trim();
+			if (t === 'suggested' || t === 'suggested task') return 0;
+			if (t === 'pending') return 1;
+			if (t === 'archive') return 999;
+			return 10;
+		};
+		const pA = getPriority(a);
+		const pB = getPriority(b);
+		if (pA !== pB) return pA - pB;
+		return a.order - b.order;
+	});
+
 	return (
-		<div className="flex flex-col h-screen overflow-hidden">
-			<div className="flex-shrink-0 border-b p-4 space-y-4">
-				<div className="flex items-center justify-between">
-					<div>
-						<h1 className="text-2xl font-bold">{project.name}</h1>
-						<p className="text-muted-foreground">{project.description}</p>
+		<div className="flex flex-col h-full bg-background">
+			{/* FIXED HEADER */}
+			<header className="flex-shrink-0 border-b bg-background z-10 px-6 py-5 shadow-sm mr-12">
+				<div className="max-w-6xl mx-auto w-full">
+					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
+						<div>
+							<h1 className="text-3xl font-bold">{project.name}</h1>
+							<p className="text-muted-foreground mt-1">{project.description}</p>
+						</div>
+						<div className="flex items-center gap-3 mr-6">
+							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+								<>
+									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
+										View History
+									</Button>
+									<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
+										Manage Stages
+									</Button>
+									<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
+										<Plus className="mr-2 h-4 w-4" /> Add Task
+									</Button>
+								</>
+							)}
+						</div>
 					</div>
-					<div className="flex gap-2">
-						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
-							<>
-								<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>View History</Button>
-								<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>Manage Stages</Button>
-								<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}><Plus className="mr-2 h-4 w-4" /> Add Task</Button>
-							</>
+
+					<div className="flex justify-start">
+						<ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as 'kanban' | 'list')}>
+							<ToggleGroupItem value="kanban" aria-label="Kanban view">
+								<LayoutGrid className="h-4 w-4 mr-2" />
+								Kanban
+							</ToggleGroupItem>
+							<ToggleGroupItem value="list" aria-label="List view">
+								<List className="h-4 w-4 mr-2" />
+								List
+							</ToggleGroupItem>
+						</ToggleGroup>
+					</div>
+				</div>
+			</header>
+
+			{/* SCROLLABLE CONTENT AREA */}
+			<main className="flex-1 overflow-hidden">
+				<div className="h-full overflow-auto p-6 pb-10 bg-muted/5">
+					<div className="max-w-7xl mx-auto">
+						{view === 'kanban' ? (
+							<KanbanBoard
+								tasks={tasks}
+								stages={sortedStages}
+								onTaskUpdate={handleTaskUpdate}
+								onTaskEdit={handleTaskEdit}
+								onTaskDelete={handleTaskDelete}
+								useProjectStages
+								canManageTasks={currentUser?.role !== 'user'}
+								canDragTasks={currentUser?.role !== 'user'}
+								disableColumnScroll={true}
+								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
+							/>
+						) : (
+							<TaskListView
+								tasks={tasks}
+								stages={sortedStages}
+								onTaskEdit={handleTaskEdit}
+								onTaskDelete={handleTaskDelete}
+								onTaskUpdate={handleTaskUpdate}
+								teamMembers={teamMembers}
+								canManage={currentUser?.role !== 'user'}
+								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
+								showReviewButton={currentUser?.role === 'admin' || currentUser?.role === 'team-lead'}
+							/>
 						)}
 					</div>
 				</div>
-				<div className="flex items-center justify-between">
-					<ToggleGroup type="single" value={view} onValueChange={v => v && setView(v as 'kanban' | 'list')}>
-						<ToggleGroupItem value="kanban" aria-label="Kanban view"><LayoutGrid className="h-4 w-4" /></ToggleGroupItem>
-						<ToggleGroupItem value="list" aria-label="List view"><List className="h-4 w-4" /></ToggleGroupItem>
-					</ToggleGroup>
-				</div>
-			</div>
-			<div className="flex-1 overflow-auto p-4">
-				{view === 'kanban' ? (
-					<KanbanBoard
-						tasks={tasks}
-						stages={[...project.stages].sort((a, b) => a.order - b.order)}
-						onTaskUpdate={handleTaskUpdate}
-						onTaskEdit={task => { setEditingTask(task); setIsTaskDialogOpen(true); }}
-						onTaskDelete={handleTaskDelete}
-						useProjectStages
-						canManageTasks={currentUser?.role !== 'user'}
-						canDragTasks={currentUser?.role !== 'user'}
-						onTaskReview={task => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-					/>
-				) : (
-					<TaskListView
-						tasks={tasks}
-						stages={[...project.stages].sort((a, b) => a.order - b.order)}
-						onTaskEdit={task => { setEditingTask(task); setIsTaskDialogOpen(true); }}
-						onTaskDelete={handleTaskDelete}
-						onTaskUpdate={handleTaskUpdate}
-						teamMembers={teamMembers}
-						canManage={currentUser?.role !== 'user'}
-						onTaskReview={task => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-						showReviewButton={currentUser?.role === 'admin' || currentUser?.role === 'team-lead'}
-					/>
-				)}
-			</div>
+			</main>
+
+			{/* DIALOGS */}
 			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} />
-			<TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} onSave={handleSaveTask} editTask={editingTask} availableStatuses={project.stages} useProjectStages availableProjects={[project.name]} teamMembers={teamMembers} departments={departments} allTasks={allTasks} />
-			<StageManagement open={isStageManagementOpen} onOpenChange={setIsStageManagementOpen} stages={project.stages} onAddStage={() => { setEditingStage(null); setIsStageDialogOpen(true); }} onEditStage={handleEditStage} onDeleteStage={handleDeleteStage} />
-			<StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} onSave={handleSaveStage} existingStages={project.stages} editStage={editingStage} teamMembers={teamMembers} />
-			<ReviewTaskDialog open={isReviewTaskDialogOpen} onOpenChange={setIsReviewTaskDialogOpen} task={reviewTask} stages={project.stages} onApprove={handleApproveTask} onRequestRevision={handleRequestRevision} />
+			<TaskDialog
+				open={isTaskDialogOpen}
+				onOpenChange={setIsTaskDialogOpen}
+				onSave={handleSaveTask}
+				editTask={editingTask}
+				availableStatuses={project.stages}
+				useProjectStages
+				availableProjects={[project.name]}
+				teamMembers={teamMembers}
+				departments={departments}
+				allTasks={allTasks}
+			/>
+			<StageManagement
+				open={isStageManagementOpen}
+				onOpenChange={setIsStageManagementOpen}
+				stages={project.stages}
+				onAddStage={handleAddStage}
+				onEditStage={handleEditStage}
+				onDeleteStage={handleDeleteStage}
+			/>
+			<StageDialog
+				open={isStageDialogOpen}
+				onOpenChange={setIsStageDialogOpen}
+				onSave={handleSaveStage}
+				existingStages={project.stages}
+				editStage={editingStage}
+				teamMembers={teamMembers}
+			/>
+			<ReviewTaskDialog
+				open={isReviewTaskDialogOpen}
+				onOpenChange={setIsReviewTaskDialogOpen}
+				task={reviewTask}
+				stages={project.stages}
+				onApprove={handleApproveTask}
+				onRequestRevision={handleRequestRevision}
+			/>
 		</div>
 	);
 }

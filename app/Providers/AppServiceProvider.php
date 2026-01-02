@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use App\Models\Task;
+use App\Models\Project;
+use App\Observers\TaskObserver;
+use App\Observers\ProjectObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +23,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register the Task observer for automatic stage progression
+        Task::observe(TaskObserver::class);
+        Project::observe(ProjectObserver::class);
     }
 }

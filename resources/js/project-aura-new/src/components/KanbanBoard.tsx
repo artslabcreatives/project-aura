@@ -26,6 +26,7 @@ interface KanbanBoardProps {
   canManageStages?: boolean; // Whether user can edit/delete stages
   canManageTasks?: boolean; // Whether user can edit/delete tasks
   canDragTasks?: boolean; // Whether user can drag tasks between stages
+  disableColumnScroll?: boolean;
   onTaskReview?: (task: Task) => void; // Optional: for reviewing tasks
 
 }
@@ -42,6 +43,7 @@ export function KanbanBoard({
   canManageStages = false,
   canManageTasks = true,
   canDragTasks = true,
+  disableColumnScroll = false,
   onTaskReview,
 
 }: KanbanBoardProps) {
@@ -104,7 +106,7 @@ export function KanbanBoard({
 
   return (
     <div
-      className="grid gap-4 h-full"
+      className={cn("grid gap-4", !disableColumnScroll && "h-full")}
       style={{
         gridTemplateColumns: `repeat(${visibleStages.length}, minmax(350px, 1fr))`,
       }}
@@ -117,7 +119,8 @@ export function KanbanBoard({
           <div
             key={column.id}
             className={cn(
-              "flex flex-col flex-shrink-0 max-h-full rounded-lg border bg-muted/50",
+              "flex flex-col flex-shrink-0 rounded-lg border bg-muted/50",
+              !disableColumnScroll && "max-h-full",
               draggedOverColumn === column.id && "ring-2 ring-primary/20 bg-muted",
               column.isReviewStage && "border-indigo-200 bg-indigo-50/30 dark:border-indigo-800 dark:bg-indigo-950/10"
             )}
@@ -130,7 +133,8 @@ export function KanbanBoard({
           >
             <div className={cn(
               "p-3 font-medium text-sm flex items-center justify-between border-b bg-background/50 backdrop-blur-sm rounded-t-lg",
-              column.isReviewStage && "bg-indigo-50/50 dark:bg-indigo-950/20"
+              column.isReviewStage && "bg-indigo-50/50 dark:bg-indigo-950/20",
+              disableColumnScroll && "sticky top-0 z-10 bg-background/80 backdrop-blur-md shadow-sm"
             )}>
               <div className="flex items-center gap-2">
                 <div className={cn("h-2 w-2 rounded-full", column.color)} />
@@ -174,7 +178,7 @@ export function KanbanBoard({
                 )}
             </div>
 
-            <div className="flex-1 p-4 space-y-3 overflow-y-auto min-h-[400px]">
+            <div className={cn("flex-1 p-4 space-y-3 min-h-[400px]", !disableColumnScroll && "overflow-y-auto")}>
               {columnTasks.length === 0 ? (
                 <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
                   No tasks

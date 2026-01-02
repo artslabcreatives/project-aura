@@ -191,7 +191,7 @@ export default function Team() {
 	const teamMembersByDepartment = useMemo(() => {
 		const grouped = filteredTeamMembers.reduce((acc, member) => {
 			const deptId = member.department || 'uncategorized';
-			const deptName = getDepartmentName(deptId.id);
+			const deptName = getDepartmentName(deptId);
 			console.log('Member:', member.name, 'DeptId:', deptId, 'DeptName:', deptName);
 			if (!acc[deptId]) {
 				acc[deptId] = {

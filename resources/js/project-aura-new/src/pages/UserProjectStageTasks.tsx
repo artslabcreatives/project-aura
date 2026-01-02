@@ -17,6 +17,7 @@ import { projectService } from "@/services/projectService";
 import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
+import { attachmentService } from "@/services/attachmentService";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
@@ -94,80 +95,10 @@ export default function UserProjectStageTasks() {
 	};
 
 	const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
-		// We'll use storageUpdates for the permanent/backend changes
-		const storageUpdates = { ...updates };
-
-		// We'll use localUpdates for what the user sees immediately
-		// We want to preserve the "complete" status locally even if it changes to "pending" in storage
-		const localUpdates = { ...updates };
-
-		// If task is marked as complete, check for auto-transition
-		if (updates.userStatus === "complete" && project && stage) {
-			const currentProjectStage = project.stages.find(s => s.id === stage.id);
-
-			if (currentProjectStage) {
-				let targetStageId: string | undefined;
-
-				// Check if there is a linked review stage
-				if (currentProjectStage.linkedReviewStageId) {
-					targetStageId = currentProjectStage.linkedReviewStageId;
-				} else {
-					// Move to next sequential stage
-					const sortedStages = [...project.stages].sort((a, b) => a.order - b.order);
-					const currentIndex = sortedStages.findIndex(s => s.id === currentProjectStage.id);
-					if (currentIndex !== -1 && currentIndex < sortedStages.length - 1) {
-						targetStageId = sortedStages[currentIndex + 1].id;
-					}
-				}
-
-				if (targetStageId) {
-					const task = tasks.find(t => t.id === taskId);
-					const currentAssignee = task?.assignee || currentUser?.name || "";
-					const targetStage = project.stages.find(s => s.id === targetStageId);
-
-					storageUpdates.projectStage = targetStageId;
-
-					if (targetStage?.isReviewStage) {
-						// Moving to Review Stage
-						storageUpdates.previousStage = stage.id;
-						storageUpdates.originalAssignee = currentAssignee;
-						storageUpdates.assignee = currentAssignee; // Keep assignee for context
-						// userStatus remains "complete"
-
-						toast({
-							title: "Task Submitted",
-							description: `Task moved to ${targetStage.title} for review.`,
-						});
-					} else {
-						// Moving to next regular stage - auto-assign to main responsible
-						storageUpdates.userStatus = "pending"; // Reset status for storage
-
-						// Auto-assign to main responsible person of target stage
-						if (targetStage?.mainResponsibleId) {
-							const mainResponsible = teamMembers.find(m => m.id === targetStage.mainResponsibleId);
-							if (mainResponsible) {
-								storageUpdates.assignee = mainResponsible.name;
-							} else {
-								storageUpdates.assignee = ""; // Unassign if main responsible not found
-							}
-						} else {
-							storageUpdates.assignee = ""; // Unassign if no main responsible set
-						}
-
-						toast({
-							title: "Task Moved",
-							description: `Task moved to ${targetStage?.title || "next stage"}.`,
-						});
-					}
-				}
-			}
-		}
-
-		// It's a regular drag-and-drop between user stages
-		// Update local state with localUpdates (which preserves userStatus="complete")
+		// Update local state immediately for responsive UI
 		setTasks(prevTasks =>
 			prevTasks.map(task =>
-				task.id === taskId ? { ...task, ...localUpdates } : task
+				task.id === taskId ? { ...task, ...updates } : task
 			)
 		);
 
@@ -185,32 +116,32 @@ export default function UserProjectStageTasks() {
 			}, 10000);
 		}
 
-		// Persist to backend so project stage & assignee stay in sync
+		// Persist to backend - the backend observer will handle automatic stage progression
 		try {
 			const task = tasks.find(t => t.id === taskId);
 			const projectId = task?.projectId || (project ? project.id : undefined);
-			const assigneeName = storageUpdates.assignee;
+			const assigneeName = updates.assignee;
 			const assigneeId = assigneeName ? teamMembers.find(m => m.name === assigneeName)?.id : undefined;
-			const projectStageId = storageUpdates.projectStage ? parseInt(String(storageUpdates.projectStage), 10) : undefined;
+			const projectStageId = updates.projectStage ? parseInt(String(updates.projectStage), 10) : undefined;
+
 			// Build payload mapping to service expectations
 			if (projectId) {
 				void taskService.update(taskId, {
 					projectId,
 					assigneeId: assigneeId ? parseInt(String(assigneeId), 10) : undefined,
 					projectStageId,
-					userStatus: storageUpdates.userStatus,
-					previousStage: storageUpdates.previousStage,
-					originalAssignee: storageUpdates.originalAssignee,
-					revisionComment: storageUpdates.revisionComment,
-					isInSpecificStage: storageUpdates.isInSpecificStage,
+					userStatus: updates.userStatus,
+					previousStage: updates.previousStage,
+					revisionComment: updates.revisionComment,
+					isInSpecificStage: updates.isInSpecificStage,
 				});
 			}
 		} catch (e) {
-			console.error('Failed to persist task stage update', e);
+			console.error('Failed to persist task update', e);
 		}
 	};
 
-	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
+	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (editingTask) {
 			await taskService.update(editingTask.id, taskData);
 			const updatedTask = { ...editingTask, ...taskData };

@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { Task, User } from "@/types/task";
+import { Task, User, SuggestedTask } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List } from "lucide-react";
@@ -21,12 +21,16 @@ import { projectService } from "@/services/projectService";
 import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
+import { attachmentService } from "@/services/attachmentService";
+import { stageService } from "@/services/stageService";
+import { SuggestedTaskCard } from "@/components/SuggestedTaskCard";
 
 export default function ProjectKanban() {
 	const { projectId } = useParams<{ projectId: string }>();
 	const numericProjectId = projectId ? parseInt(projectId, 10) : undefined;
 	const [project, setProject] = useState<Project | null>(null);
 	const [tasks, setTasks] = useState<Task[]>([]);
+	const [suggestedTasks, setSuggestedTasks] = useState<SuggestedTask[]>([]);
 	const [allTasks, setAllTasks] = useState<Task[]>([]);
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
 	const [departments, setDepartments] = useState<Department[]>([]);
@@ -71,6 +75,10 @@ export default function ProjectKanban() {
 				setProject(currentProject);
 				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
 				setTasks(tasksData.filter(t => t.projectId === currentProject.id));
+
+				const suggestedTasksData = await projectService.getSuggestedTasks(String(currentProject.id));
+				setSuggestedTasks(suggestedTasksData);
+
 				const allTasksData = await taskService.getAll();
 				setAllTasks(allTasksData);
 				const usersData = await userService.getAll();
@@ -143,9 +151,23 @@ export default function ProjectKanban() {
 				}
 			}
 			if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
+				// Only auto-assign if assignee is NOT explicitly provided in updates
 				if (!('assignee' in updates)) {
 					const targetStage = project.stages.find(s => s.id === updates.projectStage);
-					if (targetStage?.mainResponsibleId) {
+
+					// Check if we are reverting to previous stage (rejection)
+					// The backend handles this, but the frontend might override it if we set assignee here.
+					// If we are moving back to previous stage, we should ideally NOT set assignee here and let backend handle it.
+					// But we don't have easy access to 'previousStage' ID here unless it's in the task object.
+
+					// If the backend observer is working, it will override whatever we send here IF we send the ID.
+					// But we are sending the NAME here.
+
+					// Let's try to be smarter.
+					// If the target stage is the previous stage of the task, we should try to restore original assignee.
+					if (taskToUpdate.previousStage && updates.projectStage === taskToUpdate.previousStage && taskToUpdate.originalAssignee) {
+						updates.assignee = taskToUpdate.originalAssignee;
+					} else if (targetStage?.mainResponsibleId) {
 						const mainResponsible = teamMembers.find(m => m.id === targetStage.mainResponsibleId);
 						updates.assignee = mainResponsible ? mainResponsible.name : "";
 					} else {
@@ -181,7 +203,20 @@ export default function ProjectKanban() {
 					details: { from: taskToUpdate.assignee, to: updates.assignee },
 				});
 			}
-			await taskService.update(taskId, updates);
+			// Prepare updates for backend
+			// We need to convert assignee name to ID if it's present
+			const backendUpdates = { ...updates };
+			if (updates.assignee) {
+				const assigneeUser = teamMembers.find(u => u.name === updates.assignee);
+				if (assigneeUser) {
+					// @ts-ignore - adding assigneeId to updates for service
+					backendUpdates.assigneeId = parseInt(assigneeUser.id);
+				}
+			}
+
+			await taskService.update(taskId, backendUpdates);
+
+			// For local state, we keep using the name
 			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
 		} catch (error) {
 			console.error("Error updating task:", error);
@@ -189,7 +224,46 @@ export default function ProjectKanban() {
 		}
 	};
 
-	const handleSaveTask = async (task: Omit<Task, "id" | "createdAt">) => {
+	const handleAddSuggestedTask = async (suggestedTaskId: string, stageId: string) => {
+		if (!currentUser || !project) return;
+		const suggestedTask = suggestedTasks.find(t => t.id === suggestedTaskId);
+		if (!suggestedTask) return;
+
+		try {
+			const newTaskData: Omit<Task, "id" | "createdAt"> = {
+				title: suggestedTask.title,
+				description: suggestedTask.description,
+				project: project.name,
+				projectId: project.id,
+				assignee: "",
+				dueDate: new Date().toISOString(),
+				userStatus: "pending",
+				projectStage: stageId,
+				priority: "medium",
+				tags: ["AI Suggestion"],
+			};
+
+			const newTask = await taskService.create(newTaskData);
+			setTasks([...tasks, newTask]);
+			setSuggestedTasks(suggestedTasks.filter(t => t.id !== suggestedTaskId));
+
+			addHistoryEntry({
+				action: 'CREATE_TASK',
+				entityId: newTask.id,
+				entityType: 'task',
+				projectId: String(project.id),
+				userId: currentUser.id,
+				details: { title: newTask.title, source: 'AI Suggestion' },
+			});
+
+			toast({ title: "Task created", description: "Suggested task added to board." });
+		} catch (error) {
+			console.error("Error adding suggested task:", error);
+			toast({ title: "Error", description: "Failed to add suggested task.", variant: "destructive" });
+		}
+	};
+
+	const handleSaveTask = async (task: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (!currentUser || !project) return;
 		try {
 			if (editingTask) {
@@ -202,6 +276,31 @@ export default function ProjectKanban() {
 				toast({ title: "Task updated", description: "Task updated successfully." });
 			} else {
 				const newTask = await taskService.create({ ...task, projectId: project.id });
+
+				// Upload pending files after task creation
+				if (pendingFiles && pendingFiles.length > 0) {
+					try {
+						const uploadedAttachments = await attachmentService.uploadFiles(newTask.id, pendingFiles);
+						newTask.attachments = [...(newTask.attachments || []), ...uploadedAttachments];
+					} catch (uploadError) {
+						console.error('Failed to upload attachments:', uploadError);
+						toast({ title: 'Warning', description: 'Task created but some attachments failed to upload.', variant: 'destructive' });
+					}
+				}
+
+				// Add pending links after task creation
+				if (pendingLinks && pendingLinks.length > 0) {
+					try {
+						for (const link of pendingLinks) {
+							const uploadedLink = await attachmentService.addLink(newTask.id, link.name, link.url);
+							newTask.attachments = [...(newTask.attachments || []), uploadedLink];
+						}
+					} catch (linkError) {
+						console.error('Failed to add links:', linkError);
+						toast({ title: 'Warning', description: 'Task created but some links failed to add.', variant: 'destructive' });
+					}
+				}
+
 				setTasks([...tasks, newTask]);
 				addHistoryEntry({
 					action: 'CREATE_TASK', entityId: newTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id,
@@ -250,20 +349,46 @@ export default function ProjectKanban() {
 		updateProjectInStorage({ ...project, stages: updatedStages });
 	};
 
-	const handleSaveStage = (stage: Omit<Stage, "order">) => {
+	const handleSaveStage = async (stage: Omit<Stage, "order">) => {
 		if (!project || !currentUser) return;
-		let updatedStages: Stage[];
-		if (editingStage) {
-			updatedStages = project.stages.map(s => s.id === editingStage.id ? { ...s, ...stage } : s);
-			addHistoryEntry({ action: 'UPDATE_STAGE', entityId: editingStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { from: editingStage, to: { ...editingStage, ...stage } } });
-		} else {
-			const newStage: Stage = { ...stage, order: project.stages.length, id: `stage-${Date.now()}` };
-			updatedStages = [...project.stages, newStage];
-			addHistoryEntry({ action: 'CREATE_STAGE', entityId: newStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: newStage.title } });
+		try {
+			if (editingStage) {
+				const updatedStage = await stageService.update(editingStage.id, stage);
+				const updatedStages = project.stages.map(s => s.id === editingStage.id ? { ...s, ...updatedStage } : s);
+				setProject({ ...project, stages: updatedStages });
+				addHistoryEntry({ action: 'UPDATE_STAGE', entityId: editingStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { from: editingStage, to: { ...editingStage, ...stage } } });
+				toast({ title: "Stage updated", description: "Stage updated successfully." });
+			} else {
+				// Calculate order: after all stages except Archive
+				// Ensure Suggested Task (0) and Pending (1) are respected.
+				// New stages should start from index 2 or higher.
+				const otherStages = project.stages.filter(s => s.title !== 'Archive');
+				const maxOrder = Math.max(...otherStages.map(s => s.order), 1); // Start at least after Pending (1)
+				const newOrder = maxOrder + 1;
+
+				const newStage = await stageService.create({
+					...stage,
+					order: newOrder,
+					project_id: project.id, // Ensure project_id is sent
+					// @ts-ignore
+					projectId: project.id // Some backends might expect camelCase or snake_case, sending both to be safe or check type definition
+				} as any);
+
+				// If we have an Archive stage, ensure it stays at the end (though 999 should be enough)
+				// But if we want to be super safe, we could check if newOrder >= 999 and shift Archive.
+				// For now, assuming 999 is high enough.
+
+				const updatedStages = [...project.stages, newStage];
+				setProject({ ...project, stages: updatedStages });
+				addHistoryEntry({ action: 'CREATE_STAGE', entityId: newStage.id, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: newStage.title } });
+				toast({ title: "Stage created", description: "Stage created successfully." });
+			}
+			setIsStageDialogOpen(false);
+			setEditingStage(null);
+		} catch (error) {
+			console.error("Error saving stage:", error);
+			toast({ title: "Error", description: "Failed to save stage.", variant: "destructive" });
 		}
-		updateProjectInStorage({ ...project, stages: updatedStages });
-		setIsStageDialogOpen(false);
-		setEditingStage(null);
 	};
 
 	const handleApproveTask = (taskId: string, targetStageId: string, comment?: string) => {
@@ -289,7 +414,46 @@ export default function ProjectKanban() {
 		const updatedRevisionHistory = [...(task.revisionHistory || []), newRevision];
 		const updatedTags = task.tags ? [...task.tags] : [];
 		if (!updatedTags.includes('Redo')) updatedTags.push('Redo');
-		handleTaskUpdate(taskId, { projectStage: targetStageId, assignee: originalAssignee, userStatus: 'pending', isInSpecificStage: false, revisionComment: comment, revisionHistory: updatedRevisionHistory, tags: updatedTags, previousStage: undefined, originalAssignee: undefined });
+
+		// We do NOT set assignee here, we let the backend observer handle it based on previousStage/originalAssignee
+		// But wait, the backend observer only restores if we are moving back to previous_stage_id
+		// Here we are explicitly setting projectStage to targetStageId.
+
+		// If we want the backend to handle it, we should just update the stage.
+		// However, the frontend code here tries to be smart and set the assignee.
+		// The issue is that 'originalAssignee' here is a NAME string, but the backend expects an ID if we were to send it.
+		// But we shouldn't send the assignee name at all if we want the backend to restore it from the ID.
+
+		// Let's try to find the ID of the original assignee
+		const originalAssigneeName = task.originalAssignee || task.assignee;
+		const originalAssigneeUser = teamMembers.find(u => u.name === originalAssigneeName);
+
+		// If we found the user, we can send the ID. 
+		// But actually, since we implemented the backend observer to restore the assignee when moving back to previous stage,
+		// we might not need to send assignee at all IF targetStageId == task.previousStage
+
+		// However, to be safe and explicit (and since the frontend logic seems to want to control it),
+		// let's send the assignee ID if we have it.
+
+		const updates: any = {
+			projectStage: targetStageId,
+			userStatus: 'pending',
+			isInSpecificStage: false,
+			revisionComment: comment,
+			revisionHistory: updatedRevisionHistory,
+			tags: updatedTags,
+			previousStage: undefined,
+			originalAssignee: undefined
+		};
+
+		if (originalAssigneeUser) {
+			// We need to send the ID, but the Task interface uses 'assignee' as string name.
+			// The handleTaskUpdate function in this file (ProjectKanban.tsx) likely maps it.
+			// Let's check handleTaskUpdate in this file.
+			updates.assignee = originalAssigneeName;
+		}
+
+		handleTaskUpdate(taskId, updates);
 		toast({ title: 'Revision requested', description: `Task sent to ${project.stages.find(s => s.id === targetStageId)?.title || 'selected stage'} for ${originalAssignee} with Redo tag.` });
 		setIsReviewTaskDialogOpen(false);
 		setReviewTask(null);
@@ -326,10 +490,40 @@ export default function ProjectKanban() {
 				</div>
 			</div>
 			<div className="flex-1 overflow-auto p-4">
+				{suggestedTasks.length > 0 && (
+					<div className="mb-6">
+						<h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+							<span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+							Suggested Tasks ({suggestedTasks.length})
+						</h3>
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+							{suggestedTasks.map((task) => (
+								<SuggestedTaskCard
+									key={task.id}
+									task={task}
+									targetStages={project.stages}
+									onAdd={handleAddSuggestedTask}
+								/>
+							))}
+						</div>
+					</div>
+				)}
 				{view === 'kanban' ? (
 					<KanbanBoard
 						tasks={tasks}
-						stages={[...project.stages].sort((a, b) => a.order - b.order)}
+						stages={[...project.stages].sort((a, b) => {
+							const getPriority = (s: Stage) => {
+								const t = s.title.toLowerCase().trim();
+								if (t === 'suggested') return 0;
+								if (t === 'pending') return 1;
+								if (t === 'archive') return 999;
+								return 10;
+							};
+							const pA = getPriority(a);
+							const pB = getPriority(b);
+							if (pA !== pB) return pA - pB;
+							return a.order - b.order;
+						})}
 						onTaskUpdate={handleTaskUpdate}
 						onTaskEdit={handleTaskEdit}
 						onTaskDelete={handleTaskDelete}
@@ -341,7 +535,19 @@ export default function ProjectKanban() {
 				) : (
 					<TaskListView
 						tasks={tasks}
-						stages={[...project.stages].sort((a, b) => a.order - b.order)}
+						stages={[...project.stages].sort((a, b) => {
+							const getPriority = (s: Stage) => {
+								const t = s.title.toLowerCase().trim();
+								if (t === 'suggested') return 0;
+								if (t === 'pending') return 1;
+								if (t === 'archive') return 999;
+								return 10;
+							};
+							const pA = getPriority(a);
+							const pB = getPriority(b);
+							if (pA !== pB) return pA - pB;
+							return a.order - b.order;
+						})}
 						onTaskEdit={handleTaskEdit}
 						onTaskDelete={handleTaskDelete}
 						onTaskUpdate={handleTaskUpdate}
@@ -352,1232 +558,11 @@ export default function ProjectKanban() {
 					/>
 				)}
 			</div>
-			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} />
+			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} stages={project.stages} />
 			<TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} onSave={handleSaveTask} editTask={editingTask} availableStatuses={project.stages} useProjectStages availableProjects={[project.name]} teamMembers={teamMembers} departments={departments} allTasks={allTasks} />
 			<StageManagement open={isStageManagementOpen} onOpenChange={setIsStageManagementOpen} stages={project.stages} onAddStage={handleAddStage} onEditStage={handleEditStage} onDeleteStage={handleDeleteStage} />
 			<StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} onSave={handleSaveStage} existingStages={project.stages} editStage={editingStage} teamMembers={teamMembers} />
 			<ReviewTaskDialog open={isReviewTaskDialogOpen} onOpenChange={setIsReviewTaskDialogOpen} task={reviewTask} stages={project.stages} onApprove={handleApproveTask} onRequestRevision={handleRequestRevision} />
 		</div>
 	);
-} import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { Project } from "@/types/project";
-import { KanbanBoard } from "@/components/KanbanBoard";
-import { Task, User } from "@/types/task";
-import { StageDialog } from "@/components/StageDialog";
-import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List } from "lucide-react";
-import { Stage } from "@/types/stage";
-import { TaskDialog } from "@/components/TaskDialog";
-import { StageManagement } from "@/components/StageManagement";
-import { Department } from "@/types/department";
-import { HistoryDialog } from "@/components/HistoryDialog";
-import { useHistory } from "@/hooks/use-history";
-import { useUser } from "@/hooks/use-user";
-import { TaskListView } from "@/components/TaskListView";
-import { ReviewTaskDialog } from "@/components/ReviewTaskDialog";
-import { useToast } from "@/hooks/use-toast";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { projectService } from "@/services/projectService";
-import { taskService } from "@/services/taskService";
-import { userService } from "@/services/userService";
-import { departmentService } from "@/services/departmentService";
-
-export default function ProjectKanban() {
-	const { projectId } = useParams<{ projectId: string }>();
-	const numericProjectId = projectId ? parseInt(projectId, 10) : undefined;
-	const [project, setProject] = useState<Project | null>(null);
-	const [tasks, setTasks] = useState<Task[]>([]);
-	const [allTasks, setAllTasks] = useState<Task[]>([]);
-	const [teamMembers, setTeamMembers] = useState<User[]>([]);
-	const [departments, setDepartments] = useState<Department[]>([]);
-	const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-	const [isStageManagementOpen, setIsStageManagementOpen] = useState(false);
-	const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
-	const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
-	const [isReviewTaskDialogOpen, setIsReviewTaskDialogOpen] = useState(false);
-	const [reviewTask, setReviewTask] = useState<Task | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
-
-	const [editingStage, setEditingStage] = useState<Stage | null>(null);
-	const [editingTask, setEditingTask] = useState<Task | null>(null);
-	const { history, addHistoryEntry } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
-	const { currentUser } = useUser();
-	const { toast } = useToast();
-	const [view, setView] = useState<"kanban" | "list">("kanban");
-
-	// Load data from API using project ID
-	useEffect(() => {
-		const loadData = async () => {
-			if (!numericProjectId) return;
-			setIsLoading(true);
-			try {
-				const currentProject = await projectService.getById(String(numericProjectId));
-				if (!currentProject) {
-					setProject(null);
-					setIsLoading(false);
-					return;
-				}
-				const departmentsData = await departmentService.getAll();
-				if (currentUser?.role === 'team-lead') {
-					const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
-					const currentDept = departmentsData.find(d => d.id === currentUser.department);
-					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
-					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
-					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					if (!hasMatchingDepartment && !hasSpecialPermission) {
-						setProject(null);
-						setIsLoading(false);
-						return;
-					}
-				}
-				setProject(currentProject);
-				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
-				setTasks(tasksData.filter(t => t.projectId === currentProject.id));
-				const allTasksData = await taskService.getAll();
-				setAllTasks(allTasksData);
-				const usersData = await userService.getAll();
-				setTeamMembers(usersData);
-				setDepartments(departmentsData);
-			} catch (error) {
-				console.error('Error loading project data:', error);
-				toast({
-					title: 'Error',
-					description: 'Failed to load project data. Please try again.',
-					variant: 'destructive',
-				});
-			} finally {
-				setIsLoading(false);
-			}
-		};
-		loadData();
-	}, [numericProjectId, currentUser]);
-
-	const updateProjectInStorage = async (updatedProject: Project) => {
-		try {
-			if (!updatedProject.id) return;
-			await projectService.update(String(updatedProject.id), updatedProject);
-			setProject(updatedProject);
-			toast({
-				title: "Project updated",
-				description: "Project has been updated successfully.",
-			});
-		} catch (error) {
-			console.error("Error updating project:", error);
-			toast({
-				title: "Error",
-				description: "Failed to update project. Please try again.",
-				variant: "destructive",
-			});
-		}
-	};
-
-	const updateTasksInStorage = async (updatedTasks: Task[]) => {
-		setTasks(updatedTasks);
-	};
-
-	const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
-		if (!currentUser || !project) return;
-
-		const taskToUpdate = tasks.find(task => task.id === taskId);
-		if (!taskToUpdate) return;
-
-		try {
-			if (updates.userStatus === 'complete' && !updates.projectStage) {
-				const currentStage = project.stages.find(s => s.id === taskToUpdate.projectStage);
-				if (currentStage) {
-					let targetStageId: string | undefined;
-					if (currentStage.linkedReviewStageId) {
-						targetStageId = currentStage.linkedReviewStageId;
-					} else {
-						const ordered = [...project.stages].sort((a, b) => a.order - b.order);
-						const idx = ordered.findIndex(s => s.id === currentStage.id);
-						if (idx >= 0 && idx < ordered.length - 1) targetStageId = ordered[idx + 1].id;
-					}
-					if (targetStageId) {
-						const targetStage = project.stages.find(s => s.id === targetStageId);
-						updates.projectStage = targetStageId;
-						if (targetStage?.isReviewStage) {
-							updates.previousStage = currentStage.id;
-							updates.originalAssignee = taskToUpdate.assignee;
-							updates.assignee = taskToUpdate.assignee;
-							updates.isInSpecificStage = true;
-						}
-						if (!targetStage?.isReviewStage) {
-							updates.userStatus = 'pending';
-						}
-						console.log('[KANBAN] Auto transition after complete', { from: currentStage.id, to: targetStageId, review: !!targetStage?.isReviewStage });
-					}
-				}
-			}
-			if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
-				if (!('assignee' in updates) && project) {
-					const targetStage = project.stages.find(s => s.id === updates.projectStage);
-					if (targetStage?.mainResponsibleId) {
-						const mainResponsible = teamMembers.find(m => m.id === targetStage.mainResponsibleId);
-						if (mainResponsible) {
-							updates.assignee = mainResponsible.name;
-						} else {
-							updates.assignee = "";
-						}
-					} else {
-						updates.assignee = "";
-					}
-				}
-				if (!('userStatus' in updates)) {
-					updates.userStatus = "pending";
-				}
-
-				if (project) {
-					const sortedStages = [...project.stages].sort((a, b) => a.order - b.order);
-					const lastStage = sortedStages[sortedStages.length - 1];
-
-					if (updates.projectStage === lastStage.id) {
-						const currentTags = taskToUpdate.tags || [];
-						if (!currentTags.includes("Completed")) {
-							updates.tags = [...currentTags, "Completed"];
-						}
-					} else {
-						const currentTags = taskToUpdate.tags || [];
-						if (currentTags.includes("Completed")) {
-							updates.tags = currentTags.filter(tag => tag !== "Completed");
-						}
-					}
-				}
-
-				addHistoryEntry({
-					action: 'UPDATE_TASK_STATUS',
-					entityId: taskId,
-					entityType: 'task',
-					projectId: String(project.id),
-					userId: currentUser.id,
-					details: {
-						from: taskToUpdate.projectStage,
-						to: updates.projectStage,
-					},
-				});
-			}
-
-			if (updates.assignee && updates.assignee !== taskToUpdate.assignee) {
-				addHistoryEntry({
-					action: 'UPDATE_TASK_ASSIGNEE',
-					entityId: taskId,
-					entityType: 'task',
-					projectId: String(project.id),
-					userId: currentUser.id,
-					details: {
-						from: taskToUpdate.assignee,
-						to: updates.assignee,
-					},
-				});
-			}
-
-			await taskService.update(taskId, updates);
-
-			const updatedTasks = tasks.map(task =>
-				task.id === taskId ? { ...task, ...updates } : task
-			);
-			setTasks(updatedTasks);
-		} catch (error) {
-			console.error("Error updating task:", error);
-			toast({
-				title: "Error",
-				description: "Failed to update task. Please try again.",
-				variant: "destructive",
-			});
-		}
-	};
-
-	const handleSaveTask = async (task: Omit<Task, "id" | "createdAt">) => {
-		if (!currentUser || !project) return;
-
-		try {
-			if (editingTask) {
-				await taskService.update(editingTask.id, task);
-				const updatedTasks = tasks.map(t =>
-					t.id === editingTask.id ? { ...t, ...task } : t
-				);
-				setTasks(updatedTasks);
-
-				addHistoryEntry({
-					action: 'UPDATE_TASK',
-					entityId: editingTask.id,
-					entityType: 'task',
-					projectId: String(project.id),
-					userId: currentUser.id,
-					details: {
-						from: editingTask,
-						to: { ...editingTask, ...task },
-					},
-				});
-
-				toast({
-					title: "Task updated",
-					description: "Task has been updated successfully.",
-				});
-			} else {
-				const newTask = await taskService.create({
-					...task,
-					projectId: project.id,
-				});
-				setTasks([...tasks, newTask]);
-
-				addHistoryEntry({
-					action: 'CREATE_TASK',
-					entityId: newTask.id,
-					entityType: 'task',
-					projectId: String(project.id),
-					userId: currentUser.id,
-					details: {
-						title: newTask.title,
-					},
-				});
-
-				toast({
-					title: "Task created",
-					description: "Task has been created successfully.",
-				});
-			}
-
-			setIsTaskDialogOpen(false);
-			setEditingTask(null);
-		} catch (error) {
-			console.error("Error saving task:", error);
-			toast({
-				title: "Error",
-				description: "Failed to save task. Please try again.",
-				variant: "destructive",
-			});
-		}
-	};
-
-	const handleTaskEdit = (task: Task) => {
-		setEditingTask(task);
-		setIsTaskDialogOpen(true);
-	};
-
-	const handleTaskDelete = async (taskId: string) => {
-		if (!currentUser || !project) return;
-
-		try {
-			const taskToDelete = tasks.find(t => t.id === taskId);
-			if (taskToDelete) {
-				addHistoryEntry({
-					action: 'DELETE_TASK',
-					entityId: taskId,
-					entityType: 'task',
-					projectId: String(project.id),
-					userId: currentUser.id,
-					details: { title: taskToDelete.title },
-				});
-			}
-
-			await taskService.delete(taskId);
-			const updatedTasks = tasks.filter(task => task.id !== taskId);
-			setTasks(updatedTasks);
-
-			toast({
-				title: "Task deleted",
-				description: "Task has been deleted successfully.",
-			});
-		} catch (error) {
-			console.error("Error deleting task:", error);
-			toast({
-				title: "Error",
-				description: "Failed to delete task. Please try again.",
-				variant: "destructive",
-			});
-		}
-	};
-
-	const handleAddStage = () => {
-		setEditingStage(null);
-		setIsStageDialogOpen(true);
-	};
-
-	const handleEditStage = (stage: Stage) => {
-		setEditingStage(stage);
-		setIsStageDialogOpen(true);
-	};
-
-	const handleDeleteStage = (stageId: string) => {
-		if (!project || !currentUser) return;
-		const stageToDelete = project.stages.find(s => s.id === stageId);
-
-		if (stageToDelete) {
-			addHistoryEntry({
-				action: 'DELETE_STAGE',
-				entityId: stageId,
-				entityType: 'stage',
-				projectId: String(project.id),
-				userId: currentUser.id,
-				details: { title: stageToDelete.title },
-			});
-		}
-		const updatedStages = project.stages.filter(s => s.id !== stageId);
-		const updatedProject = { ...project, stages: updatedStages };
-		updateProjectInStorage(updatedProject);
-	};
-
-	const handleSaveStage = (stage: Omit<Stage, "order">) => {
-		if (!project || !currentUser) return;
-
-		let updatedStages: Stage[];
-		if (editingStage) {
-			updatedStages = project.stages.map(s =>
-				s.id === editingStage.id ? { ...s, ...stage } : s
-			);
-			addHistoryEntry({
-				action: 'UPDATE_STAGE',
-				entityId: editingStage.id,
-				entityType: 'stage',
-				projectId: String(project.id),
-				userId: currentUser.id,
-				details: { from: editingStage, to: { ...editingStage, ...stage } },
-			});
-		} else {
-			const newStage = { ...stage, order: project.stages.length, id: `stage-${Date.now()}` };
-			updatedStages = [...project.stages, newStage];
-			addHistoryEntry({
-				action: 'CREATE_STAGE',
-				entityId: newStage.id,
-				entityType: 'stage',
-				projectId: String(project.id),
-				userId: currentUser.id,
-				details: { title: newStage.title },
-			});
-		}
-
-		const updatedProject = { ...project, stages: updatedStages };
-		updateProjectInStorage(updatedProject);
-		setIsStageDialogOpen(false);
-		setEditingStage(null);
-	};
-
-	const handleApproveTask = (taskId: string, targetStageId: string, comment?: string) => {
-		if (!project || !currentUser) return;
-
-		const task = tasks.find((t) => t.id === taskId);
-		if (!task) return;
-
-		handleTaskUpdate(taskId, {
-			projectStage: targetStageId,
-			isInSpecificStage: false,
-			previousStage: undefined,
-			originalAssignee: undefined,
-			revisionComment: undefined,
-		});
-
-		if (comment) {
-			addHistoryEntry({
-				action: "UPDATE_TASK_STATUS",
-				entityId: taskId,
-				entityType: "task",
-				details: {
-					action: "approved",
-					comment: comment,
-					targetStage: project?.stages.find(s => s.id === targetStageId)?.title || targetStageId,
-				},
-				projectId: String(project.id),
-				userId: currentUser?.id || "unknown",
-			});
-		}
-
-		toast({
-			title: "Task approved",
-			description: `Task moved to ${project?.stages.find(s => s.id === targetStageId)?.title || "selected stage"}.`,
-		});
-
-		setIsReviewTaskDialogOpen(false);
-		setReviewTask(null);
-	};
-
-	const handleRequestRevision = (taskId: string, targetStageId: string, comment: string) => {
-		if (!currentUser || !project) return;
-
-		const task = tasks.find((t) => t.id === taskId);
-		if (!task) return;
-
-		const originalAssignee = task.originalAssignee || task.assignee;
-
-		if (!originalAssignee) {
-			toast({
-				title: "Error",
-				description: "Could not find the task assignee.",
-				variant: "destructive",
-			});
-			return;
-		}
-
-		const newRevision = {
-			id: Date.now().toString(),
-			comment: comment,
-			requestedBy: currentUser.name,
-			requestedAt: new Date().toISOString(),
-		};
-
-		const updatedRevisionHistory = [
-			...(task.revisionHistory || []),
-			newRevision,
-		];
-
-		const updatedTags = (task.tags || []);
-		if (!updatedTags.includes("Redo")) {
-			updatedTags.push("Redo");
-		}
-
-		handleTaskUpdate(taskId, {
-			projectStage: targetStageId,
-			assignee: originalAssignee,
-			userStatus: "pending",
-			isInSpecificStage: false,
-			revisionComment: comment,
-			revisionHistory: updatedRevisionHistory,
-			tags: updatedTags,
-			previousStage: undefined,
-			originalAssignee: undefined,
-		});
-
-		toast({
-			title: "Revision requested",
-			description: `Task sent to ${project?.stages.find(s => s.id === targetStageId)?.title || "selected stage"} for ${originalAssignee} with Redo tag.`,
-		});
-
-		setIsReviewTaskDialogOpen(false);
-		setReviewTask(null);
-	};
-
-	if (isLoading) {
-		return <div className="flex items-center justify-center h-screen">Loading...</div>;
-	}
-
-	if (!project) {
-		return <div className="flex items-center justify-center h-screen">Project not found</div>;
-	}
-
-	return (
-		<div className="flex flex-col h-screen overflow-hidden">
-			<div className="flex-shrink-0 border-b p-4 space-y-4">
-				<div className="flex items-center justify-between">
-					<div>
-						<h1 className="text-2xl font-bold">{project.name}</h1>
-						<p className="text-muted-foreground">{project.description}</p>
-					</div>
-					<div className="flex gap-2">
-						{(currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
-							<>
-								<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
-									View History
-								</Button>
-								<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
-									Manage Stages
-								</Button>
-								<Button
-									onClick={() => {
-										setEditingTask(null);
-										setIsTaskDialogOpen(true);
-									}}
-								>
-									<Plus className="mr-2 h-4 w-4" />
-									Add Task
-								</Button>
-							</>
-						)}
-					</div>
-				</div>
-				<div className="flex items-center justify-between">
-					<ToggleGroup
-						type="single"
-						value={view}
-						onValueChange={(value) => {
-							if (value) setView(value as "kanban" | "list");
-						}}
-					>
-						<ToggleGroupItem value="kanban" aria-label="Kanban view">
-							<LayoutGrid className="h-4 w-4" />
-						</ToggleGroupItem>
-						<ToggleGroupItem value="list" aria-label="List view">
-							<List className="h-4 w-4" />
-						</ToggleGroupItem>
-					</ToggleGroup>
-				</div>
-			</div>
-
-			<div className="flex-1 overflow-auto p-4">
-				{view === "kanban" ? (
-					<div className="h-full w-full">
-						<KanbanBoard
-							tasks={tasks}
-							stages={[...project.stages].sort((a, b) => a.order - b.order)}
-							onTaskUpdate={handleTaskUpdate}
-							onTaskEdit={handleTaskEdit}
-							onTaskDelete={handleTaskDelete}
-							useProjectStages={true}
-							canManageTasks={currentUser?.role !== "user"}
-							canDragTasks={currentUser?.role !== "user"}
-							onTaskReview={(task) => {
-								setReviewTask(task);
-								setIsReviewTaskDialogOpen(true);
-							}}
-						/>
-					</div>
-				) : (
-					<TaskListView
-						tasks={tasks}
-						stages={[...project.stages].sort((a, b) => a.order - b.order)}
-						onTaskEdit={handleTaskEdit}
-						onTaskDelete={handleTaskDelete}
-						onTaskUpdate={handleTaskUpdate}
-						teamMembers={teamMembers}
-						canManage={currentUser?.role !== "user"}
-						onTaskReview={(task) => {
-							setReviewTask(task);
-							setIsReviewTaskDialogOpen(true);
-						}}
-						showReviewButton={currentUser?.role === "admin" || currentUser?.role === "team-lead"}
-					/>
-				)}
-			</div>
-
-			<HistoryDialog
-				open={isHistoryDialogOpen}
-				onOpenChange={setIsHistoryDialogOpen}
-				history={history}
-				teamMembers={teamMembers}
-			/>
-			<TaskDialog
-				open={isTaskDialogOpen}
-				onOpenChange={setIsTaskDialogOpen}
-				onSave={handleSaveTask}
-				editTask={editingTask}
-				availableStatuses={project.stages}
-				useProjectStages={true}
-				availableProjects={[project.name]}
-				teamMembers={teamMembers}
-				departments={departments}
-				allTasks={allTasks}
-			/>
-
-			<StageManagement
-				open={isStageManagementOpen}
-				onOpenChange={setIsStageManagementOpen}
-				stages={project.stages}
-				onAddStage={handleAddStage}
-				onEditStage={handleEditStage}
-				onDeleteStage={handleDeleteStage}
-			/>
-
-			<StageDialog
-				open={isStageDialogOpen}
-				onOpenChange={setIsStageDialogOpen}
-				onSave={handleSaveStage}
-				existingStages={project.stages}
-				editStage={editingStage}
-				teamMembers={teamMembers}
-			/>
-
-			<ReviewTaskDialog
-				open={isReviewTaskDialogOpen}
-				onOpenChange={setIsReviewTaskDialogOpen}
-				task={reviewTask}
-				stages={project.stages}
-				onApprove={handleApproveTask}
-				onRequestRevision={handleRequestRevision}
-			/>
-		</div>
-	);
-}
-
-// Load data from API (sequential where needed to derive project ID)
-useEffect(() => {
-	const loadData = async () => {
-		if (!projectName) return;
-		setIsLoading(true);
-		try {
-			const projectsData = await projectService.getAll();
-			const currentProject = projectsData.find(p => p.name === projectName) || null;
-			if (!currentProject) {
-				setProject(null);
-				setIsLoading(false);
-				return;
-			}
-			// Access control for team-lead
-			const departmentsData = await departmentService.getAll();
-			if (currentUser?.role === 'team-lead') {
-				const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
-				const currentDept = departmentsData.find(d => d.id === currentUser.department);
-				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
-				const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
-				const hasSpecialPermission = isDigitalDept && isDesignProject;
-				if (!hasMatchingDepartment && !hasSpecialPermission) {
-					setProject(null);
-					setIsLoading(false);
-					return;
-				}
-			}
-			setProject(currentProject);
-			// Fetch tasks filtered by project id (backend expects numeric)
-			const projectId = currentProject.id ? String(currentProject.id) : undefined;
-			const tasksData = projectId ? await taskService.getAll({ projectId }) : await taskService.getAll();
-			// Filter tasks by project name for safety
-			const filteredTasks = tasksData.filter(t => t.project === projectName);
-			setTasks(filteredTasks);
-			// All tasks (for dialogs that need cross-project info)
-			const allTasksData = await taskService.getAll();
-			setAllTasks(allTasksData);
-			const usersData = await userService.getAll();
-			setTeamMembers(usersData);
-			setDepartments(departmentsData);
-		} catch (error) {
-			console.error('Error loading project data:', error);
-			toast({
-				title: 'Error',
-				description: 'Failed to load project data. Please try again.',
-				variant: 'destructive',
-			});
-		} finally {
-			setIsLoading(false);
-		}
-	};
-	loadData();
-}, [projectName, currentUser]);
-
-const updateProjectInStorage = async (updatedProject: Project) => {
-	try {
-		if (!updatedProject.id) return;
-		await projectService.update(updatedProject.id, updatedProject);
-		setProject(updatedProject);
-		toast({
-			title: "Project updated",
-			description: "Project has been updated successfully.",
-		});
-	} catch (error) {
-		console.error("Error updating project:", error);
-		toast({
-			title: "Error",
-			description: "Failed to update project. Please try again.",
-			variant: "destructive",
-		});
-	}
-};
-
-const updateTasksInStorage = async (updatedTasks: Task[]) => {
-	// This function now just updates local state
-	// Individual task updates are handled by API calls
-	setTasks(updatedTasks);
-};
-
-const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
-	if (!currentUser || !projectName) return;
-
-	const taskToUpdate = tasks.find(task => task.id === taskId);
-	if (!taskToUpdate) return;
-
-	try {
-		// If stage changes, auto-assign to main responsible and reset user status
-		// UNLESS we're explicitly setting the assignee (like in revision workflow)
-		if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
-			// Only auto-assign if we're NOT explicitly setting it in the updates
-			if (!('assignee' in updates) && project) {
-				const targetStage = project.stages.find(s => s.id === updates.projectStage);
-				if (targetStage?.mainResponsibleId) {
-					const mainResponsible = teamMembers.find(m => m.id === targetStage.mainResponsibleId);
-					if (mainResponsible) {
-						updates.assignee = mainResponsible.name;
-					} else {
-						updates.assignee = ""; // Unassign if main responsible not found
-					}
-				} else {
-					updates.assignee = ""; // Unassign if no main responsible set
-				}
-			}
-			if (!('userStatus' in updates)) {
-				updates.userStatus = "pending"; // Reset user-level status
-			}
-
-			// Check if moving to the last stage (rightmost stage)
-			if (project) {
-				const sortedStages = [...project.stages].sort((a, b) => a.order - b.order);
-				const lastStage = sortedStages[sortedStages.length - 1];
-
-				if (updates.projectStage === lastStage.id) {
-					// Add "Completed" tag if not already present
-					const currentTags = taskToUpdate.tags || [];
-					if (!currentTags.includes("Completed")) {
-						updates.tags = [...currentTags, "Completed"];
-					}
-				} else {
-					// Remove "Completed" tag if moving away from last stage
-					const currentTags = taskToUpdate.tags || [];
-					if (currentTags.includes("Completed")) {
-						updates.tags = currentTags.filter(tag => tag !== "Completed");
-					}
-				}
-			}
-
-			addHistoryEntry({
-				action: 'UPDATE_TASK_STATUS',
-				entityId: taskId,
-				entityType: 'task',
-				projectId: projectName,
-				userId: currentUser.id,
-				details: {
-					from: taskToUpdate.projectStage,
-					to: updates.projectStage,
-				},
-			});
-		}
-
-		if (updates.assignee && updates.assignee !== taskToUpdate.assignee) {
-			addHistoryEntry({
-				action: 'UPDATE_TASK_ASSIGNEE',
-				entityId: taskId,
-				entityType: 'task',
-				projectId: projectName,
-				userId: currentUser.id,
-				details: {
-					from: taskToUpdate.assignee,
-					to: updates.assignee,
-				},
-			});
-		}
-
-		// Update via API
-		await taskService.update(taskId, updates);
-
-		// Update local state
-		const updatedTasks = tasks.map(task =>
-			task.id === taskId ? { ...task, ...updates } : task
-		);
-		setTasks(updatedTasks);
-	} catch (error) {
-		console.error("Error updating task:", error);
-		toast({
-			title: "Error",
-			description: "Failed to update task. Please try again.",
-			variant: "destructive",
-		});
-	}
-};
-
-const handleSaveTask = async (task: Omit<Task, "id" | "createdAt">) => {
-	if (!currentUser || !projectName) return;
-
-	try {
-		if (editingTask) {
-			// Update existing task
-			await taskService.update(editingTask.id, task);
-			const updatedTasks = tasks.map(t =>
-				t.id === editingTask.id ? { ...t, ...task } : t
-			);
-			setTasks(updatedTasks);
-
-			addHistoryEntry({
-				action: 'UPDATE_TASK',
-				entityId: editingTask.id,
-				entityType: 'task',
-				projectId: projectName,
-				userId: currentUser.id,
-				details: {
-					from: editingTask,
-					to: { ...editingTask, ...task },
-				},
-			});
-
-			toast({
-				title: "Task updated",
-				description: "Task has been updated successfully.",
-			});
-		} else {
-			// Create new task
-			const newTask = await taskService.create({
-				...task,
-				project: projectName,
-			});
-			setTasks([...tasks, newTask]);
-
-			addHistoryEntry({
-				action: 'CREATE_TASK',
-				entityId: newTask.id,
-				entityType: 'task',
-				projectId: projectName,
-				userId: currentUser.id,
-				details: {
-					title: newTask.title,
-				},
-			});
-
-			toast({
-				title: "Task created",
-				description: "Task has been created successfully.",
-			});
-		}
-
-		setIsTaskDialogOpen(false);
-		setEditingTask(null);
-	} catch (error) {
-		console.error("Error saving task:", error);
-		toast({
-			title: "Error",
-			description: "Failed to save task. Please try again.",
-			variant: "destructive",
-		});
-	}
-};
-
-const handleTaskEdit = (task: Task) => {
-	setEditingTask(task);
-	setIsTaskDialogOpen(true);
-};
-
-const handleTaskDelete = async (taskId: string) => {
-	if (!currentUser || !projectName) return;
-
-	try {
-		const taskToDelete = tasks.find(t => t.id === taskId);
-		if (taskToDelete) {
-			addHistoryEntry({
-				action: 'DELETE_TASK',
-				entityId: taskId,
-				entityType: 'task',
-				projectId: projectName,
-				userId: currentUser.id,
-				details: { title: taskToDelete.title },
-			});
-		}
-
-		await taskService.delete(taskId);
-		const updatedTasks = tasks.filter(task => task.id !== taskId);
-		setTasks(updatedTasks);
-
-		toast({
-			title: "Task deleted",
-			description: "Task has been deleted successfully.",
-		});
-	} catch (error) {
-		console.error("Error deleting task:", error);
-		toast({
-			title: "Error",
-			description: "Failed to delete task. Please try again.",
-			variant: "destructive",
-		});
-	}
-};
-
-const handleAddStage = () => {
-	setEditingStage(null);
-	setIsStageDialogOpen(true);
-};
-
-const handleEditStage = (stage: Stage) => {
-	setEditingStage(stage);
-	setIsStageDialogOpen(true);
-};
-
-const handleDeleteStage = (stageId: string) => {
-	if (!project || !currentUser) return;
-	const stageToDelete = project.stages.find(s => s.id === stageId);
-
-
-
-	if (stageToDelete) {
-		addHistoryEntry({
-			action: 'DELETE_STAGE',
-			entityId: stageId,
-			entityType: 'stage',
-			projectId: project.name,
-			userId: currentUser.id,
-			details: { title: stageToDelete.title },
-		});
-	}
-	const updatedStages = project.stages.filter(s => s.id !== stageId);
-	const updatedProject = { ...project, stages: updatedStages };
-	updateProjectInStorage(updatedProject);
-};
-
-const handleSaveStage = (stage: Omit<Stage, "order">) => {
-	if (!project || !currentUser) return;
-
-	let updatedStages: Stage[];
-	if (editingStage) {
-
-
-		updatedStages = project.stages.map(s =>
-			s.id === editingStage.id ? { ...s, ...stage } : s
-		);
-		addHistoryEntry({
-			action: 'UPDATE_STAGE',
-			entityId: editingStage.id,
-			entityType: 'stage',
-			projectId: project.name,
-			userId: currentUser.id,
-			details: { from: editingStage, to: { ...editingStage, ...stage } },
-		});
-	} else {
-		const newStage = { ...stage, order: project.stages.length, id: `stage-${Date.now()}` };
-		updatedStages = [...project.stages, newStage];
-		addHistoryEntry({
-			action: 'CREATE_STAGE',
-			entityId: newStage.id,
-			entityType: 'stage',
-			projectId: project.name,
-			userId: currentUser.id,
-			details: { title: newStage.title },
-		});
-	}
-
-	const updatedProject = { ...project, stages: updatedStages };
-	updateProjectInStorage(updatedProject);
-	setIsStageDialogOpen(false);
-	setEditingStage(null);
-};
-
-const handleApproveTask = (taskId: string, targetStageId: string, comment?: string) => {
-	if (!project || !currentUser) return;
-
-	const task = tasks.find((t) => t.id === taskId);
-	if (!task) return;
-
-	// Move task to selected stage
-	handleTaskUpdate(taskId, {
-		projectStage: targetStageId,
-		isInSpecificStage: false,
-		previousStage: undefined,
-		originalAssignee: undefined,
-		revisionComment: undefined,
-	});
-
-	// Add history entry if comment provided
-	if (comment) {
-		addHistoryEntry({
-			action: "UPDATE_TASK_STATUS",
-			entityId: taskId,
-			entityType: "task",
-			details: {
-				action: "approved",
-				comment: comment,
-				targetStage: project?.stages.find(s => s.id === targetStageId)?.title || targetStageId,
-			},
-			projectId: project?.name || "",
-			userId: currentUser?.id || "unknown",
-		});
-	}
-
-	toast({
-		title: "Task approved",
-		description: `Task moved to ${project?.stages.find(s => s.id === targetStageId)?.title || "selected stage"}.`,
-	});
-
-	setIsReviewTaskDialogOpen(false);
-	setReviewTask(null);
-};
-
-const handleRequestRevision = (taskId: string, targetStageId: string, comment: string) => {
-	if (!currentUser || !project) return;
-
-	const task = tasks.find((t) => t.id === taskId);
-	if (!task) return;
-
-	const originalAssignee = task.originalAssignee || task.assignee;
-
-	if (!originalAssignee) {
-		toast({
-			title: "Error",
-			description: "Could not find the task assignee.",
-			variant: "destructive",
-		});
-		return;
-	}
-
-	// Add to revision history
-	const newRevision = {
-		id: Date.now().toString(),
-		comment: comment,
-		requestedBy: currentUser.name,
-		requestedAt: new Date().toISOString(),
-	};
-
-	const updatedRevisionHistory = [
-		...(task.revisionHistory || []),
-		newRevision,
-	];
-
-	// Add "Redo" tag
-	const updatedTags = (task.tags || []);
-	if (!updatedTags.includes("Redo")) {
-		updatedTags.push("Redo");
-	}
-
-	// Move task to selected stage with original assignee
-	handleTaskUpdate(taskId, {
-		projectStage: targetStageId,
-		assignee: originalAssignee,
-		userStatus: "pending",
-		isInSpecificStage: false,
-		revisionComment: comment,
-		revisionHistory: updatedRevisionHistory,
-		tags: updatedTags,
-		previousStage: undefined,
-		originalAssignee: undefined,
-	});
-
-	toast({
-		title: "Revision requested",
-		description: `Task sent to ${project?.stages.find(s => s.id === targetStageId)?.title || "selected stage"} for ${originalAssignee} with Redo tag.`,
-	});
-
-	setIsReviewTaskDialogOpen(false);
-	setReviewTask(null);
-};
-
-
-
-if (isLoading) {
-	return <div className="flex items-center justify-center h-screen">Loading...</div>;
-}
-
-if (!project) {
-	return <div className="flex items-center justify-center h-screen">Project not found</div>;
-}
-
-return (
-	<div className="flex flex-col h-screen overflow-hidden">
-		{/* Fixed header */}
-		<div className="flex-shrink-0 border-b p-4 space-y-4">
-			<div className="flex items-center justify-between">
-				<div>
-					<h1 className="text-2xl font-bold">{project.name}</h1>
-					<p className="text-muted-foreground">{project.description}</p>
-				</div>
-				<div className="flex gap-2">
-					{(currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
-						<>
-							<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
-								View History
-							</Button>
-							<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
-								Manage Stages
-							</Button>
-							<Button
-								onClick={() => {
-									setEditingTask(null);
-									setIsTaskDialogOpen(true);
-								}}
-							>
-								<Plus className="mr-2 h-4 w-4" />
-								Add Task
-							</Button>
-						</>
-					)}
-				</div>
-			</div>
-			<div className="flex items-center justify-between">
-				<ToggleGroup
-					type="single"
-					value={view}
-					onValueChange={(value) => {
-						if (value) setView(value as "kanban" | "list");
-					}}
-				>
-					<ToggleGroupItem value="kanban" aria-label="Kanban view">
-						<LayoutGrid className="h-4 w-4" />
-					</ToggleGroupItem>
-					<ToggleGroupItem value="list" aria-label="List view">
-						<List className="h-4 w-4" />
-					</ToggleGroupItem>
-				</ToggleGroup>
-			</div>
-		</div>
-
-		{/* Scrollable content section */}
-		<div className="flex-1 overflow-auto p-4">
-			{view === "kanban" ? (
-				<div className="h-full w-full">
-					<KanbanBoard
-						tasks={tasks}
-						stages={[...project.stages]
-							.sort((a, b) => a.order - b.order)}
-						onTaskUpdate={handleTaskUpdate}
-						onTaskEdit={handleTaskEdit}
-						onTaskDelete={handleTaskDelete}
-						useProjectStages={true}
-						canManageTasks={currentUser?.role !== "user"}
-						canDragTasks={currentUser?.role !== "user"}
-						onTaskReview={(task) => {
-							setReviewTask(task);
-							setIsReviewTaskDialogOpen(true);
-						}}
-
-					/>
-				</div>
-			) : (
-				<TaskListView
-					tasks={tasks}
-					stages={[...project.stages]
-						.sort((a, b) => a.order - b.order)}
-					onTaskEdit={handleTaskEdit}
-					onTaskDelete={handleTaskDelete}
-					onTaskUpdate={handleTaskUpdate}
-					teamMembers={teamMembers}
-					canManage={currentUser?.role !== "user"}
-					onTaskReview={(task) => {
-						setReviewTask(task);
-						setIsReviewTaskDialogOpen(true);
-					}}
-					showReviewButton={currentUser?.role === "admin" || currentUser?.role === "team-lead"}
-
-				/>
-			)}
-		</div>
-
-		{/* Dialogs */}
-		<HistoryDialog
-			open={isHistoryDialogOpen}
-			onOpenChange={setIsHistoryDialogOpen}
-			history={history}
-			teamMembers={teamMembers}
-		/>
-		<TaskDialog
-			open={isTaskDialogOpen}
-			onOpenChange={setIsTaskDialogOpen}
-			onSave={handleSaveTask}
-			editTask={editingTask}
-			availableStatuses={project.stages}
-			useProjectStages={true}
-			availableProjects={[project.name]}
-			teamMembers={teamMembers}
-			departments={departments}
-			allTasks={allTasks}
-		/>
-
-		<StageManagement
-			open={isStageManagementOpen}
-			onOpenChange={setIsStageManagementOpen}
-			stages={project.stages}
-			onAddStage={handleAddStage}
-			onEditStage={handleEditStage}
-			onDeleteStage={handleDeleteStage}
-		/>
-
-		<StageDialog
-			open={isStageDialogOpen}
-			onOpenChange={setIsStageDialogOpen}
-			onSave={handleSaveStage}
-			existingStages={project.stages}
-			editStage={editingStage}
-			teamMembers={teamMembers}
-		/>
-
-		<ReviewTaskDialog
-			open={isReviewTaskDialogOpen}
-			onOpenChange={setIsReviewTaskDialogOpen}
-			task={reviewTask}
-			stages={project.stages}
-			onApprove={handleApproveTask}
-			onRequestRevision={handleRequestRevision}
-		/>
-
-
-	</div>
-);
 }

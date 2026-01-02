@@ -25,11 +25,15 @@ use Illuminate\Support\Facades\Route;
 
 // Authentication routes (public)
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout']);
-Route::get('/user', [AuthController::class, 'user']);
 
-// Protected API routes (require authentication)
-Route::middleware('auth:web')->group(function () {
+Route::get('/projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
+Route::get('/projects/{project}/suggested-tasks', [ProjectController::class, 'suggestedTasks']);
+Route::post('/projects/{project}/suggested-tasks', [ProjectController::class, 'createSuggestedTasks']);
+
+// Protected API routes (require bearer token)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', [AuthController::class, 'user']);
     Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('stages', StageController::class);

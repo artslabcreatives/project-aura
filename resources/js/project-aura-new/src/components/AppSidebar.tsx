@@ -156,9 +156,12 @@ export function AppSidebar() {
 				department,
 			});
 
-			// Create stages (only those without numeric id)
+			// Step 1: Create all stages without linked IDs (to get numeric IDs from backend)
+			const stageIdMap = new Map<string, number>(); // Map temp ID -> real ID
+			const createdStages = [];
+
 			for (const stage of stages) {
-				await api.post('/stages', {
+				const response = await api.post('/stages', {
 					title: stage.title,
 					color: stage.color,
 					order: stage.order,
@@ -168,9 +171,30 @@ export function AppSidebar() {
 					backup_responsible_id_1: stage.backupResponsibleId1,
 					backup_responsible_id_2: stage.backupResponsibleId2,
 					is_review_stage: stage.isReviewStage,
-					linked_review_stage_id: stage.linkedReviewStageId,
-					approved_target_stage_id: stage.approvedTargetStageId,
+					// Don't send linked IDs yet - they reference temp IDs
 				});
+				stageIdMap.set(stage.id, response.data.id);
+				createdStages.push({ tempId: stage.id, realId: response.data.id, originalStage: stage });
+			}
+
+			// Step 2: Update stages with proper linked IDs now that all stages exist
+			for (const { realId, originalStage } of createdStages) {
+				const updates: any = {};
+
+				if (originalStage.linkedReviewStageId) {
+					const linkedId = stageIdMap.get(originalStage.linkedReviewStageId);
+					if (linkedId) updates.linked_review_stage_id = linkedId;
+				}
+
+				if (originalStage.approvedTargetStageId) {
+					const approvedId = stageIdMap.get(originalStage.approvedTargetStageId);
+					if (approvedId) updates.approved_target_stage_id = approvedId;
+				}
+
+				// Only update if there are linked IDs to set
+				if (Object.keys(updates).length > 0) {
+					await api.put(`/stages/${realId}`, updates);
+				}
 			}
 
 			const projectsData = await projectService.getAll();
