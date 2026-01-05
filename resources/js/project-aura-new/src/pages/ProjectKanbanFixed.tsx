@@ -26,8 +26,49 @@ import { stageService } from "@/services/stageService";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
-	const numericProjectId = projectId ? parseInt(projectId, 10) : undefined;
 	const [project, setProject] = useState<Project | null>(null);
+	const [loading, setLoading] = useState(true);
+	const { toast } = useToast();
+
+	useEffect(() => {
+		const fetchProject = async () => {
+			setLoading(true);
+			try {
+				if (!projectId) { setProject(null); return; }
+				const allProjects = await projectService.getAll();
+				let found = null;
+				// Check if ID (all digits)
+				if (/^\d+$/.test(projectId)) {
+					found = allProjects.find(p => String(p.id) === projectId);
+				} else {
+					// Check by name or slug
+					const decoded = decodeURIComponent(projectId);
+					found = allProjects.find(p => p.name === decoded);
+					if (!found) {
+						const slug = projectId.toLowerCase();
+						found = allProjects.find(p => p.name.toLowerCase().replace(/\s+/g, '-') === slug);
+					}
+				}
+				setProject(found || null);
+			} catch (e) {
+				console.error(e);
+				toast({ title: "Error", description: "Failed to load project", variant: "destructive" });
+			} finally {
+				setLoading(false);
+			}
+		};
+		fetchProject();
+	}, [projectId]);
+
+	if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
+
+	return <ProjectBoardContent key={project.id} project={project} />;
+}
+
+function ProjectBoardContent({ project: initialProject }: { project: Project }) {
+	const numericProjectId = initialProject.id ? parseInt(String(initialProject.id), 10) : undefined;
+	const [project, setProject] = useState<Project>(initialProject);
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [allTasks, setAllTasks] = useState<Task[]>([]);
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);

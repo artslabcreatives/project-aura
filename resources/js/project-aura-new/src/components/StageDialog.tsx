@@ -32,13 +32,13 @@ interface StageDialogProps {
 }
 
 const colorOptions = [
-  { value: "bg-status-todo", label: "Gray", class: "bg-status-todo" },
-  { value: "bg-status-progress", label: "Blue", class: "bg-status-progress" },
-  { value: "bg-status-done", label: "Green", class: "bg-status-done" },
-  { value: "bg-status-overdue", label: "Red", class: "bg-status-overdue" },
-  { value: "bg-priority-high", label: "Orange", class: "bg-priority-high" },
-  { value: "bg-primary", label: "Purple", class: "bg-primary" },
-  { value: "bg-accent", label: "Accent", class: "bg-accent" },
+  { value: "bg-slate-200", label: "Gray", hex: "#e2e8f0" },
+  { value: "bg-blue-500", label: "Blue", hex: "#3b82f6" },
+  { value: "bg-green-500", label: "Green", hex: "#22c55e" },
+  { value: "bg-red-500", label: "Red", hex: "#ef4444" },
+  { value: "bg-orange-500", label: "Orange", hex: "#f97316" },
+  { value: "bg-purple-500", label: "Purple", hex: "#a855f7" },
+  { value: "bg-slate-500", label: "Accent", hex: "#64748b" },
 ];
 
 export function StageDialog({
@@ -53,7 +53,7 @@ export function StageDialog({
   const [formData, setFormData] = useState({
     id: "",
     title: "",
-    color: "bg-status-todo",
+    color: "bg-slate-200",
     mainResponsibleId: undefined as string | undefined,
     backupResponsibleId1: undefined as string | undefined,
     backupResponsibleId2: undefined as string | undefined,
@@ -73,7 +73,7 @@ export function StageDialog({
       setFormData({
         id: "",
         title: "",
-        color: "bg-status-todo",
+        color: "bg-slate-200",
         mainResponsibleId: undefined,
         backupResponsibleId1: undefined,
         backupResponsibleId2: undefined,
@@ -172,7 +172,7 @@ export function StageDialog({
                     <SelectItem key={option.value} value={option.value}>
                       <div className="flex items-center gap-2">
                         <div
-                          className={`h-3 w-3 rounded-full ${option.class}`}
+                          className={`h-3 w-3 rounded-full ${option.value}`}
                         />
                         <span>{option.label}</span>
                       </div>

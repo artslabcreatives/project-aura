@@ -317,8 +317,11 @@ export function AppSidebar() {
 		}
 	};
 
-	const isProjectActive = (projectId: string) => {
-		return location.pathname === `/project/${projectId}`;
+	const getProjectSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
+	const getProjectUrl = (project: Project) => `/project/${getProjectSlug(project.name)}`;
+
+	const isProjectActive = (project: Project) => {
+		return location.pathname === getProjectUrl(project);
 	};
 
 	const isStageActive = (projectId: string, stageId: string) => {
@@ -508,8 +511,8 @@ export function AppSidebar() {
 													<div className="relative group">
 														<SidebarMenuButton asChild>
 															<NavLink
-																to={`/project/${project.id}`}
-																className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project.id)
+																to={getProjectUrl(project)}
+																className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
 																	? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 																	: ""
 																	}`}
@@ -585,8 +588,8 @@ export function AppSidebar() {
 																		<div className="relative group">
 																			<SidebarMenuSubButton asChild>
 																				<NavLink
-																					to={`/project/${project.id}`}
-																					className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project.id)
+																					to={getProjectUrl(project)}
+																					className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
 																						? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 																						: ""
 																						}`}
@@ -660,8 +663,8 @@ export function AppSidebar() {
 										{userAssignedProjects.map((project) => (
 											<Collapsible
 												key={project.id}
-												open={expandedProjects.has(project.id)}
-												onOpenChange={() => toggleProjectExpanded(project.id)}
+												open={expandedProjects.has(String(project.id))}
+												onOpenChange={() => toggleProjectExpanded(String(project.id))}
 											>
 												<SidebarMenuItem>
 													<CollapsibleTrigger asChild>
@@ -671,7 +674,7 @@ export function AppSidebar() {
 																<span className="text-sm">{project.name}</span>
 															</div>
 															<ChevronRight
-																className={`h-4 w-4 transition-transform ${expandedProjects.has(project.id) ? "rotate-90" : ""
+																className={`h-4 w-4 transition-transform ${expandedProjects.has(String(project.id)) ? "rotate-90" : ""
 																	}`}
 															/>
 														</SidebarMenuButton>
@@ -684,7 +687,7 @@ export function AppSidebar() {
 																		<SidebarMenuSubButton asChild>
 																			<NavLink
 																				to={`/user-project/${project.id}/stage/${stage.id}`}
-																				className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isStageActive(project.id, stage.id)
+																				className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isStageActive(String(project.id), stage.id)
 																					? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 																					: ""
 																					}`}
@@ -728,8 +731,8 @@ export function AppSidebar() {
 											<SidebarMenuItem key={project.id}>
 												<SidebarMenuButton asChild>
 													<NavLink
-														to={`/project/${project.id}`}
-														className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project.id)
+														to={getProjectUrl(project)}
+														className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
 															? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 															: ""
 															}`}

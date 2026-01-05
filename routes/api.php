@@ -25,10 +25,16 @@ use Illuminate\Support\Facades\Route;
 
 // Authentication routes (public)
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/check-email', [AuthController::class, 'checkEmail']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-Route::get('/projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
-Route::get('/projects/{project}/suggested-tasks', [ProjectController::class, 'suggestedTasks']);
-Route::post('/projects/{project}/suggested-tasks', [ProjectController::class, 'createSuggestedTasks']);
+Route::get('projects/{project}/suggested-tasks', [ProjectController::class, 'suggestedTasks']);
+Route::post('projects/{project}/suggested-tasks', [ProjectController::class, 'createSuggestedTasks']);
+Route::get('projects/search/email', [ProjectController::class, 'searchByEmail']);
+Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
+Route::get('users/search/exist', [UserController::class, 'exist']);
 
 // Protected API routes (require bearer token)
 Route::middleware('auth:sanctum')->group(function () {
@@ -42,4 +48,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
     Route::apiResource('users', UserController::class);
+
+    // Notifications
+    Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+    Route::patch('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+    Route::delete('/notifications/{id}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
 });

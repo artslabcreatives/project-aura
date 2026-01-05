@@ -49,16 +49,13 @@ const projectSchema = z.object({
 type ProjectFormData = z.infer<typeof projectSchema>;
 
 const colorOptions = [
-	{ value: "bg-status-todo", label: "Gray", class: "bg-status-todo" },
-	{ value: "bg-status-progress", label: "Blue", class: "bg-status-progress" },
-	{ value: "bg-status-done", label: "Green", class: "bg-status-done" },
-	{ value: "bg-status-overdue", label: "Red", class: "bg-status-overdue" },
-	{ value: "bg-priority-high", label: "Orange", class: "bg-priority-high" },
-	{ value: "bg-primary", label: "Purple", class: "bg-primary" },
-	{ value: "bg-accent", label: "Accent", class: "bg-accent" },
-	{ value: "bg-yellow-500", label: "Yellow", class: "bg-yellow-500" },
-	{ value: "bg-pink-500", label: "Pink", class: "bg-pink-500" },
-	{ value: "bg-cyan-500", label: "Cyan", class: "bg-cyan-500" },
+	{ value: "bg-slate-200", label: "Gray", hex: "#e2e8f0" },
+	{ value: "bg-blue-500", label: "Blue", hex: "#3b82f6" },
+	{ value: "bg-green-500", label: "Green", hex: "#22c55e" },
+	{ value: "bg-red-500", label: "Red", hex: "#ef4444" },
+	{ value: "bg-orange-500", label: "Orange", hex: "#f97316" },
+	{ value: "bg-purple-500", label: "Purple", hex: "#a855f7" },
+	{ value: "bg-slate-500", label: "Accent", hex: "#64748b" },
 ];
 
 
@@ -209,7 +206,7 @@ export function ProjectDialog({
 		const newStage: Stage = {
 			id: `stage-${Date.now()}`,
 			title: "",
-			color: "bg-status-todo",
+			color: "bg-slate-200",
 			order: stages.length,
 			type: "project",
 			mainResponsibleId: undefined,
@@ -401,7 +398,10 @@ export function ProjectDialog({
 													<SelectTrigger className="w-[140px]">
 														<SelectValue>
 															<div className="flex items-center gap-2">
-																<div className={cn("h-3 w-3 rounded-full", stage.color)} />
+																<div
+																	className="h-3 w-3 rounded-full border border-slate-200"
+																	style={{ backgroundColor: colorOptions.find(c => c.value === stage.color)?.hex }}
+																/>
 																<span className="text-sm">
 																	{colorOptions.find(c => c.value === stage.color)?.label}
 																</span>
@@ -412,7 +412,10 @@ export function ProjectDialog({
 														{colorOptions.map((option) => (
 															<SelectItem key={option.value} value={option.value}>
 																<div className="flex items-center gap-2">
-																	<div className={cn("h-3 w-3 rounded-full", option.class)} />
+																	<div
+																		className="h-3 w-3 rounded-full border border-slate-200"
+																		style={{ backgroundColor: option.hex }}
+																	/>
 																	<span>{option.label}</span>
 																</div>
 															</SelectItem>

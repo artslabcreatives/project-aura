@@ -90,4 +90,11 @@ class UserController extends Controller
         $user->delete();
         return response()->json(null, 204);
     }
+
+	//exist
+	public function exist(Request $request): JsonResponse
+	{
+	    $exists = User::where('email', $request->email)->exists();
+	    return response()->json(['exists' => $exists]);
+	}
 }

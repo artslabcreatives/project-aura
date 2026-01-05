@@ -123,4 +123,18 @@ class ProjectController extends Controller
     }
 
 	//get tasks
+	//get tasks by email
+	public function searchByEmail(Request $request): JsonResponse
+	{
+		$request->validate([
+			'email' => 'required|email',
+		]);
+
+		$email = $request->input('email');
+
+		$projects = Project::whereJsonContains('emails', $email)
+			->with(['department', 'stages', 'tasks'])
+			->get();	
+		return response()->json($projects);
+	}
 }
