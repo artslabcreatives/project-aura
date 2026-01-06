@@ -518,7 +518,7 @@ export function ProjectDialog({
 													<SearchableSelect
 														value={stage.mainResponsibleId}
 														onValueChange={(value) => updateStage(index, "mainResponsibleId", value)}
-														options={memberOptions}
+														options={memberOptions.filter(o => o.value !== stage.backupResponsibleId1 && o.value !== stage.backupResponsibleId2)}
 														placeholder="Select main"
 													/>
 												</div>
@@ -527,7 +527,7 @@ export function ProjectDialog({
 													<SearchableSelect
 														value={stage.backupResponsibleId1}
 														onValueChange={(value) => updateStage(index, "backupResponsibleId1", value)}
-														options={memberOptions}
+														options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
 														placeholder="Select backup 1"
 													/>
 												</div>
@@ -536,7 +536,7 @@ export function ProjectDialog({
 													<SearchableSelect
 														value={stage.backupResponsibleId2}
 														onValueChange={(value) => updateStage(index, "backupResponsibleId2", value)}
-														options={memberOptions}
+														options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
 														placeholder="Select backup 2"
 													/>
 												</div>

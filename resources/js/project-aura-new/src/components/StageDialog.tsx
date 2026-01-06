@@ -206,7 +206,7 @@ export function StageDialog({
                 onValueChange={(value) =>
                   setFormData({ ...formData, mainResponsibleId: value })
                 }
-                options={memberOptions}
+                options={memberOptions.filter(o => o.value !== formData.backupResponsibleId1 && o.value !== formData.backupResponsibleId2)}
                 placeholder="Select main responsible"
               />
             </div>
@@ -218,7 +218,7 @@ export function StageDialog({
                 onValueChange={(value) =>
                   setFormData({ ...formData, backupResponsibleId1: value })
                 }
-                options={memberOptions}
+                options={memberOptions.filter(o => o.value !== formData.mainResponsibleId && o.value !== formData.backupResponsibleId2)}
                 placeholder="Select backup responsible 1"
               />
             </div>
@@ -230,7 +230,7 @@ export function StageDialog({
                 onValueChange={(value) =>
                   setFormData({ ...formData, backupResponsibleId2: value })
                 }
-                options={memberOptions}
+                options={memberOptions.filter(o => o.value !== formData.mainResponsibleId && o.value !== formData.backupResponsibleId1)}
                 placeholder="Select backup responsible 2"
               />
             </div>
