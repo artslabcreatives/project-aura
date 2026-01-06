@@ -19,9 +19,8 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-	SelectGroup,
-	SelectLabel,
 } from "@/components/ui/select";
+import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Link as LinkIcon, Upload, Loader2 } from "lucide-react";
@@ -309,14 +308,15 @@ export function TaskDialog({
 		return departments.find(dep => dep.id === departmentId)?.name || "Uncategorized";
 	};
 
-	const groupedTeamMembers = teamMembers.reduce((acc, member) => {
+	const memberOptions: SearchableOption[] = teamMembers.map((member) => {
 		const departmentName = getDepartmentName(member.department);
-		if (!acc[departmentName]) {
-			acc[departmentName] = [];
-		}
-		acc[departmentName].push(member);
-		return acc;
-	}, {} as Record<string, User[]>);
+		const taskCount = getTaskCountForAssignee(member.name);
+		return {
+			value: member.name, // Use name as value to match formData
+			label: `${member.name} (${taskCount})`,
+			group: departmentName,
+		};
+	});
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -386,32 +386,14 @@ export function TaskDialog({
 
 							<div className="grid gap-2">
 								<Label htmlFor="assignee">Assign To *</Label>
-								<Select
+								<SearchableSelect
 									value={formData.assignee}
 									onValueChange={(value) =>
 										setFormData({ ...formData, assignee: value })
 									}
-									required
-								>
-									<SelectTrigger id="assignee">
-										<SelectValue placeholder="Select member" />
-									</SelectTrigger>
-									<SelectContent>
-										{Object.entries(groupedTeamMembers).map(([department, members]) => (
-											<SelectGroup key={department}>
-												<SelectLabel>{department}</SelectLabel>
-												{members.map((member) => {
-													const taskCount = getTaskCountForAssignee(member.name);
-													return (
-														<SelectItem key={member.id} value={member.name}>
-															{member.name} ({taskCount})
-														</SelectItem>
-													);
-												})}
-											</SelectGroup>
-										))}
-									</SelectContent>
-								</Select>
+									options={memberOptions}
+									placeholder="Select member"
+								/>
 							</div>
 						</div>
 
