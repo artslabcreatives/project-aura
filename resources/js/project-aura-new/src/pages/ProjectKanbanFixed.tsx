@@ -481,7 +481,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				}}
 				onSave={handleSaveTask}
 				editTask={editingTask}
-				availableStatuses={project.stages}
+				availableStatuses={sortedStages}
 				useProjectStages
 				availableProjects={[project.name]}
 				teamMembers={teamMembers}
@@ -493,7 +493,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			<StageManagement
 				open={isStageManagementOpen}
 				onOpenChange={setIsStageManagementOpen}
-				stages={project.stages}
+				stages={sortedStages}
 				onAddStage={handleAddStage}
 				onEditStage={handleEditStage}
 				onDeleteStage={handleDeleteStage}
@@ -502,7 +502,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				open={isStageDialogOpen}
 				onOpenChange={setIsStageDialogOpen}
 				onSave={handleSaveStage}
-				existingStages={project.stages}
+				existingStages={sortedStages}
 				editStage={editingStage}
 				teamMembers={teamMembers}
 			/>
@@ -510,7 +510,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				open={isReviewTaskDialogOpen}
 				onOpenChange={setIsReviewTaskDialogOpen}
 				task={reviewTask}
-				stages={project.stages}
+				stages={sortedStages}
 				onApprove={handleApproveTask}
 				onRequestRevision={handleRequestRevision}
 			/>
