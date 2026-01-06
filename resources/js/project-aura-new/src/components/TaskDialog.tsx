@@ -118,12 +118,20 @@ export function TaskDialog({
 			setPendingFiles([]);
 			setPendingLinks([]);
 		} else {
-			// Get first non-Specific Stage as default, or use initialStageId
-			const defaultStage = initialStageId
-				? initialStageId
-				: (useProjectStages && availableStatuses.length > 0
-					? (availableStatuses.find(s => s.title !== "Specific Stage") || availableStatuses[0]).id
-					: "");
+			// Get specific stage ID if provided, otherwise default to "Pending" stage
+			let defaultStage = "";
+			if (initialStageId) {
+				defaultStage = initialStageId;
+			} else if (useProjectStages && availableStatuses.length > 0) {
+				const pendingStage = availableStatuses.find(s => s.title === "Pending");
+				if (pendingStage) {
+					defaultStage = pendingStage.id;
+				} else {
+					// Fallback: exclude "Specific Stage" and "Suggested Task" if possible
+					const validStage = availableStatuses.find(s => s.title !== "Specific Stage" && s.title !== "Suggested Task");
+					defaultStage = (validStage || availableStatuses[0]).id;
+				}
+			}
 
 			const today = new Date();
 			const tomorrow = new Date(today);
