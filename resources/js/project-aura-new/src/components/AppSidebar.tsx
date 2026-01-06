@@ -1,5 +1,6 @@
 import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
 	Sidebar,
@@ -438,9 +439,7 @@ export function AppSidebar() {
 		<Sidebar>
 			<SidebarHeader className="border-b border-sidebar-border p-4">
 				<div className="flex items-center gap-2">
-					<div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-						<FolderKanban className="h-5 w-5 text-primary-foreground" />
-					</div>
+					<img src={Logo} alt="Aura" className="h-10 w-10 object-contain" />
 					<div>
 						<h2 className="font-semibold text-sm">Aura</h2>
 						<p className="text-xs text-muted-foreground">Project Management System</p>

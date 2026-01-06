@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { setToken } from "@/lib/api";
 import loginImage from "@/assets/login-ui.jpg";
+import Logo from "@/assets/Logo.png";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 interface LoginProps {
@@ -94,6 +95,9 @@ export function Login({ onLoginSuccess }: LoginProps) {
 				) : (
 					<div className="mx-auto w-full max-w-[400px] space-y-8">
 						<div className="text-center space-y-2">
+							<div className="flex justify-center mb-4">
+								<img src={Logo} alt="Aura Logo" className="h-20 w-auto object-contain" />
+							</div>
 							<h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
 								Welcome back
 							</h1>

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/input-otp";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, KeyRound, ArrowLeft, Loader2, Eye, EyeOff } from "lucide-react";
+import Logo from "@/assets/Logo.png";
 
 interface ResetPasswordProps {
     onBack: () => void;
@@ -150,6 +151,9 @@ export function ResetPassword({ onBack }: ResetPasswordProps) {
     return (
         <div className="mx-auto w-full max-w-[400px] space-y-8">
             <div className="text-center space-y-2">
+                <div className="flex justify-center mb-4">
+                    <img src={Logo} alt="Aura Logo" className="h-20 w-auto object-contain" />
+                </div>
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center justify-center gap-2">
                     {step === "email" && <><KeyRound className="h-8 w-8" /> Reset Password</>}
                     {step === "otp" && <><Mail className="h-8 w-8" /> Verify Email</>}
