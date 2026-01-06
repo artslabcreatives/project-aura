@@ -91,7 +91,7 @@ class AuthController extends Controller
 
         // Send OTP via Webhook
         try {
-            $response = \Illuminate\Support\Facades\Http::post('https://automation.artslabcreatives.com/webhook-test/aura-otp', [
+            $response = \Illuminate\Support\Facades\Http::post('https://automation.artslabcreatives.com/webhook/aura-otp', [
                 'email' => $email,
                 'otp' => $otp,
                 'type' => 'reset_password'
