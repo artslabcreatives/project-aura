@@ -59,4 +59,98 @@ class AuthController extends Controller
     {
         return response()->json($request->user()->load('department'));
     }
+
+    /**
+     * Check if email exists
+     */
+    public function checkEmail(Request $request): JsonResponse
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $exists = User::where('email', $request->email)->exists();
+
+        if (!$exists) {
+            return response()->json(['message' => 'Email not found'], 404);
+        }
+
+        return response()->json(['message' => 'Email exists']);
+    }
+
+    /**
+     * Send OTP for password reset
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate(['email' => 'required|email|exists:users,email']);
+
+        $email = $request->email;
+        $otp = (string) rand(100000, 999999);
+        
+        // Store OTP in cache for 5 minutes
+        \Illuminate\Support\Facades\Cache::put('password_reset_otp_' . $email, $otp, 300);
+
+        // Send OTP via Webhook
+        try {
+            $response = \Illuminate\Support\Facades\Http::post('https://automation.artslabcreatives.com/webhook-test/aura-otp', [
+                'email' => $email,
+                'otp' => $otp,
+                'type' => 'reset_password'
+            ]);
+
+            if (!$response->successful()) {
+                throw new \Exception('Failed to send OTP via webhook');
+            }
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to send verification code'], 500);
+        }
+
+        return response()->json(['message' => 'Verification code sent']);
+    }
+
+    /**
+     * Verify OTP
+     */
+    public function verifyOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+        ]);
+
+        $cachedOtp = \Illuminate\Support\Facades\Cache::get('password_reset_otp_' . $request->email);
+
+        if (!$cachedOtp || $cachedOtp !== $request->otp) {
+            return response()->json(['message' => 'Invalid or expired verification code'], 400);
+        }
+
+        return response()->json(['message' => 'Code verified successfully']);
+    }
+
+    /**
+     * Reset Password
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'otp' => 'required|string|size:6',
+            'password' => 'required|string|min:8',
+        ]);
+
+        // Verify OTP again before resetting
+        $cachedOtp = \Illuminate\Support\Facades\Cache::get('password_reset_otp_' . $request->email);
+
+        if (!$cachedOtp || $cachedOtp !== $request->otp) {
+            return response()->json(['message' => 'Invalid or expired verification code'], 400);
+        }
+
+        $user = User::where('email', $request->email)->first();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        // Clear OTP
+        \Illuminate\Support\Facades\Cache::forget('password_reset_otp_' . $request->email);
+
+        return response()->json(['message' => 'Password reset successfully']);
+    }
 }
