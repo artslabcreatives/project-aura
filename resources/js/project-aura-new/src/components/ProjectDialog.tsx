@@ -23,12 +23,15 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
+	SelectGroup,
+	SelectLabel,
 } from "@/components/ui/select";
 import { TagInput } from "./ui/TagInput";
 import { MultiSelect } from "./ui/multi-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Department } from "@/types/department";
 import { Project } from "@/types/project";
+import { SearchableSelect, SearchableOption } from "./ui/searchable-select";
 
 const projectSchema = z.object({
 	name: z
@@ -227,6 +230,16 @@ export function ProjectDialog({
 	const removeStage = (index: number) => {
 		setStages(stages.filter((_, i) => i !== index));
 	};
+
+
+	const memberOptions: SearchableOption[] = teamMembers.map(member => {
+		const deptName = departments.find(d => d.id === member.department)?.name || "Other";
+		return {
+			value: member.id,
+			label: member.name,
+			group: deptName
+		};
+	});
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -500,59 +513,32 @@ export function ProjectDialog({
 
 
 											<div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-												<div>
+												<div className="flex flex-col gap-1.5">
 													<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
-													<Select
-														value={stage.mainResponsibleId || ""}
+													<SearchableSelect
+														value={stage.mainResponsibleId}
 														onValueChange={(value) => updateStage(index, "mainResponsibleId", value)}
-													>
-														<SelectTrigger id={`main-responsible-${stage.id}`}>
-															<SelectValue placeholder="Select main" />
-														</SelectTrigger>
-														<SelectContent>
-															{teamMembers.map((member) => (
-																<SelectItem key={member.id} value={member.id}>
-																	{member.name}
-																</SelectItem>
-															))}
-														</SelectContent>
-													</Select>
+														options={memberOptions}
+														placeholder="Select main"
+													/>
 												</div>
-												<div>
+												<div className="flex flex-col gap-1.5">
 													<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
-													<Select
-														value={stage.backupResponsibleId1 || ""}
+													<SearchableSelect
+														value={stage.backupResponsibleId1}
 														onValueChange={(value) => updateStage(index, "backupResponsibleId1", value)}
-													>
-														<SelectTrigger id={`backup1-responsible-${stage.id}`}>
-															<SelectValue placeholder="Select backup 1" />
-														</SelectTrigger>
-														<SelectContent>
-															{teamMembers.map((member) => (
-																<SelectItem key={member.id} value={member.id}>
-																	{member.name}
-																</SelectItem>
-															))}
-														</SelectContent>
-													</Select>
+														options={memberOptions}
+														placeholder="Select backup 1"
+													/>
 												</div>
-												<div>
+												<div className="flex flex-col gap-1.5">
 													<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
-													<Select
-														value={stage.backupResponsibleId2 || ""}
+													<SearchableSelect
+														value={stage.backupResponsibleId2}
 														onValueChange={(value) => updateStage(index, "backupResponsibleId2", value)}
-													>
-														<SelectTrigger id={`backup2-responsible-${stage.id}`}>
-															<SelectValue placeholder="Select backup 2" />
-														</SelectTrigger>
-														<SelectContent>
-															{teamMembers.map((member) => (
-																<SelectItem key={member.id} value={member.id}>
-																	{member.name}
-																</SelectItem>
-															))}
-														</SelectContent>
-													</Select>
+														options={memberOptions}
+														placeholder="Select backup 2"
+													/>
 												</div>
 											</div>
 										</div>

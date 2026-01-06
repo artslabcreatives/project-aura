@@ -21,6 +21,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@/types/task";
 
+import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
+import { departmentService } from "@/services/departmentService";
+import { Department } from "@/types/department";
 
 interface StageDialogProps {
   open: boolean;
@@ -58,6 +61,11 @@ export function StageDialog({
     backupResponsibleId1: undefined as string | undefined,
     backupResponsibleId2: undefined as string | undefined,
   });
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    departmentService.getAll().then(setDepartments).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (editStage) {
@@ -126,6 +134,15 @@ export function StageDialog({
     onOpenChange(false);
   };
 
+  const memberOptions: SearchableOption[] = teamMembers.map(member => {
+    const deptName = departments.find(d => d.id === member.department)?.name || "Other";
+    return {
+      value: member.id,
+      label: member.name,
+      group: deptName
+    };
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -184,65 +201,38 @@ export function StageDialog({
 
             <div className="grid gap-2">
               <Label htmlFor="main-responsible">Main Responsible</Label>
-              <Select
-                value={formData.mainResponsibleId || ""}
+              <SearchableSelect
+                value={formData.mainResponsibleId}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, mainResponsibleId: value || undefined })
+                  setFormData({ ...formData, mainResponsibleId: value })
                 }
-              >
-                <SelectTrigger id="main-responsible">
-                  <SelectValue placeholder="Select main responsible" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={memberOptions}
+                placeholder="Select main responsible"
+              />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="backup1-responsible">Backup Responsible 1</Label>
-              <Select
-                value={formData.backupResponsibleId1 || ""}
+              <SearchableSelect
+                value={formData.backupResponsibleId1}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, backupResponsibleId1: value || undefined })
+                  setFormData({ ...formData, backupResponsibleId1: value })
                 }
-              >
-                <SelectTrigger id="backup1-responsible">
-                  <SelectValue placeholder="Select backup responsible 1" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={memberOptions}
+                placeholder="Select backup responsible 1"
+              />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="backup2-responsible">Backup Responsible 2</Label>
-              <Select
-                value={formData.backupResponsibleId2 || ""}
+              <SearchableSelect
+                value={formData.backupResponsibleId2}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, backupResponsibleId2: value || undefined })
+                  setFormData({ ...formData, backupResponsibleId2: value })
                 }
-              >
-                <SelectTrigger id="backup2-responsible">
-                  <SelectValue placeholder="Select backup responsible 2" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={memberOptions}
+                placeholder="Select backup responsible 2"
+              />
             </div>
           </div>
 
