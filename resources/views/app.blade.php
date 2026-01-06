@@ -5,8 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>TaskFlow - Project Task Management</title>
+        <title>Aura - Project Task Management</title>
         <meta name="description" content="Modern task management tool for teams. Organize, track, and manage project tasks with kanban boards, filters, and team collaboration features." />
+        <link rel="icon" href="/favicon.ico" />
+
+        <!-- Social Media Tags -->
+        <meta property="og:title" content="Aura - Project Task Management" />
+        <meta property="og:description" content="Modern task management tool for teams. Organize, track, and manage project tasks with kanban boards, filters, and team collaboration features." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="{{ asset('build/assets/login-ui-DEP-tRQd.jpg') }}" />
 
         @viteReactRefresh
         @vite(['resources/js/project-aura-new/src/index.css', 'resources/js/project-aura-new/src/main.tsx'])
