@@ -82,6 +82,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isLoading, setIsLoading] = useState(true);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
+	const [preselectedStageId, setPreselectedStageId] = useState<string | undefined>(undefined);
 	const { history, addHistoryEntry } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
 	const { currentUser } = useUser();
 	const { toast } = useToast();
@@ -127,6 +128,12 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			console.error(e);
 			toast({ title: 'Error', description: 'Failed to update project.', variant: 'destructive' });
 		}
+	};
+
+	const handleAddTaskToStage = (stageId: string) => {
+		setEditingTask(null);
+		setPreselectedStageId(stageId);
+		setIsTaskDialogOpen(true);
 	};
 
 	const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
@@ -400,6 +407,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								canDragTasks={currentUser?.role !== 'user'}
 								disableColumnScroll={true}
 								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
+								onAddTaskToStage={handleAddTaskToStage}
 							/>
 						) : (
 							<TaskListView
@@ -422,7 +430,13 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} />
 			<TaskDialog
 				open={isTaskDialogOpen}
-				onOpenChange={setIsTaskDialogOpen}
+				onOpenChange={(open) => {
+					setIsTaskDialogOpen(open);
+					if (!open) {
+						setPreselectedStageId(undefined);
+						setEditingTask(null);
+					}
+				}}
 				onSave={handleSaveTask}
 				editTask={editingTask}
 				availableStatuses={project.stages}
@@ -431,6 +445,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				teamMembers={teamMembers}
 				departments={departments}
 				allTasks={allTasks}
+				initialStageId={preselectedStageId}
+				isStageLocked={!!preselectedStageId}
 			/>
 			<StageManagement
 				open={isStageManagementOpen}

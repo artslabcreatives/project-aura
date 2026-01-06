@@ -46,6 +46,8 @@ interface TaskDialogProps {
 	teamMembers: User[];
 	departments: Department[];
 	allTasks?: Task[];
+	initialStageId?: string;
+	isStageLocked?: boolean;
 }
 
 export function TaskDialog({
@@ -59,6 +61,8 @@ export function TaskDialog({
 	teamMembers,
 	departments,
 	allTasks = [],
+	initialStageId,
+	isStageLocked = false,
 }: TaskDialogProps) {
 	const { toast } = useToast();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,10 +119,12 @@ export function TaskDialog({
 			setPendingFiles([]);
 			setPendingLinks([]);
 		} else {
-			// Get first non-Specific Stage as default
-			const defaultStage = useProjectStages && availableStatuses.length > 0
-				? (availableStatuses.find(s => s.title !== "Specific Stage") || availableStatuses[0]).id
-				: "";
+			// Get first non-Specific Stage as default, or use initialStageId
+			const defaultStage = initialStageId
+				? initialStageId
+				: (useProjectStages && availableStatuses.length > 0
+					? (availableStatuses.find(s => s.title !== "Specific Stage") || availableStatuses[0]).id
+					: "");
 
 			const today = new Date();
 			const tomorrow = new Date(today);
@@ -145,7 +151,7 @@ export function TaskDialog({
 			setNewLinkName("");
 			setNewLinkUrl("");
 		}
-	}, [editTask, open, availableStatuses, useProjectStages, projects]);
+	}, [editTask, open, availableStatuses, useProjectStages, projects, initialStageId]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -420,6 +426,7 @@ export function TaskDialog({
 											...(useProjectStages ? { projectStage: value } : { userStatus: value as UserStatus }),
 										}))
 									}
+									disabled={isStageLocked}
 								>
 									<SelectTrigger id="status">
 										<SelectValue />

@@ -4,7 +4,7 @@ import { Stage } from "@/types/stage";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailsDialog } from "./TaskDetailsDialog";
 import { cn } from "@/lib/utils";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +28,7 @@ interface KanbanBoardProps {
   canDragTasks?: boolean; // Whether user can drag tasks between stages
   disableColumnScroll?: boolean;
   onTaskReview?: (task: Task) => void; // Optional: for reviewing tasks
-
+  onAddTaskToStage?: (stageId: string) => void;
 }
 
 export function KanbanBoard({
@@ -45,6 +45,7 @@ export function KanbanBoard({
   canDragTasks = true,
   disableColumnScroll = false,
   onTaskReview,
+  onAddTaskToStage,
 
 }: KanbanBoardProps) {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -148,34 +149,49 @@ export function KanbanBoard({
                   </Badge>
                 )}
               </div>
-              {/* No edit/delete options for Specific Stage, pending, or complete stages */}
-              {canManageStages &&
-                column.id !== "pending" &&
-                column.id !== "complete" &&
-                column.id !== "complete" &&
-                onStageEdit &&
-                onStageDelete && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onStageEdit(column)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit Stage
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => onStageDelete(column.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Stage
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+
+              <div className="flex items-center gap-1">
+                {canManageTasks && onAddTaskToStage && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => onAddTaskToStage(column.id)}
+                    title="Add task to this stage"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 )}
+
+                {/* No edit/delete options for Specific Stage, pending, or complete stages */}
+                {canManageStages &&
+                  column.id !== "pending" &&
+                  column.id !== "complete" &&
+                  column.id !== "complete" &&
+                  onStageEdit &&
+                  onStageDelete && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onStageEdit(column)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit Stage
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onStageDelete(column.id)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Stage
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+              </div>
             </div>
 
             <div className={cn("flex-1 p-4 space-y-3 min-h-[400px]", !disableColumnScroll && "overflow-y-auto")}>
