@@ -18,9 +18,10 @@ import { LogOut } from "lucide-react";
 
 const queryClient = new QueryClient();
 
+import { NotificationsPopover } from "@/components/NotificationsPopover";
+
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
 	const { currentUser, isLoading, isAuthenticated, logout } = useUser();
-
 	if (isLoading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-background">
@@ -46,6 +47,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 							<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
 						</div>
 						<div className="flex items-center gap-3">
+							<NotificationsPopover />
 							<span className="text-sm text-muted-foreground hidden md:block">
 								{currentUser.name} ({currentUser.role})
 							</span>
@@ -59,13 +61,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 								<LogOut className="h-5 w-5" />
 							</Button>
 						</div>
-					</header>
+					</header >
 					<main className="flex-1 p-6 overflow-y-auto">
 						{children}
 					</main>
-				</div>
-			</div>
-		</SidebarProvider>
+				</div >
+			</div >
+		</SidebarProvider >
 	);
 };
 

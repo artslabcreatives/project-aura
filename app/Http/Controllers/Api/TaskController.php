@@ -63,6 +63,11 @@ class TaskController extends Controller
         }
 
         $task = Task::create($validated);
+
+        if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
+            $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+        }
+
         return response()->json($task->load(['project', 'assignee', 'projectStage']), 201);
     }
 
@@ -98,7 +103,31 @@ class TaskController extends Controller
             'estimated_hours' => 'nullable|numeric|min:0',
         ]);
 
-        $task->update($validated);
+        $task->fill($validated);
+        
+        $statusChanged = $task->isDirty('user_status');
+        $assigneeChanged = $task->isDirty('assignee_id');
+        $newStatus = $task->user_status;
+
+        $task->save();
+
+        // Notify new assignee
+        if ($assigneeChanged && $task->assignee_id && $task->assignee_id !== $request->user()->id) {
+             $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+        }
+
+        // Notify if status updated
+        if ($statusChanged) {
+             // Notify the assignee (if they didn't do it) and maybe admins
+             if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
+                 $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $newStatus));
+             }
+             
+             // Also notify admins of status change
+             $admins = \App\Models\User::where('role', 'admin')->get();
+             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskStatusUpdatedNotification($task, $newStatus));
+        }
+
         return response()->json($task->load(['project', 'assignee', 'projectStage']));
     }
 

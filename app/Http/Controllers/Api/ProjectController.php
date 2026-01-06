@@ -34,6 +34,18 @@ class ProjectController extends Controller
         ]);
 
         $project = Project::create($validated);
+
+        // Notify Admins
+        try {
+            $admins = \App\Models\User::where('role', 'admin')->get();
+            if ($admins->isNotEmpty()) {
+                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\ProjectCreatedNotification($project));
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the request
+            \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
+        }
+
         return response()->json($project->load(['department', 'stages']), 201);
     }
 
