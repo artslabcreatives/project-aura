@@ -1,10 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Task, UserStatus } from "@/types/task";
 import { Stage } from "@/types/stage";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailsDialog } from "./TaskDetailsDialog";
 import { cn } from "@/lib/utils";
-import { MoreVertical, Pencil, Trash2, Plus } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Plus, Info, Copy, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -56,6 +62,14 @@ export function KanbanBoard({
   );
   const [viewTask, setViewTask] = useState<Task | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText("+94 78 538 4672");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleDragStart = (task: Task) => {
     if (!canDragTasks) return; // Prevent drag if not allowed
@@ -153,6 +167,40 @@ export function KanbanBoard({
               </div>
 
               <div className="flex items-center gap-1">
+                {(column.title === "Suggested Task" || column.title === "Suggested") && (
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary">
+                          <Info className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px] p-4 z-[100]">
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium">Client Requests</p>
+                          <p className="text-xs text-muted-foreground">
+                            This stage shows tasks suggested via WhatsApp and Email clients.
+                          </p>
+                          <div className="flex items-center gap-2 p-2 bg-muted rounded-md border text-xs">
+                            <span className="font-mono flex-1">+94 78 538 4672</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 hover:bg-background"
+                              onClick={handleCopy}
+                            >
+                              {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            Add this number to the WhatsApp group to receive suggestions.
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
                 {canManageTasks && onAddTaskToStage &&
                   column.title.toLowerCase() !== "archive" &&
                   column.title !== "Suggested Task" && (
