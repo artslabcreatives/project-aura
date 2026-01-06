@@ -151,17 +151,19 @@ export function KanbanBoard({
               </div>
 
               <div className="flex items-center gap-1">
-                {canManageTasks && onAddTaskToStage && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => onAddTaskToStage(column.id)}
-                    title="Add task to this stage"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                )}
+                {canManageTasks && onAddTaskToStage &&
+                  column.title.toLowerCase() !== "archive" &&
+                  column.title !== "Suggested Task" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => onAddTaskToStage(column.id)}
+                      title="Add task to this stage"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
 
                 {/* No edit/delete options for Specific Stage, pending, or complete stages */}
                 {canManageStages &&
