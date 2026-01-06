@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -69,6 +69,7 @@ export default function ProjectKanbanFixed() {
 function ProjectBoardContent({ project: initialProject }: { project: Project }) {
 	const numericProjectId = initialProject.id ? parseInt(String(initialProject.id), 10) : undefined;
 	const [project, setProject] = useState<Project>(initialProject);
+	const [searchParams, setSearchParams] = useSearchParams();
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [allTasks, setAllTasks] = useState<Task[]>([]);
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -87,6 +88,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const { currentUser } = useUser();
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -106,10 +108,49 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				}
 				setProject(currentProject);
 				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
-				setTasks(tasksData.filter(t => t.projectId === currentProject.id));
+				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+				setTasks(projectTasks);
 				setAllTasks(await taskService.getAll());
 				setTeamMembers(await userService.getAll());
 				setDepartments(departmentsData);
+
+				// Deep link handling
+				const taskIdParam = searchParams.get('task');
+				if (taskIdParam && projectTasks.length > 0) {
+					const foundTask = projectTasks.find(t => String(t.id) === taskIdParam);
+					if (foundTask) {
+						if (currentUser?.role === 'user') {
+							// For normal users, redirect to their specific stage view if assigned
+							if (foundTask.assignee === currentUser.name) {
+								navigate(`/user-project/${currentProject.id}/stage/${foundTask.projectStage}?task=${foundTask.id}`);
+							} else {
+								toast({
+									title: "Access Denied",
+									description: "You do not have permission to view this task.",
+									variant: "destructive"
+								});
+							}
+						} else {
+							// Admin/TeamLead: Scroll to task on this board
+							setTimeout(() => {
+								const taskElement = document.getElementById(`task-${foundTask.id}`);
+								if (taskElement) {
+									taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+									taskElement.classList.add('ring-2', 'ring-primary', 'shadow-lg');
+									setTimeout(() => {
+										taskElement.classList.remove('ring-2', 'ring-primary', 'shadow-lg');
+									}, 3000);
+								}
+							}, 500);
+						}
+
+						// Clear param only if we stayed on this page (Admin/TeamLead or Access Denied)
+						if (currentUser?.role !== 'user' || foundTask.assignee !== currentUser.name) {
+							searchParams.delete('task');
+							setSearchParams(searchParams);
+						}
+					}
+				}
 			} catch (e) {
 				console.error(e);
 				toast({ title: 'Error', description: 'Failed to load project data.', variant: 'destructive' });
@@ -408,6 +449,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								disableColumnScroll={true}
 								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
 								onAddTaskToStage={handleAddTaskToStage}
+								projectId={String(project.id)}
 							/>
 						) : (
 							<TaskListView

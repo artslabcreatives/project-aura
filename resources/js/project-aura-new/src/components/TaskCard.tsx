@@ -3,9 +3,10 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Send } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Send, Share2 } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import {
 	Tooltip,
 	TooltipContent,
@@ -31,13 +32,27 @@ interface TaskCardProps {
 	canManage?: boolean;
 	currentStage?: Stage;
 	canDrag?: boolean;
+	projectId?: string;
 }
 
-export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true }: TaskCardProps) {
+export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId }: TaskCardProps) {
 	const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 	const isValidDueDate = dueDate && isValid(dueDate);
 	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
 	const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+	const { toast } = useToast();
+
+	const handleShare = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		const pId = projectId || task.projectId;
+		if (!pId) {
+			toast({ title: "Error", description: "Project ID not available", variant: "destructive" });
+			return;
+		}
+		const url = `${window.location.protocol}//${window.location.host}/project/${pId}?task=${task.id}`;
+		navigator.clipboard.writeText(url);
+		toast({ title: "Link copied", description: "Task link copied to clipboard" });
+	};
 
 	const priorityColors = {
 		low: "bg-priority-low/10 text-priority-low border-priority-low/20",
@@ -47,6 +62,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 
 	return (
 		<Card
+			id={`task-${task.id}`}
 			draggable={canDrag}
 			onDragStart={canDrag ? onDragStart : undefined}
 			className={cn(
@@ -61,6 +77,15 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 						{task.title}
 					</h4>
 					<div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7"
+							onClick={handleShare}
+							title="Share task"
+						>
+							<Share2 className="h-3.5 w-3.5" />
+						</Button>
 						<Button
 							variant="ghost"
 							size="icon"

@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
 import { Task, User } from "@/types/task";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -46,11 +46,33 @@ export default function UserProjectStageTasks() {
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
 	const [departments, setDepartments] = useState<Department[]>([]);
 	const [view, setView] = useState<"kanban" | "list">("kanban");
+	const [searchParams, setSearchParams] = useSearchParams();
 
 	useEffect(() => {
 		// Use default user stages only (no localStorage)
 		setUserStages(getDefaultUserTaskStages());
 	}, []);
+
+	useEffect(() => {
+		const taskIdParam = searchParams.get('task');
+		if (taskIdParam && tasks.length > 0) {
+			// Delay slightly to ensure rendering
+			setTimeout(() => {
+				const taskElement = document.getElementById(`task-${taskIdParam}`);
+				if (taskElement) {
+					taskElement.scrollIntoView({ behavior: "smooth", block: "center" });
+					taskElement.classList.add("ring-2", "ring-primary", "shadow-lg");
+					setTimeout(() => {
+						taskElement.classList.remove("ring-2", "ring-primary", "shadow-lg");
+					}, 3000);
+
+					// Clear param
+					searchParams.delete('task');
+					setSearchParams(searchParams);
+				}
+			}, 500);
+		}
+	}, [tasks, searchParams]);
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -64,15 +86,15 @@ export default function UserProjectStageTasks() {
 
 				if (!numericProjectId || !stageId) return;
 
-				const proj = await projectService.getById(numericProjectId);
+				const proj = await projectService.getById(projectId || "");
 				setProject(proj || null);
 				const projStage = proj?.stages.find(s => String(s.id) === String(stageId)) || null;
 				setStage(projStage);
 
-				const tasksData = await taskService.getAll({ projectId: numericProjectId });
+				const tasksData = await taskService.getAll({ projectId: projectId });
 				setAllTasks(tasksData);
 				const filtered = tasksData.filter(t =>
-					t.projectId === numericProjectId &&
+					String(t.projectId) === String(projectId) &&
 					String(t.projectStage) === String(stageId) &&
 					t.assignee === (currentUser?.name || "")
 				);
@@ -87,7 +109,7 @@ export default function UserProjectStageTasks() {
 			}
 		};
 		loadData();
-	}, [numericProjectId, stageId, currentUser]);
+	}, [projectId, stageId, currentUser]);
 
 	const updateTasksInStorage = (updatedTask: Task) => {
 		// No localStorage persistence per requirements
@@ -314,6 +336,7 @@ export default function UserProjectStageTasks() {
 						canManageStages={false}
 						canManageTasks={false}
 						canDragTasks={true}
+						projectId={projectId}
 					/>
 				) : (
 					<TaskListView

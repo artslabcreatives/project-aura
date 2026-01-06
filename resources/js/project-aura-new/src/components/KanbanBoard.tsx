@@ -29,6 +29,7 @@ interface KanbanBoardProps {
   disableColumnScroll?: boolean;
   onTaskReview?: (task: Task) => void; // Optional: for reviewing tasks
   onAddTaskToStage?: (stageId: string) => void;
+  projectId?: string;
 }
 
 export function KanbanBoard({
@@ -46,6 +47,7 @@ export function KanbanBoard({
   disableColumnScroll = false,
   onTaskReview,
   onAddTaskToStage,
+  projectId,
 
 }: KanbanBoardProps) {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -218,6 +220,7 @@ export function KanbanBoard({
                     canManage={canManageTasks}
                     canDrag={canDragTasks}
                     currentStage={column}
+                    projectId={projectId}
                   />
                 ))
               )}
