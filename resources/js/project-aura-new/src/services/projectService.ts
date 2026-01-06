@@ -5,10 +5,20 @@ import { SuggestedTask } from '@/types/task';
 
 // Map backend stage (snake_case) to frontend Stage interface
 function mapStage(raw: any): Stage {
+	let color = raw.color;
+	if (!color) {
+		const t = raw.title.toLowerCase().trim();
+		if (t.includes('suggested')) color = 'bg-blue-400';
+		else if (t === 'pending') color = 'bg-orange-300';
+		else if (t.includes('complete')) color = 'bg-green-500';
+		else if (t === 'archive') color = 'bg-gray-400';
+		else color = 'bg-status-todo';
+	}
+
 	return {
 		id: String(raw.id),
 		title: raw.title,
-		color: raw.color || 'bg-status-todo',
+		color: color,
 		order: raw.order ?? 0,
 		type: (raw.type === 'user' || raw.type === 'project') ? raw.type : 'project',
 		mainResponsibleId: raw.main_responsible_id ? String(raw.main_responsible_id) : undefined,

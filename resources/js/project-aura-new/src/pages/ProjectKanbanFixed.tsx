@@ -1,4 +1,5 @@
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { api } from "@/services/api";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -351,6 +352,28 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		}
 	};
 
+	const handleReorderStages = async (newOrderedStages: Stage[]) => {
+		if (!project) return;
+
+		// Update local state with new orders
+		const updatedStages = newOrderedStages.map((s, index) => ({
+			...s,
+			order: index
+		}));
+
+		setProject({ ...project, stages: updatedStages });
+
+		try {
+			await Promise.all(updatedStages.map(stage =>
+				api.put(`/stages/${stage.id}`, { order: stage.order })
+			));
+			toast({ title: 'Success', description: 'Stage order updated.' });
+		} catch (e) {
+			console.error("Failed to reorder stages", e);
+			toast({ title: 'Error', description: 'Failed to save stage order.', variant: 'destructive' });
+		}
+	};
+
 	const handleApproveTask = (taskId: string, targetStageId: string, comment?: string) => {
 		if (!project || !currentUser) return;
 		const task = tasks.find(t => t.id === taskId); if (!task) return;
@@ -381,6 +404,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			const t = s.title.toLowerCase().trim();
 			if (t === 'suggested' || t === 'suggested task') return 0;
 			if (t === 'pending') return 1;
+			if (t === 'completed' || t === 'complete') return 998;
 			if (t === 'archive') return 999;
 			return 10;
 		};
@@ -497,6 +521,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				onAddStage={handleAddStage}
 				onEditStage={handleEditStage}
 				onDeleteStage={handleDeleteStage}
+				onReorderStages={handleReorderStages}
 			/>
 			<StageDialog
 				open={isStageDialogOpen}
