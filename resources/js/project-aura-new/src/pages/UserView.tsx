@@ -1,5 +1,7 @@
 import { DashboardStats } from "@/components/DashboardStats";
 import { Task } from "@/types/task";
+import { Project } from "@/types/project";
+import { projectService } from "@/services/projectService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCard } from "@/components/TaskCard";
 import { TaskCalendar } from "@/components/TaskCalendar";
@@ -18,8 +20,32 @@ export default function UserView() {
 		const loadTasks = async () => {
 			if (currentUser) {
 				try {
-					const tasksData = await (await import("@/services/taskService")).taskService.getAll();
-					const userTasks = tasksData.filter((task: Task) => task.assignee === currentUser.name);
+					const [tasksData, projectsData] = await Promise.all([
+						(await import("@/services/taskService")).taskService.getAll(),
+						projectService.getAll()
+					]);
+
+					// Filter out system stages
+					const forbiddenStageTitles = ['pending', 'suggested', 'suggested task', 'archive', 'completed', 'complete'];
+					const forbiddenStageIds = new Set<string>();
+					projectsData.forEach((p: Project) => {
+						p.stages.forEach(s => {
+							if (forbiddenStageTitles.includes(s.title.toLowerCase().trim())) {
+								forbiddenStageIds.add(s.id);
+							}
+						});
+					});
+
+					const userTasks = tasksData.filter((task: Task) => {
+						// Must be assigned to user
+						if (task.assignee !== currentUser.name) return false;
+
+						// Must not be in a forbidden stage
+						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
+
+						return true;
+					});
+
 					setTasks(userTasks);
 				} catch {
 					setTasks([]);
