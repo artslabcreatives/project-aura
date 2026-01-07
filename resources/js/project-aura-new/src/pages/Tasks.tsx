@@ -98,16 +98,37 @@ export default function Tasks() {
 			const finalUpdates = { ...updates };
 
 			// If the update comes from the Kanban board columns (which are "pending", "in-progress", "complete")
-			// we need to translate that to userStatus updates
-			if (updates.projectStage === "pending") {
-				finalUpdates.userStatus = "pending";
-				delete finalUpdates.projectStage;
-			} else if (updates.projectStage === "in-progress") {
-				finalUpdates.userStatus = "in-progress";
-				delete finalUpdates.projectStage;
-			} else if (updates.projectStage === "complete") {
-				finalUpdates.userStatus = "complete";
-				delete finalUpdates.projectStage;
+			if (updates.projectStage && ['pending', 'in-progress', 'complete'].includes(updates.projectStage)) {
+				const targetColumn = updates.projectStage;
+				finalUpdates.userStatus = targetColumn as any;
+
+				// Try to map to a real project stage if task belongs to a project
+				const project = allProjects.find(p => p.name === task.project);
+				if (project) {
+					let mappedStage;
+					if (targetColumn === 'pending') {
+						mappedStage = project.stages.find(s => s.title.toLowerCase().trim() === 'pending');
+					} else if (targetColumn === 'complete') {
+						mappedStage = project.stages.find(s => ['completed', 'complete'].includes(s.title.toLowerCase().trim()));
+					} else if (targetColumn === 'in-progress') {
+						// Map to the first available custom stage (not system, not archive)
+						const systemTitles = ['suggested', 'suggested task', 'pending', 'complete', 'completed', 'archive'];
+						// Find first stage that is NOT in systemTitles
+						mappedStage = project.stages.find(s => !systemTitles.includes(s.title.toLowerCase().trim()));
+					}
+
+					if (mappedStage) {
+						finalUpdates.projectStage = mappedStage.id;
+					} else {
+						// If suitable project stage not found, we cannot update projectStage to a virtual ID
+						delete finalUpdates.projectStage;
+						// But we still updated userStatus, so it might disappear from view if categorization relies purely on projectStage?
+						// My categorization fallback uses userStatus, so it should be fine.
+					}
+				} else {
+					// Task has no project, simply remove the virtual projectStage ID
+					delete finalUpdates.projectStage;
+				}
 			}
 
 			const updatedTask = { ...task, ...finalUpdates };
@@ -166,7 +187,8 @@ export default function Tasks() {
 
 			// Map project name to ID and assignee name to ID
 			const projectId = allProjects.find(p => p.name === taskData.project)?.id;
-			const assigneeId = teamMembers.find(m => m.name === taskData.assignee)?.id;
+			const assigneeIdRaw = teamMembers.find(m => m.name === taskData.assignee)?.id;
+			const assigneeId = assigneeIdRaw ? parseInt(assigneeIdRaw, 10) : undefined;
 			const projectStageId = taskData.projectStage ? parseInt(taskData.projectStage) : undefined;
 
 			console.log('Found projectId:', projectId);
@@ -321,40 +343,39 @@ export default function Tasks() {
 		}
 
 		return tasksToProcess.map(task => {
-			let fixedStageId: string;
-			// Rule 1: Tasks in the last stage of their project go to "Completed"
-			if (task.project && task.projectStage) {
-				const project = allProjects.find(p => p.name === task.project);
-				if (project && project.stages.length > 0) {
-					const lastStage = project.stages[project.stages.length - 1];
-					if (task.projectStage === lastStage.id || task.userStatus === "complete") {
-						fixedStageId = "complete";
-					} else if (task.userStatus === "pending") { // If not last stage, check user-level pending
-						fixedStageId = "pending";
-					} else {
-						fixedStageId = "in-progress";
-					}
-				} else if (task.userStatus === "complete") {
+			let fixedStageId: string | null = null;
+
+			const project = allProjects.find(p => p.name === task.project);
+			const stage = project?.stages.find(s => s.id === task.projectStage);
+
+			if (stage) {
+				// Strict mapping based on project stage title
+				const title = stage.title.toLowerCase().trim();
+
+				if (title === 'pending') {
+					fixedStageId = 'pending';
+				} else if (title === 'completed' || title === 'complete') {
+					fixedStageId = 'complete';
+				} else if (title.includes('suggested') || title === 'archive') {
+					// Suggested and Archive stages are hidden from this view
+					fixedStageId = null;
+				} else {
+					// All custom middle stages go to "In Progress"
+					fixedStageId = 'in-progress';
+				}
+			} else {
+				// Fallback for tasks without project context
+				if (task.userStatus === "complete") {
 					fixedStageId = "complete";
-				} else if (task.userStatus === "pending") { // If project not found or no stages, check user-level pending
+				} else if (task.userStatus === "pending") {
 					fixedStageId = "pending";
 				} else {
 					fixedStageId = "in-progress";
 				}
 			}
-			// Rule 2: User-level pending tasks (for tasks without project/projectStage) go to "Pending"
-			else if (task.userStatus === "complete") {
-				fixedStageId = "complete";
-			}
-			else if (task.userStatus === "pending") {
-				fixedStageId = "pending";
-			}
-			// Rule 3: All other tasks go to "In Progress"
-			else {
-				fixedStageId = "in-progress";
-			}
+
 			return { ...task, fixedStageId };
-		});
+		}).filter(t => t.fixedStageId !== null) as (Task & { fixedStageId: string })[];
 	}, [allTasks, allProjects, currentUser, teamMembers]);
 
 	const filteredTasks = useMemo(() => {

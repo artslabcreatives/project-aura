@@ -58,7 +58,7 @@ export const taskService = {
 		return mapTask(data);
 	},
 
-	create: async (task: Omit<Task, 'id' | 'createdAt'> & { projectId?: number; assigneeId?: number; projectStageId?: number }): Promise<Task> => {
+	create: async (task: Omit<Task, 'id' | 'createdAt' | 'project' | 'assignee'> & { projectId?: number; assigneeId?: number; projectStageId?: number }): Promise<Task> => {
 		// Map to backend payload
 		const payload: any = {
 			title: task.title,
