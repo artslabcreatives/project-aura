@@ -66,9 +66,10 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			draggable={canDrag}
 			onDragStart={canDrag ? onDragStart : undefined}
 			className={cn(
-				"hover:shadow-md transition-all group",
+				"hover:shadow-md transition-all group relative",
 				canDrag && "cursor-move hover:scale-[1.02]",
-				!canDrag && "cursor-default"
+				!canDrag && "cursor-default",
+				isOverdue && "border-destructive/50 bg-destructive/5"
 			)}
 		>
 			<CardHeader className="p-4 pb-2">
@@ -238,6 +239,12 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				)}
 			</CardContent>
 
+			{isOverdue && (
+				<Badge variant="destructive" className="absolute bottom-2 right-2 text-[10px] h-5 px-1.5 animate-pulse shadow-sm">
+					Overdue
+				</Badge>
+			)}
+
 			{/* Revision History Dialog */}
 			<Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
 				<DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
@@ -286,6 +293,6 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 					</div>
 				</DialogContent>
 			</Dialog>
-		</Card>
+		</Card >
 	);
 }
