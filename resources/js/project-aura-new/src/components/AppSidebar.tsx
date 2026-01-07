@@ -111,7 +111,11 @@ export function AppSidebar() {
 						.filter(project => userProjectStages.has(project.name))
 						.map(project => ({
 							...project,
-							stages: project.stages.filter(stage => userProjectStages.get(project.name)?.has(stage.id))
+							stages: project.stages.filter(stage => {
+								const title = stage.title.toLowerCase().trim();
+								const isSystemStage = ['pending', 'suggested', 'suggested task', 'complete', 'completed', 'archive'].includes(title);
+								return userProjectStages.get(project.name)?.has(stage.id) && !isSystemStage;
+							})
 						}))
 						.filter(project => project.stages.length > 0);
 					setUserAssignedProjects(assignedProjects);
