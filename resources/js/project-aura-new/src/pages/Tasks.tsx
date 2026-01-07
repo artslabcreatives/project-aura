@@ -500,6 +500,7 @@ export default function Tasks() {
 						onTaskEdit={handleTaskEdit}
 						onTaskDelete={handleTaskDelete}
 						canManageTasks={currentUser?.role !== "user"}
+						canDragTasks={false}
 					/>
 				) : (
 					<TaskListView
