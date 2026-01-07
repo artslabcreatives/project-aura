@@ -1,5 +1,6 @@
 import { Department } from "./department";
 import { Stage } from "./stage";
+import { ProjectGroup } from "./project-group";
 
 export interface Project {
 	id?: number;
@@ -10,4 +11,5 @@ export interface Project {
 	department?: Department;
 	emails?: string[];
 	phoneNumbers?: string[];
+	group?: ProjectGroup;
 }

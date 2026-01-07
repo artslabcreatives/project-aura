@@ -19,6 +19,7 @@ class Project extends Model
         'phone_numbers',
         'deadline',
         'created_by',
+        'project_group_id',
     ];
 
     protected $casts = [
@@ -33,6 +34,14 @@ class Project extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get the project group that owns the project.
+     */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(ProjectGroup::class, 'project_group_id');
     }
 
     /**

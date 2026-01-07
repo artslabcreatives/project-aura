@@ -14,7 +14,7 @@ class ProjectController extends Controller
      */
     public function index(): JsonResponse
     {
-        $projects = Project::with(['department', 'stages', 'tasks'])->get();
+        $projects = Project::with(['department', 'group', 'stages', 'tasks'])->get();
         return response()->json($projects);
     }
 
@@ -31,6 +31,7 @@ class ProjectController extends Controller
             'emails.*' => 'email',
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'string',
+            'project_group_id' => 'nullable|exists:project_groups,id',
         ]);
 
         $project = Project::create($validated);
@@ -46,7 +47,7 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
         }
 
-        return response()->json($project->load(['department', 'stages']), 201);
+        return response()->json($project->load(['department', 'group', 'stages']), 201);
     }
 
     /**
@@ -54,7 +55,7 @@ class ProjectController extends Controller
      */
     public function show(Project $project): JsonResponse
     {
-        return response()->json($project->load(['department', 'stages', 'tasks']));
+        return response()->json($project->load(['department', 'group', 'stages', 'tasks']));
     }
 
     /**
@@ -70,10 +71,11 @@ class ProjectController extends Controller
             'emails.*' => 'email',
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'string',
+            'project_group_id' => 'nullable|exists:project_groups,id',
         ]);
 
         $project->update($validated);
-        return response()->json($project->load(['department', 'stages']));
+        return response()->json($project->load(['department', 'group', 'stages']));
     }
 
     /**

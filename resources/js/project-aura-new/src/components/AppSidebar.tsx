@@ -37,6 +37,10 @@ import { projectService } from "@/services/projectService";
 import { taskService } from "@/services/taskService";
 import { departmentService } from "@/services/departmentService";
 import { userService } from "@/services/userService";
+import { projectGroupService } from "@/services/projectGroupService";
+import { AssignGroupDialog } from "./AssignGroupDialog";
+import { ProjectGroup } from "@/types/project-group";
+import { FolderPlus } from "lucide-react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -53,6 +57,14 @@ const mainMenuItems = [
 	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead"] },
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
 ];
+
+interface GroupedDepartment {
+	id: string;
+	name: string;
+	projects: Project[];
+	projectGroups: Record<string, { id: string; name: string; projects: Project[] }>;
+	ungroupedProjects: Project[];
+}
 
 export function AppSidebar() {
 	const location = useLocation();
@@ -74,23 +86,34 @@ export function AppSidebar() {
 	const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
 	const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
+	const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
+	const [isAssignGroupOpen, setIsAssignGroupOpen] = useState(false);
+	const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
+	const [expandedProjectGroups, setExpandedProjectGroups] = useState<Set<string>>(new Set());
 	const userRole = currentUser?.role;
 
 	// Load data from API on mount with proper mapping
 	useEffect(() => {
 		const fetchData = async () => {
 			try {
-				const [projectsData, departmentsData] = await Promise.all([
+				const [projectsData, departmentsData, projectGroupsData] = await Promise.all([
 					projectService.getAll(),
 					departmentService.getAll(),
+					projectGroupService.getAll(),
 				]);
 				setProjects(projectsData);
 				setDepartments(departmentsData);
+				setProjectGroups(projectGroupsData);
 
 				if (userRole === 'admin' || userRole === 'team-lead') {
 					const usersData = await userService.getAll();
 					setTeamMembers(usersData);
 				}
+
+				// Auto-expand all departments by default so users see their projects
+				const allDeptIds = new Set(departmentsData.map(d => d.id));
+				allDeptIds.add('uncategorized');
+				setExpandedDepartments(allDeptIds);
 
 				if (userRole === 'user' && currentUser) {
 					// Fetch tasks for user only (client-side filter)
@@ -382,8 +405,88 @@ export function AppSidebar() {
 		});
 	};
 
+	const handleAssignGroup = async (project: Project, groupId: string | null, newGroupName?: string) => {
+		try {
+			let targetGroupId = groupId;
+
+			if (newGroupName && (!targetGroupId || targetGroupId === 'new')) {
+				if (!project.department) {
+					toast({
+						title: "Cannot create group",
+						description: "Project must belong to a department to assign a group.",
+						variant: "destructive",
+					});
+					return;
+				}
+				// Create new group
+				const newGroup = await projectGroupService.create(newGroupName, project.department.id);
+				targetGroupId = newGroup.id;
+				setProjectGroups(prev => [...prev, newGroup]);
+			}
+
+			// Update project
+			// We pass the group object with at least the ID, which the service will convert to project_group_id
+			// If targetGroupId is null, we pass undefined (or structure that update handles as clearing)
+			// Actually projectService.update handles 'group' property. 
+			// If I pass { group: null } or similar, service needs to handle it.
+			// Checking service: if updates.group exists, it sets project_group_id. 
+			// If I want to clear it, I should pass something that indicates null.
+			// TypeScript might complain about 'any' cast, but let's try to be type safe if possible, or use 'any' as fallback.
+
+			// If targetGroupId is null, we want to clear.
+			// Service: project_group_id: updates.group ? parseInt(updates.group.id, 10) : undefined
+			// If I pass undefined group, it sends undefined project_group_id, which Laravel 'validate' might ignore or might not update?
+			// Actually Laravel update uses: $project->update($validated).
+			// If 'project_group_id' is not in validated, it won't be updated.
+			// So I need to send 'project_group_id': null.
+			// Service: 'project_group_id': updates.group ? ... : undefined. 
+			// Wait, the service logic:
+			// project_group_id: updates.group ? parseInt(updates.group.id, 10) : undefined,
+			// This means if I don't pass group, it sends undefined, so backend doesn't update it.
+			// I need to change service to allow sending null!
+
+			// Let's assume for now I can pass a dummy object with null ID or modify service.
+			// But wait, I already updated service in Step 104.
+			// Service: project_group_id: updates.group ? parseInt(updates.group.id, 10) : undefined.
+			// This IS a bug if I want to unassign.
+			// I should fix service first or now. 
+			// Let's fix service quick.
+
+			// ... skipping service fix for a split second to finish this replacement ... 
+
+			const updatedProject = await projectService.update(String(project.id), {
+				group: targetGroupId ? { id: targetGroupId } as any : null,
+			});
+
+			// Refresh projects
+			const projectsData = await projectService.getAll();
+			setProjects(projectsData);
+
+			toast({ title: "Project group updated" });
+		} catch (error) {
+			console.error("Failed to assign group:", error);
+			toast({
+				title: "Failed to update group",
+				description: "An error occurred while updating the project group.",
+				variant: "destructive",
+			});
+		}
+	};
+
+	const toggleProjectGroupExpanded = (groupId: string) => {
+		setExpandedProjectGroups(prev => {
+			const newSet = new Set(prev);
+			if (newSet.has(groupId)) {
+				newSet.delete(groupId);
+			} else {
+				newSet.add(groupId);
+			}
+			return newSet;
+		});
+	};
+
 	// Group projects by department (admin) or filter flat list (team-lead)
-	const projectsByDepartment = useMemo(() => {
+	const projectsByDepartment = useMemo<Record<string, GroupedDepartment>>(() => {
 		let filteredProjects = projects;
 
 		// Filter projects by department for team-lead
@@ -417,25 +520,66 @@ export function AppSidebar() {
 						acc[deptId] = {
 							id: deptId,
 							name: deptName,
-							projects: []
+							projects: [],
+							projectGroups: {},
+							ungroupedProjects: []
 						};
 					}
 					acc[deptId].projects.push(project);
+
+					if (project.group) {
+						const groupId = project.group.id;
+						if (groupId) {
+							if (!acc[deptId].projectGroups[groupId]) {
+								acc[deptId].projectGroups[groupId] = {
+									id: groupId,
+									name: project.group.name,
+									projects: []
+								};
+							}
+							acc[deptId].projectGroups[groupId].projects.push(project);
+						}
+					} else {
+						acc[deptId].ungroupedProjects.push(project);
+					}
+
 					return acc;
-				}, {} as Record<string, { id: string; name: string; projects: Project[] }>);
+				}, {} as Record<string, GroupedDepartment>);
 
 				return grouped;
 			} else {
 				// For other team-leads, don't group by department - return flat structure
+				// But we still want to support project groups!
+				const projectGroups: Record<string, { id: string, name: string, projects: Project[] }> = {};
+				const ungroupedProjects: Project[] = [];
+
+				filteredProjects.forEach(project => {
+					if (project.group && project.group.id) {
+						if (!projectGroups[project.group.id]) {
+							projectGroups[project.group.id] = {
+								id: project.group.id,
+								name: project.group.name,
+								projects: []
+							};
+						}
+						projectGroups[project.group.id].projects.push(project);
+					} else {
+						ungroupedProjects.push(project);
+					}
+				});
+
 				return {
 					'flat': {
 						id: 'flat',
 						name: '',
-						projects: filteredProjects
+						projects: filteredProjects,
+						projectGroups,
+						ungroupedProjects
 					}
 				};
 			}
 		}
+
 
 		// For admin, group by department
 		return filteredProjects.reduce((acc, project) => {
@@ -446,12 +590,29 @@ export function AppSidebar() {
 				acc[deptId] = {
 					id: deptId,
 					name: deptName,
-					projects: []
+					projects: [],
+					projectGroups: {},
+					ungroupedProjects: []
 				};
 			}
 			acc[deptId].projects.push(project);
+
+			if (project.group && project.group.id) {
+				const groupId = project.group.id;
+				if (!acc[deptId].projectGroups[groupId]) {
+					acc[deptId].projectGroups[groupId] = {
+						id: groupId,
+						name: project.group.name,
+						projects: []
+					};
+				}
+				acc[deptId].projectGroups[groupId].projects.push(project);
+			} else {
+				acc[deptId].ungroupedProjects.push(project);
+			}
+
 			return acc;
-		}, {} as Record<string, { id: string; name: string; projects: Project[] }>);
+		}, {} as Record<string, GroupedDepartment>);
 	}, [projects, userRole, currentUser, departments]);
 
 	const departmentGroups = Object.values(projectsByDepartment).sort((a, b) => {
@@ -462,6 +623,74 @@ export function AppSidebar() {
 
 	const filteredMainMenuItems = mainMenuItems.filter(item =>
 		userRole && item.roles.includes(userRole)
+	);
+
+	const renderProjectItem = (project: Project) => (
+		<SidebarMenuItem
+			key={project.id}
+			onMouseEnter={() => setHoveredProject(project.name)}
+			onMouseLeave={() => setHoveredProject(null)}
+		>
+			<div className="relative group">
+				<SidebarMenuButton asChild>
+					<NavLink
+						to={getProjectUrl(project)}
+						className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
+							? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+							: ""
+							}`}
+					>
+						<FolderKanban className="h-4 w-4" />
+						<span className="text-sm flex-1">{project.name}</span>
+					</NavLink>
+				</SidebarMenuButton>
+				{hoveredProject === project.name && (
+					<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-sidebar z-10">
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-6 w-6 hover:bg-primary hover:text-white transition-all duration-200"
+							onClick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								setProjectToAssign(project);
+								setIsAssignGroupOpen(true);
+							}}
+							title="Assign to Group"
+						>
+							<FolderPlus className="h-3 w-3" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-6 w-6 hover:bg-primary hover:text-white transition-all duration-200"
+							onClick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								setProjectToEdit(project);
+								setIsProjectDialogOpen(true);
+							}}
+							title="Edit project"
+						>
+							<Pencil className="h-3 w-3" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-6 w-6 text-destructive hover:bg-destructive hover:text-white transition-all duration-200"
+							onClick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								setProjectToDelete(project);
+							}}
+							title="Delete project"
+						>
+							<Trash2 className="h-3 w-3" />
+						</Button>
+					</div>
+				)}
+			</div>
+		</SidebarMenuItem>
 	);
 
 	return (
@@ -529,60 +758,37 @@ export function AppSidebar() {
 												No projects found
 											</div>
 										) : userRole === "team-lead" && departmentGroups[0]?.id === 'flat' ? (
-											// Non-Digital Team-lead: Show flat list of projects without department grouping
-											departmentGroups[0]?.projects.map((project) => (
-												<SidebarMenuItem
-													key={project.id}
-													onMouseEnter={() => setHoveredProject(project.name)}
-													onMouseLeave={() => setHoveredProject(null)}
-												>
-													<div className="relative group">
-														<SidebarMenuButton asChild>
-															<NavLink
-																to={getProjectUrl(project)}
-																className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
-																	? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-																	: ""
-																	}`}
-															>
-																<FolderKanban className="h-4 w-4" />
-																<span className="text-sm flex-1">{project.name}</span>
-															</NavLink>
-														</SidebarMenuButton>
-														{hoveredProject === project.name && (
-															<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-sidebar z-10">
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	className="h-6 w-6 hover:bg-primary hover:text-white transition-all duration-200"
-																	onClick={(e) => {
-																		e.preventDefault();
-																		e.stopPropagation();
-																		setProjectToEdit(project);
-																		setIsProjectDialogOpen(true);
-																	}}
-																	title="Edit project"
-																>
-																	<Pencil className="h-3 w-3" />
-																</Button>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	className="h-6 w-6 text-destructive hover:bg-destructive hover:text-white transition-all duration-200"
-																	onClick={(e) => {
-																		e.preventDefault();
-																		e.stopPropagation();
-																		setProjectToDelete(project);
-																	}}
-																	title="Delete project"
-																>
-																	<Trash2 className="h-3 w-3" />
-																</Button>
-															</div>
-														)}
-													</div>
-												</SidebarMenuItem>
-											))
+											// Non-Digital Team-lead: Show flat list with groups support
+											<>
+												{Object.values(departmentGroups[0].projectGroups || {}).map(group => (
+													<Collapsible
+														key={group.id}
+														open={expandedProjectGroups.has(group.id)}
+														onOpenChange={() => toggleProjectGroupExpanded(group.id)}
+													>
+														<SidebarMenuItem>
+															<CollapsibleTrigger asChild>
+																<SidebarMenuButton className="w-full">
+																	<div className="flex items-center gap-2 flex-1">
+																		<FolderKanban className="h-4 w-4" />
+																		<span className="text-sm font-medium">{group.name}</span>
+																	</div>
+																	<ChevronRight
+																		className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
+																			}`}
+																	/>
+																</SidebarMenuButton>
+															</CollapsibleTrigger>
+															<CollapsibleContent>
+																<SidebarMenuSub>
+																	{group.projects.map((project) => renderProjectItem(project))}
+																</SidebarMenuSub>
+															</CollapsibleContent>
+														</SidebarMenuItem>
+													</Collapsible>
+												))}
+												{departmentGroups[0]?.ungroupedProjects.map((project) => renderProjectItem(project))}
+											</>
 										) : (
 											// Admin or Digital Team-lead: Show grouped by department
 											departmentGroups.map((departmentGroup) => (
@@ -607,59 +813,37 @@ export function AppSidebar() {
 														</CollapsibleTrigger>
 														<CollapsibleContent>
 															<SidebarMenuSub>
-																{departmentGroup.projects.map((project) => (
-																	<SidebarMenuSubItem
-																		key={project.id}
-																		onMouseEnter={() => setHoveredProject(project.name)}
-																		onMouseLeave={() => setHoveredProject(null)}
+																{/* Render Project Groups within Department */}
+																{Object.values(departmentGroup.projectGroups || {}).map(group => (
+																	<Collapsible
+																		key={group.id}
+																		open={expandedProjectGroups.has(group.id)}
+																		onOpenChange={() => toggleProjectGroupExpanded(group.id)}
 																	>
-																		<div className="relative group">
-																			<SidebarMenuSubButton asChild>
-																				<NavLink
-																					to={getProjectUrl(project)}
-																					className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
-																						? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-																						: ""
-																						}`}
-																				>
-																					<FolderKanban className="h-4 w-4" />
-																					<span className="text-sm flex-1">{project.name}</span>
-																				</NavLink>
-																			</SidebarMenuSubButton>
-																			{hoveredProject === project.name && (userRole === "admin" || userRole === "team-lead") && (
-																				<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-sidebar z-10">
-																					<Button
-																						variant="ghost"
-																						size="icon"
-																						className="h-6 w-6 hover:bg-primary hover:text-white transition-all duration-200"
-																						onClick={(e) => {
-																							e.preventDefault();
-																							e.stopPropagation();
-																							setProjectToEdit(project);
-																							setIsProjectDialogOpen(true);
-																						}}
-																						title="Edit project"
-																					>
-																						<Pencil className="h-3 w-3" />
-																					</Button>
-																					<Button
-																						variant="ghost"
-																						size="icon"
-																						className="h-6 w-6 text-destructive hover:bg-destructive hover:text-white transition-all duration-200"
-																						onClick={(e) => {
-																							e.preventDefault();
-																							e.stopPropagation();
-																							setProjectToDelete(project);
-																						}}
-																						title="Delete project"
-																					>
-																						<Trash2 className="h-3 w-3" />
-																					</Button>
-																				</div>
-																			)}
-																		</div>
-																	</SidebarMenuSubItem>
+																		<SidebarMenuItem>
+																			<CollapsibleTrigger asChild>
+																				<SidebarMenuButton className="w-full pl-2">
+																					<div className="flex items-center gap-2 flex-1">
+																						<FolderKanban className="h-4 w-4 text-muted-foreground" />
+																						<span className="text-sm">{group.name}</span>
+																					</div>
+																					<ChevronRight
+																						className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
+																							}`}
+																					/>
+																				</SidebarMenuButton>
+																			</CollapsibleTrigger>
+																			<CollapsibleContent>
+																				<SidebarMenuSub>
+																					{group.projects.map((project) => renderProjectItem(project))}
+																				</SidebarMenuSub>
+																			</CollapsibleContent>
+																		</SidebarMenuItem>
+																	</Collapsible>
 																))}
+
+																{/* Render Ungrouped Projects */}
+																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
 															</SidebarMenuSub>
 														</CollapsibleContent>
 													</SidebarMenuItem>
@@ -791,6 +975,17 @@ export function AppSidebar() {
 				editProject={projectToEdit || undefined}
 				departments={departments}
 				currentUser={currentUser}
+			/>
+
+			<AssignGroupDialog
+				open={isAssignGroupOpen}
+				onOpenChange={(open) => {
+					setIsAssignGroupOpen(open);
+					if (!open) setProjectToAssign(null);
+				}}
+				project={projectToAssign}
+				availableGroups={projectGroups.filter(g => projectToAssign?.department?.id === g.departmentId)}
+				onAssign={handleAssignGroup}
 			/>
 
 			<AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>

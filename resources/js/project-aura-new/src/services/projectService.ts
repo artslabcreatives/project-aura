@@ -39,7 +39,8 @@ function mapProject(raw: any): Project {
 		stages: Array.isArray(raw.stages) ? raw.stages.map(mapStage) : [],
 		department: raw.department ? { id: String(raw.department.id), name: raw.department.name } : undefined,
 		emails: raw.emails || [],
-		phoneNumbers: raw.phone_numbers || [],
+		phoneNumbers: raw.phoneNumbers || [],
+		group: raw.group ? { id: String(raw.group.id), name: raw.group.name, departmentId: String(raw.group.department_id) } : undefined,
 	};
 }
 
@@ -69,6 +70,7 @@ export const projectService = {
 			department_id: project.department ? parseInt(project.department.id, 10) : null,
 			emails: project.emails,
 			phone_numbers: project.phoneNumbers,
+			project_group_id: project.group ? parseInt(project.group.id, 10) : null,
 		};
 		const { data } = await api.post('/projects', payload);
 		return mapProject(data);
@@ -81,6 +83,7 @@ export const projectService = {
 			department_id: updates.department ? parseInt(updates.department.id, 10) : undefined,
 			emails: updates.emails,
 			phone_numbers: updates.phoneNumbers,
+			project_group_id: updates.group === null ? null : (updates.group ? parseInt(updates.group.id, 10) : undefined),
 		};
 		const { data } = await api.put(`/projects/${id}`, payload);
 		return mapProject(data);
