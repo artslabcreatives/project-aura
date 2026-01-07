@@ -488,6 +488,27 @@ export function ProjectDialog({
 			return;
 		}
 
+		// Validate that all stages (except Completed and Archive) have a Main Responsible person
+		const stagesMissingResponsible = stages.filter(s => {
+			const title = s.title.toLowerCase().trim();
+			// Skip validation for Completed and Archive stages
+			if (['completed', 'complete', 'archive'].includes(title)) {
+				return false;
+			}
+			// Check if mainResponsibleId is missing
+			return !s.mainResponsibleId;
+		});
+
+		if (stagesMissingResponsible.length > 0) {
+			const missingNames = stagesMissingResponsible.map(s => s.title).join(", ");
+			toast({
+				title: "Validation Error",
+				description: `Please assign a Main Responsible person for the following stages: ${missingNames}`,
+				variant: "destructive",
+			});
+			return;
+		}
+
 		onSave(result.data.name, result.data.description || "", stages, emails, phoneNumbers, department);
 		onOpenChange(false);
 	};
