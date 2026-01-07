@@ -29,6 +29,7 @@ interface SearchableSelectProps {
     options: SearchableOption[];
     placeholder?: string;
     className?: string;
+    disabled?: boolean;
 }
 
 export function SearchableSelect({
@@ -37,6 +38,7 @@ export function SearchableSelect({
     options,
     placeholder = "Select...",
     className,
+    disabled = false,
 }: SearchableSelectProps) {
     const [open, setOpen] = React.useState(false);
 
@@ -68,6 +70,7 @@ export function SearchableSelect({
                 <Button
                     variant="outline"
                     role="combobox"
+                    disabled={disabled}
                     aria-expanded={open}
                     className={cn("w-full justify-between font-normal", !value && "text-muted-foreground", className)}
                 >

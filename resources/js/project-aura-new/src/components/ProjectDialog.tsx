@@ -192,101 +192,104 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 				{isSystem && <div className="w-9" />} {/* Spacer for delete button */}
 			</div>
 
-			<div className="flex items-center gap-2 ml-6">
-				<Checkbox
-					id={`review-stage-${stage.id}`}
-					checked={stage.isReviewStage}
-					onCheckedChange={(checked) => updateStage(stage.id, "isReviewStage", checked === true)}
-					disabled={isSystem}
-				/>
-				<Label
-					htmlFor={`review-stage-${stage.id}`}
-					className="text-xs font-normal cursor-pointer"
-				>
-					Mark as Review Stage
-				</Label>
-			</div>
-
-			{/* Stage Transition Configuration */}
-			<div className="mt-3 ml-6">
-				{stage.isReviewStage ? (
-					<div className="grid gap-1.5">
-						<Label className="text-xs">After approval, move task to:</Label>
-						<Select
-							value={stage.approvedTargetStageId || ""}
-							onValueChange={(value) => updateStage(stage.id, "approvedTargetStageId", value)}
+			{['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) ? null : (
+				<>
+					<div className="flex items-center gap-2 ml-6">
+						<Checkbox
+							id={`review-stage-${stage.id}`}
+							checked={stage.isReviewStage}
+							onCheckedChange={(checked) => updateStage(stage.id, "isReviewStage", checked === true)}
 							disabled={isSystem}
+						/>
+						<Label
+							htmlFor={`review-stage-${stage.id}`}
+							className="text-xs font-normal cursor-pointer"
 						>
-							<SelectTrigger className="h-8">
-								<SelectValue placeholder="Select target stage" />
-							</SelectTrigger>
-							<SelectContent>
-								{stages
-									.filter((s) => s.id !== stage.id)
-									.map((s) => (
-										<SelectItem key={s.id} value={s.id}>
-											{s.title || "Untitled Stage"}
-										</SelectItem>
-									))}
-							</SelectContent>
-						</Select>
+							Mark as Review Stage
+						</Label>
 					</div>
-				) : (
-					<div className="grid gap-1.5">
-						<Label className="text-xs">Linked Review Stage (Optional):</Label>
-						<Select
-							value={stage.linkedReviewStageId || "none"}
-							onValueChange={(value) => updateStage(stage.id, "linkedReviewStageId", value === "none" ? undefined : value)}
-							disabled={isSystem}
-						>
-							<SelectTrigger className="h-8">
-								<SelectValue placeholder="Select review stage" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="none">None (Go to next stage)</SelectItem>
-								{stages
-									.filter((s) => s.isReviewStage && s.id !== stage.id)
-									.map((s) => (
-										<SelectItem key={s.id} value={s.id}>
-											{s.title || "Untitled Stage"}
-										</SelectItem>
-									))}
-							</SelectContent>
-						</Select>
+
+					{/* Stage Transition Configuration */}
+					<div className="mt-3 ml-6">
+						{stage.isReviewStage ? (
+							<div className="grid gap-1.5">
+								<Label className="text-xs">After approval, move task to:</Label>
+								<Select
+									value={stage.approvedTargetStageId || ""}
+									onValueChange={(value) => updateStage(stage.id, "approvedTargetStageId", value)}
+									disabled={isSystem}
+								>
+									<SelectTrigger className="h-8">
+										<SelectValue placeholder="Select target stage" />
+									</SelectTrigger>
+									<SelectContent>
+										{stages
+											.filter((s) => s.id !== stage.id)
+											.map((s) => (
+												<SelectItem key={s.id} value={s.id}>
+													{s.title || "Untitled Stage"}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+							</div>
+						) : (
+							<div className="grid gap-1.5">
+								<Label className="text-xs">Linked Review Stage (Optional):</Label>
+								<Select
+									value={stage.linkedReviewStageId || "none"}
+									onValueChange={(value) => updateStage(stage.id, "linkedReviewStageId", value === "none" ? undefined : value)}
+									disabled={isSystem}
+								>
+									<SelectTrigger className="h-8">
+										<SelectValue placeholder="Select review stage" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">None (Go to next stage)</SelectItem>
+										{stages
+											.filter((s) => s.isReviewStage && s.id !== stage.id)
+											.map((s) => (
+												<SelectItem key={s.id} value={s.id}>
+													{s.title || "Untitled Stage"}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+							</div>
+						)}
 					</div>
-				)}
-			</div>
 
-
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-				<div className="flex flex-col gap-1.5">
-					<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
-					<SearchableSelect
-						value={stage.mainResponsibleId}
-						onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
-						options={memberOptions.filter(o => o.value !== stage.backupResponsibleId1 && o.value !== stage.backupResponsibleId2)}
-						placeholder="Select main"
-					/>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
-					<SearchableSelect
-						value={stage.backupResponsibleId1}
-						onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
-						options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
-						placeholder="Select backup 1"
-					/>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
-					<SearchableSelect
-						value={stage.backupResponsibleId2}
-						onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
-						options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
-						placeholder="Select backup 2"
-					/>
-				</div>
-			</div>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
+							<SearchableSelect
+								value={stage.mainResponsibleId}
+								onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
+								options={memberOptions.filter(o => o.value !== stage.backupResponsibleId1 && o.value !== stage.backupResponsibleId2)}
+								placeholder="Select main"
+							/>
+						</div>
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
+							<SearchableSelect
+								value={stage.backupResponsibleId1}
+								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
+								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
+								placeholder="Select backup 1"
+							/>
+						</div>
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
+							<SearchableSelect
+								value={stage.backupResponsibleId2}
+								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
+								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
+								placeholder="Select backup 2"
+							/>
+						</div>
+					</div>
+				</>
+			)}
 		</div>
 	);
 }
@@ -365,7 +368,14 @@ export function ProjectDialog({
 					);
 					setDepartment(userDepartment);
 				}
-				setStages([]);
+				if (stages.length === 0) {
+					setStages([
+						{ id: 'system-suggested', title: 'Suggested Task', color: 'bg-slate-200', order: 0, type: 'project', isReviewStage: false },
+						{ id: 'system-pending', title: 'Pending', color: 'bg-orange-500', order: 1, type: 'project', isReviewStage: false },
+						{ id: 'system-completed', title: 'Completed', color: 'bg-green-500', order: 998, type: 'project', isReviewStage: false },
+						{ id: 'system-archive', title: 'Archive', color: 'bg-slate-500', order: 999, type: 'project', isReviewStage: false },
+					]);
+				}
 			}
 		} else {
 			setFormData({ name: "", description: "" });
@@ -687,6 +697,19 @@ export function ProjectDialog({
 											))}
 										</SortableContext>
 									</DndContext>
+
+									<div className="flex items-center justify-center py-2">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={addStage}
+											className="h-8 text-xs border-dashed text-muted-foreground hover:text-foreground rounded-full bg-muted/30 hover:bg-muted/80"
+										>
+											<Plus className="mr-2 h-3 w-3" />
+											Add Custom Stage
+										</Button>
+									</div>
 
 									{bottomStages.map(stage => (
 										<SortableStageItem

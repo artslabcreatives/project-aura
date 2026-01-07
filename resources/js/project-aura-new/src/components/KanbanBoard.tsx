@@ -118,7 +118,6 @@ export function KanbanBoard({
   };
 
   // Filter out Specific Stage if it has no tasks
-  // Filter out Specific Stage if it has no tasks
   const visibleStages = stages;
 
   return (

@@ -157,25 +157,50 @@ export function AppSidebar() {
 				department,
 			});
 
+			// Fetch fresh project details to get any auto-created system stages
+			const fetchedProject = await projectService.getById(String(newProject.id));
+
 			// Step 1: Create all stages without linked IDs (to get numeric IDs from backend)
 			const stageIdMap = new Map<string, number>(); // Map temp ID -> real ID
 			const createdStages = [];
 
+			// Check for automatically created system stages using the fetched project data
+			const existingSystemStages = new Map(fetchedProject.stages.map(s => [s.title.toLowerCase().trim(), s]));
+
 			for (const stage of stages) {
-				const response = await api.post('/stages', {
-					title: stage.title,
-					color: stage.color,
-					order: stage.order,
-					project_id: newProject.id,
-					type: stage.type,
-					main_responsible_id: stage.mainResponsibleId,
-					backup_responsible_id_1: stage.backupResponsibleId1,
-					backup_responsible_id_2: stage.backupResponsibleId2,
-					is_review_stage: stage.isReviewStage,
-					// Don't send linked IDs yet - they reference temp IDs
-				});
-				stageIdMap.set(stage.id, response.data.id);
-				createdStages.push({ tempId: stage.id, realId: response.data.id, originalStage: stage });
+				const existing = existingSystemStages.get(stage.title.toLowerCase().trim());
+
+				if (existing) {
+					// Map the temp ID to the existing real ID from backend
+					stageIdMap.set(stage.id, Number(existing.id));
+
+					// Update the existing system stage with user properties (e.g. color, responsible persons)
+					// This ensures the backend stage matches the user's intent (e.g. Orange Pending instead of Grey)
+					await api.put(`/stages/${existing.id}`, {
+						color: stage.color,
+						main_responsible_id: stage.mainResponsibleId,
+						backup_responsible_id_1: stage.backupResponsibleId1,
+						backup_responsible_id_2: stage.backupResponsibleId2,
+						// We don't update title or type for system stages
+					});
+
+				} else {
+					// Create new custom stage
+					const response = await api.post('/stages', {
+						title: stage.title,
+						color: stage.color,
+						order: stage.order,
+						project_id: newProject.id,
+						type: stage.type,
+						main_responsible_id: stage.mainResponsibleId,
+						backup_responsible_id_1: stage.backupResponsibleId1,
+						backup_responsible_id_2: stage.backupResponsibleId2,
+						is_review_stage: stage.isReviewStage,
+						// Don't send linked IDs yet - they reference temp IDs
+					});
+					stageIdMap.set(stage.id, response.data.id);
+					createdStages.push({ tempId: stage.id, realId: response.data.id, originalStage: stage });
+				}
 			}
 
 			// Step 2: Update stages with proper linked IDs now that all stages exist
