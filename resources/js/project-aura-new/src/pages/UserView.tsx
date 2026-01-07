@@ -2,6 +2,7 @@ import { DashboardStats } from "@/components/DashboardStats";
 import { Task } from "@/types/task";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCard } from "@/components/TaskCard";
+import { TaskCalendar } from "@/components/TaskCalendar";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
 import { isPast, isToday, isFuture, addDays } from "date-fns";
 import { useEffect, useState } from "react";
@@ -74,6 +75,14 @@ export default function UserView() {
 			</div>
 
 			<DashboardStats tasks={tasks} />
+
+			<div className="mt-8 mb-8">
+				<div className="flex items-center gap-2 mb-4">
+					<div className="h-8 w-1 bg-primary rounded-full"></div>
+					<h3 className="text-xl font-bold text-foreground/80">Task Calendar</h3>
+				</div>
+				<TaskCalendar tasks={tasks} />
+			</div>
 
 			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 				<Card className="hover-lift border-2 border-primary/20 bg-gradient-to-br from-card to-primary/5 overflow-hidden group">
@@ -200,11 +209,13 @@ export default function UserView() {
 				</Card>
 			</div>
 
+
+
 			<TaskDetailsDialog
 				task={viewTask}
 				open={isViewDialogOpen}
 				onOpenChange={setIsViewDialogOpen}
 			/>
-		</div>
+		</div >
 	);
 }
