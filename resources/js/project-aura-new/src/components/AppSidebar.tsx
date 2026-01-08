@@ -120,7 +120,7 @@ export function AppSidebar() {
 					const tasksData = await taskService.getAll();
 					const userProjectStages = new Map<string, Set<string>>();
 					tasksData
-						.filter(task => task.assignee === currentUser.name)
+						.filter(task => task.assignee === currentUser.name && task.userStatus !== 'complete')
 						.forEach(task => {
 							if (task.project && task.projectStage) {
 								if (!userProjectStages.has(task.project)) {

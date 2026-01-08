@@ -96,7 +96,8 @@ export default function UserProjectStageTasks() {
 				const filtered = tasksData.filter(t =>
 					String(t.projectId) === String(projectId) &&
 					String(t.projectStage) === String(stageId) &&
-					t.assignee === (currentUser?.name || "")
+					t.assignee === (currentUser?.name || "") &&
+					t.userStatus !== 'complete'
 				);
 				setTasks(filtered);
 			} catch (error) {
@@ -125,13 +126,17 @@ export default function UserProjectStageTasks() {
 		);
 
 		// If task is completed, remove it from view after 10 seconds
+		// If task is completed, remove it from view after 10 seconds
 		if (updates.userStatus === "complete") {
+			console.log(`Task ${taskId} marked as complete, scheduling removal in 10s`);
 			setTimeout(() => {
 				setTasks(currentTasks => {
-					const task = currentTasks.find(t => t.id === taskId);
+					const task = currentTasks.find(t => String(t.id) === String(taskId));
+					console.log(`[UserProjectStageTasks] Checking task ${taskId} for removal. Found: ${!!task}, Status: ${task?.userStatus}`);
 					// Only remove if it's still complete (user didn't move it back)
 					if (task && task.userStatus === "complete") {
-						return currentTasks.filter(t => t.id !== taskId);
+						console.log(`Removing completed task ${taskId} from view`);
+						return currentTasks.filter(t => String(t.id) !== String(taskId));
 					}
 					return currentTasks;
 				});
