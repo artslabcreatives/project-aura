@@ -469,7 +469,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							<h1 className="text-3xl font-bold">{project.name}</h1>
 							<p className="text-muted-foreground mt-1">{project.description}</p>
 						</div>
-						<div className="flex items-center gap-3 mr-6">
+						<div className="flex items-center gap-3">
 							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
 								<>
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
