@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserDashboard from "./pages/UserDashboard";
 import Tasks from "./pages/Tasks";
@@ -20,8 +20,44 @@ const queryClient = new QueryClient();
 
 import { NotificationsPopover } from "@/components/NotificationsPopover";
 
+const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+	const { open } = useSidebar();
+	const { currentUser, logout } = useUser();
+
+	return (
+		<div className="min-h-screen flex w-full bg-background">
+			<AppSidebar />
+			<div className="flex-1 flex flex-col min-w-0">
+				<header className={`sticky top-0 z-40 h-16 border-b border-border/50 flex items-center justify-between px-6 bg-card/80 backdrop-blur-md shadow-sm transition-[padding] duration-200 ${open ? 'pr-12' : ''}`}>
+					<div className="flex items-center gap-4">
+						<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
+					</div>
+					<div className="flex items-center gap-3">
+						<NotificationsPopover />
+						<span className="text-sm text-muted-foreground hidden md:block">
+							{currentUser?.name} ({currentUser?.role})
+						</span>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={logout}
+							title="Logout"
+							className="hover:bg-accent/50 transition-colors"
+						>
+							<LogOut className="h-5 w-5" />
+						</Button>
+					</div>
+				</header>
+				<main className="flex-1 p-6 overflow-y-auto">
+					{children}
+				</main>
+			</div>
+		</div>
+	);
+};
+
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
-	const { currentUser, isLoading, isAuthenticated, logout } = useUser();
+	const { currentUser, isLoading, isAuthenticated } = useUser();
 	if (isLoading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-background">
@@ -39,35 +75,8 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 	return (
 		<SidebarProvider>
-			<div className="min-h-screen flex w-full bg-background">
-				<AppSidebar />
-				<div className="flex-1 flex flex-col">
-					<header className="sticky top-0 z-40 h-16 border-b border-border/50 flex items-center justify-between px-6 bg-card/80 backdrop-blur-md shadow-sm">
-						<div className="flex items-center gap-4">
-							<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
-						</div>
-						<div className="flex items-center gap-3">
-							<NotificationsPopover />
-							<span className="text-sm text-muted-foreground hidden md:block">
-								{currentUser.name} ({currentUser.role})
-							</span>
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={logout}
-								title="Logout"
-								className="hover:bg-accent/50 transition-colors"
-							>
-								<LogOut className="h-5 w-5" />
-							</Button>
-						</div>
-					</header >
-					<main className="flex-1 p-6 overflow-y-auto">
-						{children}
-					</main>
-				</div >
-			</div >
-		</SidebarProvider >
+			<DashboardLayout>{children}</DashboardLayout>
+		</SidebarProvider>
 	);
 };
 
