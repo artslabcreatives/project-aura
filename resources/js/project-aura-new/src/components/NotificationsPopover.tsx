@@ -107,6 +107,19 @@ export function NotificationsPopover() {
                                     <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                                         {notification.data.message}
                                     </p>
+                                    {!notification.read_at && (
+                                        <div className="w-full flex justify-end mt-1">
+                                            <span
+                                                className="text-[10px] text-primary hover:underline cursor-pointer font-medium"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleMarkAsRead(notification.id);
+                                                }}
+                                            >
+                                                Mark as read
+                                            </span>
+                                        </div>
+                                    )}
                                 </button>
                             ))}
                         </div>
