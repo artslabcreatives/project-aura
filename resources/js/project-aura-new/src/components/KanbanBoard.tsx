@@ -36,6 +36,7 @@ interface KanbanBoardProps {
   onTaskReview?: (task: Task) => void; // Optional: for reviewing tasks
   onAddTaskToStage?: (stageId: string) => void;
   projectId?: string;
+  onAddSubtask?: (task: Task) => void;
 }
 
 export function KanbanBoard({
@@ -54,7 +55,7 @@ export function KanbanBoard({
   onTaskReview,
   onAddTaskToStage,
   projectId,
-
+  onAddSubtask,
 }: KanbanBoardProps) {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(
@@ -268,6 +269,11 @@ export function KanbanBoard({
                     canDrag={canDragTasks}
                     currentStage={column}
                     projectId={projectId}
+                    onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+                    onViewSubtask={(subtask) => {
+                      setViewTask(subtask);
+                      setIsViewDialogOpen(true);
+                    }}
                   />
                 ))
               )}

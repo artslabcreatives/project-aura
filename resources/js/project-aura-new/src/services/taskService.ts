@@ -35,6 +35,8 @@ function mapTask(raw: any): Task {
 			requestedAt: r.requested_at || r.created_at || new Date().toISOString(),
 			resolvedAt: r.resolved_at || undefined,
 		})) || [],
+		subtasks: raw.subtasks?.map(mapTask) || [],
+		parentId: raw.parent_id ? String(raw.parent_id) : null,
 	};
 }
 
@@ -73,6 +75,7 @@ export const taskService = {
 			start_date: task.startDate,
 			is_in_specific_stage: task.isInSpecificStage,
 			revision_comment: task.revisionComment,
+			parent_id: task.parentId,
 		};
 		console.log('=== TASK CREATE DEBUG ===');
 		console.log('Input task:', task);
@@ -99,6 +102,7 @@ export const taskService = {
 			previous_stage_id: updates.previousStage,
 			original_assignee_id: updates.originalAssigneeId,
 			completed_at: updates.completedAt,
+			parent_id: updates.parentId,
 		};
 		const { data } = await api.put(`/tasks/${id}`, payload);
 		return mapTask(data);

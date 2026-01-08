@@ -36,6 +36,13 @@ class TaskObserver
 
         // Check if user_status is being changed to 'complete'
         if ($task->isDirty('user_status') && $task->user_status === 'complete') {
+            
+            // If this is a subtask, DO NOT move it to another stage.
+            // Subtasks stay in the parent's stage.
+            if ($task->parent_id) {
+               return; 
+            }
+
             // Get the current stage
             $currentStage = Stage::find($task->project_stage_id);
             
@@ -106,5 +113,19 @@ class TaskObserver
             'stage' => $task->project_stage_id,
             'assignee' => $task->assignee_id,
         ]);
+
+        // If this task is a subtask and is completed, check if all siblings are complete
+        if ($task->parent_id && $task->user_status === 'complete') {
+            $parent = $task->parentTask;
+            if ($parent) {
+                $incompleteSubtasks = $parent->subtasks()->where('user_status', '!=', 'complete')->count();
+                
+                if ($incompleteSubtasks === 0) {
+                    // All subtasks are complete, complete the parent
+                    Log::info("All subtasks for task {$parent->id} are complete. Completing parent task.");
+                    $parent->update(['user_status' => 'complete']);
+                }
+            }
+        }
     }
 }

@@ -3,7 +3,7 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Send, Share2 } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -33,9 +33,11 @@ interface TaskCardProps {
 	currentStage?: Stage;
 	canDrag?: boolean;
 	projectId?: string;
+	onAddSubtask?: () => void;
+	onViewSubtask?: (subtask: Task) => void;
 }
 
-export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId }: TaskCardProps) {
+export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId, onAddSubtask, onViewSubtask }: TaskCardProps) {
 	const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 	const isValidDueDate = dueDate && isValid(dueDate);
 	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
@@ -233,6 +235,65 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 								>
 									<History className="h-3.5 w-3.5" />
 								</Button>
+							)}
+						</div>
+					</div>
+				)}
+
+				{/* Subtasks List */}
+				{(task.subtasks && task.subtasks.length > 0 || onAddSubtask) && (
+					<div className="mt-3 pt-3 border-t">
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+								<ListTodo className="h-3 w-3" /> Subtasks
+							</span>
+							{canManage && onAddSubtask && (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-5 px-1.5 text-[10px]"
+									onClick={(e) => {
+										e.stopPropagation();
+										onAddSubtask();
+									}}
+								>
+									<Plus className="h-3 w-3 mr-1" /> Add
+								</Button>
+							)}
+						</div>
+						<div className="space-y-1">
+							{task.subtasks?.map(subtask => (
+								<div
+									key={subtask.id}
+									className="flex items-center gap-2 text-xs p-1 hover:bg-muted/50 rounded group/subtask"
+									onClick={(e) => {
+										e.stopPropagation();
+										if (onViewSubtask) onViewSubtask(subtask);
+									}}
+								>
+									<div className={cn(
+										"h-3 w-3 border rounded-sm flex items-center justify-center transition-colors",
+										subtask.userStatus === 'complete'
+											? "bg-primary border-primary text-primary-foreground"
+											: "border-muted-foreground/50"
+									)}>
+										{subtask.userStatus === 'complete' && <CheckSquare className="h-2 w-2" />}
+									</div>
+									<span className={cn(
+										"flex-1 truncate",
+										subtask.userStatus === 'complete' && "line-through text-muted-foreground"
+									)}>
+										{subtask.title}
+									</span>
+									<span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
+										{subtask.assignee.split(' ')[0]}
+									</span>
+								</div>
+							))}
+							{(!task.subtasks || task.subtasks.length === 0) && onAddSubtask && (
+								<div className="text-[10px] text-muted-foreground italic px-1">
+									No subtasks
+								</div>
 							)}
 						</div>
 					</div>

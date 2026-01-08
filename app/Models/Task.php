@@ -27,7 +27,9 @@ class Task extends Model
         'previous_stage_id',
         'original_assignee_id',
         'completed_at',
+        'completed_at',
         'estimated_hours',
+        'parent_id',
     ];
 
     protected $casts = [
@@ -92,5 +94,20 @@ class Task extends Model
     public function revisionHistories(): HasMany
     {
         return $this->hasMany(RevisionHistory::class);
+    }
+    /**
+     * Get the subtasks for the task.
+     */
+    public function subtasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'parent_id');
+    }
+
+    /**
+     * Get the parent task.
+     */
+    public function parentTask(): BelongsTo
+    {
+        return $this->belongsTo(Task::class, 'parent_id');
     }
 }

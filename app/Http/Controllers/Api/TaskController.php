@@ -14,7 +14,7 @@ class TaskController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Task::with(['project', 'assignee', 'projectStage', 'attachments']);
+        $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee']);
         
         if ($request->has('project_id')) {
             $query->where('project_id', $request->project_id);
@@ -55,6 +55,7 @@ class TaskController extends Controller
             'is_in_specific_stage' => 'sometimes|boolean',
             'revision_comment' => 'nullable|string',
             'estimated_hours' => 'nullable|numeric|min:0',
+            'parent_id' => 'nullable|exists:tasks,id',
         ]);
 
         // If assignee_id is not provided, assign to the authenticated user
@@ -101,6 +102,7 @@ class TaskController extends Controller
             'original_assignee_id' => 'nullable|exists:users,id',
             'completed_at' => 'nullable|date',
             'estimated_hours' => 'nullable|numeric|min:0',
+            'parent_id' => 'nullable|exists:tasks,id',
         ]);
 
         $task->fill($validated);

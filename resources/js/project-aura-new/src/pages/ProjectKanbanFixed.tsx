@@ -3,7 +3,7 @@ import { api } from "@/services/api";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { Task, User } from "@/types/task";
+import { Task, User, UserStatus } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List } from "lucide-react";
@@ -24,6 +24,7 @@ import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
+import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -90,6 +91,15 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const navigate = useNavigate();
+
+	// Subtask Dialog State
+	const [isAddSubtaskDialogOpen, setIsAddSubtaskDialogOpen] = useState(false);
+	const [parentTaskForSubtask, setParentTaskForSubtask] = useState<Task | null>(null);
+
+	const handleAddSubtask = (parentTask: Task) => {
+		setParentTaskForSubtask(parentTask);
+		setIsAddSubtaskDialogOpen(true);
+	};
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -399,6 +409,35 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	if (isLoading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
+	const handleSaveSubtask = async (subtaskData: { title: string; description: string; assignee: string; dueDate: string; userStatus: UserStatus }) => {
+		if (!project || !parentTaskForSubtask || !currentUser) return;
+		try {
+			const assigneeId = subtaskData.assignee ? teamMembers.find(m => m.name === subtaskData.assignee)?.id : undefined;
+
+			await taskService.create({
+				title: subtaskData.title,
+				description: subtaskData.description,
+				projectId: project.id,
+				assigneeId: assigneeId ? parseInt(assigneeId) : undefined,
+				dueDate: subtaskData.dueDate,
+				userStatus: subtaskData.userStatus,
+				projectStageId: parentTaskForSubtask.projectStage ? parseInt(parentTaskForSubtask.projectStage) : undefined,
+				priority: 'medium', // Default
+				parentId: parentTaskForSubtask.id,
+			} as any);
+
+			toast({ title: "Subtask added", description: "Subtask created successfully." });
+
+			// Refresh tasks
+			const tasksData = await taskService.getAll({ projectId: String(project.id) });
+			setTasks(tasksData.filter(t => t.projectId === project.id));
+
+		} catch (error) {
+			console.error("Failed to add subtask", error);
+			toast({ title: "Error", description: "Failed to create subtask.", variant: "destructive" });
+		}
+	};
+
 	const sortedStages = [...project.stages].sort((a, b) => {
 		const getPriority = (s: Stage) => {
 			const t = s.title.toLowerCase().trim();
@@ -413,6 +452,10 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		if (pA !== pB) return pA - pB;
 		return a.order - b.order;
 	});
+
+	// Filter out subtasks from the main board view so they don't appear as duplicate cards
+	// Only show top-level tasks (where parentId is null/undefined)
+	const topLevelTasks = tasks.filter(t => !t.parentId);
 
 	return (
 		<div className="flex flex-col h-full bg-background">
@@ -462,7 +505,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					<div className="max-w-7xl mx-auto">
 						{view === 'kanban' ? (
 							<KanbanBoard
-								tasks={tasks}
+								tasks={topLevelTasks}
 								stages={sortedStages}
 								onTaskUpdate={handleTaskUpdate}
 								onTaskEdit={handleTaskEdit}
@@ -474,10 +517,11 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
 								onAddTaskToStage={handleAddTaskToStage}
 								projectId={String(project.id)}
+								onAddSubtask={handleAddSubtask}
 							/>
 						) : (
 							<TaskListView
-								tasks={tasks}
+								tasks={topLevelTasks}
 								stages={sortedStages}
 								onTaskEdit={handleTaskEdit}
 								onTaskDelete={handleTaskDelete}
@@ -538,6 +582,13 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				stages={sortedStages}
 				onApprove={handleApproveTask}
 				onRequestRevision={handleRequestRevision}
+			/>
+			<AddSubtaskDialog
+				open={isAddSubtaskDialogOpen}
+				onOpenChange={setIsAddSubtaskDialogOpen}
+				onSave={handleSaveSubtask}
+				teamMembers={teamMembers}
+				parentTaskTitle={parentTaskForSubtask?.title || ''}
 			/>
 		</div>
 	);

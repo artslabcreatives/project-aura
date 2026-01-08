@@ -39,6 +39,8 @@ export interface Task {
 	previousStage?: string; // Store the stage before moving to Review (for revision workflow)
 	originalAssignee?: string; // Store the assignee who completed the task (for revision workflow)
 	completedAt?: string; // ISO 8601 date string
+	subtasks?: Task[]; // Subtasks
+	parentId?: string | null; // Parent task ID
 }
 
 export interface SuggestedTask {
