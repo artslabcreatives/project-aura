@@ -18,6 +18,7 @@ import { TaskListView } from "@/components/TaskListView";
 import { ReviewTaskDialog } from "@/components/ReviewTaskDialog";
 import { useToast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useSidebar } from "@/components/ui/sidebar";
 import { projectService } from "@/services/projectService";
 import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
@@ -91,6 +92,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const navigate = useNavigate();
+	const { open } = useSidebar();
 
 	// Subtask Dialog State
 	const [isAddSubtaskDialogOpen, setIsAddSubtaskDialogOpen] = useState(false);
@@ -460,8 +462,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	return (
 		<div className="flex flex-col h-full bg-background">
 			{/* FIXED HEADER */}
-			<header className="flex-shrink-0 border-b bg-background z-10 px-6 py-5 shadow-sm mr-12">
-				<div className="max-w-6xl mx-auto w-full">
+			<header className={`flex-shrink-0 border-b bg-background z-10 px-6 py-5 shadow-sm transition-[padding] duration-200 ${open ? "pr-12" : ""}`}>
+				<div className="w-full">
 					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
 						<div>
 							<h1 className="text-3xl font-bold">{project.name}</h1>
@@ -502,7 +504,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			{/* SCROLLABLE CONTENT AREA */}
 			<main className="flex-1 overflow-hidden">
 				<div className="h-full overflow-auto p-6 pb-10 bg-muted/5">
-					<div className="max-w-7xl mx-auto">
+					<div className="w-full">
 						{view === 'kanban' ? (
 							<KanbanBoard
 								tasks={topLevelTasks}
