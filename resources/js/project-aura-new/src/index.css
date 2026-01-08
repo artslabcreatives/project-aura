@@ -201,7 +201,7 @@
 	/* Webkit browsers (Chrome, Safari, Edge) */
 	::-webkit-scrollbar {
 		width: 12px;
-		height: 12px;
+		height: 17px;
 	}
 
 	::-webkit-scrollbar-track {
@@ -233,7 +233,7 @@
 
 	/* Firefox */
 	* {
-		scrollbar-width: thin;
+		scrollbar-width: auto;
 		scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
 	}
 
