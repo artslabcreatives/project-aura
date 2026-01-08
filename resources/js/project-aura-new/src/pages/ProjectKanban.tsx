@@ -24,6 +24,7 @@ import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { SuggestedTaskCard } from "@/components/SuggestedTaskCard";
+import { Loading } from "@/components/Loading";
 
 export default function ProjectKanban() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -459,7 +460,7 @@ export default function ProjectKanban() {
 		setReviewTask(null);
 	};
 
-	if (isLoading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+	if (isLoading) return <Loading />;
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	return (

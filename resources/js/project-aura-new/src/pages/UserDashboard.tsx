@@ -3,6 +3,8 @@ import AdminView from "./AdminView";
 import TeamLeadView from "./TeamLeadView";
 import UserView from "./UserView";
 
+import { Loading } from "@/components/Loading";
+
 export default function UserDashboard() {
   const { currentUser } = useUser();
   const role = currentUser?.role;
@@ -15,6 +17,6 @@ export default function UserDashboard() {
     case "user":
       return <UserView />;
     default:
-      return <div>Loading...</div>;
+      return <Loading />;
   }
 }

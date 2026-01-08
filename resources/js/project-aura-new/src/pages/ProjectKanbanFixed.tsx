@@ -27,6 +27,8 @@ import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
 
+import { Loading } from "@/components/Loading";
+
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
 	const [project, setProject] = useState<Project | null>(null);
@@ -63,11 +65,13 @@ export default function ProjectKanbanFixed() {
 		fetchProject();
 	}, [projectId]);
 
-	if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+	if (loading) return <Loading />;
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	return <ProjectBoardContent key={project.id} project={project} />;
 }
+
+
 
 function ProjectBoardContent({ project: initialProject }: { project: Project }) {
 	const numericProjectId = initialProject.id ? parseInt(String(initialProject.id), 10) : undefined;
@@ -408,7 +412,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		setIsReviewTaskDialogOpen(false); setReviewTask(null);
 	};
 
-	if (isLoading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+	if (isLoading) return <Loading />;
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	const handleSaveSubtask = async (subtaskData: { title: string; description: string; assignee: string; dueDate: string; userStatus: UserStatus }) => {
