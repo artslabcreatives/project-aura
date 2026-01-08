@@ -14,7 +14,7 @@ class TaskController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee']);
+        $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project']);
         
         if ($request->has('project_id')) {
             $query->where('project_id', $request->project_id);
