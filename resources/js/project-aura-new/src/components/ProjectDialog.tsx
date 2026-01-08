@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Stage } from "@/types/stage";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/task";
 import {
@@ -31,6 +31,8 @@ import { MultiSelect } from "./ui/multi-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Department } from "@/types/department";
 import { Project } from "@/types/project";
+import { ProjectGroup } from "@/types/project-group";
+import { projectGroupService } from "@/services/projectGroupService";
 import { SearchableSelect, SearchableOption } from "./ui/searchable-select";
 import {
 	DndContext,
@@ -89,7 +91,8 @@ interface ProjectDialogProps {
 		stages: Stage[],
 		emails: string[],
 		phoneNumbers: string[],
-		department?: Department
+		department?: Department,
+		groupId?: string
 	) => void;
 	existingProjects: string[];
 	teamMembers: User[];
@@ -98,6 +101,7 @@ interface ProjectDialogProps {
 	currentUser?: User | null;
 }
 
+// ... SortableStageItem remains same ...
 interface SortableStageItemProps {
 	stage: Stage;
 	updateStage: <K extends keyof Stage>(id: string, field: K, value: Stage[K]) => void;
@@ -313,6 +317,8 @@ export function ProjectDialog({
 	const [emails, setEmails] = useState<string[]>([]);
 	const [phoneNumbers, setPhoneNumbers] = useState<string[]>([]);
 	const [department, setDepartment] = useState<Department | undefined>();
+	const [groupId, setGroupId] = useState<string>("");
+	const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
 	const [phoneNumbersOptions, setPhoneNumbersOptions] = useState<{ value: string, label: string }[]>([]);
 	const [errors, setErrors] = useState<
 		Partial<Record<keyof ProjectFormData, string>>
@@ -324,6 +330,24 @@ export function ProjectDialog({
 			coordinateGetter: sortableKeyboardCoordinates,
 		})
 	);
+
+	// Fetch groups when department changes
+	useEffect(() => {
+		const fetchGroups = async () => {
+			if (department) {
+				try {
+					const groups = await projectGroupService.getAll(String(department.id));
+					setProjectGroups(groups);
+				} catch (error) {
+					console.error("Failed to load project groups", error);
+					setProjectGroups([]);
+				}
+			} else {
+				setProjectGroups([]);
+			}
+		};
+		fetchGroups();
+	}, [department]);
 
 	useEffect(() => {
 		if (open) {
@@ -360,6 +384,7 @@ export function ProjectDialog({
 				setEmails(editProject.emails || []);
 				setPhoneNumbers(editProject.phoneNumbers || []);
 				setDepartment(editProject.department);
+				setGroupId(editProject.group?.id ? String(editProject.group.id) : "");
 			} else {
 				// For new project, auto-select department for team-lead
 				if (currentUser?.role === "team-lead") {
@@ -384,6 +409,7 @@ export function ProjectDialog({
 			setEmails([]);
 			setPhoneNumbers([]);
 			setDepartment(undefined);
+			setGroupId("");
 		}
 	}, [open, editProject, currentUser, departments]);
 
@@ -417,6 +443,32 @@ export function ProjectDialog({
 
 		return { topStages: top, middleStages: mid, bottomStages: bot };
 	}, [stages]);
+
+	const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+	const [newGroupName, setNewGroupName] = useState("");
+
+	const handleCreateGroup = async () => {
+		if (!newGroupName.trim() || !department) return;
+
+		try {
+			const newGroup = await projectGroupService.create(newGroupName, String(department.id));
+			setProjectGroups([...projectGroups, newGroup]);
+			setGroupId(newGroup.id);
+			setNewGroupName("");
+			setIsCreatingGroup(false);
+			toast({
+				title: "Group created",
+				description: `Project group "${newGroup.name}" has been created.`,
+			});
+		} catch (error) {
+			console.error("Failed to create group", error);
+			toast({
+				title: "Error",
+				description: "Failed to create project group.",
+				variant: "destructive",
+			});
+		}
+	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;
@@ -509,7 +561,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(result.data.name, result.data.description || "", stages, emails, phoneNumbers, department);
+		onSave(result.data.name, result.data.description || "", stages, emails, phoneNumbers, department, groupId);
 		onOpenChange(false);
 	};
 
@@ -614,45 +666,118 @@ export function ProjectDialog({
 							/>
 						</div>
 
-						<div className="grid gap-2">
-							<Label htmlFor="department">Department</Label>
-							<Select
-								value={department?.id?.toString() ?? ""}
-								onValueChange={(value) => {
-									if (!value || value === "") {
-										setDepartment(undefined);
-										return;
-									}
-									const selectedDept = departments.find(
-										(dept) => dept.id.toString() === value
-									);
-									if (selectedDept) {
-										setDepartment(selectedDept);
-									}
-								}}
-								disabled={currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Select a department" />
-								</SelectTrigger>
-								<SelectContent>
-									{currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() === "digital" ? (
-										departments
-											.filter(dept => dept.name.toLowerCase() === "digital" || dept.name.toLowerCase() === "design")
-											.map((dept) => (
+						<div className="grid grid-cols-2 gap-4">
+							<div className="grid gap-2">
+								<Label htmlFor="department">Department</Label>
+								<Select
+									value={department?.id?.toString() ?? ""}
+									onValueChange={(value) => {
+										if (!value || value === "") {
+											setDepartment(undefined);
+											setGroupId("");
+											return;
+										}
+										const selectedDept = departments.find(
+											(dept) => dept.id.toString() === value
+										);
+										if (selectedDept) {
+											setDepartment(selectedDept);
+											setGroupId(""); // Reset group when dept changes
+										}
+									}}
+									disabled={currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select a department" />
+									</SelectTrigger>
+									<SelectContent>
+										{currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() === "digital" ? (
+											departments
+												.filter(dept => dept.name.toLowerCase() === "digital" || dept.name.toLowerCase() === "design")
+												.map((dept) => (
+													<SelectItem key={dept.id} value={dept.id.toString()}>
+														{dept.name}
+													</SelectItem>
+												))
+										) : (
+											departments.map((dept) => (
 												<SelectItem key={dept.id} value={dept.id.toString()}>
 													{dept.name}
 												</SelectItem>
 											))
-									) : (
-										departments.map((dept) => (
-											<SelectItem key={dept.id} value={dept.id.toString()}>
-												{dept.name}
+										)}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="grid gap-2">
+								<div className="flex items-center justify-between">
+									<Label htmlFor="group">Assign Group (Optional)</Label>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										className="h-6 px-2 text-xs"
+										onClick={() => setIsCreatingGroup(true)}
+										disabled={!department}
+									>
+										<Plus className="h-3 w-3 mr-1" />
+										New
+									</Button>
+								</div>
+
+								{isCreatingGroup ? (
+									<div className="flex items-center gap-2">
+										<Input
+											value={newGroupName}
+											onChange={(e) => setNewGroupName(e.target.value)}
+											placeholder="Group Name"
+											className="h-9"
+											autoFocus
+										/>
+										<Button
+											type="button"
+											size="sm"
+											className="h-9 w-9 px-0"
+											onClick={handleCreateGroup}
+										>
+											<Check className="h-4 w-4" />
+										</Button>
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											className="h-9 w-9 px-0"
+											onClick={() => {
+												setIsCreatingGroup(false);
+												setNewGroupName("");
+											}}
+										>
+											<X className="h-4 w-4" />
+										</Button>
+									</div>
+								) : (
+									<Select
+										value={groupId}
+										onValueChange={(val) => setGroupId(val === "unassign_group" ? "" : val)}
+										disabled={!department}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Select a group" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="unassign_group" className="text-muted-foreground italic">
+												None
 											</SelectItem>
-										))
-									)}
-								</SelectContent>
-							</Select>
+											{projectGroups.map((group) => (
+												<SelectItem key={group.id} value={group.id}>
+													{group.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								)}
+							</div>
 						</div>
 
 						<div className="grid gap-3">
