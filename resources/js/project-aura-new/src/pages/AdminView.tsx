@@ -2,7 +2,7 @@ import { DashboardStats } from "@/components/DashboardStats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCard } from "@/components/TaskCard";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
-import { isPast, isToday, isFuture, addDays } from "date-fns";
+import { isPast, isToday, isFuture, addDays, isTomorrow, isSameMonth } from "date-fns";
 import { useEffect, useState } from "react";
 import { Task } from "@/types/task";
 
@@ -12,14 +12,17 @@ export default function AdminView() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   useEffect(() => {
-    const savedTasks = localStorage.getItem("taskflow_tasks");
-    if (savedTasks) {
+    const loadTasks = async () => {
       try {
-        setTasks(JSON.parse(savedTasks));
-      } catch {
+        const { taskService } = await import("@/services/taskService");
+        const tasksData = await taskService.getAll();
+        setTasks(tasksData);
+      } catch (error) {
+        console.error("Failed to fetch tasks:", error);
         setTasks([]);
       }
-    }
+    };
+    loadTasks();
   }, []);
 
   const today = new Date();
@@ -35,13 +38,16 @@ export default function AdminView() {
       !isToday(new Date(task.dueDate))
   );
 
-  const upcomingTasks = tasks.filter((task) => {
+  const tomorrowTasks = tasks.filter((task) => {
+    return task.userStatus !== "complete" && isTomorrow(new Date(task.dueDate));
+  });
+
+  const thisMonthTasks = tasks.filter((task) => {
     const dueDate = new Date(task.dueDate);
-    const nextWeek = addDays(today, 7);
     return (
       task.userStatus !== "complete" &&
-      isFuture(dueDate) &&
-      dueDate <= nextWeek
+      isSameMonth(dueDate, today) &&
+      !isPast(dueDate)
     );
   });
 
@@ -69,7 +75,7 @@ export default function AdminView() {
 
       <DashboardStats tasks={tasks} />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover-lift border-2 border-primary/20 bg-gradient-to-br from-card to-primary/5 overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-500"></div>
           <CardHeader className="relative">
@@ -111,6 +117,88 @@ export default function AdminView() {
           </CardContent>
         </Card>
 
+        <Card className="hover-lift border-2 border-info/20 bg-gradient-to-br from-card to-info/5 overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-info/10 rounded-full blur-3xl group-hover:bg-info/20 transition-all duration-500"></div>
+          <CardHeader className="relative">
+            <CardTitle className="text-base flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-info animate-pulse shadow-lg shadow-info/50" />
+              <span className="font-semibold">Tomorrow</span>
+              <span className="ml-auto text-xs bg-info/10 text-info px-2 py-1 rounded-full font-medium">
+                {tomorrowTasks.length}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 relative">
+            {tomorrowTasks.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-info/10 mb-3">
+                  <svg className="w-8 h-8 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">No tasks for tomorrow</p>
+              </div>
+            ) : (
+              tomorrowTasks.slice(0, 3).map((task, index) => (
+                <div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <TaskCard
+                    task={task}
+                    onDragStart={() => { }}
+                    onEdit={() => { }}
+                    onDelete={() => { }}
+                    onView={() => {
+                      setViewTask(task);
+                      setIsViewDialogOpen(true);
+                    }}
+                    canManage={false}
+                  />
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="hover-lift border-2 border-success/20 bg-gradient-to-br from-card to-success/5 overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-success/10 rounded-full blur-3xl group-hover:bg-success/20 transition-all duration-500"></div>
+          <CardHeader className="relative">
+            <CardTitle className="text-base flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-success animate-pulse shadow-lg shadow-success/50" />
+              <span className="font-semibold">This Month</span>
+              <span className="ml-auto text-xs bg-success/10 text-success px-2 py-1 rounded-full font-medium">
+                {thisMonthTasks.length}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 relative">
+            {thisMonthTasks.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 mb-3">
+                  <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">No tasks this month</p>
+              </div>
+            ) : (
+              thisMonthTasks.slice(0, 3).map((task, index) => (
+                <div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <TaskCard
+                    task={task}
+                    onDragStart={() => { }}
+                    onEdit={() => { }}
+                    onDelete={() => { }}
+                    onView={() => {
+                      setViewTask(task);
+                      setIsViewDialogOpen(true);
+                    }}
+                    canManage={false}
+                  />
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="hover-lift border-2 border-destructive/20 bg-gradient-to-br from-card to-destructive/5 overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/10 rounded-full blur-3xl group-hover:bg-destructive/20 transition-all duration-500"></div>
           <CardHeader className="relative">
@@ -134,47 +222,6 @@ export default function AdminView() {
               </div>
             ) : (
               overdueTasks.slice(0, 3).map((task, index) => (
-                <div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-                  <TaskCard
-                    task={task}
-                    onDragStart={() => { }}
-                    onEdit={() => { }}
-                    onDelete={() => { }}
-                    onView={() => {
-                      setViewTask(task);
-                      setIsViewDialogOpen(true);
-                    }}
-                    canManage={false}
-                  />
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="hover-lift border-2 border-secondary/20 bg-gradient-to-br from-card to-secondary/5 overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-3xl group-hover:bg-secondary/20 transition-all duration-500"></div>
-          <CardHeader className="relative">
-            <CardTitle className="text-base flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-status-progress animate-pulse shadow-lg shadow-secondary/50" />
-              <span className="font-semibold">Upcoming</span>
-              <span className="ml-auto text-xs bg-secondary/10 text-secondary px-2 py-1 rounded-full font-medium">
-                {upcomingTasks.length}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 relative">
-            {upcomingTasks.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary/10 mb-3">
-                  <svg className="w-8 h-8 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-muted-foreground font-medium">No upcoming tasks</p>
-              </div>
-            ) : (
-              upcomingTasks.slice(0, 3).map((task, index) => (
                 <div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
                   <TaskCard
                     task={task}
