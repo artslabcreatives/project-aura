@@ -21,9 +21,14 @@ const queryClient = new QueryClient();
 
 import { NotificationsPopover } from "@/components/NotificationsPopover";
 
+import { Bug } from "lucide-react";
+import { useState } from "react";
+import { ReportIssueDialog } from "@/components/ReportIssueDialog";
+
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const { open } = useSidebar();
 	const { currentUser, logout } = useUser();
+	const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
 	return (
 		<div className="min-h-screen flex w-full bg-background">
@@ -34,6 +39,15 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 						<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
 					</div>
 					<div className="flex items-center gap-3">
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => setIsReportDialogOpen(true)}
+							title="Report an Issue"
+							className="text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+						>
+							<Bug className="h-5 w-5" />
+						</Button>
 						<NotificationsPopover />
 						<span className="text-sm text-muted-foreground hidden md:block">
 							{currentUser?.name} ({currentUser?.role})
@@ -52,6 +66,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 				<main className="flex-1 p-6 overflow-y-auto">
 					{children}
 				</main>
+				<ReportIssueDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
 			</div>
 		</div>
 	);
