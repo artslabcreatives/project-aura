@@ -40,12 +40,7 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
                 const dataUrl = await toPng(document.body, {
                     cacheBust: true,
                     filter: (node) => {
-                        // Double safety: ignore the dialog container if it's still somehow in the DOM
-                        // Shadcn dialog usually has role="dialog"
-                        if (node instanceof HTMLElement && node.getAttribute('role') === 'dialog') {
-                            return false;
-                        }
-                        // Also ignore any other elements with class 'ignore-screenshot'
+                        // Only ignore elements explicitly marked to be ignored
                         if (node instanceof HTMLElement && node.classList.contains('ignore-screenshot')) {
                             return false;
                         }
@@ -106,7 +101,7 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] ignore-screenshot">
                 <DialogHeader>
                     <DialogTitle>Report an Issue</DialogTitle>
                     <DialogDescription>
