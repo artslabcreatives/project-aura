@@ -110,10 +110,11 @@ export function AppSidebar() {
 					setTeamMembers(usersData);
 				}
 
-				// Auto-expand all departments by default so users see their projects
-				const allDeptIds = new Set(departmentsData.map(d => d.id));
-				allDeptIds.add('uncategorized');
-				setExpandedDepartments(allDeptIds);
+				// Auto-expand all departments by default - DISABLED as per user request
+				// const allDeptIds = new Set(departmentsData.map(d => d.id));
+				// allDeptIds.add('uncategorized');
+				// setExpandedDepartments(allDeptIds);
+				setExpandedDepartments(new Set());
 
 				if (userRole === 'user' && currentUser) {
 					// Fetch tasks for user only (client-side filter)
