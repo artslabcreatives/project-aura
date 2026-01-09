@@ -108,7 +108,7 @@ export function TaskCompletionDialog({
                                 <div className="space-y-2">
                                     {links.map((link, index) => (
                                         <div key={index} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 text-sm">
-                                            <a href={link} target="_blank" rel="noopener noreferrer" className="truncate hover:underline text-blue-500">
+                                            <a href={link} target="_blank" rel="noopener noreferrer" className="truncate hover:underline text-blue-500 flex-1 min-w-0">
                                                 {link}
                                             </a>
                                             <Button
