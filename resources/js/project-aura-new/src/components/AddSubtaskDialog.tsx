@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { User, UserStatus } from "@/types/task";
+import { Department } from "@/types/department";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
 
 interface AddSubtaskDialogProps {
@@ -13,6 +14,7 @@ interface AddSubtaskDialogProps {
     onOpenChange: (open: boolean) => void;
     onSave: (subtask: { title: string; description: string; assignee: string; dueDate: string; userStatus: UserStatus }) => Promise<void>;
     teamMembers: User[];
+    departments?: Department[];
     parentTaskTitle: string;
 }
 
@@ -21,6 +23,7 @@ export function AddSubtaskDialog({
     onOpenChange,
     onSave,
     teamMembers,
+    departments,
     parentTaskTitle,
 }: AddSubtaskDialogProps) {
     const [formData, setFormData] = useState({
@@ -61,9 +64,22 @@ export function AddSubtaskDialog({
         }
     };
 
+    const getDepartmentName = (departmentId: string) => {
+        return departments?.find(dep => dep.id === departmentId)?.name || "Other";
+    };
+
+    const memberOptions: SearchableOption[] = teamMembers.map((member) => {
+        const departmentName = member.department ? getDepartmentName(member.department) : "Other";
+        return {
+            value: member.name,
+            label: member.name,
+            group: departmentName,
+        };
+    });
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] overflow-y-auto max-h-[90vh]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>Add Subtask</DialogTitle>
@@ -95,22 +111,12 @@ export function AddSubtaskDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="assignee">Assign To *</Label>
-                                <Select
+                                <SearchableSelect
                                     value={formData.assignee}
                                     onValueChange={(value) => setFormData({ ...formData, assignee: value })}
-                                    required
-                                >
-                                    <SelectTrigger id="assignee">
-                                        <SelectValue placeholder="Select member" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {teamMembers.map((member) => (
-                                            <SelectItem key={member.id} value={member.name}>
-                                                {member.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    options={memberOptions}
+                                    placeholder="Select member"
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="dueDate">Due Date *</Label>

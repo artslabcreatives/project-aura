@@ -594,6 +594,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				onOpenChange={setIsAddSubtaskDialogOpen}
 				onSave={handleSaveSubtask}
 				teamMembers={teamMembers}
+				departments={departments}
 				parentTaskTitle={parentTaskForSubtask?.title || ''}
 			/>
 		</div>
