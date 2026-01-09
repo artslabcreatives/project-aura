@@ -5,6 +5,7 @@ import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
 import { isPast, isToday, isFuture, addDays, isTomorrow, isSameMonth } from "date-fns";
 import { useEffect, useState } from "react";
 import { Task } from "@/types/task";
+import { Project } from "@/types/project";
 
 export default function AdminView() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -12,17 +13,36 @@ export default function AdminView() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   useEffect(() => {
-    const loadTasks = async () => {
+    const loadData = async () => {
       try {
-        const { taskService } = await import("@/services/taskService");
-        const tasksData = await taskService.getAll();
-        setTasks(tasksData);
+        const [tasksData, projectsData] = await Promise.all([
+          (await import("@/services/taskService")).taskService.getAll(),
+          (await import("@/services/projectService")).projectService.getAll()
+        ]);
+
+        // Filter out suggested tasks
+        const forbiddenStageTitles = ['suggested', 'suggested task'];
+        const forbiddenStageIds = new Set<string>();
+        projectsData.forEach((p: Project) => {
+          p.stages.forEach(s => {
+            if (forbiddenStageTitles.includes(s.title.toLowerCase().trim())) {
+              forbiddenStageIds.add(s.id);
+            }
+          });
+        });
+
+        const filteredTasks = tasksData.filter((task: Task) => {
+          if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
+          return true;
+        });
+
+        setTasks(filteredTasks);
       } catch (error) {
-        console.error("Failed to fetch tasks:", error);
+        console.error("Failed to fetch data:", error);
         setTasks([]);
       }
     };
-    loadTasks();
+    loadData();
   }, []);
 
   const today = new Date();

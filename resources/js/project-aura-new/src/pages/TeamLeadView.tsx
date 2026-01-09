@@ -55,7 +55,16 @@ export default function TeamLeadView() {
 			const taskProject = projects.find(p => p.name === task.project);
 			const isProjectInDepartment = taskProject?.department?.id === currentUser.department;
 
-			return isAssignedToDepartment || isProjectInDepartment;
+			// Filter out suggested tasks
+			if (isAssignedToDepartment || isProjectInDepartment) {
+				const forbiddenStageTitles = ['suggested', 'suggested task'];
+				const stage = taskProject?.stages.find(s => s.id === task.projectStage);
+				if (stage && forbiddenStageTitles.includes(stage.title.toLowerCase().trim())) {
+					return false;
+				}
+				return true;
+			}
+			return false;
 		});
 	}, [tasks, projects, teamMembers, currentUser]);
 
