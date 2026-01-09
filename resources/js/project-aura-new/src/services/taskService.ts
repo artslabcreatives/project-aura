@@ -116,4 +116,22 @@ export const taskService = {
 		const { data } = await api.put(`/tasks/${id}`, { project_stage_id: stageId });
 		return mapTask(data);
 	},
+
+	complete: async (id: string, data: { status?: string; projectStageId?: string; comment?: string; links?: string[]; files?: File[] }): Promise<Task> => {
+		const formData = new FormData();
+		if (data.status) formData.append('user_status', data.status);
+		if (data.projectStageId) formData.append('project_stage_id', data.projectStageId);
+		if (data.comment) formData.append('comment', data.comment);
+		if (data.links) {
+			data.links.forEach((link, index) => formData.append(`links[${index}]`, link));
+		}
+		if (data.files) {
+			data.files.forEach((file) => formData.append('files[]', file));
+		}
+
+		const { data: result } = await api.post(`/tasks/${id}/complete`, formData, {
+			headers: { 'Content-Type': 'multipart/form-data' }
+		});
+		return mapTask(result);
+	},
 };

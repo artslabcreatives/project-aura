@@ -44,6 +44,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('stages', StageController::class);
     Route::apiResource('tasks', TaskController::class);
+    Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);

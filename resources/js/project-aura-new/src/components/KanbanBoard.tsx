@@ -20,6 +20,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { TaskCompletionDialog } from "./TaskCompletionDialog";
+
 interface KanbanBoardProps {
   tasks: Task[];
   stages: Stage[]; // Custom stages to display
@@ -37,6 +39,7 @@ interface KanbanBoardProps {
   onAddTaskToStage?: (stageId: string) => void;
   projectId?: string;
   onAddSubtask?: (task: Task) => void;
+  onTaskComplete?: (taskId: string, stageId: string, data: { comment?: string; links: string[]; files: File[] }) => void;
 }
 
 export function KanbanBoard({
@@ -56,6 +59,7 @@ export function KanbanBoard({
   onAddTaskToStage,
   projectId,
   onAddSubtask,
+  onTaskComplete,
 }: KanbanBoardProps) {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(
@@ -64,6 +68,8 @@ export function KanbanBoard({
   const [viewTask, setViewTask] = useState<Task | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [pendingComplete, setPendingComplete] = useState<{ taskId: string; stageId: string } | null>(null);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -91,6 +97,25 @@ export function KanbanBoard({
     if (!canDragTasks) return; // Prevent drop if not allowed
     if (!draggedTask) return;
 
+    // Check if completing logic
+    let isCompleting = false;
+    if (useProjectStages) {
+      const stage = stages.find(s => s.id === columnId);
+      if (stage && (stage.title.toLowerCase() === 'completed' || stage.title.toLowerCase() === 'archive')) {
+        isCompleting = true;
+      }
+    } else {
+      if (columnId === 'complete') isCompleting = true;
+    }
+
+    if (isCompleting && onTaskComplete) {
+      setPendingComplete({ taskId: draggedTask.id, stageId: columnId });
+      setShowCompletionDialog(true);
+      setDraggedTask(null);
+      setDraggedOverColumn(null);
+      return;
+    }
+
     if (useProjectStages) {
       // Update projectStage field
       if (draggedTask.projectStage !== columnId) {
@@ -106,6 +131,14 @@ export function KanbanBoard({
 
     setDraggedTask(null);
     setDraggedOverColumn(null);
+  };
+
+  const handleConfirmation = (data: { comment?: string; links: string[]; files: File[] }) => {
+    if (pendingComplete && onTaskComplete) {
+      onTaskComplete(pendingComplete.taskId, pendingComplete.stageId, data);
+    }
+    setShowCompletionDialog(false);
+    setPendingComplete(null);
   };
 
   const getColumnTasks = (stageId: string) => {
@@ -286,6 +319,13 @@ export function KanbanBoard({
         task={viewTask}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
+      />
+
+      <TaskCompletionDialog
+        open={showCompletionDialog}
+        onOpenChange={setShowCompletionDialog}
+        onConfirm={handleConfirmation}
+        taskTitle={pendingComplete ? tasks.find(t => t.id === pendingComplete.taskId)?.title : undefined}
       />
     </div>
   );

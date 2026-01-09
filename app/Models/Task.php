@@ -110,4 +110,12 @@ class Task extends Model
     {
         return $this->belongsTo(Task::class, 'parent_id');
     }
+
+    /**
+     * Get the comments for the task.
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TaskComment::class);
+    }
 }

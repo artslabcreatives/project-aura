@@ -77,7 +77,7 @@ class TaskController extends Controller
      */
     public function show(Task $task): JsonResponse
     {
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments']));
     }
 
     /**
@@ -140,5 +140,79 @@ class TaskController extends Controller
     {
         $task->delete();
         return response()->json(null, 204);
+    }
+    /**
+     * Complete the task with optional comments and resources.
+     */
+    public function complete(Request $request, Task $task): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_status' => 'sometimes|in:complete',
+            'project_stage_id' => 'sometimes|exists:stages,id',
+            'comment' => 'nullable|string',
+            'links' => 'nullable|array',
+            'links.*' => 'string|url',
+            'files' => 'nullable|array',
+            'files.*' => 'file|max:10240',
+        ]);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $task, $request) {
+            // Update Task Status
+            $updates = [];
+            if (isset($validated['user_status'])) {
+                $updates['user_status'] = $validated['user_status'];
+                if ($validated['user_status'] === 'complete') {
+                    $updates['completed_at'] = now();
+                }
+            }
+            if (isset($validated['project_stage_id'])) {
+                $updates['project_stage_id'] = $validated['project_stage_id'];
+            }
+            
+            if (!empty($updates)) {
+                $task->update($updates);
+                
+                // Trigger notifications logic if needed (simplified here)
+                if (isset($updates['user_status']) && $updates['user_status'] === 'complete') {
+                     // Notify relevant parties
+                }
+            }
+
+            // Add Comment
+            if (!empty($validated['comment'])) {
+                $task->comments()->create([
+                    'user_id' => $request->user()->id,
+                    'comment' => $validated['comment'],
+                ]);
+            }
+
+            // Add Links
+            if (!empty($validated['links'])) {
+                foreach ($validated['links'] as $link) {
+                    $task->attachments()->create([
+                        'name' => $link,
+                        'url' => $link,
+                        'type' => 'link',
+                    ]);
+                }
+            }
+
+            // Add Files
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $file) {
+                    // Store file
+                    $path = $file->store('task-attachments', 'public');
+                    $url = \Illuminate\Support\Facades\Storage::url($path);
+                    
+                    $task->attachments()->create([
+                        'name' => $file->getClientOriginalName(),
+                        'url' => $url,
+                        'type' => 'file',
+                    ]);
+                }
+            }
+        });
+
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments']));
     }
 }

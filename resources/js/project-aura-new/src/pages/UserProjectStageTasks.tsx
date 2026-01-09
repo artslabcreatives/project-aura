@@ -289,6 +289,47 @@ export default function UserProjectStageTasks() {
 		}));
 	}, [tasks]);
 
+	const handleTaskCompleteWithDetails = async (taskId: string, stageId: string, data: { comment?: string; links: string[]; files: File[] }) => {
+		try {
+			// Optimistic update
+			setTasks(prev => prev.map(t => t.id === taskId ? { ...t, userStatus: 'complete' } : t));
+
+			// Backend call
+			await taskService.complete(taskId, {
+				status: 'complete',
+				comment: data.comment,
+				links: data.links,
+				files: data.files
+			});
+
+			toast({
+				title: "Task completed",
+				description: "Task marked as complete with details.",
+			});
+
+			// Remove from view logic (same as update)
+			setTimeout(() => {
+				setTasks(currentTasks => {
+					const task = currentTasks.find(t => String(t.id) === String(taskId));
+					if (task && task.userStatus === "complete") {
+						return currentTasks.filter(t => String(t.id) !== String(taskId));
+					}
+					return currentTasks;
+				});
+			}, 10000);
+
+		} catch (error) {
+			console.error("Error completing task:", error);
+			toast({
+				title: "Error",
+				description: "Failed to complete task.",
+				variant: "destructive",
+			});
+			// Re-fetch to revert on error
+			// loadData(); // Requires pulling loadData out or generic error handling
+		}
+	};
+
 	if (!project || !stage) {
 		return <div>Loading or project/stage not found...</div>;
 	}
@@ -342,6 +383,7 @@ export default function UserProjectStageTasks() {
 						canManageTasks={false}
 						canDragTasks={true}
 						projectId={projectId}
+						onTaskComplete={handleTaskCompleteWithDetails}
 					/>
 				) : (
 					<TaskListView
