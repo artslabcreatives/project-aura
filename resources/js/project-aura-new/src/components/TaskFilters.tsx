@@ -2,6 +2,9 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Stage } from "@/types/stage";
 import { User, Task } from "@/types/task";
+import { Project } from "@/types/project";
+import { Department } from "@/types/department";
+import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
 import {
   Select,
   SelectContent,
@@ -21,9 +24,10 @@ interface TaskFiltersProps {
   onAssigneeChange?: (value: string) => void;
   selectedTag?: string;
   onTagChange?: (value: string) => void;
-  availableProjects: string[];
+  availableProjects: Project[];
   availableStatuses: Stage[];
   teamMembers?: User[];
+  departments?: Department[];
   allTasks?: Task[];
 }
 
@@ -41,12 +45,45 @@ export function TaskFilters({
   availableProjects,
   availableStatuses,
   teamMembers = [],
+  departments = [],
   allTasks = [],
 }: TaskFiltersProps) {
   // Calculate task count for each assignee
   const getTaskCountForAssignee = (assigneeName: string) => {
     return allTasks.filter(task => task.assignee === assigneeName).length;
   };
+
+  // Get department name helper
+  const getDepartmentName = (departmentId?: string | number) => {
+    if (!departmentId) return "Uncategorized";
+    // Handle both string and number IDs as they might vary in types
+    const id = departmentId.toString();
+    const dept = departments.find(d => d.id.toString() === id);
+    return dept ? dept.name : "Uncategorized";
+  };
+
+  // Prepare project options with grouping
+  const projectOptions: SearchableOption[] = [
+    { value: "all", label: "All Projects" },
+    ...availableProjects.map(project => ({
+      value: project.name, // Using name as value to match existing logic
+      label: project.name,
+      group: project.department ? project.department.name : "Uncategorized"
+    }))
+  ];
+
+  // Prepare assignee options with grouping
+  const assigneeOptions: SearchableOption[] = [
+    { value: "all", label: "All Assignees" },
+    ...teamMembers.map(member => {
+      const taskCount = getTaskCountForAssignee(member.name);
+      return {
+        value: member.name,
+        label: `${member.name} (${taskCount})`,
+        group: getDepartmentName(member.department)
+      };
+    })
+  ];
 
   // Get all unique tags from tasks
   const availableTags = Array.from(
@@ -56,8 +93,8 @@ export function TaskFilters({
   ).sort();
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4">
-      <div className="relative flex-1">
+    <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+      <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search tasks..."
@@ -67,67 +104,58 @@ export function TaskFilters({
         />
       </div>
 
-      <Select value={selectedProject} onValueChange={onProjectChange}>
-        <SelectTrigger className="w-full sm:w-[180px]">
-          <SelectValue placeholder="All Projects" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Projects</SelectItem>
-          {availableProjects.map((project) => (
-            <SelectItem key={project} value={project}>
-              {project}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="w-full sm:w-[200px]">
+        <SearchableSelect
+          value={selectedProject}
+          onValueChange={onProjectChange}
+          options={projectOptions}
+          placeholder="Select Project"
+        />
+      </div>
 
-      <Select value={selectedStatus} onValueChange={onStatusChange}>
-        <SelectTrigger className="w-full sm:w-[180px]">
-          <SelectValue placeholder="All Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          {availableStatuses.map((status) => (
-            <SelectItem key={status.id} value={status.id}>
-              {status.title}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {onAssigneeChange && (
-        <Select value={selectedAssignee} onValueChange={onAssigneeChange}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="All Assignees" />
+      <div className="w-full sm:w-[180px]">
+        <Select value={selectedStatus} onValueChange={onStatusChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Assignees</SelectItem>
-            {teamMembers.map((member) => {
-              const taskCount = getTaskCountForAssignee(member.name);
-              return (
-                <SelectItem key={member.id} value={member.name}>
-                  {member.name} ({taskCount})
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      )}
-
-      {onTagChange && availableTags.length > 0 && (
-        <Select value={selectedTag} onValueChange={onTagChange}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="All Tags" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tags</SelectItem>
-            {availableTags.map((tag) => (
-              <SelectItem key={tag} value={tag}>
-                {tag}
+            <SelectItem value="all">All Status</SelectItem>
+            {availableStatuses.map((status) => (
+              <SelectItem key={status.id} value={status.id}>
+                {status.title}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {onAssigneeChange && (
+        <div className="w-full sm:w-[200px]">
+          <SearchableSelect
+            value={selectedAssignee}
+            onValueChange={onAssigneeChange}
+            options={assigneeOptions}
+            placeholder="Select Assignee"
+          />
+        </div>
+      )}
+
+      {onTagChange && availableTags.length > 0 && (
+        <div className="w-full sm:w-[180px]">
+          <Select value={selectedTag} onValueChange={onTagChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Tags" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tags</SelectItem>
+              {availableTags.map((tag) => (
+                <SelectItem key={tag} value={tag}>
+                  {tag}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
     </div>
   );

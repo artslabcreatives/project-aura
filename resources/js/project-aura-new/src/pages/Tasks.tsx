@@ -484,9 +484,10 @@ export default function Tasks() {
 				onAssigneeChange={setSelectedAssignee}
 				selectedTag={selectedTag}
 				onTagChange={setSelectedTag}
-				availableProjects={allProjects.map(p => p.name)}
+				availableProjects={allProjects}
 				availableStatuses={fixedKanbanStages} // Always use fixed stages for filter
 				teamMembers={teamMembers}
+				departments={departments}
 				allTasks={allTasks}
 			/>
 
