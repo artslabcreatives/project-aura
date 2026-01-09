@@ -7,7 +7,7 @@ import { Department } from "@/types/department";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List } from "lucide-react";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { TaskDialog } from "@/components/TaskDialog";
+import { TaskDialog } from "../components/TaskDialog";
 import { TaskFilters } from "@/components/TaskFilters";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
