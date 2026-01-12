@@ -124,7 +124,12 @@ export function AppSidebar() {
 						.filter(task => {
 							const isAssigned = task.assignee === currentUser.name ||
 								(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
-							return isAssigned && task.userStatus !== 'complete';
+
+							// Check if MY part is complete
+							const myAssignment = task.assignedUsers?.find(u => String(u.id) === String(currentUser.id));
+							const isMyPartComplete = myAssignment?.status === 'complete';
+
+							return isAssigned && task.userStatus !== 'complete' && !isMyPartComplete;
 						})
 						.forEach(task => {
 							if (task.project && task.projectStage) {
