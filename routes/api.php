@@ -57,4 +57,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
     Route::delete('/notifications/{id}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
     Route::apiResource('feedback', \App\Http\Controllers\Api\FeedbackController::class);
+    Route::apiResource('tags', \App\Http\Controllers\Api\TagController::class);
 });

@@ -447,6 +447,8 @@ export default function UserProjectStageTasks() {
 				teamMembers={teamMembers}
 				departments={departments}
 				allTasks={allTasks}
+				currentUser={currentUser}
+				fixedDepartmentId={project.department?.id}
 			/>
 		</div>
 	);

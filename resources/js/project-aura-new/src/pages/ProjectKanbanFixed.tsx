@@ -587,6 +587,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				allTasks={allTasks}
 				initialStageId={preselectedStageId}
 				isStageLocked={!!preselectedStageId}
+				currentUser={currentUser}
+				fixedDepartmentId={project.department?.id}
 			/>
 			<StageManagement
 				open={isStageManagementOpen}

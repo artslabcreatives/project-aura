@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus, Link as LinkIcon, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { attachmentService } from "@/services/attachmentService";
+import { tagService, Tag } from "@/services/tagService";
 
 // Represents a file that is pending upload (not yet saved to server)
 interface PendingFile {
@@ -48,6 +49,8 @@ interface TaskDialogProps {
 	allTasks?: Task[];
 	initialStageId?: string;
 	isStageLocked?: boolean;
+	currentUser?: User;
+	fixedDepartmentId?: string;
 }
 
 export function TaskDialog({
@@ -63,6 +66,8 @@ export function TaskDialog({
 	allTasks = [],
 	initialStageId,
 	isStageLocked = false,
+	currentUser,
+	fixedDepartmentId,
 }: TaskDialogProps) {
 	const { toast } = useToast();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,12 +98,49 @@ export function TaskDialog({
 	const [newLinkUrl, setNewLinkUrl] = useState("");
 	const [isUploading, setIsUploading] = useState(false);
 
-	const defaultTags = ["Static", "Reel", "Carousel", "Print", "Video", "Animation"];
+	// Tag states
+	const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+	const [tagDepartmentId, setTagDepartmentId] = useState<string>("");
 
 	// Calculate task count for each assignee
 	const getTaskCountForAssignee = (assigneeName: string) => {
 		return allTasks.filter(task => task.assignee === assigneeName).length;
 	};
+
+	// Set initial department for tags based on user role or fixed department
+	useEffect(() => {
+		if (open) {
+			if (fixedDepartmentId) {
+				setTagDepartmentId(fixedDepartmentId);
+			} else if (currentUser) {
+				if (currentUser.role === 'team-lead') {
+					setTagDepartmentId(currentUser.department);
+				} else if (currentUser.role === 'admin') {
+					// Admin defaults to their department but can change it. 
+					setTagDepartmentId(currentUser.department);
+				} else {
+					// Regular user defaults to their department
+					setTagDepartmentId(currentUser.department);
+				}
+			}
+		}
+	}, [open, currentUser, fixedDepartmentId]);
+
+	// Fetch tags when department changes
+	useEffect(() => {
+		const loadTags = async () => {
+			if (!tagDepartmentId) return;
+			try {
+				const tags = await tagService.getAll(tagDepartmentId);
+				setAvailableTags(tags);
+			} catch (error) {
+				console.error("Failed to load tags:", error);
+			}
+		};
+		if (open) { // Only fetch if dialog is open
+			loadTags();
+		}
+	}, [tagDepartmentId, open]);
 
 	useEffect(() => {
 		if (editTask) {
@@ -273,6 +315,30 @@ export function TaskDialog({
 		if (tag && !tags.includes(tag)) {
 			setTags([...tags, tag]);
 			setNewTag("");
+		}
+	};
+
+	const handleCreateTag = async () => {
+		if (!newTag || !tagDepartmentId) return;
+
+		try {
+			const createdTag = await tagService.create(newTag, tagDepartmentId);
+			// Add to available tags so it shows up
+			setAvailableTags(prev => [...prev, createdTag]);
+			// Add to selected tags
+			addTag(createdTag.name);
+			// Show success toast
+			toast({
+				title: "Tag created",
+				description: "New tag added to " + getDepartmentName(tagDepartmentId),
+			});
+		} catch (error) {
+			console.error("Failed to create tag:", error);
+			toast({
+				title: "Error",
+				description: "Failed to create tag. You might not be authorized.",
+				variant: "destructive",
+			});
 		}
 	};
 
@@ -544,7 +610,24 @@ export function TaskDialog({
 						</div>
 
 						<div className="grid gap-2">
-							<Label>Tags</Label>
+							<div className="flex items-center justify-between">
+								<Label>Tags</Label>
+								{currentUser?.role === 'admin' && (
+									<Select value={tagDepartmentId} onValueChange={setTagDepartmentId} disabled={!!fixedDepartmentId}>
+										<SelectTrigger className="w-[180px] h-8 text-xs">
+											<SelectValue placeholder="Filter by Department" />
+										</SelectTrigger>
+										<SelectContent>
+											{departments.map((dept) => (
+												<SelectItem key={dept.id} value={dept.id}>
+													{dept.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								)}
+							</div>
+
 							<div className="flex flex-wrap gap-2 mb-2">
 								{tags.map(tag => (
 									<Badge key={tag} variant="secondary" className="gap-1">
@@ -557,39 +640,45 @@ export function TaskDialog({
 								))}
 							</div>
 							<div className="flex flex-wrap gap-2 mb-2">
-								{defaultTags.filter(tag => !tags.includes(tag)).map(tag => (
-									<Badge
-										key={tag}
+								{availableTags
+									.filter(tag => !tags.includes(tag.name))
+									.map(tag => (
+										<Badge
+											key={tag.id}
+											variant="outline"
+											className="cursor-pointer hover:bg-secondary"
+											onClick={() => addTag(tag.name)}
+										>
+											<Plus className="h-3 w-3 mr-1" />
+											{tag.name}
+										</Badge>
+									))}
+							</div>
+
+							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+								<div className="flex gap-2">
+									<Input
+										placeholder="New tag name..."
+										value={newTag}
+										onChange={(e) => setNewTag(e.target.value)}
+										onKeyPress={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												handleCreateTag();
+											}
+										}}
+									/>
+									<Button
+										type="button"
 										variant="outline"
-										className="cursor-pointer hover:bg-secondary"
-										onClick={() => addTag(tag)}
+										size="icon"
+										onClick={handleCreateTag}
+										disabled={!newTag || !tagDepartmentId}
 									>
-										<Plus className="h-3 w-3 mr-1" />
-										{tag}
-									</Badge>
-								))}
-							</div>
-							<div className="flex gap-2">
-								<Input
-									placeholder="Custom tag..."
-									value={newTag}
-									onChange={(e) => setNewTag(e.target.value)}
-									onKeyPress={(e) => {
-										if (e.key === 'Enter') {
-											e.preventDefault();
-											addTag(newTag);
-										}
-									}}
-								/>
-								<Button
-									type="button"
-									variant="outline"
-									size="icon"
-									onClick={() => addTag(newTag)}
-								>
-									<Plus className="h-4 w-4" />
-								</Button>
-							</div>
+										<Plus className="h-4 w-4" />
+									</Button>
+								</div>
+							)}
 						</div>
 
 						<div className="grid gap-2">

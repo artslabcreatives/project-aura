@@ -531,6 +531,8 @@ export default function Tasks() {
 				teamMembers={teamMembers}
 				departments={departments}
 				allTasks={allTasks}
+				currentUser={currentUser}
+				fixedDepartmentId={allProjects.find(p => p.name === selectedProject)?.department?.id}
 			/>
 		</div>
 	);
