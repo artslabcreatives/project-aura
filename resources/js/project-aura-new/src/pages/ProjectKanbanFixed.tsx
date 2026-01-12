@@ -543,7 +543,13 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			</main>
 
 			{/* DIALOGS */}
-			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} />
+			<HistoryDialog
+				open={isHistoryDialogOpen}
+				onOpenChange={setIsHistoryDialogOpen}
+				history={history}
+				teamMembers={teamMembers}
+				stages={sortedStages}
+			/>
 			<TaskDialog
 				open={isTaskDialogOpen}
 				onOpenChange={(open) => {
