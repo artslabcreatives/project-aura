@@ -4,7 +4,7 @@ import { Stage } from "@/types/stage";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailsDialog } from "./TaskDetailsDialog";
 import { cn } from "@/lib/utils";
-import { MoreVertical, Pencil, Trash2, Plus, Info, Copy, Check } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Plus, Info, Copy, Check, Search, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
@@ -70,6 +71,8 @@ export function KanbanBoard({
   const [copied, setCopied] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [pendingComplete, setPendingComplete] = useState<{ taskId: string; stageId: string } | null>(null);
+  const [columnSearchQueries, setColumnSearchQueries] = useState<Record<string, string>>({});
+  const [columnSearchOpen, setColumnSearchOpen] = useState<Record<string, boolean>>({});
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -142,13 +145,24 @@ export function KanbanBoard({
   };
 
   const getColumnTasks = (stageId: string) => {
-    return tasks.filter((task) => {
+    let filtered = tasks.filter((task) => {
       if (useProjectStages) {
         return task.projectStage === stageId;
       } else {
         return task.userStatus === stageId;
       }
     });
+
+    const searchQuery = columnSearchQueries[stageId];
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.title.toLowerCase().includes(lowerQuery) ||
+        t.description.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    return filtered;
   };
 
   // Filter out Specific Stage if it has no tasks
@@ -188,11 +202,15 @@ export function KanbanBoard({
             )}>
               <div className="flex items-center gap-2">
                 <div className={cn("h-2 w-2 rounded-full", column.color)} />
-                <span>{column.title}</span>
-                <Badge variant="secondary" className="ml-2 text-xs font-normal">
-                  {columnTasks.length}
-                </Badge>
-                {column.isReviewStage && (
+                {!columnSearchOpen[column.id] && (
+                  <span>{column.title}</span>
+                )}
+                {!columnSearchOpen[column.id] && (
+                  <Badge variant="secondary" className="ml-2 text-xs font-normal">
+                    {columnTasks.length}
+                  </Badge>
+                )}
+                {column.isReviewStage && !columnSearchOpen[column.id] && (
                   <Badge variant="outline" className="ml-1 text-[10px] h-5 border-indigo-200 text-indigo-700 bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:bg-indigo-950/30">
                     Review
                   </Badge>
@@ -232,6 +250,48 @@ export function KanbanBoard({
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                )}
+
+                {canManageTasks && (
+                  <div className={cn("flex items-center transition-all duration-300 ease-in-out", columnSearchOpen[column.id] ? "w-[180px]" : "w-auto")}>
+                    {columnSearchOpen[column.id] ? (
+                      <div className="relative w-full flex items-center">
+                        <Input
+                          value={columnSearchQueries[column.id] || ""}
+                          onChange={(e) => setColumnSearchQueries(prev => ({ ...prev, [column.id]: e.target.value }))}
+                          placeholder="Search..."
+                          className="h-7 text-xs pr-6"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 absolute right-1 hover:bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setColumnSearchQueries(prev => ({ ...prev, [column.id]: "" }));
+                            setColumnSearchOpen(prev => ({ ...prev, [column.id]: false }));
+                          }}
+                        >
+                          <X className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setColumnSearchOpen(prev => ({ ...prev, [column.id]: true }));
+                        }}
+                        title="Search tasks in this stage"
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 )}
 
                 {canManageTasks && onAddTaskToStage &&
@@ -282,7 +342,7 @@ export function KanbanBoard({
             <div className={cn("flex-1 p-4 space-y-3 min-h-[400px]", !disableColumnScroll && "overflow-y-auto")}>
               {columnTasks.length === 0 ? (
                 <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-                  No tasks
+                  {columnSearchQueries[column.id] ? "No matching tasks" : "No tasks"}
                 </div>
               ) : (
                 columnTasks.map((task) => (
