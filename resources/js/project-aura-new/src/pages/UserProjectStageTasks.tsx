@@ -93,12 +93,16 @@ export default function UserProjectStageTasks() {
 
 				const tasksData = await taskService.getAll({ projectId: projectId });
 				setAllTasks(tasksData);
-				const filtered = tasksData.filter(t =>
-					String(t.projectId) === String(projectId) &&
-					String(t.projectStage) === String(stageId) &&
-					t.assignee === (currentUser?.name || "") &&
-					t.userStatus !== 'complete'
-				);
+				const filtered = tasksData.filter(t => {
+					const isAssigned =
+						t.assignee === (currentUser?.name || "") ||
+						(t.assignedUsers && t.assignedUsers.some(u => String(u.id) === String(currentUser?.id)));
+
+					return String(t.projectId) === String(projectId) &&
+						String(t.projectStage) === String(stageId) &&
+						isAssigned &&
+						t.userStatus !== 'complete';
+				});
 				setTasks(filtered);
 			} catch (error) {
 				console.error("Error loading user stage tasks:", error);

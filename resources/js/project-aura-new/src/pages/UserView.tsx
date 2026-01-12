@@ -38,7 +38,11 @@ export default function UserView() {
 
 					const userTasks = tasksData.filter((task: Task) => {
 						// Must be assigned to user
-						if (task.assignee !== currentUser.name) return false;
+						const isAssigned =
+							task.assignee === currentUser.name ||
+							(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+
+						if (!isAssigned) return false;
 
 						// Must not be in a forbidden stage
 						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;

@@ -118,4 +118,21 @@ class Task extends Model
     {
         return $this->hasMany(TaskComment::class);
     }
+    /**
+     * Get the assignees for the task.
+     */
+    public function assignees(): HasMany
+    {
+        return $this->hasMany(TaskAssignee::class);
+    }
+
+    /**
+     * Get the users assigned to the task.
+     */
+    public function assignedUsers()
+    {
+        return $this->belongsToMany(User::class, 'task_assignees')
+                    ->withPivot('status')
+                    ->withTimestamps();
+    }
 }

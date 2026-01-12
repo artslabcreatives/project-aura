@@ -9,6 +9,12 @@ function mapTask(raw: any): Task {
 		project: raw.project ? raw.project.name : '',
 		projectId: raw.project ? raw.project.id : undefined,
 		assignee: raw.assignee ? raw.assignee.name : '',
+		// Map multiple assignees
+		assignedUsers: raw.assigned_users?.map((u: any) => ({
+			id: String(u.id),
+			name: u.name,
+			status: u.pivot?.status || 'pending',
+		})) || [],
 		dueDate: raw.due_date ?? '',
 		userStatus: raw.user_status || 'pending',
 		projectStage: raw.project_stage_id ? String(raw.project_stage_id) : undefined,
@@ -60,13 +66,14 @@ export const taskService = {
 		return mapTask(data);
 	},
 
-	create: async (task: Omit<Task, 'id' | 'createdAt' | 'project' | 'assignee'> & { projectId?: number; assigneeId?: number; projectStageId?: number }): Promise<Task> => {
+	create: async (task: Omit<Task, 'id' | 'createdAt' | 'project' | 'assignee' | 'assignedUsers'> & { projectId?: number; assigneeId?: number; assigneeIds?: number[]; projectStageId?: number }): Promise<Task> => {
 		// Map to backend payload
 		const payload: any = {
 			title: task.title,
 			description: task.description,
 			project_id: task.projectId,
 			assignee_id: task.assigneeId,
+			assignee_ids: task.assigneeIds, // Multiple assignees
 			user_status: task.userStatus,
 			project_stage_id: task.projectStageId,
 			due_date: task.dueDate,
@@ -85,12 +92,13 @@ export const taskService = {
 		return mapTask(data);
 	},
 
-	update: async (id: string, updates: Partial<Task> & { projectId?: number; assigneeId?: number; projectStageId?: number; originalAssigneeId?: number }): Promise<Task> => {
+	update: async (id: string, updates: Partial<Task> & { projectId?: number; assigneeId?: number; assigneeIds?: number[]; projectStageId?: number; originalAssigneeId?: number }): Promise<Task> => {
 		const payload: any = {
 			title: updates.title,
 			description: updates.description,
 			project_id: updates.projectId,
 			assignee_id: updates.assigneeId,
+			assignee_ids: updates.assigneeIds, // Multiple assignees
 			user_status: updates.userStatus,
 			project_stage_id: updates.projectStageId,
 			due_date: updates.dueDate,

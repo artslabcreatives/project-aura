@@ -176,10 +176,28 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 					</span>
 				</div>
 
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<User className="h-3 w-3" />
-					<span>{task.assignee}</span>
-				</div>
+				{task.assignedUsers && task.assignedUsers.length > 1 ? (
+					<div className="flex flex-col gap-1 mt-1 pt-1 border-t border-dashed">
+						<span className="text-[10px] text-muted-foreground font-medium px-1">Assignees</span>
+						{task.assignedUsers.map(u => (
+							<div key={u.id} className={cn(
+								"flex items-center gap-2 text-xs p-1 rounded transition-colors",
+								u.status === 'complete'
+									? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+									: "text-muted-foreground hover:bg-muted"
+							)}>
+								<User className="h-3 w-3" />
+								<span className="flex-1 truncate">{u.name}</span>
+								{u.status === 'complete' && <CheckSquare className="h-3 w-3 text-green-600 dark:text-green-400" />}
+							</div>
+						))}
+					</div>
+				) : (
+					<div className="flex items-center gap-2 text-xs text-muted-foreground">
+						<User className="h-3 w-3" />
+						<span>{task.assignee}</span>
+					</div>
+				)}
 
 				<div className="flex items-center gap-2">
 					<Badge variant="outline" className="text-xs">

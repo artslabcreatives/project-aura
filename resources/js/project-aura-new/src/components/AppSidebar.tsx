@@ -121,7 +121,11 @@ export function AppSidebar() {
 					const tasksData = await taskService.getAll();
 					const userProjectStages = new Map<string, Set<string>>();
 					tasksData
-						.filter(task => task.assignee === currentUser.name && task.userStatus !== 'complete')
+						.filter(task => {
+							const isAssigned = task.assignee === currentUser.name ||
+								(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+							return isAssigned && task.userStatus !== 'complete';
+						})
 						.forEach(task => {
 							if (task.project && task.projectStage) {
 								if (!userProjectStages.has(task.project)) {
@@ -137,8 +141,12 @@ export function AppSidebar() {
 							...project,
 							stages: project.stages.filter(stage => {
 								const title = stage.title.toLowerCase().trim();
-								const isSystemStage = ['pending', 'suggested', 'suggested task', 'complete', 'completed', 'archive'].includes(title);
-								return userProjectStages.get(project.name)?.has(stage.id) && !isSystemStage;
+								const hiddenStages = ['suggested', 'suggested task', 'pending'];
+
+								// User requested to hide specific system stages
+								if (hiddenStages.includes(title)) return false;
+
+								return userProjectStages.get(project.name)?.has(stage.id);
 							})
 						}))
 						.filter(project => project.stages.length > 0);

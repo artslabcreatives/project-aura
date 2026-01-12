@@ -27,7 +27,7 @@ import {
 	SelectLabel,
 } from "@/components/ui/select";
 import { TagInput } from "./ui/TagInput";
-import { MultiSelect } from "./ui/multi-select";
+import { MultiSearchableSelect } from "./ui/multi-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Department } from "@/types/department";
 import { Project } from "@/types/project";
@@ -658,10 +658,10 @@ export function ProjectDialog({
 
 						<div className="grid gap-2">
 							<Label htmlFor="phoneNumbers">WhatsApp Group's</Label>
-							<MultiSelect
+							<MultiSearchableSelect
 								options={phoneNumbersOptions}
-								value={phoneNumbers}
-								onValueChange={setPhoneNumbers}
+								values={phoneNumbers}
+								onValuesChange={setPhoneNumbers}
 								placeholder="Select numbers..."
 							/>
 						</div>

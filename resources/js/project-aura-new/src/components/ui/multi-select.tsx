@@ -1,161 +1,158 @@
 import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-import { X } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Command as CommandPrimitive } from "cmdk";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 
-const multiSelectVariants = cva(
-  "flex items-center rounded-md border border-input bg-background text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
-  {
-    variants: {
-      variant: {
-        default: "h-10",
-        sm: "h-9",
-        lg: "h-11",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-);
-
-export interface MultiSelectProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof multiSelectVariants> {
-  placeholder?: string;
-  options: { label: string; value: string }[];
-  value: string[];
-  onValueChange: (value: string[]) => void;
-  maxCount?: number;
+export interface SearchableOption {
+  value: string;
+  label: string;
+  group?: string;
 }
 
-const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
-  (
-    {
-      className,
-      variant,
-      placeholder = "Select options",
-      options,
-      value = [],
-      onValueChange,
-      maxCount = 5,
-      ...props
-    },
-    ref
-  ) => {
-    const inputRef = React.useRef<HTMLInputElement>(null);
-    const [open, setOpen] = React.useState(false);
-    const [inputValue, setInputValue] = React.useState("");
+interface MultiSearchableSelectProps {
+  values: string[];
+  onValuesChange: (values: string[]) => void;
+  options: SearchableOption[];
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+}
 
-    const handleSelect = React.useCallback(
-      (selectedValue: string) => {
-        if (value.length < maxCount) {
-          onValueChange([...value, selectedValue]);
+export function MultiSearchableSelect({
+  values = [],
+  onValuesChange,
+  options,
+  placeholder = "Select...",
+  className,
+  disabled = false,
+}: MultiSearchableSelectProps) {
+  const [open, setOpen] = React.useState(false);
+
+  // Group options if needed
+  const groupedOptions = React.useMemo(() => {
+    const groups: Record<string, SearchableOption[]> = {};
+    const noGroup: SearchableOption[] = [];
+
+    options.forEach((option) => {
+      if (option.group) {
+        if (!groups[option.group]) {
+          groups[option.group] = [];
         }
-      },
-      [value, maxCount, onValueChange]
-    );
+        groups[option.group].push(option);
+      } else {
+        noGroup.push(option);
+      }
+    });
 
-    const handleRemove = React.useCallback(
-      (selectedValue: string) => {
-        onValueChange(value.filter((v) => v !== selectedValue));
-      },
-      [value, onValueChange]
-    );
+    const sortedGroups = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+    return { groups, sortedGroups, noGroup };
+  }, [options]);
 
-    const handleKeyDown = React.useCallback(
-      (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === "Backspace" && inputValue === "") {
-          handleRemove(value[value.length - 1]);
-        }
-      },
-      [inputValue, value, handleRemove]
-    );
+  const handleSelect = (optionValue: string) => {
+    if (values.includes(optionValue)) {
+      onValuesChange(values.filter((v) => v !== optionValue));
+    } else {
+      onValuesChange([...values, optionValue]);
+    }
+  };
 
-    const filteredOptions = options.filter(
-      (option) =>
-        !value.includes(option.value) &&
-        option.label.toLowerCase().includes(inputValue.toLowerCase())
-    );
+  const removeValue = (e: React.MouseEvent, val: string) => {
+    e.stopPropagation();
+    onValuesChange(values.filter((v) => v !== val));
+  };
 
-    return (
-      <Command
-        onKeyDown={handleKeyDown}
-        className="overflow-visible bg-transparent"
-      >
-        <div
-          ref={ref}
-          className={cn(multiSelectVariants({ variant }), className)}
-          onClick={() => inputRef.current?.focus()}
-          {...props}
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          disabled={disabled}
+          aria-expanded={open}
+          className={cn("w-full justify-between h-auto min-h-10", !values.length && "text-muted-foreground", className)}
         >
-          <div className="flex flex-wrap items-center gap-1 p-1">
-            {value.map((v) => {
-              const option = options.find((opt) => opt.value === v);
+          <div className="flex flex-wrap gap-1">
+            {values.length === 0 && placeholder}
+            {values.map((val) => {
+              const updateLabel = options.find((o) => o.value === val)?.label || val;
               return (
-                <Badge
-                  key={v}
-                  variant="secondary"
-                  className="gap-1 whitespace-nowrap"
-                >
-                  {option?.label}
-                  <button
-                    type="button"
-                    className="rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemove(v);
-                    }}
-                  >
-                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
+                <Badge key={val} variant="secondary" className="mr-1">
+                  {updateLabel}
+                  <X
+                    className="ml-1 h-3 w-3 cursor-pointer opacity-50 hover:opacity-100"
+                    onClick={(e) => removeValue(e, val)}
+                  />
                 </Badge>
               );
             })}
-            <CommandPrimitive.Input
-              ref={inputRef}
-              value={inputValue}
-              onValueChange={setInputValue}
-              onBlur={() => setOpen(false)}
-              onFocus={() => setOpen(true)}
-              placeholder={value.length > 0 ? "" : placeholder}
-              className="ml-1 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-            />
           </div>
-        </div>
-        <div className="relative">
-          {open && filteredOptions.length > 0 && (
-            <div className="absolute top-1 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in">
-              <CommandGroup className="h-full overflow-auto">
-                {filteredOptions.map((option) => (
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search..." />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+
+            {groupedOptions.noGroup.length > 0 && (
+              <CommandGroup>
+                {groupedOptions.noGroup.map((option) => (
                   <CommandItem
                     key={option.value}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onSelect={() => {
-                      handleSelect(option.value);
-                      setInputValue("");
-                    }}
-                    className="cursor-pointer"
+                    value={option.label}
+                    onSelect={() => handleSelect(option.value)}
                   >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        values.includes(option.value) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
                     {option.label}
                   </CommandItem>
                 ))}
               </CommandGroup>
-            </div>
-          )}
-        </div>
-      </Command>
-    );
-  }
-);
+            )}
 
-MultiSelect.displayName = "MultiSelect";
-
-export { MultiSelect };
+            {groupedOptions.sortedGroups.map((groupName) => (
+              <CommandGroup key={groupName} heading={groupName}>
+                {groupedOptions.groups[groupName].map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label}
+                    onSelect={() => handleSelect(option.value)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        values.includes(option.value) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {option.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+// End of file

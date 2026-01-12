@@ -20,6 +20,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { MultiSearchableSelect } from "@/components/ui/multi-select";
 import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,7 @@ interface PendingFile {
 interface TaskDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onSave: (task: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => void;
+	onSave: (task: Omit<Task, "id" | "createdAt"> & { assigneeId?: string; assigneeIds?: string[] }, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => void;
 	editTask?: Task | null;
 	availableProjects?: string[];
 	availableStatuses: Stage[];
@@ -70,7 +71,8 @@ export function TaskDialog({
 		title: "",
 		description: "",
 		project: "",
-		assignee: "",
+		assignee: "", // Legacy/Display name of primary assignee
+		assigneeIds: [] as string[], // IDs of all assignees
 		dueDate: "",
 		dueTime: "",
 		userStatus: "pending" as UserStatus,
@@ -100,11 +102,22 @@ export function TaskDialog({
 
 	useEffect(() => {
 		if (editTask) {
+			// Map assignedUsers to IDs
+			let ids: string[] = [];
+			if (editTask.assignedUsers && editTask.assignedUsers.length > 0) {
+				ids = editTask.assignedUsers.map(u => u.id);
+			} else if (editTask.assignee) {
+				// Fallback: try to find user by name
+				const user = teamMembers.find(u => u.name === editTask.assignee);
+				if (user) ids = [user.id];
+			}
+
 			setFormData({
 				title: editTask.title,
 				description: editTask.description,
 				project: editTask.project,
 				assignee: editTask.assignee,
+				assigneeIds: ids,
 				dueDate: editTask.dueDate.split("T")[0],
 				dueTime: editTask.dueDate.split("T")[1]?.substring(0, 5) || "",
 				userStatus: editTask.userStatus,
@@ -142,6 +155,7 @@ export function TaskDialog({
 				description: "",
 				project: projects.length === 1 ? projects[0] : "",
 				assignee: "",
+				assigneeIds: [],
 				dueDate: tomorrow.toISOString().split('T')[0],
 				dueTime: "17:00",
 				userStatus: "pending",
@@ -158,7 +172,7 @@ export function TaskDialog({
 			setNewLinkName("");
 			setNewLinkUrl("");
 		}
-	}, [editTask, open, availableStatuses, useProjectStages, projects, initialStageId]);
+	}, [editTask, open, availableStatuses, useProjectStages, projects, initialStageId, teamMembers]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -172,6 +186,19 @@ export function TaskDialog({
 		const startDateTime = formData.startDate && formData.startTime
 			? new Date(`${formData.startDate}T${formData.startTime}`).toISOString()
 			: undefined;
+
+		// Determine primary assignee name and ID
+		let primaryAssigneeName = formData.assignee;
+		let primaryAssigneeId = undefined;
+		if (formData.assigneeIds.length > 0) {
+			// Use the first selected assignee as primary/legacy
+			const firstUserId = formData.assigneeIds[0];
+			const user = teamMembers.find(u => u.id === firstUserId);
+			if (user) {
+				primaryAssigneeName = user.name;
+				primaryAssigneeId = user.id;
+			}
+		}
 
 		// For editing existing tasks, upload files immediately
 		if (editTask && (pendingFiles.length > 0 || pendingLinks.length > 0)) {
@@ -193,6 +220,9 @@ export function TaskDialog({
 
 				onSave({
 					...formData,
+					assignee: primaryAssigneeName,
+					assigneeId: primaryAssigneeId,
+					assigneeIds: formData.assigneeIds,
 					dueDate: dueDateTime,
 					...(useProjectStages && { projectStage: formData.projectStage }),
 					...(!useProjectStages && { userStatus: formData.userStatus }),
@@ -222,6 +252,9 @@ export function TaskDialog({
 			onSave(
 				{
 					...formData,
+					assignee: primaryAssigneeName,
+					assigneeId: primaryAssigneeId,
+					assigneeIds: formData.assigneeIds,
 					dueDate: dueDateTime,
 					...(useProjectStages && { projectStage: formData.projectStage }),
 					...(!useProjectStages && { userStatus: formData.userStatus }),
@@ -316,11 +349,12 @@ export function TaskDialog({
 		return departments.find(dep => dep.id === departmentId)?.name || "Uncategorized";
 	};
 
+	// Use member ID as value
 	const memberOptions: SearchableOption[] = teamMembers.map((member) => {
 		const departmentName = getDepartmentName(member.department);
 		const taskCount = getTaskCountForAssignee(member.name);
 		return {
-			value: member.name, // Use name as value to match formData
+			value: member.id, // Use ID as value
 			label: `${member.name} (${taskCount})`,
 			group: departmentName,
 		};
@@ -394,14 +428,15 @@ export function TaskDialog({
 
 							<div className="grid gap-2">
 								<Label htmlFor="assignee">Assign To *</Label>
-								<SearchableSelect
-									value={formData.assignee}
-									onValueChange={(value) =>
-										setFormData({ ...formData, assignee: value })
+								<MultiSearchableSelect
+									values={formData.assigneeIds}
+									onValuesChange={(values) =>
+										setFormData({ ...formData, assigneeIds: values })
 									}
 									options={memberOptions}
-									placeholder="Select member"
+									placeholder="Select members"
 								/>
+								<p className="text-xs text-muted-foreground">Select one or more assignees. First selected will be primary.</p>
 							</div>
 						</div>
 

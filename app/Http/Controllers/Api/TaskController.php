@@ -14,14 +14,19 @@ class TaskController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project']);
+        $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
         
         if ($request->has('project_id')) {
             $query->where('project_id', $request->project_id);
         }
         
         if ($request->has('assignee_id')) {
-            $query->where('assignee_id', $request->assignee_id);
+            $query->where(function($q) use ($request) {
+                $q->where('assignee_id', $request->assignee_id)
+                  ->orWhereHas('assignedUsers', function($sq) use ($request) {
+                      $sq->where('users.id', $request->assignee_id);
+                  });
+            });
         }
         
         if ($request->has('user_status')) {
@@ -46,6 +51,8 @@ class TaskController extends Controller
             'description' => 'nullable|string',
             'project_id' => 'required|exists:projects,id',
             'assignee_id' => 'nullable|exists:users,id',
+            'assignee_ids' => 'nullable|array',
+            'assignee_ids.*' => 'exists:users,id',
             'due_date' => 'nullable|date',
             'user_status' => 'sometimes|in:pending,in-progress,complete',
             'project_stage_id' => 'nullable|exists:stages,id',
@@ -58,18 +65,29 @@ class TaskController extends Controller
             'parent_id' => 'nullable|exists:tasks,id',
         ]);
 
-        // If assignee_id is not provided, assign to the authenticated user
-        if (!isset($validated['assignee_id'])) {
+        // If assignee_id is not provided but assignee_ids is, use the first as primary
+        if (!isset($validated['assignee_id']) && isset($validated['assignee_ids']) && count($validated['assignee_ids']) > 0) {
+            $validated['assignee_id'] = $validated['assignee_ids'][0];
+        } else if (!isset($validated['assignee_id'])) {
             $validated['assignee_id'] = $request->user()->id;
         }
 
         $task = Task::create($validated);
 
+        // Sync multiple assignees
+        if (isset($validated['assignee_ids'])) {
+            $task->assignedUsers()->sync($validated['assignee_ids']);
+        } else if ($task->assignee_id) {
+            // If only single assignee provided, allow it as sole assignee
+            $task->assignedUsers()->sync([$task->assignee_id]);
+        }
+
         if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
             $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
         }
+        // Notify other assignees? (Skipping for brevity, can iterate assignedUsers)
 
-        return response()->json($task->load(['project', 'assignee', 'projectStage']), 201);
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']), 201);
     }
 
     /**
@@ -77,7 +95,7 @@ class TaskController extends Controller
      */
     public function show(Task $task): JsonResponse
     {
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments', 'assignedUsers']));
     }
 
     /**
@@ -90,6 +108,8 @@ class TaskController extends Controller
             'description' => 'nullable|string',
             'project_id' => 'sometimes|exists:projects,id',
             'assignee_id' => 'nullable|exists:users,id',
+            'assignee_ids' => 'nullable|array',
+            'assignee_ids.*' => 'exists:users,id',
             'due_date' => 'nullable|date',
             'user_status' => 'sometimes|in:pending,in-progress,complete',
             'project_stage_id' => 'nullable|exists:stages,id',
@@ -111,6 +131,37 @@ class TaskController extends Controller
         $assigneeChanged = $task->isDirty('assignee_id');
         $newStatus = $task->user_status;
 
+        // Handle multi-assignee sync
+        if (isset($validated['assignee_ids'])) {
+            $task->assignedUsers()->sync($validated['assignee_ids']);
+            // Update primary assignee_id if not explicitly set but array changed? 
+            // Better to keep existing logic: if assignee_id passed, use it, else keep it.
+        }
+
+        if ($statusChanged && $newStatus === 'complete' && $task->assignedUsers()->count() > 1) {
+             // Find the pivot entry for this user
+             $userId = $request->user()->id;
+             $pivot = $task->assignedUsers()->where('users.id', $userId)->first();
+             if ($pivot) {
+                 // Update pivot status
+                 $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
+             }
+             
+             // Check if ALL are complete
+             $allComplete = !$task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
+             
+             if (!$allComplete) {
+                 // If not all complete, REVERT the main task status change (keep it as it was)
+                 unset($task->user_status); 
+             } else {
+                 // All complete - attempt stage advancement
+                 $this->performStageAdvancement($task);
+             }
+        } elseif ($statusChanged && $newStatus === 'complete') {
+             // Single user completion - attempt stage advancement
+             $this->performStageAdvancement($task);
+        }
+
         $task->save();
 
         // Notify new assignee
@@ -118,19 +169,67 @@ class TaskController extends Controller
              $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
         }
 
-        // Notify if status updated
-        if ($statusChanged) {
-             // Notify the assignee (if they didn't do it) and maybe admins
+        // Notify if status updated (only if main task updated)
+        if ($task->wasChanged('user_status')) {
              if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
-                 $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $newStatus));
+                 $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
              }
-             
-             // Also notify admins of status change
              $admins = \App\Models\User::where('role', 'admin')->get();
-             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskStatusUpdatedNotification($task, $newStatus));
+             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
         }
 
-        return response()->json($task->load(['project', 'assignee', 'projectStage']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
+    }
+
+    /**
+     * Helper to advance task stage on completion
+     */
+    private function performStageAdvancement(Task $task)
+    {
+        $currentStage = $task->projectStage;
+        if (!$currentStage) return;
+
+        $nextStage = null;
+        if ($currentStage->linked_review_stage_id) {
+            $nextStage = \App\Models\Stage::find($currentStage->linked_review_stage_id);
+        } else {
+             $nextStage = \App\Models\Stage::where('project_id', $task->project_id)
+                 ->where('order', '>', $currentStage->order)
+                 ->orderBy('order', 'asc')
+                 ->first();
+        }
+
+        if ($nextStage) {
+            $task->project_stage_id = $nextStage->id;
+            $task->user_status = 'pending';
+            
+            if ($nextStage->is_review_stage) {
+                $task->previous_stage_id = $currentStage->id;
+                $task->is_in_specific_stage = true;
+            } else {
+                 $task->is_in_specific_stage = false;
+            }
+            
+            // Reassign if Main Responsible is set
+            if ($nextStage->main_responsible_id) {
+                $task->assignee_id = $nextStage->main_responsible_id;
+                // Sync new assignee immediately to pivot table
+                $task->assignedUsers()->sync([$nextStage->main_responsible_id]);
+                
+                // Helper will save task later, but we need to notify inside update cycle or let update cycle handle it
+                // update cycle checks dirty assignee_id.
+            } else {
+                // Determine if we should clear assignees or keep them
+                // If moving to next stage and no responsible defined, we keep current assignee but reset their status?
+                // Or clear?
+                // Let's reset status to pending for all current assignees
+                 $task->assignedUsers()->update(['status' => 'pending']);
+            }
+        } else {
+            // No next stage -> Confirmation of Completion
+            $task->user_status = 'complete';
+            $task->completed_at = now();
+        }
     }
 
     /**
@@ -157,27 +256,38 @@ class TaskController extends Controller
         ]);
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $task, $request) {
-            // Update Task Status
-            $updates = [];
-            if (isset($validated['user_status'])) {
-                $updates['user_status'] = $validated['user_status'];
-                if ($validated['user_status'] === 'complete') {
-                    $updates['completed_at'] = now();
-                }
-            }
-            if (isset($validated['project_stage_id'])) {
-                $updates['project_stage_id'] = $validated['project_stage_id'];
-            }
+            $userId = $request->user()->id;
             
-            if (!empty($updates)) {
-                $task->update($updates);
+            // Logic for multi-assignee completion
+            $shouldCompleteMainTask = true;
+            $hasPivot = $task->assignedUsers()->where('users.id', $userId)->exists();
+            $multiAssignee = $task->assignedUsers()->count() > 1;
+            
+            if ($hasPivot && isset($validated['user_status']) && $validated['user_status'] === 'complete') {
+                $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
                 
-                // Trigger notifications logic if needed (simplified here)
-                if (isset($updates['user_status']) && $updates['user_status'] === 'complete') {
-                     // Notify relevant parties
+                // Check if all others are complete
+                if ($multiAssignee) {
+                    $pendingOthers = $task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
+                    if ($pendingOthers) {
+                        $shouldCompleteMainTask = false;
+                    }
                 }
             }
 
+            // Update Task Status if allowed
+            $updates = [];
+            if ($shouldCompleteMainTask) {
+                // Apply stage advancement logic
+                $this->performStageAdvancement($task);
+                $task->save();
+                
+                // Also apply other updates if provided (like stage override from request? usually null if just completing)
+                 if (isset($validated['project_stage_id'])) {
+                    $task->update(['project_stage_id' => $validated['project_stage_id']]);
+                }
+            }
+            
             // Add Comment
             if (!empty($validated['comment'])) {
                 $task->comments()->create([
@@ -213,6 +323,6 @@ class TaskController extends Controller
             }
         });
 
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments', 'assignedUsers']));
     }
 }

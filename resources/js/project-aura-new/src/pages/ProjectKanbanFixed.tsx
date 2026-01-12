@@ -138,7 +138,10 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					if (foundTask) {
 						if (currentUser?.role === 'user') {
 							// For normal users, redirect to their specific stage view if assigned
-							if (foundTask.assignee === currentUser.name) {
+							const isAssigned = foundTask.assignee === currentUser.name ||
+								(foundTask.assignedUsers && foundTask.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+
+							if (isAssigned) {
 								navigate(`/user-project/${currentProject.id}/stage/${foundTask.projectStage}?task=${foundTask.id}`);
 							} else {
 								toast({
@@ -260,27 +263,42 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to update task.', variant: 'destructive' }); }
 	};
 
-	const handleSaveTask = async (task: Omit<Task, 'id' | 'createdAt'>, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
+	const handleSaveTask = async (task: Omit<Task, 'id' | 'createdAt'> & { assigneeId?: string; assigneeIds?: string[] }, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (!currentUser || !project) return;
 		try {
-			const assigneeId = task.assignee ? teamMembers.find(m => m.name === task.assignee)?.id : undefined;
+			// Extract assignee IDs and convert to numbers
+			const assigneeId = task.assigneeId ? parseInt(task.assigneeId) : undefined;
+			const assigneeIds = task.assigneeIds?.map(id => parseInt(id)) || [];
+
 			const projectStageId = task.projectStage ? parseInt(task.projectStage) : undefined;
 
 			const { project: projectName, assignee, projectStage, ...cleanTask } = task;
 			const taskPayload = {
 				...cleanTask,
 				projectId: project.id,
-				assigneeId: assigneeId ? parseInt(assigneeId) : undefined,
+				assigneeId,
+				assigneeIds,
 				projectStageId,
 			};
 
 			if (editingTask) {
 				await taskService.update(editingTask.id, taskPayload);
-				setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...task, projectId: project.id, assigneeId } : t));
+				// Update local state - convert back to strings/objects if needed or just reload?
+				// Reloading or partial update. For simple update we just spread.
+				// But assignedUsers need to be refreshed.
+				// It's safer to fetch the updated task or rely on the response from taskService used in kanban updates.
+				// For now, let's update strictly what we can. 
+				// But since we have multiple assignees, simple map might be inaccurate for UI update of avatars.
+				// However, KanbanBoard usually re-renders. 
+
+				// Fetch updated tasks to ensure correct state?
+				// Or use the response from update if available (taskService.update returns Task).
+				const updatedTask = await taskService.update(editingTask.id, taskPayload);
+				setTasks(tasks.map(t => t.id === editingTask.id ? updatedTask : t));
 				addHistoryEntry({ action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { from: editingTask, to: { ...editingTask, ...task } } });
 				toast({ title: 'Task updated', description: 'Task updated successfully.' });
 			} else {
-				const newTask = await taskService.create(taskPayload as any);
+				const newTask = await taskService.create(taskPayload);
 
 				if (pendingFiles && pendingFiles.length > 0) {
 					try {
