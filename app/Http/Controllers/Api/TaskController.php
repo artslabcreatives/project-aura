@@ -178,6 +178,45 @@ class TaskController extends Controller
              \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
         }
 
+        // -----------------------------------------------------
+        // NEW NOTIFICATIONS LOGIC
+        // -----------------------------------------------------
+
+        // 1. Task Completed / Advanced by User -> Notify Admin & Team Lead
+        if ($statusChanged && $newStatus === 'complete') {
+            // Find Team Leads for this project's department
+            $departmentId = $task->project->department_id ?? null;
+            if ($departmentId) {
+                $teamLeads = \App\Models\User::where('role', 'team-lead')
+                                             ->where('department_id', $departmentId)
+                                             ->get();
+                // Send to Team Leads
+                if ($teamLeads->count() > 0) {
+                     \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\TaskCompletedNotification($task, $request->user()));
+                }
+            }
+            // Send to Admins (if not already covered by StatusUpdated, but detailed TaskCompleted is better)
+             $admins = \App\Models\User::where('role', 'admin')->get();
+             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskCompletedNotification($task, $request->user()));
+        }
+
+        // 2. Stage Changed (Approval / Rejection / Move) -> Notify Previous Assignee / Doer
+        if ($task->wasChanged('project_stage_id')) {
+            $newStage = $task->projectStage;
+            $stageName = $newStage ? $newStage->title : 'Unknown Stage';
+
+            // Scenario: Task was in Review (assigned to Admin/Lead) -> Moved to Completed (or Next).
+            // The person who wants to know is the one who did the work (original_assignee_id).
+            if ($task->original_assignee_id) {
+                $originalAssignee = \App\Models\User::find($task->original_assignee_id);
+                if ($originalAssignee) {
+                    $originalAssignee->notify(new \App\Notifications\TaskApprovedNotification($task, $stageName));
+                }
+            } else {
+                 // Fallback: If no original_assignee, maybe notify the *previous* assignee if different from current?
+            }
+        }
+
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
     }
 
@@ -205,6 +244,7 @@ class TaskController extends Controller
             
             if ($nextStage->is_review_stage) {
                 $task->previous_stage_id = $currentStage->id;
+                $task->original_assignee_id = $task->assignee_id; // Capture current assignee
                 $task->is_in_specific_stage = true;
             } else {
                  $task->is_in_specific_stage = false;
@@ -286,6 +326,19 @@ class TaskController extends Controller
                  if (isset($validated['project_stage_id'])) {
                     $task->update(['project_stage_id' => $validated['project_stage_id']]);
                 }
+
+                // NOTIFY ADMIN & TEAM LEAD
+                $departmentId = $task->project->department_id ?? null;
+                if ($departmentId) {
+                    $teamLeads = \App\Models\User::where('role', 'team-lead')
+                                                 ->where('department_id', $departmentId)
+                                                 ->get();
+                    if ($teamLeads->count() > 0) {
+                        \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\TaskCompletedNotification($task, $request->user(), $task->projectStage ? $task->projectStage->title : 'Completed'));
+                    }
+                }
+                $admins = \App\Models\User::where('role', 'admin')->get();
+                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskCompletedNotification($task, $request->user(), $task->projectStage ? $task->projectStage->title : 'Completed'));
             }
             
             // Add Comment
