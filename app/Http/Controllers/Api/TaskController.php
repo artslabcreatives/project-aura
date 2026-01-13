@@ -56,6 +56,7 @@ class TaskController extends Controller
             'due_date' => 'nullable|date',
             'user_status' => 'sometimes|in:pending,in-progress,complete',
             'project_stage_id' => 'nullable|exists:stages,id',
+            'start_stage_id' => 'nullable|exists:stages,id',
             'priority' => 'sometimes|in:low,medium,high',
             'tags' => 'nullable|array',
             'start_date' => 'nullable|date',
@@ -80,6 +81,25 @@ class TaskController extends Controller
         } else if ($task->assignee_id) {
             // If only single assignee provided, allow it as sole assignee
             $task->assignedUsers()->sync([$task->assignee_id]);
+        }
+
+        // Check if task should be automatically moved to start stage
+        // This happens when:
+        // 1. Task is in Pending stage
+        // 2. Has a start_stage_id set
+        // 3. Start time has already passed or is now
+        if ($task->start_date && $task->start_stage_id) {
+            $now = \Carbon\Carbon::now();
+            $startTime = \Carbon\Carbon::parse($task->start_date);
+            
+            // Reload to get the projectStage relationship
+            $task->load('projectStage');
+            
+            if ($task->projectStage && $task->projectStage->title === 'Pending' && $startTime->lte($now)) {
+                // Move task to the start stage immediately
+                $task->project_stage_id = $task->start_stage_id;
+                $task->save();
+            }
         }
 
         if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
@@ -113,6 +133,7 @@ class TaskController extends Controller
             'due_date' => 'nullable|date',
             'user_status' => 'sometimes|in:pending,in-progress,complete',
             'project_stage_id' => 'nullable|exists:stages,id',
+            'start_stage_id' => 'nullable|exists:stages,id',
             'priority' => 'sometimes|in:low,medium,high',
             'tags' => 'nullable|array',
             'start_date' => 'nullable|date',

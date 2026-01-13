@@ -19,6 +19,7 @@ class Task extends Model
         'due_date',
         'user_status',
         'project_stage_id',
+        'start_stage_id',
         'priority',
         'tags',
         'start_date',
@@ -62,6 +63,14 @@ class Task extends Model
     public function projectStage(): BelongsTo
     {
         return $this->belongsTo(Stage::class, 'project_stage_id');
+    }
+
+    /**
+     * Get the start stage of the task (stage to move to when start time arrives).
+     */
+    public function startStage(): BelongsTo
+    {
+        return $this->belongsTo(Stage::class, 'start_stage_id');
     }
 
     /**

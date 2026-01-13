@@ -18,6 +18,7 @@ function mapTask(raw: any): Task {
 		dueDate: raw.due_date ?? '',
 		userStatus: raw.user_status || 'pending',
 		projectStage: raw.project_stage_id ? String(raw.project_stage_id) : undefined,
+		startStageId: raw.start_stage_id ? String(raw.start_stage_id) : undefined,
 		priority: raw.priority || 'medium',
 		createdAt: raw.created_at || new Date().toISOString(),
 		tags: raw.tags || [],
@@ -66,7 +67,7 @@ export const taskService = {
 		return mapTask(data);
 	},
 
-	create: async (task: Omit<Task, 'id' | 'createdAt' | 'project' | 'assignee' | 'assignedUsers'> & { projectId?: number; assigneeId?: number; assigneeIds?: number[]; projectStageId?: number }): Promise<Task> => {
+	create: async (task: Omit<Task, 'id' | 'createdAt' | 'project' | 'assignee' | 'assignedUsers' | 'startStageId'> & { projectId?: number; assigneeId?: number; assigneeIds?: number[]; projectStageId?: number; startStageId?: number }): Promise<Task> => {
 		// Map to backend payload
 		const payload: any = {
 			title: task.title,
@@ -76,6 +77,7 @@ export const taskService = {
 			assignee_ids: task.assigneeIds, // Multiple assignees
 			user_status: task.userStatus,
 			project_stage_id: task.projectStageId,
+			start_stage_id: task.startStageId,
 			due_date: task.dueDate,
 			priority: task.priority,
 			tags: task.tags,
@@ -92,7 +94,7 @@ export const taskService = {
 		return mapTask(data);
 	},
 
-	update: async (id: string, updates: Partial<Task> & { projectId?: number; assigneeId?: number; assigneeIds?: number[]; projectStageId?: number; originalAssigneeId?: number }): Promise<Task> => {
+	update: async (id: string, updates: Omit<Partial<Task>, 'startStageId'> & { projectId?: number; assigneeId?: number; assigneeIds?: number[]; projectStageId?: number; startStageId?: number; originalAssigneeId?: number }): Promise<Task> => {
 		const payload: any = {
 			title: updates.title,
 			description: updates.description,
@@ -101,6 +103,7 @@ export const taskService = {
 			assignee_ids: updates.assigneeIds, // Multiple assignees
 			user_status: updates.userStatus,
 			project_stage_id: updates.projectStageId,
+			start_stage_id: updates.startStageId,
 			due_date: updates.dueDate,
 			priority: updates.priority,
 			tags: updates.tags,

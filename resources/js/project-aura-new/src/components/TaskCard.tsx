@@ -3,7 +3,7 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +20,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface TaskCardProps {
 	task: Task;
@@ -42,7 +42,54 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 	const isValidDueDate = dueDate && isValid(dueDate);
 	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
 	const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+	const [timeLeft, setTimeLeft] = useState<string>("");
 	const { toast } = useToast();
+
+	useEffect(() => {
+		if (currentStage?.title !== "Pending" || !task.startDate) {
+			setTimeLeft("");
+			return;
+		}
+
+		const calculateTimeLeft = () => {
+			if (!task.startDate) return;
+
+			// Force Sri Lanka timezone (+05:30)
+			// We strip 'Z' or specific offsets to treat the stored "face value" time as SL time
+			const dateStr = task.startDate;
+			const parts = dateStr.split('T');
+			const datePart = parts[0];
+			const timePart = parts[1] ? parts[1].substring(0, 8) : "00:00:00"; // Get HH:mm:ss
+
+			const targetDateStr = `${datePart}T${timePart}+05:30`;
+
+			const start = new Date(targetDateStr);
+			const now = new Date();
+			const diff = start.getTime() - now.getTime();
+
+			if (diff <= 0) {
+				setTimeLeft("Starting...");
+				return;
+			}
+
+			const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+			const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+			const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+			const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+			const timeParts = [];
+			if (days > 0) timeParts.push(`${days}d`);
+			if (hours > 0) timeParts.push(`${hours}h`);
+			timeParts.push(`${minutes}m`);
+			timeParts.push(`${seconds}s`);
+
+			setTimeLeft(timeParts.join(" "));
+		};
+
+		calculateTimeLeft();
+		const timer = setInterval(calculateTimeLeft, 1000);
+		return () => clearInterval(timer);
+	}, [task.startDate, currentStage]);
 
 	const handleShare = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -164,6 +211,13 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			</CardHeader>
 
 			<CardContent className="p-4 pt-2 space-y-2">
+				{timeLeft && currentStage?.title === "Pending" && (
+					<div className="flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 p-1.5 rounded-md border border-blue-100 mb-2">
+						<Clock className="h-3.5 w-3.5" />
+						<span>Starts in: {timeLeft}</span>
+					</div>
+				)}
+
 				<div className="flex items-center gap-2 text-xs text-muted-foreground">
 					<Calendar className="h-3 w-3" />
 					<span

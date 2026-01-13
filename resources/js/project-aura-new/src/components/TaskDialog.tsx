@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { MultiSearchableSelect } from "@/components/ui/multi-select";
 import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
+import { Project } from "@/types/project";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Link as LinkIcon, Upload, Loader2 } from "lucide-react";
@@ -47,6 +48,7 @@ interface TaskDialogProps {
 	teamMembers: User[];
 	departments: Department[];
 	allTasks?: Task[];
+	allProjects?: Project[];
 	initialStageId?: string;
 	isStageLocked?: boolean;
 	currentUser?: User;
@@ -64,6 +66,7 @@ export function TaskDialog({
 	teamMembers,
 	departments,
 	allTasks = [],
+	allProjects,
 	initialStageId,
 	isStageLocked = false,
 	currentUser,
@@ -82,6 +85,7 @@ export function TaskDialog({
 		dueTime: "",
 		userStatus: "pending" as UserStatus,
 		projectStage: "",
+		startStageId: "", // Stage to move to when start time arrives
 		priority: "medium" as TaskPriority,
 		startDate: "",
 		startTime: "",
@@ -164,6 +168,7 @@ export function TaskDialog({
 				dueTime: editTask.dueDate.split("T")[1]?.substring(0, 5) || "",
 				userStatus: editTask.userStatus,
 				projectStage: editTask.projectStage || "",
+				startStageId: editTask.startStageId || "",
 				priority: editTask.priority,
 				startDate: editTask.startDate ? editTask.startDate.split("T")[0] : "",
 				startTime: editTask.startDate ? editTask.startDate.split("T")[1]?.substring(0, 5) || "" : "",
@@ -202,6 +207,7 @@ export function TaskDialog({
 				dueTime: "17:00",
 				userStatus: "pending",
 				projectStage: defaultStage,
+				startStageId: "",
 				priority: "medium",
 				startDate: today.toISOString().split('T')[0],
 				startTime: "09:00",
@@ -266,8 +272,8 @@ export function TaskDialog({
 					assigneeId: primaryAssigneeId,
 					assigneeIds: formData.assigneeIds,
 					dueDate: dueDateTime,
-					...(useProjectStages && { projectStage: formData.projectStage }),
-					...(!useProjectStages && { userStatus: formData.userStatus }),
+					projectStage: formData.projectStage || undefined,
+					userStatus: formData.userStatus,
 					tags: tags.length > 0 ? tags : undefined,
 					startDate: startDateTime,
 					attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
@@ -298,8 +304,8 @@ export function TaskDialog({
 					assigneeId: primaryAssigneeId,
 					assigneeIds: formData.assigneeIds,
 					dueDate: dueDateTime,
-					...(useProjectStages && { projectStage: formData.projectStage }),
-					...(!useProjectStages && { userStatus: formData.userStatus }),
+					projectStage: formData.projectStage || undefined,
+					userStatus: formData.userStatus,
 					tags: tags.length > 0 ? tags : undefined,
 					startDate: startDateTime,
 					attachments: attachments.length > 0 ? attachments : undefined,
@@ -511,19 +517,58 @@ export function TaskDialog({
 								<Label htmlFor="status">Status</Label>
 								<Select
 									value={useProjectStages ? formData.projectStage : formData.userStatus}
-									onValueChange={(value) =>
-										setFormData((prev) => ({
-											...prev,
-											...(useProjectStages ? { projectStage: value } : { userStatus: value as UserStatus }),
-										}))
-									}
+									onValueChange={(value) => {
+										const updates: any = {};
+
+										if (useProjectStages) {
+											updates.projectStage = value;
+											// Try to map back to userStatus if possible
+											const selectedStage = availableStatuses.find(s => s.id === value);
+											if (selectedStage) {
+												const title = selectedStage.title.toLowerCase();
+												if (title === 'pending') updates.userStatus = 'pending';
+												else if (title.includes('complete')) updates.userStatus = 'complete';
+												else updates.userStatus = 'in-progress';
+											}
+										} else {
+											updates.userStatus = value as UserStatus;
+
+											// Auto-select corresponding project stage if available
+											if (allProjects && formData.project) {
+												const project = allProjects.find(p => p.name === formData.project);
+												if (project && project.stages) {
+													let mappedStage;
+													if (value === 'pending') {
+														mappedStage = project.stages.find(s => s.title.toLowerCase() === 'pending');
+													} else if (value === 'complete') {
+														mappedStage = project.stages.find(s => ['complete', 'completed'].includes(s.title.toLowerCase()));
+													} else {
+														// For in-progress, maybe don't force a stage unless we know which one?
+														// Or better, clear it to avoid mismatch?
+														// Actually keeping it undefined is safer for the backend to handle or ignore.
+													}
+
+													if (mappedStage) {
+														updates.projectStage = String(mappedStage.id);
+													} else {
+														updates.projectStage = "";
+													}
+												}
+											}
+										}
+
+										setFormData(prev => ({ ...prev, ...updates }));
+									}}
 									disabled={isStageLocked}
 								>
 									<SelectTrigger id="status">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{availableStatuses
+										{(useProjectStages && allProjects && formData.project
+											? allProjects.find(p => p.name === formData.project)?.stages || availableStatuses
+											: availableStatuses
+										)
 											.filter((status) => status.title !== "Specific Stage") // Hide Specific Stage from selection
 											.slice()
 											.sort((a, b) => {
@@ -557,6 +602,81 @@ export function TaskDialog({
 								</Select>
 							</div>
 						</div>
+
+						{/* Start Stage Selector - Show whenever we have a project stage that is "Pending" */}
+						{(() => {
+							// Determine if we should show the start stage selector
+							// Condition: We have a valid project selected, and the CURRENT projectStage is "Pending"
+
+							if (!formData.project) return null;
+
+							// Find the relevant stages
+							let currentProjectStages: Stage[] = [];
+
+							if (allProjects) {
+								const proj = allProjects.find(p => p.name === formData.project);
+								if (proj) currentProjectStages = proj.stages;
+							}
+
+							// Fallback if useProjectStages is true and availableStatuses are passed correctly
+							if (currentProjectStages.length === 0 && useProjectStages) {
+								currentProjectStages = availableStatuses;
+							}
+
+							if (currentProjectStages.length === 0) return null;
+
+							// Check if current stage is Pending
+							// We check formData.projectStage
+							const currentStageId = formData.projectStage;
+							const currentStage = currentProjectStages.find(s => String(s.id) === String(currentStageId));
+
+							// If we don't have a mapped project stage, check if userStatus is pending and we can find a pending stage
+							let isPending = false;
+							if (currentStage) {
+								isPending = currentStage.title.toLowerCase() === "pending";
+							} else if (formData.userStatus === 'pending') {
+								// If userStatus is pending, we might have just failed to map it above due to state updates delay or earlier logic
+								// But we should try to find the pending stage to show the options
+								const pendingStage = currentProjectStages.find(s => s.title.toLowerCase() === 'pending');
+								if (pendingStage) {
+									isPending = true;
+									// Verify if we should have had this set
+								}
+							}
+
+							if (!isPending) return null;
+
+							// Get available stages excluding Pending and Suggested Task
+							const startStageOptions = currentProjectStages
+								.filter(s => s.title !== "Pending" && s.title !== "Suggested Task" && s.title !== "Specific Stage")
+								.sort((a, b) => a.order - b.order);
+
+							return (
+								<div className="grid gap-2">
+									<Label htmlFor="startStage">Start Stage (Auto-move)</Label>
+									<Select
+										value={formData.startStageId || undefined}
+										onValueChange={(value) =>
+											setFormData({ ...formData, startStageId: value || "" })
+										}
+									>
+										<SelectTrigger id="startStage">
+											<SelectValue placeholder="None (Stay in Pending)" />
+										</SelectTrigger>
+										<SelectContent>
+											{startStageOptions.map((stage) => (
+												<SelectItem key={stage.id} value={String(stage.id)}>
+													{stage.title}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="text-xs text-muted-foreground">
+										Task will automatically move to this stage when the start time arrives
+									</p>
+								</div>
+							);
+						})()}
 
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
@@ -839,7 +959,7 @@ export function TaskDialog({
 						</Button>
 					</DialogFooter>
 				</form>
-			</DialogContent>
-		</Dialog>
+			</DialogContent >
+		</Dialog >
 	);
 }

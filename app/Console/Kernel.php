@@ -16,6 +16,11 @@ class Kernel extends ConsoleKernel
         $schedule->command('backup:run')
             ->dailyAt('02:00')
             ->runInBackground();
+        
+        // Move tasks to their start stage when start time arrives
+        $schedule->command('tasks:move-to-start-stage')
+            ->everyMinute()
+            ->runInBackground();
     }
 
     /**
