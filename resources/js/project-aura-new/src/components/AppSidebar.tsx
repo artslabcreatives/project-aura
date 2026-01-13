@@ -309,7 +309,7 @@ export function AppSidebar() {
 			});
 
 			// Create any newly added stages (id not numeric)
-			const newStages = stages.filter(s => !/^[0-9]+$/.test(s.id));
+			const newStages = stages.filter(s => !/^[0-9]+$/.test(String(s.id)));
 			for (const stage of newStages) {
 				await api.post('/stages', {
 					title: stage.title,
@@ -317,6 +317,22 @@ export function AppSidebar() {
 					order: stage.order,
 					project_id: updatedProject.id,
 					type: stage.type,
+					main_responsible_id: stage.mainResponsibleId,
+					backup_responsible_id_1: stage.backupResponsibleId1,
+					backup_responsible_id_2: stage.backupResponsibleId2,
+					is_review_stage: stage.isReviewStage,
+					linked_review_stage_id: stage.linkedReviewStageId,
+					approved_target_stage_id: stage.approvedTargetStageId,
+				});
+			}
+
+			// Update existing stages
+			const existingStages = stages.filter(s => /^[0-9]+$/.test(String(s.id)));
+			for (const stage of existingStages) {
+				await api.put(`/stages/${stage.id}`, {
+					title: stage.title,
+					color: stage.color,
+					order: stage.order,
 					main_responsible_id: stage.mainResponsibleId,
 					backup_responsible_id_1: stage.backupResponsibleId1,
 					backup_responsible_id_2: stage.backupResponsibleId2,
@@ -437,36 +453,6 @@ export function AppSidebar() {
 				targetGroupId = newGroup.id;
 				setProjectGroups(prev => [...prev, newGroup]);
 			}
-
-			// Update project
-			// We pass the group object with at least the ID, which the service will convert to project_group_id
-			// If targetGroupId is null, we pass undefined (or structure that update handles as clearing)
-			// Actually projectService.update handles 'group' property. 
-			// If I pass { group: null } or similar, service needs to handle it.
-			// Checking service: if updates.group exists, it sets project_group_id. 
-			// If I want to clear it, I should pass something that indicates null.
-			// TypeScript might complain about 'any' cast, but let's try to be type safe if possible, or use 'any' as fallback.
-
-			// If targetGroupId is null, we want to clear.
-			// Service: project_group_id: updates.group ? parseInt(updates.group.id, 10) : undefined
-			// If I pass undefined group, it sends undefined project_group_id, which Laravel 'validate' might ignore or might not update?
-			// Actually Laravel update uses: $project->update($validated).
-			// If 'project_group_id' is not in validated, it won't be updated.
-			// So I need to send 'project_group_id': null.
-			// Service: 'project_group_id': updates.group ? ... : undefined. 
-			// Wait, the service logic:
-			// project_group_id: updates.group ? parseInt(updates.group.id, 10) : undefined,
-			// This means if I don't pass group, it sends undefined, so backend doesn't update it.
-			// I need to change service to allow sending null!
-
-			// Let's assume for now I can pass a dummy object with null ID or modify service.
-			// But wait, I already updated service in Step 104.
-			// Service: project_group_id: updates.group ? parseInt(updates.group.id, 10) : undefined.
-			// This IS a bug if I want to unassign.
-			// I should fix service first or now. 
-			// Let's fix service quick.
-
-			// ... skipping service fix for a split second to finish this replacement ... 
 
 			const updatedProject = await projectService.update(String(project.id), {
 				group: targetGroupId ? { id: targetGroupId } as any : null,

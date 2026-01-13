@@ -263,7 +263,7 @@ class TaskController extends Controller
                 // If moving to next stage and no responsible defined, we keep current assignee but reset their status?
                 // Or clear?
                 // Let's reset status to pending for all current assignees
-                 $task->assignedUsers()->update(['status' => 'pending']);
+                $task->assignedUsers()->newPivotStatement()->where('task_id', $task->id)->update(['status' => 'pending']);
             }
         } else {
             // No next stage -> Confirmation of Completion

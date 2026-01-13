@@ -239,19 +239,19 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 							</div>
 						) : (
 							<div className="grid gap-1.5">
-								<Label className="text-xs">Linked Review Stage (Optional):</Label>
+								<Label className="text-xs">Linked Next Stage (Go to next nearest stage if not selected):</Label>
 								<Select
 									value={stage.linkedReviewStageId || "none"}
 									onValueChange={(value) => updateStage(stage.id, "linkedReviewStageId", value === "none" ? undefined : value)}
 									disabled={isSystem}
 								>
 									<SelectTrigger className="h-8">
-										<SelectValue placeholder="Select review stage" />
+										<SelectValue placeholder="Select Next stage" />
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="none">None (Go to next stage)</SelectItem>
 										{stages
-											.filter((s) => s.isReviewStage && s.id !== stage.id)
+											.filter((s) => s.id !== stage.id)
 											.map((s) => (
 												<SelectItem key={s.id} value={s.id}>
 													{s.title || "Untitled Stage"}
