@@ -34,7 +34,7 @@ class Task extends Model
 
     protected $casts = [
         'tags' => 'array',
-        'due_date' => 'date',
+        'due_date' => 'datetime',
         'start_date' => 'datetime',
         'completed_at' => 'datetime',
         'is_in_specific_stage' => 'boolean',

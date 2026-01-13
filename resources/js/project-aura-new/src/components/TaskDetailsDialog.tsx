@@ -115,7 +115,11 @@ export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialo
 						<h3 className="text-sm font-semibold">Timeline</h3>
 						<div className="space-y-2">
 							{task.startDate && (() => {
-								const startDate = new Date(task.startDate);
+								// Parse the datetime string as-is (treat as local time)
+								const dateTimeParts = task.startDate.split('T');
+								const datePart = dateTimeParts[0];
+								const timePart = dateTimeParts[1]?.substring(0, 5) || '00:00';
+								const startDate = new Date(`${datePart}T${timePart}`);
 								return isValid(startDate) ? (
 									<div className="flex items-center gap-2 text-sm">
 										<Clock className="h-4 w-4 text-muted-foreground" />
@@ -125,7 +129,11 @@ export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialo
 								) : null;
 							})()}
 							{(() => {
-								const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+								// Parse the datetime string as-is (treat as local time)
+								const dateTimeParts = task.dueDate?.split('T') || [];
+								const datePart = dateTimeParts[0];
+								const timePart = dateTimeParts[1]?.substring(0, 5) || '00:00';
+								const dueDate = datePart ? new Date(`${datePart}T${timePart}`) : null;
 								return dueDate && isValid(dueDate) ? (
 									<div className="flex items-center gap-2 text-sm">
 										<Calendar className="h-4 w-4 text-muted-foreground" />

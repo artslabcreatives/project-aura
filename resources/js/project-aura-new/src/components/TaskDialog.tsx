@@ -219,14 +219,14 @@ export function TaskDialog({
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		// Combine date and time for due date
-		const dueDateTime = formData.dueDate && formData.dueTime
-			? new Date(`${formData.dueDate}T${formData.dueTime}`).toISOString()
-			: new Date(formData.dueDate).toISOString();
+		// Store as-is without timezone conversion
+		const dueDateTime = formData.dueDate
+			? `${formData.dueDate}T${formData.dueTime || "00:00"}:00`
+			: new Date().toISOString();
 
 		// Combine date and time for start
-		const startDateTime = formData.startDate && formData.startTime
-			? new Date(`${formData.startDate}T${formData.startTime}`).toISOString()
+		const startDateTime = formData.startDate
+			? `${formData.startDate}T${formData.startTime || "00:00"}:00`
 			: undefined;
 
 		// Determine primary assignee name and ID
