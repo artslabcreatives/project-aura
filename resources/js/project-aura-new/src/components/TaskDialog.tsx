@@ -193,9 +193,16 @@ export function TaskDialog({
 				}
 			}
 
-			const today = new Date();
+			// Calculate Sri Lanka Time (UTC+5:30)
+			const slTime = new Date().toLocaleString("en-US", { timeZone: "Asia/Colombo" });
+			const today = new Date(slTime);
 			const tomorrow = new Date(today);
 			tomorrow.setDate(tomorrow.getDate() + 1);
+
+			// Format time as HH:mm
+			const hours = String(today.getHours()).padStart(2, '0');
+			const minutes = String(today.getMinutes()).padStart(2, '0');
+			const slTimeString = `${hours}:${minutes}`;
 
 			setFormData({
 				title: "",
@@ -210,7 +217,7 @@ export function TaskDialog({
 				startStageId: "",
 				priority: "medium",
 				startDate: today.toISOString().split('T')[0],
-				startTime: "09:00",
+				startTime: slTimeString,
 			});
 			setTags([]);
 			setAttachments([]);
