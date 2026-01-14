@@ -145,4 +145,9 @@ export const taskService = {
 		});
 		return mapTask(result);
 	},
+
+	start: async (id: string): Promise<Task> => {
+		const { data } = await api.post(`/tasks/${id}/start`);
+		return mapTask(data);
+	},
 };

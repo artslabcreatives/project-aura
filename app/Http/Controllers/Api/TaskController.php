@@ -301,6 +301,50 @@ class TaskController extends Controller
         $task->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Start the task (move to designated stage).
+     */
+    public function start(Request $request, Task $task): JsonResponse
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($task) {
+            $targetStageId = $task->start_stage_id;
+            
+            if (!$targetStageId) {
+                 // If no specific start stage, find the next stage in order
+                 $currentStage = $task->projectStage;
+                 if ($currentStage) {
+                     $nextStage = \App\Models\Stage::where('project_id', $task->project_id)
+                         ->where('order', '>', $currentStage->order)
+                         ->orderBy('order', 'asc')
+                         ->first();
+                     if ($nextStage) {
+                         $targetStageId = $nextStage->id;
+                     }
+                 }
+            }
+    
+            if ($targetStageId) {
+                $task->project_stage_id = $targetStageId;
+                $task->user_status = 'pending';
+                
+                // Update assignees based on stage defaults
+                $targetStage = \App\Models\Stage::find($targetStageId);
+                if ($targetStage && $targetStage->main_responsible_id) {
+                     $task->assignee_id = $targetStage->main_responsible_id;
+                     $task->assignedUsers()->sync([$targetStage->main_responsible_id]);
+                } else {
+                     // Reset status for existing assignees
+                     $task->assignedUsers()->newPivotStatement()->where('task_id', $task->id)->update(['status' => 'pending']);
+                }
+                
+                $task->save();
+            }
+        });
+        
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
+    }
+
     /**
      * Complete the task with optional comments and resources.
      */

@@ -20,7 +20,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { taskService } from "@/services/taskService";
 
 interface TaskCardProps {
 	task: Task;
@@ -44,6 +45,8 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 	const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 	const [timeLeft, setTimeLeft] = useState<string>("");
 	const { toast } = useToast();
+
+	const hasStartedRef = useRef(false);
 
 	useEffect(() => {
 		if (currentStage?.title !== "Pending" || !task.startDate) {
@@ -69,6 +72,26 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 
 			if (diff <= 0) {
 				setTimeLeft("Starting...");
+				if (!hasStartedRef.current) {
+					hasStartedRef.current = true;
+					taskService.start(task.id)
+						.then(() => {
+							toast({
+								title: "Task Started",
+								description: "Task has been moved to the active stage.",
+							});
+							// Trigger a reload if possible, or let the user refresh
+							// Ideally we would callback to parent to refresh
+							if (onView) {
+								// We don't want to open the view, but we don't have a refresh prop.
+								// We rely on the toast to inform the user.
+							}
+						})
+						.catch(err => {
+							console.error("Failed to auto-start task:", err);
+							hasStartedRef.current = false;
+						});
+				}
 				return;
 			}
 
@@ -89,7 +112,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 		calculateTimeLeft();
 		const timer = setInterval(calculateTimeLeft, 1000);
 		return () => clearInterval(timer);
-	}, [task.startDate, currentStage]);
+	}, [task.startDate, currentStage, task.id, toast, onView]);
 
 	const handleShare = (e: React.MouseEvent) => {
 		e.stopPropagation();
