@@ -642,6 +642,9 @@ export function AppSidebar() {
 					>
 						<FolderKanban className="h-4 w-4" />
 						<span className="text-sm flex-1">{project.name}</span>
+						{project.hasPendingTasks && (
+							<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" title="Has Pending Tasks" />
+						)}
 					</NavLink>
 				</SidebarMenuButton>
 				{hoveredProject === project.name && (

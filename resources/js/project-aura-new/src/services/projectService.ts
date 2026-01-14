@@ -31,6 +31,18 @@ function mapStage(raw: any): Stage {
 }
 
 function mapProject(raw: any): Project {
+	// Determine if Pending stage has tasks
+	// 1. Find the Pending stage ID (case-insensitive)
+	const pendingStage = Array.isArray(raw.stages)
+		? raw.stages.find((s: any) => s.title?.toLowerCase()?.trim() === 'pending')
+		: null;
+
+	let hasPendingTasks = false;
+	if (pendingStage && Array.isArray(raw.tasks)) {
+		// Check if any task belongs to the Pending stage
+		hasPendingTasks = raw.tasks.some((t: any) => String(t.project_stage_id) === String(pendingStage.id));
+	}
+
 	return {
 		id: raw.id,
 		name: raw.name,
@@ -41,6 +53,7 @@ function mapProject(raw: any): Project {
 		emails: raw.emails || [],
 		phoneNumbers: raw.phoneNumbers || [],
 		group: raw.group ? { id: String(raw.group.id), name: raw.group.name, departmentId: String(raw.group.department_id) } : undefined,
+		hasPendingTasks,
 	};
 }
 
