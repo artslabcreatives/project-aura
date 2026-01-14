@@ -367,6 +367,7 @@ export function KanbanBoard({
                       setViewTask(subtask);
                       setIsViewDialogOpen(true);
                     }}
+                    onTaskUpdate={onTaskUpdate}
                   />
                 ))
               )}

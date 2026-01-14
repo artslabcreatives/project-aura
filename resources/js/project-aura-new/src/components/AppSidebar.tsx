@@ -41,6 +41,8 @@ import { projectGroupService } from "@/services/projectGroupService";
 import { AssignGroupDialog } from "./AssignGroupDialog";
 import { ProjectGroup } from "@/types/project-group";
 import { FolderPlus } from "lucide-react";
+import { echo } from "@/services/echoService";
+import { TaskUpdated } from "@/types/events"; // We don't have this type yet but we can assume structure or use any
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -92,91 +94,106 @@ export function AppSidebar() {
 	const [expandedProjectGroups, setExpandedProjectGroups] = useState<Set<string>>(new Set());
 	const userRole = currentUser?.role;
 
-	// Load data from API on mount with proper mapping
-	useEffect(() => {
-		const fetchData = async () => {
-			try {
-				const [projectsData, departmentsData, projectGroupsData] = await Promise.all([
-					projectService.getAll(),
-					departmentService.getAll(),
-					projectGroupService.getAll(),
-				]);
-				setProjects(projectsData);
-				setDepartments(departmentsData);
-				setProjectGroups(projectGroupsData);
+	const fetchData = async () => {
+		if (!currentUser) return;
+		try {
+			const [projectsData, departmentsData, projectGroupsData] = await Promise.all([
+				projectService.getAll(),
+				departmentService.getAll(),
+				projectGroupService.getAll(),
+			]);
+			setProjects(projectsData);
+			setDepartments(departmentsData);
+			setProjectGroups(projectGroupsData);
 
-				if (userRole === 'admin' || userRole === 'team-lead') {
-					const usersData = await userService.getAll();
-					setTeamMembers(usersData);
-				}
-
-				// Auto-expand all departments by default - DISABLED as per user request
-				// const allDeptIds = new Set(departmentsData.map(d => d.id));
-				// allDeptIds.add('uncategorized');
-				// setExpandedDepartments(allDeptIds);
-				setExpandedDepartments(new Set());
-
-				if (userRole === 'user' && currentUser) {
-					// Fetch tasks for user only (client-side filter)
-					const tasksData = await taskService.getAll();
-					const userProjectStages = new Map<string, Set<string>>();
-					tasksData
-						.filter(task => {
-							const isAssigned = task.assignee === currentUser.name ||
-								(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
-
-							// Check if MY part is complete
-							const myAssignment = task.assignedUsers?.find(u => String(u.id) === String(currentUser.id));
-							const isMyPartComplete = myAssignment?.status === 'complete';
-
-							return isAssigned && task.userStatus !== 'complete' && !isMyPartComplete;
-						})
-						.forEach(task => {
-							if (task.project && task.projectStage) {
-								if (!userProjectStages.has(task.project)) {
-									userProjectStages.set(task.project, new Set());
-								}
-								userProjectStages.get(task.project)?.add(task.projectStage);
-							}
-						});
-
-					const assignedProjects = projectsData
-						.filter(project => userProjectStages.has(project.name))
-						.map(project => ({
-							...project,
-							stages: project.stages.filter(stage => {
-								const title = stage.title.toLowerCase().trim();
-								const hiddenStages = ['suggested', 'suggested task', 'task', 'pending', 'complete', 'completed', 'archive'];
-
-								// User requested to hide specific system stages
-								if (hiddenStages.includes(title)) return false;
-
-								return userProjectStages.get(project.name)?.has(stage.id);
-							})
-						}))
-						.filter(project => project.stages.length > 0);
-					setUserAssignedProjects(assignedProjects);
-
-					const currentDept = departmentsData.find(d => d.id === currentUser.department);
-					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
-					const departmentProjects = projectsData.filter(project => {
-						const isOwnDepartment = project.department?.id === currentUser.department;
-						const isDesignProject = isDigitalDept && project.department?.name.toLowerCase() === 'design';
-						return isOwnDepartment || isDesignProject;
-					});
-					setUserDepartmentProjects(departmentProjects);
-				}
-			} catch (error) {
-				console.error('Failed to fetch data from API:', error);
-				toast({
-					title: 'Error loading data',
-					description: 'Failed to load data from the server. Please refresh the page.',
-					variant: 'destructive',
-				});
+			if (userRole === 'admin' || userRole === 'team-lead') {
+				const usersData = await userService.getAll();
+				setTeamMembers(usersData);
 			}
+
+			// Do NOT reset expanded departments here to avoid collapsing user view on refresh
+			// setExpandedDepartments(new Set()); 
+
+			if (userRole === 'user' && currentUser) {
+				// Fetch tasks for user only (client-side filter)
+				const tasksData = await taskService.getAll();
+				const userProjectStages = new Map<string, Set<string>>();
+				tasksData
+					.filter(task => {
+						const isAssigned = task.assignee === currentUser.name ||
+							(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+
+						// Check if MY part is complete
+						const myAssignment = task.assignedUsers?.find(u => String(u.id) === String(currentUser.id));
+						const isMyPartComplete = myAssignment?.status === 'complete';
+
+						return isAssigned && task.userStatus !== 'complete' && !isMyPartComplete;
+					})
+					.forEach(task => {
+						if (task.project && task.projectStage) {
+							if (!userProjectStages.has(task.project)) {
+								userProjectStages.set(task.project, new Set());
+							}
+							userProjectStages.get(task.project)?.add(task.projectStage);
+						}
+					});
+
+				const assignedProjects = projectsData
+					.filter(project => userProjectStages.has(project.name))
+					.map(project => ({
+						...project,
+						stages: project.stages.filter(stage => {
+							const title = stage.title.toLowerCase().trim();
+							const hiddenStages = ['suggested', 'suggested task', 'task', 'archive', 'completed'];
+
+							// User requested to hide specific system stages
+							if (hiddenStages.includes(title)) return false;
+
+							return userProjectStages.get(project.name)?.has(stage.id);
+						})
+					}))
+					.filter(project => project.stages.length > 0);
+				setUserAssignedProjects(assignedProjects);
+
+				const currentDept = departmentsData.find(d => d.id === currentUser.department);
+				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
+				const departmentProjects = projectsData.filter(project => {
+					const isOwnDepartment = project.department?.id === currentUser.department;
+					const isDesignProject = isDigitalDept && project.department?.name.toLowerCase() === 'design';
+					return isOwnDepartment || isDesignProject;
+				});
+				setUserDepartmentProjects(departmentProjects);
+			}
+		} catch (error) {
+			console.error('Failed to fetch data from API:', error);
+			// Silent error or toast? Toast might be spammy on auto-refresh
+		}
+	};
+
+	// Initial Load
+	useEffect(() => {
+		fetchData();
+	}, [userRole, currentUser?.id]); // Use ID dependency to safe-guard
+
+	// Real-time Updates
+	useEffect(() => {
+		if (projects.length === 0) return;
+
+		// Listen to project channels
+		projects.forEach(project => {
+			echo.private(`project.${project.id}`)
+				.listen('TaskUpdated', (e: any) => {
+					console.log('Real-time update received:', e);
+					fetchData();
+				});
+		});
+
+		return () => {
+			projects.forEach(project => {
+				echo.leave(`project.${project.id}`);
+			});
 		};
-		if (currentUser) fetchData();
-	}, [userRole, currentUser]);
+	}, [projects.map(p => p.id).join(',')]); // Re-subscribe if project list changes (added/removed)
 
 	const handleProjectSave = async (
 		name: string,

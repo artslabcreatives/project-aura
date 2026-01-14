@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Task;
+use App\Events\TaskUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -106,6 +107,15 @@ class TaskController extends Controller
             $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
         }
         // Notify other assignees? (Skipping for brevity, can iterate assignedUsers)
+
+        // Notify other assignees? (Skipping for brevity, can iterate assignedUsers)
+
+        try {
+            TaskUpdated::dispatch($task, 'create');
+        } catch (\Exception $e) {
+            // Log error but don't fail the request if broadcasting fails
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
+        }
 
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']), 201);
     }
@@ -238,6 +248,12 @@ class TaskController extends Controller
             }
         }
 
+        try {
+            TaskUpdated::dispatch($task, 'update');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
+        }
+
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
     }
 
@@ -298,7 +314,21 @@ class TaskController extends Controller
      */
     public function destroy(Task $task): JsonResponse
     {
+        $projectId = $task->project_id; // Capture for event
+        // We need to keep a reference or just use the task object before deletion is finalized in memory? 
+        // Laravel events serialize models. If deleted, it might be tricky. 
+        // Identify the project first.
+        
         $task->delete();
+        
+        // Dispatch 'delete' event. We pass the task, hoping serialization works (it usually does for deleted models in recent Laravel)
+        // Or we pass a simple object if needed. But Event typed as Task.
+        try {
+            TaskUpdated::dispatch($task, 'delete');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
+        }
+        
         return response()->json(null, 204);
     }
 
@@ -339,6 +369,11 @@ class TaskController extends Controller
                 }
                 
                 $task->save();
+                try {
+                    TaskUpdated::dispatch($task, 'update');
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
+                }
             }
         });
         
@@ -390,6 +425,12 @@ class TaskController extends Controller
                 // Also apply other updates if provided (like stage override from request? usually null if just completing)
                  if (isset($validated['project_stage_id'])) {
                     $task->update(['project_stage_id' => $validated['project_stage_id']]);
+                }
+                
+                try {
+                    TaskUpdated::dispatch($task, 'update');
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
                 }
 
                 // NOTIFY ADMIN & TEAM LEAD

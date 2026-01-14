@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect, useRef } from "react";
 import { taskService } from "@/services/taskService";
+import { useUser } from "@/hooks/use-user";
 
 interface TaskCardProps {
 	task: Task;
@@ -36,16 +37,17 @@ interface TaskCardProps {
 	projectId?: string;
 	onAddSubtask?: () => void;
 	onViewSubtask?: (subtask: Task) => void;
+	onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
 }
 
-export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId, onAddSubtask, onViewSubtask }: TaskCardProps) {
+export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId, onAddSubtask, onViewSubtask, onTaskUpdate }: TaskCardProps) {
 	const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 	const isValidDueDate = dueDate && isValid(dueDate);
 	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
 	const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 	const [timeLeft, setTimeLeft] = useState<string>("");
 	const { toast } = useToast();
-
+	const { currentUser } = useUser();
 	const hasStartedRef = useRef(false);
 
 	useEffect(() => {
@@ -73,24 +75,25 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			if (diff <= 0) {
 				setTimeLeft("Starting...");
 				if (!hasStartedRef.current) {
-					hasStartedRef.current = true;
-					taskService.start(task.id)
-						.then(() => {
-							toast({
-								title: "Task Started",
-								description: "Task has been moved to the active stage.",
+					// Only Admin or Team Lead should trigger auto-start
+					if (currentUser?.role === 'admin' || currentUser?.role === 'team-lead') {
+						hasStartedRef.current = true;
+						taskService.start(task.id)
+							.then((updatedTask) => {
+								toast({
+									title: "Task Started",
+									description: "Task has been moved to the active stage.",
+								});
+								// Notify parent
+								if (onTaskUpdate) {
+									onTaskUpdate(updatedTask.id, updatedTask);
+								}
+							})
+							.catch(err => {
+								console.error("Failed to auto-start task:", err);
+								hasStartedRef.current = false;
 							});
-							// Trigger a reload if possible, or let the user refresh
-							// Ideally we would callback to parent to refresh
-							if (onView) {
-								// We don't want to open the view, but we don't have a refresh prop.
-								// We rely on the toast to inform the user.
-							}
-						})
-						.catch(err => {
-							console.error("Failed to auto-start task:", err);
-							hasStartedRef.current = false;
-						});
+					}
 				}
 				return;
 			}
@@ -234,7 +237,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			</CardHeader>
 
 			<CardContent className="p-4 pt-2 space-y-2">
-				{timeLeft && currentStage?.title === "Pending" && (
+				{timeLeft && currentStage?.title === "Pending" && (currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
 					<div className="flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 p-1.5 rounded-md border border-blue-100 mb-2">
 						<Clock className="h-3.5 w-3.5" />
 						<span>Starts in: {timeLeft}</span>

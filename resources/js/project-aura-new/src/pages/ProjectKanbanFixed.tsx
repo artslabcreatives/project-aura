@@ -26,6 +26,7 @@ import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
+import { echo } from "@/services/echoService";
 
 import { Loading } from "@/components/Loading";
 
@@ -176,7 +177,34 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				toast({ title: 'Error', description: 'Failed to load project data.', variant: 'destructive' });
 			} finally { setIsLoading(false); }
 		};
+
 		loadData();
+
+		// Real-time Updates
+		if (numericProjectId) {
+			console.log(`Subscribing to project.${numericProjectId}`);
+			const channel = echo.private(`project.${numericProjectId}`);
+			channel.listen('TaskUpdated', (e: any) => {
+				console.log('Kanban Real-time update received:', e);
+				// Check if event has task data or just ID
+				if (e.task) {
+					// Update specific task in state if we can map it.
+					console.log('Task data present, reloading data...');
+					loadData();
+				} else if (e.action === 'delete') {
+					console.log('Delete action, reloading data...');
+					loadData();
+				} else {
+					console.log('Unknown action, reloading data...');
+					loadData();
+				}
+			});
+
+			return () => {
+				console.log(`Unsubscribing from project.${numericProjectId}`);
+				echo.leave(`project.${numericProjectId}`);
+			};
+		}
 	}, [numericProjectId, currentUser]);
 
 	const updateProjectInStorage = async (updatedProject: Project) => {
@@ -252,11 +280,16 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				addHistoryEntry({ action: 'UPDATE_TASK_ASSIGNEE', entityId: taskId, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { from: taskToUpdate.assignee, to: updates.assignee } });
 			}
 			const assigneeId = updates.assignee ? teamMembers.find(m => m.name === updates.assignee)?.id : undefined;
-			const projectStageId = updates.projectStage ? parseInt(String(updates.projectStage), 10) : undefined;
+			const projectStageId = updates.projectStage ? parseInt(String(updates.projectStage), 10) : undefined; // Ensure it's a number
+			// Remove startStageId from updates (string) to avoid type conflict, and convert to number
+			const { startStageId: startStageIdStr, ...cleanUpdates } = updates;
+			const startStageId = startStageIdStr ? parseInt(String(startStageIdStr), 10) : undefined;
+
 			await taskService.update(taskId, {
-				...updates,
+				...cleanUpdates,
 				assigneeId: assigneeId ? parseInt(String(assigneeId), 10) : undefined,
 				projectStageId,
+				startStageId,
 			});
 			console.log('[KANBAN] Applied update', { taskId, assigneeId, projectStageId });
 			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
@@ -272,24 +305,23 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 
 			const projectStageId = task.projectStage ? parseInt(task.projectStage) : undefined;
 
-			const { project: projectName, assignee, projectStage, ...cleanTask } = task;
+			// startStageId needs to be extracted and converted to number, removing string version from payload
+			const { project: projectName, assignee, projectStage, startStageId: startStageIdStr, ...cleanTask } = task;
+			const startStageId = startStageIdStr ? parseInt(startStageIdStr, 10) : undefined;
+
 			const taskPayload = {
 				...cleanTask,
 				projectId: project.id,
 				assigneeId,
 				assigneeIds,
 				projectStageId,
+				startStageId,
 			};
 
 			if (editingTask) {
 				await taskService.update(editingTask.id, taskPayload);
 				// Update local state - convert back to strings/objects if needed or just reload?
 				// Reloading or partial update. For simple update we just spread.
-				// But assignedUsers need to be refreshed.
-				// It's safer to fetch the updated task or rely on the response from taskService used in kanban updates.
-				// For now, let's update strictly what we can. 
-				// But since we have multiple assignees, simple map might be inaccurate for UI update of avatars.
-				// However, KanbanBoard usually re-renders. 
 
 				// Fetch updated tasks to ensure correct state?
 				// Or use the response from update if available (taskService.update returns Task).
