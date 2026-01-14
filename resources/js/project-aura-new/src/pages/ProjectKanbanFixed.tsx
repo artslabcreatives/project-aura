@@ -109,12 +109,12 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	};
 
 	useEffect(() => {
-		const loadData = async () => {
+		const loadData = async (isBackground = false) => {
 			if (!numericProjectId) return;
-			setIsLoading(true);
+			if (!isBackground) setIsLoading(true);
 			try {
 				const currentProject = await projectService.getById(String(numericProjectId));
-				if (!currentProject) { setProject(null); setIsLoading(false); return; }
+				if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 				const departmentsData = await departmentService.getAll();
 				if (currentUser?.role === 'team-lead') {
 					const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
@@ -122,7 +122,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
 					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					if (!hasMatchingDepartment && !hasSpecialPermission) { setProject(null); setIsLoading(false); return; }
+					if (!hasMatchingDepartment && !hasSpecialPermission) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 				}
 				setProject(currentProject);
 				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
@@ -175,7 +175,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			} catch (e) {
 				console.error(e);
 				toast({ title: 'Error', description: 'Failed to load project data.', variant: 'destructive' });
-			} finally { setIsLoading(false); }
+			} finally {
+				if (!isBackground) setIsLoading(false);
+			}
 		};
 
 		loadData();
@@ -190,13 +192,13 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				if (e.task) {
 					// Update specific task in state if we can map it.
 					console.log('Task data present, reloading data...');
-					loadData();
+					loadData(true);
 				} else if (e.action === 'delete') {
 					console.log('Delete action, reloading data...');
-					loadData();
+					loadData(true);
 				} else {
 					console.log('Unknown action, reloading data...');
-					loadData();
+					loadData(true);
 				}
 			});
 
