@@ -25,11 +25,44 @@ export function TaskCompletionDialog({
     const [currentLink, setCurrentLink] = useState("");
     const [files, setFiles] = useState<File[]>([]);
 
-    const handleAddLink = () => {
-        if (currentLink && !links.includes(currentLink)) {
-            setLinks([...links, currentLink]);
-            setCurrentLink("");
+    const normalizeSafeUrl = (raw: string): string | null => {
+        const trimmed = raw.trim();
+
+        if (!trimmed) {
+            return null;
         }
+
+        const tryParse = (value: string): URL | null => {
+            try {
+                return new URL(value);
+            } catch {
+                return null;
+            }
+        };
+
+        let url = tryParse(trimmed);
+
+        if (!url) {
+            url = tryParse("https://" + trimmed);
+        }
+
+        if (!url) {
+            return null;
+        }
+
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+            return null;
+        }
+
+        return url.toString();
+    };
+
+    const handleAddLink = () => {
+        const normalized = normalizeSafeUrl(currentLink);
+        if (normalized && !links.includes(normalized)) {
+            setLinks([...links, normalized]);
+        }
+        setCurrentLink("");
     };
 
     const handleRemoveLink = (linkToRemove: string) => {
