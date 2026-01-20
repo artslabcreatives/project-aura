@@ -25,14 +25,14 @@ export interface Task {
 	project: string; // project name (display)
 	projectId?: number; // numeric project id from backend
 	assignee: string;
-	dueDate?: string;
+	dueDate?: string | null;
 	userStatus: UserStatus; // User-level status: pending, in-progress, or complete
 	projectStage?: string; // Project-specific stage ID (optional, for project views)
 	startStageId?: string; // Stage to move to when start time arrives
 	priority: TaskPriority;
 	createdAt: string;
 	tags?: string[]; // Custom tags like Static, Reel, Carousel, Print, etc.
-	startDate?: string; // Start date with time
+	startDate?: string | null; // Start date with time
 	attachments?: TaskAttachment[]; // File uploads and external links
 	isInSpecificStage?: boolean; // Whether task is in specific stage
 	revisionComment?: string; // Current/latest revision comment

@@ -242,14 +242,14 @@ export function TaskDialog({
 		// Store as-is without timezone conversion
 		// Store as-is without timezone conversion
 		const dueDateTime = noEndDate
-			? undefined
+			? null
 			: (formData.dueDate
 				? `${formData.dueDate}T${formData.dueTime || "00:00"}:00`
 				: new Date().toISOString());
 
 		// Combine date and time for start
 		const startDateTime = noStartDate
-			? undefined
+			? null
 			: (formData.startDate
 				? `${formData.startDate}T${formData.startTime || "00:00"}:00`
 				: undefined);
