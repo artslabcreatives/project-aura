@@ -5,20 +5,34 @@ import { isToday, isPast, isFuture, addDays } from "date-fns";
 
 interface DashboardStatsProps {
   tasks: Task[];
+  projects?: Project[];
 }
 
-export function DashboardStats({ tasks }: DashboardStatsProps) {
+import { Project } from "@/types/project";
+
+export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
   const today = new Date();
-  
+
   const dueToday = tasks.filter(
     (task) => task.userStatus !== "complete" && isToday(new Date(task.dueDate))
   ).length;
 
   const overdue = tasks.filter(
-    (task) =>
-      task.userStatus !== "complete" &&
-      isPast(new Date(task.dueDate)) &&
-      !isToday(new Date(task.dueDate))
+    (task) => {
+      let isCompleteStage = false;
+      if (projects && task.projectStage) {
+        const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
+        const stage = project?.stages.find(s => s.id === task.projectStage);
+        if (stage && (stage.title.toLowerCase() === 'complete' || stage.title.toLowerCase() === 'completed')) {
+          isCompleteStage = true;
+        }
+      }
+
+      return task.userStatus !== "complete" &&
+        !isCompleteStage &&
+        isPast(new Date(task.dueDate)) &&
+        !isToday(new Date(task.dueDate));
+    }
   ).length;
 
   const upcoming = tasks.filter((task) => {

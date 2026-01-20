@@ -75,10 +75,22 @@ export default function TeamLeadView() {
 	);
 
 	const overdueTasks = departmentTasks.filter(
-		(task) =>
-			task.userStatus !== "complete" &&
-			isPast(new Date(task.dueDate)) &&
-			!isToday(new Date(task.dueDate))
+		(task) => {
+			// Check if task is in a "Complete" stage
+			let isCompleteStage = false;
+			if (task.projectStage) {
+				const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
+				const stage = project?.stages.find(s => s.id === task.projectStage);
+				if (stage && (stage.title.toLowerCase() === 'complete' || stage.title.toLowerCase() === 'completed')) {
+					isCompleteStage = true;
+				}
+			}
+
+			return task.userStatus !== "complete" &&
+				!isCompleteStage &&
+				isPast(new Date(task.dueDate)) &&
+				!isToday(new Date(task.dueDate));
+		}
 	);
 
 	const tomorrowTasks = departmentTasks.filter((task) => {
@@ -138,7 +150,7 @@ export default function TeamLeadView() {
 				</div>
 			</div>
 
-			<DashboardStats tasks={departmentTasks} />
+			<DashboardStats tasks={departmentTasks} projects={projects} />
 
 			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
 				<Card className="hover-lift border-2 border-primary/20 bg-gradient-to-br from-card to-primary/5 overflow-hidden group">

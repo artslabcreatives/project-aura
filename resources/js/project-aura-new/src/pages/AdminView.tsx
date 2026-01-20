@@ -9,6 +9,7 @@ import { Project } from "@/types/project";
 
 export default function AdminView() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [viewTask, setViewTask] = useState<Task | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
@@ -19,6 +20,8 @@ export default function AdminView() {
           (await import("@/services/taskService")).taskService.getAll(),
           (await import("@/services/projectService")).projectService.getAll()
         ]);
+
+        setProjects(projectsData);
 
         // Filter out suggested tasks
         const forbiddenStageTitles = ['suggested', 'suggested task'];
@@ -40,6 +43,7 @@ export default function AdminView() {
       } catch (error) {
         console.error("Failed to fetch data:", error);
         setTasks([]);
+        setProjects([]);
       }
     };
     loadData();
@@ -52,10 +56,24 @@ export default function AdminView() {
   );
 
   const overdueTasks = tasks.filter(
-    (task) =>
-      task.userStatus !== "complete" &&
-      isPast(new Date(task.dueDate)) &&
-      !isToday(new Date(task.dueDate))
+    (task) => {
+      // Check if task is in a "Complete" stage
+      let isCompleteStage = false;
+      if (task.projectStage) {
+        // Find the project for this task - assuming task.project is the project name or we can start searching all projects
+        // More reliably, we can search by projectStage ID across all projects
+        const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
+        const stage = project?.stages.find(s => s.id === task.projectStage);
+        if (stage && (stage.title.toLowerCase() === 'complete' || stage.title.toLowerCase() === 'completed')) {
+          isCompleteStage = true;
+        }
+      }
+
+      return task.userStatus !== "complete" &&
+        !isCompleteStage &&
+        isPast(new Date(task.dueDate)) &&
+        !isToday(new Date(task.dueDate));
+    }
   );
 
   const tomorrowTasks = tasks.filter((task) => {
@@ -93,7 +111,7 @@ export default function AdminView() {
         </div>
       </div>
 
-      <DashboardStats tasks={tasks} />
+      <DashboardStats tasks={tasks} projects={projects} />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover-lift border-2 border-primary/20 bg-gradient-to-br from-card to-primary/5 overflow-hidden group">
