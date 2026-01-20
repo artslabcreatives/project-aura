@@ -54,6 +54,7 @@ export default function Tasks() {
 	const [selectedStatus, setSelectedStatus] = useState("all");
 	const [selectedAssignee, setSelectedAssignee] = useState("all");
 	const [selectedTag, setSelectedTag] = useState("all");
+	const [selectedDateFilter, setSelectedDateFilter] = useState("this-week");
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 
@@ -427,8 +428,39 @@ export default function Tasks() {
 			tasksToFilter = tasksToFilter.filter((task) => task.fixedStageId === selectedStatus);
 		}
 
+		if (selectedDateFilter !== "all") {
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+
+			tasksToFilter = tasksToFilter.filter((task) => {
+				if (!task.dueDate) return false;
+				const dueDate = new Date(task.dueDate);
+				dueDate.setHours(0, 0, 0, 0);
+
+				if (selectedDateFilter === "today") {
+					return dueDate.getTime() === today.getTime();
+				} else if (selectedDateFilter === "tomorrow") {
+					const tomorrow = new Date(today);
+					tomorrow.setDate(tomorrow.getDate() + 1);
+					return dueDate.getTime() === tomorrow.getTime();
+				} else if (selectedDateFilter === "this-week") {
+					const startOfWeek = new Date(today);
+					startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+					const endOfWeek = new Date(startOfWeek);
+					endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+					return dueDate >= startOfWeek && dueDate <= endOfWeek;
+				} else if (selectedDateFilter === "this-month") {
+					return (
+						dueDate.getMonth() === today.getMonth() &&
+						dueDate.getFullYear() === today.getFullYear()
+					);
+				}
+				return true;
+			});
+		}
+
 		return tasksToFilter;
-	}, [allCategorizedTasks, selectedProject, selectedAssignee, selectedTag, searchQuery, selectedStatus]);
+	}, [allCategorizedTasks, selectedProject, selectedAssignee, selectedTag, searchQuery, selectedStatus, selectedDateFilter]);
 
 	const tasksForKanban = useMemo(() => {
 		return filteredTasks.map((task) => ({
@@ -501,6 +533,8 @@ export default function Tasks() {
 				teamMembers={teamMembers}
 				departments={departments}
 				allTasks={allTasks}
+				selectedDateFilter={selectedDateFilter}
+				onDateFilterChange={setSelectedDateFilter}
 			/>
 
 			<div className="flex-1 overflow-auto">

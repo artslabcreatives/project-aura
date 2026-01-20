@@ -29,6 +29,8 @@ interface TaskFiltersProps {
   teamMembers?: User[];
   departments?: Department[];
   allTasks?: Task[];
+  selectedDateFilter?: string;
+  onDateFilterChange?: (value: string) => void;
 }
 
 export function TaskFilters({
@@ -47,6 +49,8 @@ export function TaskFilters({
   teamMembers = [],
   departments = [],
   allTasks = [],
+  selectedDateFilter,
+  onDateFilterChange,
 }: TaskFiltersProps) {
   // Calculate task count for each assignee
   const getTaskCountForAssignee = (assigneeName: string) => {
@@ -153,6 +157,23 @@ export function TaskFilters({
                   {tag}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {onDateFilterChange && (
+        <div className="w-full sm:w-[150px]">
+          <Select value={selectedDateFilter || "all"} onValueChange={onDateFilterChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Time" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="tomorrow">Tomorrow</SelectItem>
+              <SelectItem value="this-week">This Week</SelectItem>
+              <SelectItem value="this-month">This Month</SelectItem>
             </SelectContent>
           </Select>
         </div>
