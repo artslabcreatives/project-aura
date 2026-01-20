@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -21,6 +21,12 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ChevronRight } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { ProjectDialog } from "./ProjectDialog";
@@ -84,7 +90,7 @@ export function AppSidebar() {
 	const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 	const [userAssignedProjects, setUserAssignedProjects] = useState<Project[]>([]);
 	const [userDepartmentProjects, setUserDepartmentProjects] = useState<Project[]>([]);
-	const [hoveredProject, setHoveredProject] = useState<string | null>(null);
+	// hoveredProject state removed in favor of CSS hover
 	const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
 	const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
@@ -643,72 +649,70 @@ export function AppSidebar() {
 	);
 
 	const renderProjectItem = (project: Project) => (
-		<SidebarMenuItem
-			key={project.id}
-			onMouseEnter={() => setHoveredProject(project.name)}
-			onMouseLeave={() => setHoveredProject(null)}
-		>
-			<div className="relative group">
+		<SidebarMenuItem key={project.id}>
+			<div className="relative group/project-item w-full">
 				<SidebarMenuButton asChild>
 					<NavLink
 						to={getProjectUrl(project)}
-						className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
+						className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent pr-8 ${isProjectActive(project)
 							? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 							: ""
 							}`}
 					>
-						<FolderKanban className="h-4 w-4" />
-						<span className="text-sm flex-1">{project.name}</span>
+						<FolderKanban className="h-4 w-4 shrink-0" />
+						<span className="text-sm flex-1 truncate">{project.name}</span>
 						{project.hasPendingTasks && (
-							<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" title="Has Pending Tasks" />
+							<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Has Pending Tasks" />
 						)}
 					</NavLink>
 				</SidebarMenuButton>
-				{hoveredProject === project.name && (
-					<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-sidebar z-10">
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-6 w-6 hover:bg-primary hover:text-white transition-all duration-200"
-							onClick={(e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								setProjectToAssign(project);
-								setIsAssignGroupOpen(true);
-							}}
-							title="Assign to Group"
-						>
-							<FolderPlus className="h-3 w-3" />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-6 w-6 hover:bg-primary hover:text-white transition-all duration-200"
-							onClick={(e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								setProjectToEdit(project);
-								setIsProjectDialogOpen(true);
-							}}
-							title="Edit project"
-						>
-							<Pencil className="h-3 w-3" />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-6 w-6 text-destructive hover:bg-destructive hover:text-white transition-all duration-200"
-							onClick={(e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								setProjectToDelete(project);
-							}}
-							title="Delete project"
-						>
-							<Trash2 className="h-3 w-3" />
-						</Button>
-					</div>
-				)}
+
+				<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-6 w-6 hover:bg-sidebar-accent"
+								title="More Options"
+							>
+								<MoreHorizontal className="h-3 w-3" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="start" side="right" className="w-48">
+							<DropdownMenuItem
+								onClick={(e) => {
+									e.stopPropagation();
+									setProjectToEdit(project);
+									setIsProjectDialogOpen(true);
+								}}
+							>
+								<Pencil className="mr-2 h-4 w-4" />
+								<span>Edit Project</span>
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={(e) => {
+									e.stopPropagation();
+									setProjectToAssign(project);
+									setIsAssignGroupOpen(true);
+								}}
+							>
+								<FolderPlus className="mr-2 h-4 w-4" />
+								<span>Assign to Group</span>
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								className="text-destructive focus:text-destructive"
+								onClick={(e) => {
+									e.stopPropagation();
+									setProjectToDelete(project);
+								}}
+							>
+								<Trash2 className="mr-2 h-4 w-4" />
+								<span>Delete Project</span>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</div>
 		</SidebarMenuItem>
 	);
