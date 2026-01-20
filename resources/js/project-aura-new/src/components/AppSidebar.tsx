@@ -144,7 +144,7 @@ export function AppSidebar() {
 						...project,
 						stages: project.stages.filter(stage => {
 							const title = stage.title.toLowerCase().trim();
-							const hiddenStages = ['suggested', 'suggested task', 'task', 'archive', 'completed'];
+							const hiddenStages = ['suggested', 'suggested task', 'task', 'archive', 'completed', 'pending'];
 
 							// User requested to hide specific system stages
 							if (hiddenStages.includes(title)) return false;
