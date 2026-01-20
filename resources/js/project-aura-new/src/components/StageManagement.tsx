@@ -37,6 +37,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useUser } from "@/hooks/use-user";
 
 interface StageManagementProps {
   open: boolean;
@@ -87,7 +88,7 @@ function SortableStageRow({ stage, onEdit, onDelete }: { stage: Stage; onEdit: (
   );
 }
 
-import { useUser } from "@/hooks/use-user";
+
 
 function FixedStageRow({ stage }: { stage: Stage }) {
   const { currentUser } = useUser();
@@ -121,7 +122,11 @@ export function StageManagement({
   const [deleteStageId, setDeleteStageId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -134,7 +139,8 @@ export function StageManagement({
     const mid: Stage[] = [];
 
     stages.forEach(s => {
-      const t = s.title.toLowerCase().trim();
+      const t = s.title?.toLowerCase().trim();
+      if (!t) return;
       if (t === 'suggested' || t === 'suggested task' || t === 'pending') {
         top.push(s);
       } else if (t === 'completed' || t === 'complete' || t === 'archive') {
