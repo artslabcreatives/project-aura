@@ -51,7 +51,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 	const hasStartedRef = useRef(false);
 
 	useEffect(() => {
-		if (currentStage?.title !== "Pending" || !task.startDate) {
+		if (currentStage?.title !== "Pending" || !task.startDate || !projectId) {
 			setTimeLeft("");
 			return;
 		}
@@ -115,7 +115,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 		calculateTimeLeft();
 		const timer = setInterval(calculateTimeLeft, 1000);
 		return () => clearInterval(timer);
-	}, [task.startDate, currentStage, task.id, toast, onView]);
+	}, [task.startDate, currentStage, task.id, toast, onView, projectId]);
 
 	const handleShare = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -237,7 +237,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			</CardHeader>
 
 			<CardContent className="p-4 pt-2 space-y-2">
-				{timeLeft && currentStage?.title === "Pending" && (currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
+				{timeLeft && projectId && currentStage?.title === "Pending" && (currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
 					<div className="flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 p-1.5 rounded-md border border-blue-100 mb-2">
 						<Clock className="h-3.5 w-3.5" />
 						<span>Starts in: {timeLeft}</span>
