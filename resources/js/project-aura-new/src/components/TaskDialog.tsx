@@ -20,7 +20,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { MultiSearchableSelect } from "@/components/ui/multi-select";
+
 import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
 import { Project } from "@/types/project";
 import { Department } from "@/types/department";
@@ -519,15 +519,14 @@ export function TaskDialog({
 
 							<div className="grid gap-2">
 								<Label htmlFor="assignee">Assign To *</Label>
-								<MultiSearchableSelect
-									values={formData.assigneeIds}
-									onValuesChange={(values) =>
-										setFormData({ ...formData, assigneeIds: values })
+								<SearchableSelect
+									value={formData.assigneeIds[0]}
+									onValueChange={(value) =>
+										setFormData({ ...formData, assigneeIds: value ? [value] : [] })
 									}
 									options={memberOptions}
-									placeholder="Select members"
+									placeholder="Select member"
 								/>
-								<p className="text-xs text-muted-foreground">Select one or more assignees. First selected will be primary.</p>
 							</div>
 						</div>
 
