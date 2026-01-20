@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Task, UserStatus } from "@/types/task";
+import { useUser } from "@/hooks/use-user";
 import { Stage } from "@/types/stage";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailsDialog } from "./TaskDetailsDialog";
@@ -41,6 +42,7 @@ interface KanbanBoardProps {
   projectId?: string;
   onAddSubtask?: (task: Task) => void;
   onTaskComplete?: (taskId: string, stageId: string, data: { comment?: string; links: string[]; files: File[] }) => void;
+  disableBacklogRenaming?: boolean;
 }
 
 export function KanbanBoard({
@@ -61,6 +63,7 @@ export function KanbanBoard({
   projectId,
   onAddSubtask,
   onTaskComplete,
+  disableBacklogRenaming = false,
 }: KanbanBoardProps) {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(
@@ -73,6 +76,7 @@ export function KanbanBoard({
   const [pendingComplete, setPendingComplete] = useState<{ taskId: string; stageId: string } | null>(null);
   const [columnSearchQueries, setColumnSearchQueries] = useState<Record<string, string>>({});
   const [columnSearchOpen, setColumnSearchOpen] = useState<Record<string, boolean>>({});
+  const { currentUser } = useUser();
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -203,7 +207,11 @@ export function KanbanBoard({
               <div className="flex items-center gap-2">
                 <div className={cn("h-2 w-2 rounded-full", column.color)} />
                 {!columnSearchOpen[column.id] && (
-                  <span>{column.title}</span>
+                  <span>
+                    {(column.title === 'Pending' && !disableBacklogRenaming && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead'))
+                      ? 'Backlog'
+                      : column.title}
+                  </span>
                 )}
                 {!columnSearchOpen[column.id] && (
                   <Badge variant="secondary" className="ml-2 text-xs font-normal">

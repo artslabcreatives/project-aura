@@ -595,7 +595,9 @@ export function TaskDialog({
 											})
 											.map((status) => (
 												<SelectItem key={status.id} value={status.id}>
-													{status.title}
+													{status.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead')
+														? "Backlog"
+														: status.title}
 												</SelectItem>
 											))}
 									</SelectContent>

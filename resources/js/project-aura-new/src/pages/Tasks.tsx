@@ -514,6 +514,7 @@ export default function Tasks() {
 						onTaskDelete={handleTaskDelete}
 						canManageTasks={currentUser?.role !== "user"}
 						canDragTasks={false}
+						disableBacklogRenaming={true}
 					/>
 				) : (
 					<TaskListView

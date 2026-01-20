@@ -87,13 +87,21 @@ function SortableStageRow({ stage, onEdit, onDelete }: { stage: Stage; onEdit: (
   );
 }
 
+import { useUser } from "@/hooks/use-user";
+
 function FixedStageRow({ stage }: { stage: Stage }) {
+  const { currentUser } = useUser();
+
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 text-muted-foreground opacity-80">
       <div className="w-4" /> {/* Spacer for grip */}
       <div className={cn("h-4 w-4 rounded-full flex-shrink-0", stage.color)} />
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{stage.title} (System)</p>
+        <p className="font-medium truncate">
+          {stage.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead')
+            ? "Backlog"
+            : stage.title} (System)
+        </p>
       </div>
       {/* No actions for system stages */}
       <div className="w-[72px]" />

@@ -109,9 +109,10 @@ interface SortableStageItemProps {
 	stages: Stage[];
 	memberOptions: SearchableOption[];
 	isSystem?: boolean;
+	currentUser?: User | null;
 }
 
-function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem }: SortableStageItemProps) {
+function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem, currentUser }: SortableStageItemProps) {
 	const {
 		attributes,
 		listeners,
@@ -143,7 +144,7 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 				{isSystem && <div className="w-4" />} {/* Spacer */}
 
 				<Input
-					value={stage.title}
+					value={stage.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead') ? "Backlog" : stage.title}
 					onChange={(e) => updateStage(stage.id, "title", e.target.value)}
 					placeholder="Stage name"
 					className="flex-1"
@@ -798,7 +799,7 @@ export function ProjectDialog({
 							</div>
 
 							<div className="text-xs text-muted-foreground bg-muted p-2 rounded-md">
-								Note: <strong>Suggested, Pending, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
+								Note: <strong>Suggested, {(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') ? "Backlog" : "Pending"}, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
 							</div>
 
 							{stages.length === 0 && !editProject ? (
@@ -818,6 +819,7 @@ export function ProjectDialog({
 											stages={stages}
 											memberOptions={memberOptions}
 											isSystem={true}
+											currentUser={currentUser}
 										/>
 									))}
 
@@ -839,6 +841,7 @@ export function ProjectDialog({
 													stages={stages}
 													memberOptions={memberOptions}
 													isSystem={false}
+													currentUser={currentUser}
 												/>
 											))}
 										</SortableContext>
@@ -866,6 +869,7 @@ export function ProjectDialog({
 											stages={stages}
 											memberOptions={memberOptions}
 											isSystem={true}
+											currentUser={currentUser}
 										/>
 									))}
 								</div>
