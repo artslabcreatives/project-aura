@@ -14,7 +14,7 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
   const today = new Date();
 
   const dueToday = tasks.filter(
-    (task) => task.userStatus !== "complete" && isToday(new Date(task.dueDate))
+    (task) => task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate))
   ).length;
 
   const overdue = tasks.filter(
@@ -30,12 +30,14 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
 
       return task.userStatus !== "complete" &&
         !isCompleteStage &&
+        task.dueDate &&
         isPast(new Date(task.dueDate)) &&
         !isToday(new Date(task.dueDate));
     }
   ).length;
 
   const upcoming = tasks.filter((task) => {
+    if (!task.dueDate) return false;
     const dueDate = new Date(task.dueDate);
     const nextWeek = addDays(today, 7);
     return (

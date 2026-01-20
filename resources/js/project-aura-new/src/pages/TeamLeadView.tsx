@@ -71,7 +71,7 @@ export default function TeamLeadView() {
 	const today = new Date();
 
 	const dueTodayTasks = departmentTasks.filter(
-		(task) => task.userStatus !== "complete" && isToday(new Date(task.dueDate))
+		(task) => task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate))
 	);
 
 	const overdueTasks = departmentTasks.filter(
@@ -88,16 +88,18 @@ export default function TeamLeadView() {
 
 			return task.userStatus !== "complete" &&
 				!isCompleteStage &&
+				task.dueDate &&
 				isPast(new Date(task.dueDate)) &&
 				!isToday(new Date(task.dueDate));
 		}
 	);
 
 	const tomorrowTasks = departmentTasks.filter((task) => {
-		return task.userStatus !== "complete" && isTomorrow(new Date(task.dueDate));
+		return task.userStatus !== "complete" && task.dueDate && isTomorrow(new Date(task.dueDate));
 	});
 
 	const thisMonthTasks = departmentTasks.filter((task) => {
+		if (!task.dueDate) return false;
 		const dueDate = new Date(task.dueDate);
 		return (
 			task.userStatus !== "complete" &&

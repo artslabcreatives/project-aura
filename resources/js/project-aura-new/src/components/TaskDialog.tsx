@@ -26,6 +26,7 @@ import { Project } from "@/types/project";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Link as LinkIcon, Upload, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { attachmentService } from "@/services/attachmentService";
 import { tagService, Tag } from "@/services/tagService";
@@ -92,6 +93,8 @@ export function TaskDialog({
 	});
 	const [tags, setTags] = useState<string[]>([]);
 	const [newTag, setNewTag] = useState("");
+	const [noStartDate, setNoStartDate] = useState(false);
+	const [noEndDate, setNoEndDate] = useState(false);
 	// Saved attachments (from server/existing task)
 	const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
 	// Pending files to upload (not yet saved to server)
@@ -177,6 +180,8 @@ export function TaskDialog({
 			setAttachments(editTask.attachments || []);
 			setPendingFiles([]);
 			setPendingLinks([]);
+			setNoStartDate(!editTask.startDate);
+			setNoEndDate(!editTask.dueDate);
 		} else {
 			// Get specific stage ID if provided, otherwise default to "Pending" stage
 			let defaultStage = "";
@@ -226,6 +231,8 @@ export function TaskDialog({
 			setNewTag("");
 			setNewLinkName("");
 			setNewLinkUrl("");
+			setNoStartDate(false);
+			setNoEndDate(false);
 		}
 	}, [editTask, open, availableStatuses, useProjectStages, projects, initialStageId, teamMembers]);
 
@@ -233,14 +240,19 @@ export function TaskDialog({
 		e.preventDefault();
 
 		// Store as-is without timezone conversion
-		const dueDateTime = formData.dueDate
-			? `${formData.dueDate}T${formData.dueTime || "00:00"}:00`
-			: new Date().toISOString();
+		// Store as-is without timezone conversion
+		const dueDateTime = noEndDate
+			? undefined
+			: (formData.dueDate
+				? `${formData.dueDate}T${formData.dueTime || "00:00"}:00`
+				: new Date().toISOString());
 
 		// Combine date and time for start
-		const startDateTime = formData.startDate
-			? `${formData.startDate}T${formData.startTime || "00:00"}:00`
-			: undefined;
+		const startDateTime = noStartDate
+			? undefined
+			: (formData.startDate
+				? `${formData.startDate}T${formData.startTime || "00:00"}:00`
+				: undefined);
 
 		// Determine primary assignee name and ID
 		let primaryAssigneeName = formData.assignee;
@@ -687,11 +699,24 @@ export function TaskDialog({
 
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
-								<Label htmlFor="startDate">Start Date</Label>
+								<div className="flex items-center justify-between">
+									<Label htmlFor="startDate">Start Date</Label>
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="noStartDate"
+												checked={noStartDate}
+												onCheckedChange={(checked) => setNoStartDate(checked as boolean)}
+											/>
+											<Label htmlFor="noStartDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+										</div>
+									)}
+								</div>
 								<Input
 									id="startDate"
 									type="date"
 									value={formData.startDate}
+									disabled={noStartDate}
 									onChange={(e) =>
 										setFormData({ ...formData, startDate: e.target.value })
 									}
@@ -703,6 +728,7 @@ export function TaskDialog({
 									id="startTime"
 									type="time"
 									value={formData.startTime}
+									disabled={noStartDate}
 									onChange={(e) =>
 										setFormData({ ...formData, startTime: e.target.value })
 									}
@@ -712,15 +738,28 @@ export function TaskDialog({
 
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
-								<Label htmlFor="dueDate">End Date *</Label>
+								<div className="flex items-center justify-between">
+									<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="noEndDate"
+												checked={noEndDate}
+												onCheckedChange={(checked) => setNoEndDate(checked as boolean)}
+											/>
+											<Label htmlFor="noEndDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+										</div>
+									)}
+								</div>
 								<Input
 									id="dueDate"
 									type="date"
 									value={formData.dueDate}
+									disabled={noEndDate}
 									onChange={(e) =>
 										setFormData({ ...formData, dueDate: e.target.value })
 									}
-									required
+									required={!noEndDate}
 								/>
 							</div>
 							<div className="grid gap-2">
@@ -729,6 +768,7 @@ export function TaskDialog({
 									id="dueTime"
 									type="time"
 									value={formData.dueTime}
+									disabled={noEndDate}
 									onChange={(e) =>
 										setFormData({ ...formData, dueTime: e.target.value })
 									}

@@ -25,7 +25,7 @@ export interface Task {
 	project: string; // project name (display)
 	projectId?: number; // numeric project id from backend
 	assignee: string;
-	dueDate: string;
+	dueDate?: string;
 	userStatus: UserStatus; // User-level status: pending, in-progress, or complete
 	projectStage?: string; // Project-specific stage ID (optional, for project views)
 	startStageId?: string; // Stage to move to when start time arrives

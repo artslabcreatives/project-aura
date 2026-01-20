@@ -52,7 +52,7 @@ export default function AdminView() {
   const today = new Date();
 
   const dueTodayTasks = tasks.filter(
-    (task) => task.userStatus !== "complete" && isToday(new Date(task.dueDate))
+    (task) => task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate))
   );
 
   const overdueTasks = tasks.filter(
@@ -71,16 +71,18 @@ export default function AdminView() {
 
       return task.userStatus !== "complete" &&
         !isCompleteStage &&
+        task.dueDate &&
         isPast(new Date(task.dueDate)) &&
         !isToday(new Date(task.dueDate));
     }
   );
 
   const tomorrowTasks = tasks.filter((task) => {
-    return task.userStatus !== "complete" && isTomorrow(new Date(task.dueDate));
+    return task.userStatus !== "complete" && task.dueDate && isTomorrow(new Date(task.dueDate));
   });
 
   const thisMonthTasks = tasks.filter((task) => {
+    if (!task.dueDate) return false;
     const dueDate = new Date(task.dueDate);
     return (
       task.userStatus !== "complete" &&
