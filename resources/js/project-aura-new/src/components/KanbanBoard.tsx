@@ -170,7 +170,20 @@ export function KanbanBoard({
   };
 
   // Filter out Specific Stage if it has no tasks
-  const visibleStages = stages;
+  const visibleStages = stages.filter(stage => {
+    // Hide Suggested Task stage if it has no tasks
+    if (stage.title.toLowerCase().includes("suggested")) {
+      const hasTasks = tasks.some(task => {
+        if (useProjectStages) {
+          return task.projectStage === stage.id;
+        } else {
+          return task.userStatus === stage.id;
+        }
+      });
+      return hasTasks;
+    }
+    return true;
+  });
 
   return (
     <div
