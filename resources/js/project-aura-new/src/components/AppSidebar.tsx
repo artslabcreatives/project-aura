@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -821,7 +821,7 @@ export function AppSidebar() {
 														<CollapsibleTrigger asChild>
 															<SidebarMenuButton className="w-full">
 																<div className="flex items-center gap-2 flex-1">
-																	<FileCog className="h-4 w-4" />
+																	<Building2 className="h-4 w-4" />
 																	<span className="text-sm font-medium">{departmentGroup.name}</span>
 																	<span className="text-xs text-muted-foreground">({departmentGroup.projects.length})</span>
 																</div>
@@ -844,7 +844,7 @@ export function AppSidebar() {
 																			<CollapsibleTrigger asChild>
 																				<SidebarMenuButton className="w-full pl-2">
 																					<div className="flex items-center gap-2 flex-1">
-																						<FolderKanban className="h-4 w-4 text-muted-foreground" />
+																						<FolderOpen className="h-4 w-4 text-muted-foreground" />
 																						<span className="text-sm">{group.name}</span>
 																					</div>
 																					<ChevronRight
