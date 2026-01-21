@@ -36,7 +36,15 @@ export default function UserView() {
 						});
 					});
 
+					// Build set of archived project IDs
+					const archivedProjectIds = new Set(
+						projectsData.filter((p: Project) => p.isArchived).map((p: Project) => p.id)
+					);
+
 					const userTasks = tasksData.filter((task: Task) => {
+						// Exclude tasks from archived projects
+						if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
+
 						// Must be assigned to user
 						const isAssigned =
 							task.assignee === currentUser.name ||

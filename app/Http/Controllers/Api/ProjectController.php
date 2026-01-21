@@ -72,6 +72,7 @@ class ProjectController extends Controller
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'string',
             'project_group_id' => 'nullable|exists:project_groups,id',
+            'is_archived' => 'nullable|boolean',
         ]);
 
         $project->update($validated);

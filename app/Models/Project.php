@@ -20,12 +20,14 @@ class Project extends Model
         'deadline',
         'created_by',
         'project_group_id',
+        'is_archived',
     ];
 
     protected $casts = [
         'emails' => 'array',
         'phone_numbers' => 'array',
         'deadline' => 'date',
+        'is_archived' => 'boolean',
     ];
 
     /**

@@ -343,7 +343,15 @@ export default function Tasks() {
 	};
 
 	const allCategorizedTasks = useMemo(() => {
-		let tasksToProcess = allTasks;
+		// Build set of archived project IDs
+		const archivedProjectIds = new Set(
+			allProjects.filter(p => p.isArchived).map(p => p.id)
+		);
+
+		// First filter out tasks from archived projects
+		let tasksToProcess = allTasks.filter(task =>
+			!task.projectId || !archivedProjectIds.has(task.projectId)
+		);
 
 		if (currentUser?.role === "team-lead") {
 			const departmentMembers = teamMembers
@@ -364,7 +372,7 @@ export default function Tasks() {
 				}
 			}
 
-			tasksToProcess = allTasks.filter((task) => {
+			tasksToProcess = tasksToProcess.filter((task) => {
 				const isAssignedToDepartment = allAllowedMembers.includes(task.assignee);
 
 				const taskProject =
@@ -528,7 +536,7 @@ export default function Tasks() {
 				onAssigneeChange={setSelectedAssignee}
 				selectedTag={selectedTag}
 				onTagChange={setSelectedTag}
-				availableProjects={allProjects}
+				availableProjects={allProjects.filter(p => !p.isArchived)}
 				availableStatuses={fixedKanbanStages}
 				teamMembers={teamMembers}
 				departments={departments}

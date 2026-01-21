@@ -146,7 +146,7 @@ export function AppSidebar() {
 					});
 
 				const assignedProjects = projectsData
-					.filter(project => userProjectStages.has(project.name))
+					.filter(project => userProjectStages.has(project.name) && !project.isArchived)
 					.map(project => ({
 						...project,
 						stages: project.stages.filter(stage => {
@@ -165,6 +165,8 @@ export function AppSidebar() {
 				const currentDept = departmentsData.find(d => d.id === currentUser.department);
 				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 				const departmentProjects = projectsData.filter(project => {
+					// Exclude archived projects
+					if (project.isArchived) return false;
 					const isOwnDepartment = project.department?.id === currentUser.department;
 					const isDesignProject = isDigitalDept && project.department?.name.toLowerCase() === 'design';
 					return isOwnDepartment || isDesignProject;
