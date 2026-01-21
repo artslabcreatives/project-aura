@@ -447,15 +447,18 @@ export function ProjectDialog({
 
 	const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 	const [newGroupName, setNewGroupName] = useState("");
+	const [newGroupParentId, setNewGroupParentId] = useState<string>("none");
 
 	const handleCreateGroup = async () => {
 		if (!newGroupName.trim() || !department) return;
 
 		try {
-			const newGroup = await projectGroupService.create(newGroupName, String(department.id));
+			const parentId = newGroupParentId === "none" ? null : newGroupParentId;
+			const newGroup = await projectGroupService.create(newGroupName, String(department.id), parentId);
 			setProjectGroups([...projectGroups, newGroup]);
 			setGroupId(newGroup.id);
 			setNewGroupName("");
+			setNewGroupParentId("none");
 			setIsCreatingGroup(false);
 			toast({
 				title: "Group created",
@@ -470,6 +473,36 @@ export function ProjectDialog({
 			});
 		}
 	};
+
+	// Helper to visualize hierarchy in dropdown
+	const hierarchicalGroupOptions = useMemo(() => {
+		const buildOptions = (parentId: string | null = null, depth = 0): JSX.Element[] => {
+			const children = projectGroups.filter(g => g.parentId == parentId); // Abstract equality checks null/undefined
+			if (children.length === 0) return [];
+
+			let options: JSX.Element[] = [];
+			children.forEach(child => {
+				options.push(
+					<SelectItem key={child.id} value={child.id}>
+						{Array(depth).fill("\u00A0\u00A0").join("") + (depth > 0 ? "└ " : "") + child.name}
+					</SelectItem>
+				);
+				options = [...options, ...buildOptions(child.id, depth + 1)];
+			});
+			return options;
+		};
+		const roots = projectGroups.filter(g => !g.parentId);
+		let options: JSX.Element[] = [];
+		roots.forEach(root => {
+			options.push(
+				<SelectItem key={root.id} value={root.id}>
+					{root.name}
+				</SelectItem>
+			);
+			options = [...options, ...buildOptions(root.id, 1)];
+		});
+		return options;
+	}, [projectGroups]);
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;
@@ -728,34 +761,49 @@ export function ProjectDialog({
 								</div>
 
 								{isCreatingGroup ? (
-									<div className="flex items-center gap-2">
+									<div className="flex flex-col gap-2 p-2 border rounded-md">
 										<Input
 											value={newGroupName}
 											onChange={(e) => setNewGroupName(e.target.value)}
 											placeholder="Group Name"
-											className="h-9"
+											className="h-8 text-sm"
 											autoFocus
 										/>
-										<Button
-											type="button"
-											size="sm"
-											className="h-9 w-9 px-0"
-											onClick={handleCreateGroup}
+										<Select
+											value={newGroupParentId}
+											onValueChange={setNewGroupParentId}
 										>
-											<Check className="h-4 w-4" />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											className="h-9 w-9 px-0"
-											onClick={() => {
-												setIsCreatingGroup(false);
-												setNewGroupName("");
-											}}
-										>
-											<X className="h-4 w-4" />
-										</Button>
+											<SelectTrigger className="h-8 text-xs">
+												<SelectValue placeholder="Parent Group (Optional)" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="none">No Parent (Root)</SelectItem>
+												{hierarchicalGroupOptions}
+											</SelectContent>
+										</Select>
+										<div className="flex justify-end gap-1 mt-1">
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												className="h-7 px-2 text-xs"
+												onClick={() => {
+													setIsCreatingGroup(false);
+													setNewGroupName("");
+													setNewGroupParentId("none");
+												}}
+											>
+												Cancel
+											</Button>
+											<Button
+												type="button"
+												size="sm"
+												className="h-7 px-2 text-xs"
+												onClick={handleCreateGroup}
+											>
+												Create
+											</Button>
+										</div>
 									</div>
 								) : (
 									<Select
@@ -770,11 +818,7 @@ export function ProjectDialog({
 											<SelectItem value="unassign_group" className="text-muted-foreground italic">
 												None
 											</SelectItem>
-											{projectGroups.map((group) => (
-												<SelectItem key={group.id} value={group.id}>
-													{group.name}
-												</SelectItem>
-											))}
+											{hierarchicalGroupOptions}
 										</SelectContent>
 									</Select>
 								)}

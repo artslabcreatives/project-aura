@@ -30,6 +30,7 @@ class ProjectGroupController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'department_id' => 'required|exists:departments,id',
+            'parent_id' => 'nullable|exists:project_groups,id',
         ]);
 
         $projectGroup = ProjectGroup::create($validated);

@@ -12,6 +12,7 @@ class ProjectGroup extends Model
     protected $fillable = [
         'name',
         'department_id',
+        'parent_id',
     ];
 
     public function department()
@@ -21,6 +22,16 @@ class ProjectGroup extends Model
 
     public function projects()
     {
-        return $this->hasMany(Project::class);
+        return $this->hasMany(Project::class, 'group_id');
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(ProjectGroup::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(ProjectGroup::class, 'parent_id')->with('children');
     }
 }

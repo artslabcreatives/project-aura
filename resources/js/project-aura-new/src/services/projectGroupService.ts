@@ -12,18 +12,24 @@ export const projectGroupService = {
             id: String(raw.id),
             name: raw.name,
             departmentId: String(raw.department_id),
+            parentId: raw.parent_id ? String(raw.parent_id) : null,
         })) : [];
     },
 
-    create: async (name: string, departmentId: string): Promise<ProjectGroup> => {
-        const { data } = await api.post('/project-groups', {
+    create: async (name: string, departmentId: string, parentId?: string | null): Promise<ProjectGroup> => {
+        const payload: any = {
             name,
             department_id: departmentId
-        });
+        };
+        if (parentId) {
+            payload.parent_id = parentId;
+        }
+        const { data } = await api.post('/project-groups', payload);
         return {
             id: String(data.id),
             name: data.name,
             departmentId: String(data.department_id),
+            parentId: data.parent_id ? String(data.parent_id) : null,
         };
     },
 };

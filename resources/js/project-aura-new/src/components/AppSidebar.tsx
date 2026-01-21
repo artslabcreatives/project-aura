@@ -458,7 +458,7 @@ export function AppSidebar() {
 		});
 	};
 
-	const handleAssignGroup = async (project: Project, groupId: string | null, newGroupName?: string) => {
+	const handleAssignGroup = async (project: Project, groupId: string | null, newGroupName?: string, newGroupParentId?: string | null) => {
 		try {
 			let targetGroupId = groupId;
 
@@ -472,7 +472,7 @@ export function AppSidebar() {
 					return;
 				}
 				// Create new group
-				const newGroup = await projectGroupService.create(newGroupName, project.department.id);
+				const newGroup = await projectGroupService.create(newGroupName, project.department.id, newGroupParentId);
 				targetGroupId = newGroup.id;
 				setProjectGroups(prev => [...prev, newGroup]);
 			}
@@ -508,6 +508,18 @@ export function AppSidebar() {
 		});
 	};
 
+	interface TreeGroup extends ProjectGroup {
+		projects: Project[];
+		children: TreeGroup[];
+	}
+
+	interface GroupedDepartment {
+		id: string;
+		name: string;
+		rootGroups: TreeGroup[];
+		ungroupedProjects: Project[];
+	}
+
 	// Group projects by department (admin) or filter flat list (team-lead)
 	const projectsByDepartment = useMemo<Record<string, GroupedDepartment>>(() => {
 		let filteredProjects = projects;
@@ -518,147 +530,199 @@ export function AppSidebar() {
 			const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
 
 			filteredProjects = projects.filter(project => {
-				// Include projects that have a department matching the team-lead's department
-				// OR projects with no department (for backward compatibility)
 				const hasMatchingDepartment = project.department?.id === currentUser.department;
 				const hasNoDepartment = !project.department;
-
-				// Special permission: Digital Department can see Design Department projects too
 				const isDesignProject = project.department?.name.toLowerCase() === "design";
 				const hasSpecialPermission = isDigitalDept && isDesignProject;
-
 				return hasMatchingDepartment || hasNoDepartment || hasSpecialPermission;
 			});
+		}
 
-			// For Digital dept team-lead, group by department (Digital and Design)
-			// For other team-leads, return flat structure
-			if (isDigitalDept) {
-				const grouped = filteredProjects.reduce((acc, project) => {
-					// Use the project's actual department for grouping
-					const projectDept = project.department;
-					const deptId = projectDept?.id || 'uncategorized';
-					const deptName = projectDept?.name || 'Uncategorized';
+		// Helper to build tree
+		const buildTree = (projects: Project[], departmentId: string | 'flat'): { rootGroups: TreeGroup[], ungroupedProjects: Project[] } => {
+			const relevantGroups = projectGroups.filter(g =>
+				departmentId === 'flat' ? true : g.departmentId === departmentId
+			);
 
-					if (!acc[deptId]) {
-						acc[deptId] = {
-							id: deptId,
-							name: deptName,
-							projects: [],
-							projectGroups: {},
-							ungroupedProjects: []
-						};
-					}
-					acc[deptId].projects.push(project);
+			const groupMap = new Map<string, TreeGroup>();
+			relevantGroups.forEach(g => {
+				groupMap.set(g.id, { ...g, projects: [], children: [] });
+			});
 
-					if (project.group) {
-						const groupId = project.group.id;
-						if (groupId) {
-							if (!acc[deptId].projectGroups[groupId]) {
-								acc[deptId].projectGroups[groupId] = {
-									id: groupId,
-									name: project.group.name,
-									projects: []
-								};
-							}
-							acc[deptId].projectGroups[groupId].projects.push(project);
-						}
-					} else {
-						acc[deptId].ungroupedProjects.push(project);
-					}
+			const ungrouped: Project[] = [];
 
-					return acc;
-				}, {} as Record<string, GroupedDepartment>);
+			projects.forEach(project => {
+				if (project.group && project.group.id && groupMap.has(project.group.id)) {
+					groupMap.get(project.group.id)!.projects.push(project);
+				} else {
+					ungrouped.push(project);
+				}
+			});
 
-				return grouped;
-			} else {
-				// For other team-leads, don't group by department - return flat structure
-				// But we still want to support project groups!
-				const projectGroups: Record<string, { id: string, name: string, projects: Project[] }> = {};
-				const ungroupedProjects: Project[] = [];
+			const rootGroups: TreeGroup[] = [];
 
-				filteredProjects.forEach(project => {
-					if (project.group && project.group.id) {
-						if (!projectGroups[project.group.id]) {
-							projectGroups[project.group.id] = {
-								id: project.group.id,
-								name: project.group.name,
-								projects: []
-							};
-						}
-						projectGroups[project.group.id].projects.push(project);
-					} else {
-						ungroupedProjects.push(project);
-					}
-				});
+			// Build hierarchy
+			groupMap.forEach(group => {
+				if (group.parentId && groupMap.has(group.parentId)) {
+					groupMap.get(group.parentId)!.children.push(group);
+				} else {
+					rootGroups.push(group);
+				}
+			});
 
+			// OPTIONAL: Filter out empty groups (if desired, but usually we want to see structure or allow dragging)
+			// For now, let's keep all groups to allow adding projects to empty groups via UI (if D&D existed)
+			// But to reduce clutter, maybe only show groups with content (projects or children)?
+			// The user said "admin or team lead ... group a projects ... visual need to show", implies seeing the groups.
+			// Let's keep them.
+
+			return { rootGroups, ungroupedProjects: ungrouped };
+		};
+
+		// For team-lead non-digital (flat view previously, now hierarchy for their dept)
+		// Actually, if we want to retain the 'flat' key for simplified view, we can, but let's stick to department grouping if possible or just use 'flat' as a key.
+		if (userRole === "team-lead" && currentUser) {
+			const currentDept = departments.find(d => d.id === currentUser.department);
+			const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
+
+			if (!isDigitalDept) {
+				const { rootGroups, ungroupedProjects } = buildTree(filteredProjects, 'flat');
 				return {
 					'flat': {
 						id: 'flat',
 						name: '',
-						projects: filteredProjects,
-						projectGroups,
+						rootGroups,
 						ungroupedProjects
 					}
 				};
 			}
 		}
 
+		// Group by department
+		const groupedByDept: Record<string, GroupedDepartment> = {};
 
-		// For admin, group by department
-		return filteredProjects.reduce((acc, project) => {
-			const deptId = project.department?.id || 'uncategorized';
-			const deptName = project.department?.name || 'Uncategorized';
+		// Initialize departments
+		departments.forEach(dept => {
+			groupedByDept[dept.id] = {
+				id: dept.id,
+				name: dept.name,
+				rootGroups: [],
+				ungroupedProjects: []
+			};
+		});
+		// Add uncategorized
+		groupedByDept['uncategorized'] = {
+			id: 'uncategorized',
+			name: 'Uncategorized',
+			rootGroups: [],
+			ungroupedProjects: []
+		};
 
-			if (!acc[deptId]) {
-				acc[deptId] = {
-					id: deptId,
-					name: deptName,
-					projects: [],
-					projectGroups: {},
-					ungroupedProjects: []
-				};
-			}
-			acc[deptId].projects.push(project);
+		// Distribute projects first to identify relevant departments? 
+		// Actually, we need to handle projects per department.
 
-			if (project.group && project.group.id) {
-				const groupId = project.group.id;
-				if (!acc[deptId].projectGroups[groupId]) {
-					acc[deptId].projectGroups[groupId] = {
-						id: groupId,
-						name: project.group.name,
-						projects: []
-					};
-				}
-				acc[deptId].projectGroups[groupId].projects.push(project);
+		const projectsPerDept: Record<string, Project[]> = {};
+		filteredProjects.forEach(p => {
+			const deptId = p.department?.id || 'uncategorized';
+			if (!projectsPerDept[deptId]) projectsPerDept[deptId] = [];
+			projectsPerDept[deptId].push(p);
+		});
+
+		Object.keys(groupedByDept).forEach(deptId => {
+			const deptProjects = projectsPerDept[deptId] || [];
+			// We need groups for this department too. 
+			// If deptId is 'uncategorized', we probably don't have groups, or groups with no dept? 
+			// Assuming groups always have dept.
+
+			// If we have projects but no groups (uncategorized), just list projects.
+			if (deptId === 'uncategorized') {
+				groupedByDept[deptId].ungroupedProjects = deptProjects;
 			} else {
-				acc[deptId].ungroupedProjects.push(project);
+				const { rootGroups, ungroupedProjects } = buildTree(deptProjects, deptId);
+				groupedByDept[deptId].rootGroups = rootGroups;
+				groupedByDept[deptId].ungroupedProjects = ungroupedProjects;
 			}
+		});
 
-			return acc;
-		}, {} as Record<string, GroupedDepartment>);
-	}, [projects, userRole, currentUser, departments]);
+		// Filter out empty departments if desired? existing code didn't explicitly filtering out empty depts but `reduce` only created entries for existing projects.
+		// My new approach initializes ALL depts. Let's filter out empty ones to match behavior.
+		const result: Record<string, GroupedDepartment> = {};
+		Object.values(groupedByDept).forEach(g => {
+			if (g.rootGroups.length > 0 || g.ungroupedProjects.length > 0) {
+				result[g.id] = g;
+			}
+		});
+
+		return result;
+
+	}, [projects, userRole, currentUser, departments, projectGroups]);
 
 	const userDepartmentGroups = useMemo(() => {
-		const groups: Record<string, { id: string; name: string; projects: Project[] }> = {};
+		const deptId = currentUser?.department;
+		// Filter groups to only show those in user's department
+		const relevantGroups = projectGroups.filter(g => g.departmentId === deptId);
+
+		const groupMap = new Map<string, TreeGroup>();
+		relevantGroups.forEach(g => {
+			groupMap.set(g.id, { ...g, projects: [], children: [] });
+		});
+
 		const ungrouped: Project[] = [];
 
 		userDepartmentProjects.forEach(project => {
-			if (project.group && project.group.id) {
-				if (!groups[project.group.id]) {
-					groups[project.group.id] = {
-						id: project.group.id,
-						name: project.group.name,
-						projects: []
-					};
-				}
-				groups[project.group.id].projects.push(project);
+			if (project.group && project.group.id && groupMap.has(project.group.id)) {
+				groupMap.get(project.group.id)!.projects.push(project);
 			} else {
 				ungrouped.push(project);
 			}
 		});
 
-		return { groups, ungrouped };
-	}, [userDepartmentProjects]);
+		const rootGroups: TreeGroup[] = [];
+
+		groupMap.forEach(group => {
+			if (group.parentId && groupMap.has(group.parentId)) {
+				groupMap.get(group.parentId)!.children.push(group);
+			} else {
+				rootGroups.push(group);
+			}
+		});
+
+		// Filter out empty trees if desired? User request implies showing everything or just what's relevant.
+		// Let's hide empty trees (no projects inside recursively) to avoid clutter, 
+		// OR show everything. User said "visual need to show", so structure is important.
+		// Let's show everything for now.
+
+		return { rootGroups, ungrouped };
+	}, [userDepartmentProjects, projectGroups, currentUser]);
+
+	const renderProjectGroup = (group: TreeGroup) => (
+		<Collapsible
+			key={group.id}
+			open={expandedProjectGroups.has(group.id)}
+			onOpenChange={() => toggleProjectGroupExpanded(group.id)}
+		>
+			<SidebarMenuItem>
+				<CollapsibleTrigger asChild>
+					<SidebarMenuButton className="w-full">
+						<div className="flex items-center gap-2 flex-1">
+							<FolderKanban className="h-4 w-4" />
+							<span className="text-sm font-medium">{group.name}</span>
+						</div>
+						<ChevronRight
+							className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
+								}`}
+						/>
+					</SidebarMenuButton>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+						{group.children.map((child) => renderProjectGroup(child))}
+						{group.projects.map((project) => renderProjectItem(project))}
+					</SidebarMenuSub>
+				</CollapsibleContent>
+			</SidebarMenuItem>
+		</Collapsible>
+	);
 
 	const departmentGroups = Object.values(projectsByDepartment).sort((a, b) => {
 		if (a.id === 'uncategorized') return 1;
@@ -683,58 +747,60 @@ export function AppSidebar() {
 					>
 						<FolderKanban className="h-4 w-4 shrink-0" />
 						<span className="text-sm flex-1 truncate">{project.name}</span>
-						{project.hasPendingTasks && (
+						{(userRole === 'admin' || userRole === 'team-lead') && project.hasPendingTasks && (
 							<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Has Pending Tasks" />
 						)}
 					</NavLink>
 				</SidebarMenuButton>
 
-				<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="h-6 w-6 hover:bg-sidebar-accent"
-								title="More Options"
-							>
-								<MoreHorizontal className="h-3 w-3" />
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start" side="right" className="w-48">
-							<DropdownMenuItem
-								onClick={(e) => {
-									e.stopPropagation();
-									setProjectToEdit(project);
-									setIsProjectDialogOpen(true);
-								}}
-							>
-								<Pencil className="mr-2 h-4 w-4" />
-								<span>Edit Project</span>
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								onClick={(e) => {
-									e.stopPropagation();
-									setProjectToAssign(project);
-									setIsAssignGroupOpen(true);
-								}}
-							>
-								<FolderPlus className="mr-2 h-4 w-4" />
-								<span>Assign to Group</span>
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								className="text-destructive focus:text-destructive"
-								onClick={(e) => {
-									e.stopPropagation();
-									setProjectToDelete(project);
-								}}
-							>
-								<Trash2 className="mr-2 h-4 w-4" />
-								<span>Delete Project</span>
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
-				</div>
+				{(userRole === 'admin' || userRole === 'team-lead') && (
+					<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-6 w-6 hover:bg-sidebar-accent"
+									title="More Options"
+								>
+									<MoreHorizontal className="h-3 w-3" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" side="right" className="w-48">
+								<DropdownMenuItem
+									onClick={(e) => {
+										e.stopPropagation();
+										setProjectToEdit(project);
+										setIsProjectDialogOpen(true);
+									}}
+								>
+									<Pencil className="mr-2 h-4 w-4" />
+									<span>Edit Project</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={(e) => {
+										e.stopPropagation();
+										setProjectToAssign(project);
+										setIsAssignGroupOpen(true);
+									}}
+								>
+									<FolderPlus className="mr-2 h-4 w-4" />
+									<span>Assign to Group</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className="text-destructive focus:text-destructive"
+									onClick={(e) => {
+										e.stopPropagation();
+										setProjectToDelete(project);
+									}}
+								>
+									<Trash2 className="mr-2 h-4 w-4" />
+									<span>Delete Project</span>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
+				)}
 			</div>
 		</SidebarMenuItem>
 	);
@@ -804,36 +870,10 @@ export function AppSidebar() {
 												No projects found
 											</div>
 										) : userRole === "team-lead" && departmentGroups[0]?.id === 'flat' ? (
-											// Non-Digital Team-lead: Show flat list with groups support
+											// Non-Digital Team-lead: Show flat list (with hierarchy support)
 											<>
-												{Object.values(departmentGroups[0].projectGroups || {}).map(group => (
-													<Collapsible
-														key={group.id}
-														open={expandedProjectGroups.has(group.id)}
-														onOpenChange={() => toggleProjectGroupExpanded(group.id)}
-													>
-														<SidebarMenuItem>
-															<CollapsibleTrigger asChild>
-																<SidebarMenuButton className="w-full">
-																	<div className="flex items-center gap-2 flex-1">
-																		<FolderKanban className="h-4 w-4" />
-																		<span className="text-sm font-medium">{group.name}</span>
-																	</div>
-																	<ChevronRight
-																		className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
-																			}`}
-																	/>
-																</SidebarMenuButton>
-															</CollapsibleTrigger>
-															<CollapsibleContent>
-																<SidebarMenuSub>
-																	{group.projects.map((project) => renderProjectItem(project))}
-																</SidebarMenuSub>
-															</CollapsibleContent>
-														</SidebarMenuItem>
-													</Collapsible>
-												))}
-												{departmentGroups[0]?.ungroupedProjects.map((project) => renderProjectItem(project))}
+												{departmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
+												{departmentGroups[0].ungroupedProjects.map((project) => renderProjectItem(project))}
 											</>
 										) : (
 											// Admin or Digital Team-lead: Show grouped by department
@@ -849,7 +889,7 @@ export function AppSidebar() {
 																<div className="flex items-center gap-2 flex-1">
 																	<Building2 className="h-4 w-4" />
 																	<span className="text-sm font-medium">{departmentGroup.name}</span>
-																	<span className="text-xs text-muted-foreground">({departmentGroup.projects.length})</span>
+																	<span className="text-xs text-muted-foreground">({departmentGroup.rootGroups.length + departmentGroup.ungroupedProjects.length})</span>
 																</div>
 																<ChevronRight
 																	className={`h-4 w-4 transition-transform ${expandedDepartments.has(departmentGroup.id) ? "rotate-90" : ""
@@ -858,35 +898,9 @@ export function AppSidebar() {
 															</SidebarMenuButton>
 														</CollapsibleTrigger>
 														<CollapsibleContent>
-															<SidebarMenuSub>
-																{/* Render Project Groups within Department */}
-																{Object.values(departmentGroup.projectGroups || {}).map(group => (
-																	<Collapsible
-																		key={group.id}
-																		open={expandedProjectGroups.has(group.id)}
-																		onOpenChange={() => toggleProjectGroupExpanded(group.id)}
-																	>
-																		<SidebarMenuItem>
-																			<CollapsibleTrigger asChild>
-																				<SidebarMenuButton className="w-full pl-2">
-																					<div className="flex items-center gap-2 flex-1">
-																						<FolderOpen className="h-4 w-4 text-muted-foreground" />
-																						<span className="text-sm">{group.name}</span>
-																					</div>
-																					<ChevronRight
-																						className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
-																							}`}
-																					/>
-																				</SidebarMenuButton>
-																			</CollapsibleTrigger>
-																			<CollapsibleContent>
-																				<SidebarMenuSub>
-																					{group.projects.map((project) => renderProjectItem(project))}
-																				</SidebarMenuSub>
-																			</CollapsibleContent>
-																		</SidebarMenuItem>
-																	</Collapsible>
-																))}
+															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+																{/* Render Root Project Groups within Department */}
+																{departmentGroup.rootGroups.map(group => renderProjectGroup(group))}
 
 																{/* Render Ungrouped Projects */}
 																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
@@ -985,64 +999,8 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{Object.values(userDepartmentGroups.groups).map((group) => (
-											<Collapsible
-												key={group.id}
-												open={expandedProjectGroups.has(group.id)}
-												onOpenChange={() => toggleProjectGroupExpanded(group.id)}
-											>
-												<SidebarMenuItem>
-													<CollapsibleTrigger asChild>
-														<SidebarMenuButton className="w-full">
-															<div className="flex items-center gap-2 flex-1">
-																<FolderKanban className="h-4 w-4" />
-																<span className="text-sm font-medium">{group.name}</span>
-															</div>
-															<ChevronRight
-																className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
-																	}`}
-															/>
-														</SidebarMenuButton>
-													</CollapsibleTrigger>
-													<CollapsibleContent>
-														<SidebarMenuSub>
-															{group.projects.map((project) => (
-																<SidebarMenuItem key={project.id}>
-																	<SidebarMenuButton asChild>
-																		<NavLink
-																			to={getProjectUrl(project)}
-																			className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
-																				? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-																				: ""
-																				}`}
-																		>
-																			<FolderKanban className="h-4 w-4" />
-																			<span className="text-sm">{project.name}</span>
-																		</NavLink>
-																	</SidebarMenuButton>
-																</SidebarMenuItem>
-															))}
-														</SidebarMenuSub>
-													</CollapsibleContent>
-												</SidebarMenuItem>
-											</Collapsible>
-										))}
-										{userDepartmentGroups.ungrouped.map((project) => (
-											<SidebarMenuItem key={project.id}>
-												<SidebarMenuButton asChild>
-													<NavLink
-														to={getProjectUrl(project)}
-														className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
-															? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-															: ""
-															}`}
-													>
-														<FolderKanban className="h-4 w-4" />
-														<span className="text-sm">{project.name}</span>
-													</NavLink>
-												</SidebarMenuButton>
-											</SidebarMenuItem>
-										))}
+										{userDepartmentGroups.rootGroups.map((group) => renderProjectGroup(group))}
+										{userDepartmentGroups.ungrouped.map((project) => renderProjectItem(project))}
 									</SidebarMenu>
 								</SidebarGroupContent>
 							</CollapsibleContent>
