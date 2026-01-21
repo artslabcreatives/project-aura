@@ -886,13 +886,20 @@ export function AppSidebar() {
 													<SidebarMenuItem>
 														<CollapsibleTrigger asChild>
 															<SidebarMenuButton className="w-full">
-																<div className="flex items-center gap-2 flex-1">
-																	<Building2 className="h-4 w-4" />
-																	<span className="text-sm font-medium">{departmentGroup.name}</span>
-																	<span className="text-xs text-muted-foreground">({departmentGroup.rootGroups.length + departmentGroup.ungroupedProjects.length})</span>
+																<div className="flex items-center gap-2 flex-1 w-full">
+																	<Building2 className="h-4 w-4 shrink-0" />
+																	<span className="text-sm font-medium flex-1 truncate">{departmentGroup.name}</span>
+																	<span className="text-xs text-muted-foreground mr-2 shrink-0">
+																		({(() => {
+																			const countGroupProjects = (group: TreeGroup): number => {
+																				return group.projects.length + group.children.reduce((acc, child) => acc + countGroupProjects(child), 0);
+																			};
+																			return departmentGroup.ungroupedProjects.length + departmentGroup.rootGroups.reduce((acc, group) => acc + countGroupProjects(group), 0);
+																		})()})
+																	</span>
 																</div>
 																<ChevronRight
-																	className={`h-4 w-4 transition-transform ${expandedDepartments.has(departmentGroup.id) ? "rotate-90" : ""
+																	className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(departmentGroup.id) ? "rotate-90" : ""
 																		}`}
 																/>
 															</SidebarMenuButton>
