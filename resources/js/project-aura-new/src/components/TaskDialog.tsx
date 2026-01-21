@@ -496,25 +496,21 @@ export function TaskDialog({
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
 								<Label htmlFor="project">Project *</Label>
-								<Select
+								<SearchableSelect
 									value={formData.project}
 									onValueChange={(value) =>
 										setFormData({ ...formData, project: value })
 									}
-									required
+									options={[
+										...(allProjects || []).map(project => ({
+											value: project.name,
+											label: project.name,
+											group: project.department ? project.department.name : "Uncategorized"
+										}))
+									]}
+									placeholder="Select project"
 									disabled={projects.length === 1}
-								>
-									<SelectTrigger id="project">
-										<SelectValue placeholder="Select project" />
-									</SelectTrigger>
-									<SelectContent>
-										{projects.map((project) => (
-											<SelectItem key={project} value={project}>
-												{project}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								/>
 							</div>
 
 							<div className="grid gap-2">
