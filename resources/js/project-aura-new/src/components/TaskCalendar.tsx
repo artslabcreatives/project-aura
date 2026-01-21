@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday, isPast } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday, isPast, isSameWeek } from 'date-fns';
 import { Task } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 import { TaskCard } from '@/components/TaskCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,6 +17,7 @@ interface TaskCalendarProps {
 export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [filter, setFilter] = useState<'today' | 'week' | 'overdue' | 'custom'>('today');
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
@@ -45,6 +47,25 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
         task.userStatus !== 'complete'
     );
 
+    const weekTasks = tasks.filter(task =>
+        task.dueDate &&
+        isSameWeek(new Date(task.dueDate), new Date()) &&
+        task.userStatus !== 'complete'
+    ).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+    let listTasks = selectedDateTasks;
+    let listTitle: React.ReactNode = format(selectedDate, 'EEEE, MMMM do');
+
+    if (filter === 'overdue') {
+        listTasks = overdueTasks;
+        listTitle = "Overdue Tasks";
+    } else if (filter === 'week') {
+        listTasks = weekTasks;
+        listTitle = "This Week";
+    } else if (filter === 'today' && isToday(selectedDate)) {
+        listTitle = <>{format(selectedDate, 'EEEE, MMMM do')} <Badge className="ml-2">Today</Badge></>;
+    }
+
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-[750px] lg:h-[600px]">
             {/* Left Side: Calendar View */}
@@ -63,7 +84,7 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
                         <Button variant="outline" size="icon" onClick={prevMonth}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="icon" onClick={() => { setCurrentMonth(new Date()); setSelectedDate(new Date()); }}>
+                        <Button variant="outline" size="sm" onClick={() => { setCurrentMonth(new Date()); setSelectedDate(new Date()); setFilter('today'); }}>
                             Today
                         </Button>
                         <Button variant="outline" size="icon" onClick={nextMonth}>
@@ -96,7 +117,10 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
                         return (
                             <div
                                 key={day.toString()}
-                                onClick={() => setSelectedDate(day)}
+                                onClick={() => {
+                                    setSelectedDate(day);
+                                    setFilter(isToday(day) ? 'today' : 'custom');
+                                }}
                                 className={cn(
                                     "min-h-[80px] p-2 border-b border-r bg-card relative cursor-pointer transition-all hover:bg-accent/50 group select-none flex flex-col justify-between",
                                     !isCurrentMonth && "bg-muted/30 text-muted-foreground/50",
@@ -145,21 +169,39 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
 
                 {/* Header for Selected Date */}
                 <div className="bg-card rounded-xl border shadow-sm flex-1 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b bg-muted/10 shrink-0">
-                        <h3 className="font-bold text-lg flex items-center gap-2">
-                            {format(selectedDate, 'EEEE, MMMM do')}
-                            {isToday(selectedDate) && <Badge>Today</Badge>}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            {selectedDateTasks.length} tasks scheduled
-                        </p>
+                    <div className="flex items-center justify-between p-4 border-b bg-muted/10 shrink-0">
+                        <div>
+                            <h3 className="font-bold text-lg flex items-center gap-2">
+                                {listTitle}
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                {listTasks.length} tasks
+                            </p>
+                        </div>
+                        <Select
+                            value={filter}
+                            onValueChange={(v: any) => {
+                                setFilter(v);
+                                if (v === 'today') setSelectedDate(new Date());
+                            }}
+                        >
+                            <SelectTrigger className="w-[130px] h-8 bg-background">
+                                <SelectValue placeholder="Filter" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="today">Today</SelectItem>
+                                <SelectItem value="week">This Week</SelectItem>
+                                <SelectItem value="overdue">Overdue</SelectItem>
+                                {filter === 'custom' && <SelectItem value="custom" disabled className="hidden">Custom Date</SelectItem>}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <ScrollArea className="flex-1 p-4">
                         <div className="space-y-6">
 
-                            {/* Overdue Section (Always visible if tasks exist) */}
-                            {overdueTasks.length > 0 && (
+                            {/* Overdue Section (Visible only if NOT in overdue mode) */}
+                            {filter !== 'overdue' && overdueTasks.length > 0 && (
                                 <div className="space-y-3">
                                     <div className="flex items-center gap-2 text-destructive font-semibold text-sm uppercase tracking-wide">
                                         <AlertCircle className="h-4 w-4" />
@@ -184,19 +226,25 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
                                 </div>
                             )}
 
-                            {/* Selected Date Tasks */}
+                            {/* Main Task List */}
                             <div className="space-y-3">
                                 <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                                    Scheduled Tasks
+                                    {filter === 'overdue' ? 'Overdue Items' :
+                                        filter === 'week' ? 'Tasks for this week' :
+                                            'Scheduled Tasks'}
                                 </div>
-                                {selectedDateTasks.length === 0 ? (
+                                {listTasks.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/20">
                                         <CalendarIcon className="h-10 w-10 mb-2 opacity-20" />
-                                        <p>No tasks scheduled for this day</p>
+                                        <p>
+                                            {filter === 'overdue' ? 'No overdue tasks' :
+                                                filter === 'week' ? 'No tasks this week' :
+                                                    'No tasks scheduled for this day'}
+                                        </p>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {selectedDateTasks.map(task => (
+                                        {listTasks.map(task => (
                                             <TaskCard
                                                 key={task.id}
                                                 task={task}
