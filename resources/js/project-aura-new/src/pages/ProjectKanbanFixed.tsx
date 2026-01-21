@@ -6,6 +6,7 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { Task, User, UserStatus } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Plus, LayoutGrid, List } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
@@ -522,7 +523,14 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				<div className="w-full">
 					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
 						<div>
-							<h1 className="text-3xl font-bold">{project.name}</h1>
+							<h1 className="text-3xl font-bold flex items-center gap-3">
+								{project.name}
+								{project.isArchived && (
+									<Badge variant="secondary" className="text-xs font-normal">
+										Archived
+									</Badge>
+								)}
+							</h1>
 							<p className="text-muted-foreground mt-1">{project.description}</p>
 						</div>
 						<div className="flex items-center gap-3">
@@ -531,12 +539,16 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 										View History
 									</Button>
-									<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
-										Manage Stages
-									</Button>
-									<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
-										<Plus className="mr-2 h-4 w-4" /> Add Task
-									</Button>
+									{!project.isArchived && (
+										<>
+											<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
+												Manage Stages
+											</Button>
+											<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
+												<Plus className="mr-2 h-4 w-4" /> Add Task
+											</Button>
+										</>
+									)}
 								</>
 							)}
 						</div>
@@ -565,29 +577,29 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							<KanbanBoard
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskUpdate={handleTaskUpdate}
-								onTaskEdit={handleTaskEdit}
-								onTaskDelete={handleTaskDelete}
+								onTaskUpdate={!project.isArchived ? handleTaskUpdate : undefined}
+								onTaskEdit={!project.isArchived ? handleTaskEdit : undefined}
+								onTaskDelete={!project.isArchived ? handleTaskDelete : undefined}
 								useProjectStages
-								canManageTasks={currentUser?.role !== 'user'}
-								canDragTasks={currentUser?.role !== 'user'}
+								canManageTasks={currentUser?.role !== 'user' && !project.isArchived}
+								canDragTasks={currentUser?.role !== 'user' && !project.isArchived}
 								disableColumnScroll={true}
-								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-								onAddTaskToStage={handleAddTaskToStage}
+								onTaskReview={!project.isArchived ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								onAddTaskToStage={!project.isArchived ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}
-								onAddSubtask={handleAddSubtask}
+								onAddSubtask={!project.isArchived ? handleAddSubtask : undefined}
 							/>
 						) : (
 							<TaskListView
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskEdit={handleTaskEdit}
-								onTaskDelete={handleTaskDelete}
-								onTaskUpdate={handleTaskUpdate}
+								onTaskEdit={!project.isArchived ? handleTaskEdit : undefined}
+								onTaskDelete={!project.isArchived ? handleTaskDelete : undefined}
+								onTaskUpdate={!project.isArchived ? handleTaskUpdate : undefined}
 								teamMembers={teamMembers}
-								canManage={currentUser?.role !== 'user'}
-								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-								showReviewButton={currentUser?.role === 'admin' || currentUser?.role === 'team-lead'}
+								canManage={currentUser?.role !== 'user' && !project.isArchived}
+								onTaskReview={!project.isArchived ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								showReviewButton={(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && !project.isArchived}
 							/>
 						)}
 					</div>
