@@ -114,7 +114,13 @@ export default function UserView() {
 					<div className="h-8 w-1 bg-primary rounded-full"></div>
 					<h3 className="text-xl font-bold text-foreground/80">Task Calendar</h3>
 				</div>
-				<TaskCalendar tasks={tasks} />
+				<TaskCalendar
+					tasks={tasks}
+					onViewTask={(task) => {
+						setViewTask(task);
+						setIsViewDialogOpen(true);
+					}}
+				/>
 			</div>
 
 			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
