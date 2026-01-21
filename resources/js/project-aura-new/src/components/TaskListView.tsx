@@ -286,7 +286,7 @@ export function TaskListView({
                     }
                     disabled={!allowStageUpdate}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-8 [&>span]:truncate">
                       <SelectValue placeholder="Select stage" />
                     </SelectTrigger>
                     <SelectContent>
