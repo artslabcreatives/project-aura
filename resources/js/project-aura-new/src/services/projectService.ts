@@ -54,6 +54,7 @@ function mapProject(raw: any): Project {
 		phoneNumbers: raw.phoneNumbers || [],
 		group: raw.group ? { id: String(raw.group.id), name: raw.group.name, departmentId: String(raw.group.department_id) } : undefined,
 		hasPendingTasks,
+		isArchived: raw.is_archived,
 	};
 }
 
@@ -97,6 +98,7 @@ export const projectService = {
 			emails: updates.emails,
 			phone_numbers: updates.phoneNumbers,
 			project_group_id: updates.group === null ? null : (updates.group ? parseInt(updates.group.id, 10) : undefined),
+			is_archived: updates.isArchived,
 		};
 		const { data } = await api.put(`/projects/${id}`, payload);
 		return mapProject(data);

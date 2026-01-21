@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -81,6 +81,7 @@ export function AppSidebar() {
 	const { currentUser } = useUser();
 	const { addHistoryEntry } = useHistory();
 	const [projectsOpen, setProjectsOpen] = useState(true);
+	const [archivedProjectsOpen, setArchivedProjectsOpen] = useState(false);
 	const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
 	const [projects, setProjects] = useState<Project[]>([]);
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -521,140 +522,133 @@ export function AppSidebar() {
 	}
 
 	// Group projects by department (admin) or filter flat list (team-lead)
-	const projectsByDepartment = useMemo<Record<string, GroupedDepartment>>(() => {
-		let filteredProjects = projects;
+	const { active: projectsByDepartment, archived: archivedProjectsByDepartment } = useMemo(() => {
+		const groupProjects = (projectList: Project[]) => {
+			let filteredProjects = projectList;
 
-		// Filter projects by department for team-lead
-		if (userRole === "team-lead" && currentUser) {
-			const currentDept = departments.find(d => d.id === currentUser.department);
-			const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
+			// Filter projects by department for team-lead
+			if (userRole === "team-lead" && currentUser) {
+				const currentDept = departments.find(d => d.id === currentUser.department);
+				const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
 
-			filteredProjects = projects.filter(project => {
-				const hasMatchingDepartment = project.department?.id === currentUser.department;
-				const hasNoDepartment = !project.department;
-				const isDesignProject = project.department?.name.toLowerCase() === "design";
-				const hasSpecialPermission = isDigitalDept && isDesignProject;
-				return hasMatchingDepartment || hasNoDepartment || hasSpecialPermission;
-			});
-		}
-
-		// Helper to build tree
-		const buildTree = (projects: Project[], departmentId: string | 'flat'): { rootGroups: TreeGroup[], ungroupedProjects: Project[] } => {
-			const relevantGroups = projectGroups.filter(g =>
-				departmentId === 'flat' ? true : g.departmentId === departmentId
-			);
-
-			const groupMap = new Map<string, TreeGroup>();
-			relevantGroups.forEach(g => {
-				groupMap.set(g.id, { ...g, projects: [], children: [] });
-			});
-
-			const ungrouped: Project[] = [];
-
-			projects.forEach(project => {
-				if (project.group && project.group.id && groupMap.has(project.group.id)) {
-					groupMap.get(project.group.id)!.projects.push(project);
-				} else {
-					ungrouped.push(project);
-				}
-			});
-
-			const rootGroups: TreeGroup[] = [];
-
-			// Build hierarchy
-			groupMap.forEach(group => {
-				if (group.parentId && groupMap.has(group.parentId)) {
-					groupMap.get(group.parentId)!.children.push(group);
-				} else {
-					rootGroups.push(group);
-				}
-			});
-
-			// OPTIONAL: Filter out empty groups (if desired, but usually we want to see structure or allow dragging)
-			// For now, let's keep all groups to allow adding projects to empty groups via UI (if D&D existed)
-			// But to reduce clutter, maybe only show groups with content (projects or children)?
-			// The user said "admin or team lead ... group a projects ... visual need to show", implies seeing the groups.
-			// Let's keep them.
-
-			return { rootGroups, ungroupedProjects: ungrouped };
-		};
-
-		// For team-lead non-digital (flat view previously, now hierarchy for their dept)
-		// Actually, if we want to retain the 'flat' key for simplified view, we can, but let's stick to department grouping if possible or just use 'flat' as a key.
-		if (userRole === "team-lead" && currentUser) {
-			const currentDept = departments.find(d => d.id === currentUser.department);
-			const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
-
-			if (!isDigitalDept) {
-				const { rootGroups, ungroupedProjects } = buildTree(filteredProjects, 'flat');
-				return {
-					'flat': {
-						id: 'flat',
-						name: '',
-						rootGroups,
-						ungroupedProjects
-					}
-				};
+				filteredProjects = projectList.filter(project => {
+					const hasMatchingDepartment = project.department?.id === currentUser.department;
+					const hasNoDepartment = !project.department;
+					const isDesignProject = project.department?.name.toLowerCase() === "design";
+					const hasSpecialPermission = isDigitalDept && isDesignProject;
+					return hasMatchingDepartment || hasNoDepartment || hasSpecialPermission;
+				});
 			}
-		}
 
-		// Group by department
-		const groupedByDept: Record<string, GroupedDepartment> = {};
+			// Helper to build tree
+			const buildTree = (projects: Project[], departmentId: string | 'flat'): { rootGroups: TreeGroup[], ungroupedProjects: Project[] } => {
+				const relevantGroups = projectGroups.filter(g =>
+					departmentId === 'flat' ? true : g.departmentId === departmentId
+				);
 
-		// Initialize departments
-		departments.forEach(dept => {
-			groupedByDept[dept.id] = {
-				id: dept.id,
-				name: dept.name,
+				const groupMap = new Map<string, TreeGroup>();
+				relevantGroups.forEach(g => {
+					groupMap.set(g.id, { ...g, projects: [], children: [] });
+				});
+
+				const ungrouped: Project[] = [];
+
+				projects.forEach(project => {
+					if (project.group && project.group.id && groupMap.has(project.group.id)) {
+						groupMap.get(project.group.id)!.projects.push(project);
+					} else {
+						ungrouped.push(project);
+					}
+				});
+
+				const rootGroups: TreeGroup[] = [];
+
+				// Build hierarchy
+				groupMap.forEach(group => {
+					if (group.parentId && groupMap.has(group.parentId)) {
+						groupMap.get(group.parentId)!.children.push(group);
+					} else {
+						rootGroups.push(group);
+					}
+				});
+
+				return { rootGroups, ungroupedProjects: ungrouped };
+			};
+
+			// For team-lead non-digital (flat view previously, now hierarchy for their dept)
+			if (userRole === "team-lead" && currentUser) {
+				const currentDept = departments.find(d => d.id === currentUser.department);
+				const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
+
+				if (!isDigitalDept) {
+					const { rootGroups, ungroupedProjects } = buildTree(filteredProjects, 'flat');
+					return {
+						'flat': {
+							id: 'flat',
+							name: '',
+							rootGroups,
+							ungroupedProjects
+						}
+					};
+				}
+			}
+
+			// Group by department
+			const groupedByDept: Record<string, GroupedDepartment> = {};
+
+			// Initialize departments
+			departments.forEach(dept => {
+				groupedByDept[dept.id] = {
+					id: dept.id,
+					name: dept.name,
+					rootGroups: [],
+					ungroupedProjects: []
+				};
+			});
+			// Add uncategorized
+			groupedByDept['uncategorized'] = {
+				id: 'uncategorized',
+				name: 'Uncategorized',
 				rootGroups: [],
 				ungroupedProjects: []
 			};
-		});
-		// Add uncategorized
-		groupedByDept['uncategorized'] = {
-			id: 'uncategorized',
-			name: 'Uncategorized',
-			rootGroups: [],
-			ungroupedProjects: []
+
+			const projectsPerDept: Record<string, Project[]> = {};
+			filteredProjects.forEach(p => {
+				const deptId = p.department?.id || 'uncategorized';
+				if (!projectsPerDept[deptId]) projectsPerDept[deptId] = [];
+				projectsPerDept[deptId].push(p);
+			});
+
+			Object.keys(groupedByDept).forEach(deptId => {
+				const deptProjects = projectsPerDept[deptId] || [];
+
+				if (deptId === 'uncategorized') {
+					groupedByDept[deptId].ungroupedProjects = deptProjects;
+				} else {
+					const { rootGroups, ungroupedProjects } = buildTree(deptProjects, deptId);
+					groupedByDept[deptId].rootGroups = rootGroups;
+					groupedByDept[deptId].ungroupedProjects = ungroupedProjects;
+				}
+			});
+
+			const result: Record<string, GroupedDepartment> = {};
+			Object.values(groupedByDept).forEach(g => {
+				if (g.rootGroups.length > 0 || g.ungroupedProjects.length > 0) {
+					result[g.id] = g;
+				}
+			});
+
+			return result;
 		};
 
-		// Distribute projects first to identify relevant departments? 
-		// Actually, we need to handle projects per department.
+		const activeList = projects.filter(p => !p.isArchived);
+		const archivedList = projects.filter(p => p.isArchived);
 
-		const projectsPerDept: Record<string, Project[]> = {};
-		filteredProjects.forEach(p => {
-			const deptId = p.department?.id || 'uncategorized';
-			if (!projectsPerDept[deptId]) projectsPerDept[deptId] = [];
-			projectsPerDept[deptId].push(p);
-		});
-
-		Object.keys(groupedByDept).forEach(deptId => {
-			const deptProjects = projectsPerDept[deptId] || [];
-			// We need groups for this department too. 
-			// If deptId is 'uncategorized', we probably don't have groups, or groups with no dept? 
-			// Assuming groups always have dept.
-
-			// If we have projects but no groups (uncategorized), just list projects.
-			if (deptId === 'uncategorized') {
-				groupedByDept[deptId].ungroupedProjects = deptProjects;
-			} else {
-				const { rootGroups, ungroupedProjects } = buildTree(deptProjects, deptId);
-				groupedByDept[deptId].rootGroups = rootGroups;
-				groupedByDept[deptId].ungroupedProjects = ungroupedProjects;
-			}
-		});
-
-		// Filter out empty departments if desired? existing code didn't explicitly filtering out empty depts but `reduce` only created entries for existing projects.
-		// My new approach initializes ALL depts. Let's filter out empty ones to match behavior.
-		const result: Record<string, GroupedDepartment> = {};
-		Object.values(groupedByDept).forEach(g => {
-			if (g.rootGroups.length > 0 || g.ungroupedProjects.length > 0) {
-				result[g.id] = g;
-			}
-		});
-
-		return result;
-
+		return {
+			active: groupProjects(activeList),
+			archived: groupProjects(archivedList)
+		};
 	}, [projects, userRole, currentUser, departments, projectGroups]);
 
 	const userDepartmentGroups = useMemo(() => {
@@ -730,6 +724,32 @@ export function AppSidebar() {
 		return a.name.localeCompare(b.name);
 	});
 
+	const archivedDepartmentGroups = Object.values(archivedProjectsByDepartment).sort((a, b) => {
+		if (a.id === 'uncategorized') return 1;
+		if (b.id === 'uncategorized') return -1;
+		return a.name.localeCompare(b.name);
+	});
+
+	const handleArchiveProject = async (project: Project) => {
+		try {
+			await projectService.update(String(project.id), { isArchived: true });
+			setProjects(prev => prev.map(p => p.id === project.id ? { ...p, isArchived: true } : p));
+			toast({ title: "Project archived" });
+		} catch (error) {
+			toast({ title: "Failed to archive project", variant: "destructive" });
+		}
+	};
+
+	const handleUnarchiveProject = async (project: Project) => {
+		try {
+			await projectService.update(String(project.id), { isArchived: false });
+			setProjects(prev => prev.map(p => p.id === project.id ? { ...p, isArchived: false } : p));
+			toast({ title: "Project restored" });
+		} catch (error) {
+			toast({ title: "Failed to restore project", variant: "destructive" });
+		}
+	};
+
 	const filteredMainMenuItems = mainMenuItems.filter(item =>
 		userRole && item.roles.includes(userRole)
 	);
@@ -787,6 +807,27 @@ export function AppSidebar() {
 									<FolderPlus className="mr-2 h-4 w-4" />
 									<span>Assign to Group</span>
 								</DropdownMenuItem>
+								{!project.isArchived ? (
+									<DropdownMenuItem
+										onClick={(e) => {
+											e.stopPropagation();
+											handleArchiveProject(project);
+										}}
+									>
+										<Archive className="mr-2 h-4 w-4" />
+										<span>Archive Project</span>
+									</DropdownMenuItem>
+								) : (
+									<DropdownMenuItem
+										onClick={(e) => {
+											e.stopPropagation();
+											handleUnarchiveProject(project);
+										}}
+									>
+										<RefreshCcw className="mr-2 h-4 w-4" />
+										<span>Restore Project</span>
+									</DropdownMenuItem>
+								)}
 								<DropdownMenuItem
 									className="text-destructive focus:text-destructive"
 									onClick={(e) => {
@@ -910,6 +951,71 @@ export function AppSidebar() {
 																{departmentGroup.rootGroups.map(group => renderProjectGroup(group))}
 
 																{/* Render Ungrouped Projects */}
+																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
+											))
+										)}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</CollapsibleContent>
+						</Collapsible>
+					</SidebarGroup>
+				)}
+
+				{(userRole === 'admin' || userRole === 'team-lead') && archivedDepartmentGroups.length > 0 && (
+					<SidebarGroup>
+						<Collapsible open={archivedProjectsOpen} onOpenChange={setArchivedProjectsOpen}>
+							<div className="flex items-center justify-between px-2">
+								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
+									<SidebarGroupLabel className="hover:bg-transparent">Archived Projects</SidebarGroupLabel>
+									<ChevronRight
+										className={`h-4 w-4 transition-transform ${archivedProjectsOpen ? "rotate-90" : ""
+											}`}
+									/>
+								</CollapsibleTrigger>
+							</div>
+							<CollapsibleContent>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{userRole === "team-lead" && archivedDepartmentGroups[0]?.id === 'flat' ? (
+											<>
+												{archivedDepartmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
+												{archivedDepartmentGroups[0].ungroupedProjects.map((project) => renderProjectItem(project))}
+											</>
+										) : (
+											archivedDepartmentGroups.map((departmentGroup) => (
+												<Collapsible
+													key={departmentGroup.id}
+													open={expandedDepartments.has(departmentGroup.id + '-archive')}
+													onOpenChange={() => toggleDepartmentExpanded(departmentGroup.id + '-archive')}
+												>
+													<SidebarMenuItem>
+														<CollapsibleTrigger asChild>
+															<SidebarMenuButton className="w-full">
+																<div className="flex items-center gap-2 flex-1 w-full">
+																	<Building2 className="h-4 w-4 shrink-0" />
+																	<span className="text-sm font-medium flex-1 truncate">{departmentGroup.name}</span>
+																	<span className="text-xs text-muted-foreground mr-2 shrink-0">
+																		({(() => {
+																			const countGroupProjects = (group: TreeGroup): number => {
+																				return group.projects.length + group.children.reduce((acc, child) => acc + countGroupProjects(child), 0);
+																			};
+																			return departmentGroup.ungroupedProjects.length + departmentGroup.rootGroups.reduce((acc, group) => acc + countGroupProjects(group), 0);
+																		})()})
+																	</span>
+																</div>
+																<ChevronRight
+																	className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(departmentGroup.id + '-archive') ? "rotate-90" : ""
+																		}`}
+																/>
+															</SidebarMenuButton>
+														</CollapsibleTrigger>
+														<CollapsibleContent>
+															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+																{departmentGroup.rootGroups.map(group => renderProjectGroup(group))}
 																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
 															</SidebarMenuSub>
 														</CollapsibleContent>

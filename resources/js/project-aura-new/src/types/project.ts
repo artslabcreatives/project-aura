@@ -13,4 +13,5 @@ export interface Project {
 	phoneNumbers?: string[];
 	group?: ProjectGroup;
 	hasPendingTasks?: boolean;
+	isArchived?: boolean;
 }
