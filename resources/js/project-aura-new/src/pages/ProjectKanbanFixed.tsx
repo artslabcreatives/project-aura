@@ -188,24 +188,36 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			console.log(`Subscribing to project.${numericProjectId}`);
 			const channel = echo.private(`project.${numericProjectId}`);
 			channel.listen('TaskUpdated', (e: any) => {
-				console.log('Kanban Real-time update received:', e);
-				// Check if event has task data or just ID
-				if (e.task) {
-					// Update specific task in state if we can map it.
-					console.log('Task data present, reloading data...');
+				console.log('Kanban Real-time task update received:', e);
+				loadData(true);
+			});
+
+			channel.listen('ProjectUpdated', (e: any) => {
+				console.log('Kanban Real-time project update received:', e);
+				if (e.project) {
+					// We can either update state directly or reload. Reload is safer for side-effects.
 					loadData(true);
-				} else if (e.action === 'delete') {
-					console.log('Delete action, reloading data...');
-					loadData(true);
+					// Also update the project state immediately if simple property change
+					setProject(prev => ({ ...prev, ...e.project }));
 				} else {
-					console.log('Unknown action, reloading data...');
 					loadData(true);
 				}
 			});
 
+			// Listen for local project state changes (from sidebar actions)
+			const handleLocalProjectStateChange = (e: Event) => {
+				const customEvent = e as CustomEvent;
+				if (customEvent.detail && String(customEvent.detail.projectId) === String(numericProjectId)) {
+					console.log('Kanban Local project state change received:', customEvent.detail);
+					setProject(prev => ({ ...prev, isArchived: customEvent.detail.isArchived }));
+				}
+			};
+			window.addEventListener('project-state-changed', handleLocalProjectStateChange);
+
 			return () => {
 				console.log(`Unsubscribing from project.${numericProjectId}`);
 				echo.leave(`project.${numericProjectId}`);
+				window.removeEventListener('project-state-changed', handleLocalProjectStateChange);
 			};
 		}
 	}, [numericProjectId, currentUser]);

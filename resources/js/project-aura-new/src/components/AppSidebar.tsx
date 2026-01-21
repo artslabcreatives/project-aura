@@ -756,6 +756,12 @@ export function AppSidebar() {
 		try {
 			await projectService.update(String(project.id), { isArchived: true });
 			setProjects(prev => prev.map(p => p.id === project.id ? { ...p, isArchived: true } : p));
+
+			// Notify other components (ProjectKanbanFixed) immediately
+			window.dispatchEvent(new CustomEvent('project-state-changed', {
+				detail: { projectId: project.id, isArchived: true }
+			}));
+
 			toast({ title: "Project archived" });
 		} catch (error) {
 			toast({ title: "Failed to archive project", variant: "destructive" });
@@ -766,6 +772,12 @@ export function AppSidebar() {
 		try {
 			await projectService.update(String(project.id), { isArchived: false });
 			setProjects(prev => prev.map(p => p.id === project.id ? { ...p, isArchived: false } : p));
+
+			// Notify other components (ProjectKanbanFixed) immediately
+			window.dispatchEvent(new CustomEvent('project-state-changed', {
+				detail: { projectId: project.id, isArchived: false }
+			}));
+
 			toast({ title: "Project restored" });
 		} catch (error) {
 			toast({ title: "Failed to restore project", variant: "destructive" });

@@ -75,7 +75,25 @@ class ProjectController extends Controller
             'is_archived' => 'nullable|boolean',
         ]);
 
+        $wasArchived = $project->is_archived;
         $project->update($validated);
+        
+        $action = 'update';
+        if (isset($validated['is_archived'])) {
+            if ($validated['is_archived'] && !$wasArchived) {
+                $action = 'archive';
+            } elseif (!$validated['is_archived'] && $wasArchived) {
+                $action = 'unarchive';
+            }
+        }
+
+        try {
+            \App\Events\ProjectUpdated::dispatch($project, $action);
+        } catch (\Exception $e) {
+            // Log error but continue
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast project update: ' . $e->getMessage());
+        }
+
         return response()->json($project->load(['department', 'group', 'stages']));
     }
 
