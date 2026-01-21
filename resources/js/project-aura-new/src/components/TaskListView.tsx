@@ -215,8 +215,11 @@ export function TaskListView({
         <TableBody>
           {sortedTasks.map((task) => {
             const dueDate = new Date(task.dueDate);
+            const currentStage = stages.find(s => s.id === task.projectStage);
+            const isStageCompleted = currentStage?.title === "Completed" || currentStage?.title === "Complete";
+
             const isOverdue =
-              isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
+              isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete" && !isStageCompleted;
 
             // Determine current assignee ID
             const currentAssigneeUser = teamMembers.find(u => u.name === task.assignee);
