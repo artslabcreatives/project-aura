@@ -642,12 +642,32 @@ export function AppSidebar() {
 			return result;
 		};
 
+		const pruneTree = (groups: TreeGroup[]): TreeGroup[] => {
+			return groups
+				.map(group => {
+					const prunedChildren = pruneTree(group.children);
+					return { ...group, children: prunedChildren };
+				})
+				.filter(group => group.projects.length > 0 || group.children.length > 0);
+		};
+
+		const pruneGroupsInDepartment = (groupedDepts: Record<string, GroupedDepartment>) => {
+			const pruned: Record<string, GroupedDepartment> = {};
+			Object.values(groupedDepts).forEach(dept => {
+				const prunedRoots = pruneTree(dept.rootGroups);
+				if (prunedRoots.length > 0 || dept.ungroupedProjects.length > 0) {
+					pruned[dept.id] = { ...dept, rootGroups: prunedRoots };
+				}
+			});
+			return pruned;
+		};
+
 		const activeList = projects.filter(p => !p.isArchived);
 		const archivedList = projects.filter(p => p.isArchived);
 
 		return {
 			active: groupProjects(activeList),
-			archived: groupProjects(archivedList)
+			archived: pruneGroupsInDepartment(groupProjects(archivedList))
 		};
 	}, [projects, userRole, currentUser, departments, projectGroups]);
 
