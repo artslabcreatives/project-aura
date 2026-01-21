@@ -176,7 +176,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							<Eye className="h-3.5 w-3.5" />
 						</Button>
 						{/* Show Review Task button if in review stage */}
-						{currentStage?.isReviewStage && onReviewTask && (
+						{currentStage?.isReviewStage && onReviewTask && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
