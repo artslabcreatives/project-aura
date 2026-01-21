@@ -214,12 +214,19 @@ export function TaskListView({
         </TableHeader>
         <TableBody>
           {sortedTasks.map((task) => {
-            const dueDate = new Date(task.dueDate);
+            const isValidDate = (date: any) => {
+              return date && !isNaN(new Date(date).getTime());
+            };
+
+            const rawDueDate = task.dueDate ? new Date(task.dueDate) : null;
+            const isDateValid = rawDueDate && !isNaN(rawDueDate.getTime());
+            const dueDate = isDateValid ? rawDueDate : null;
+
             const currentStage = stages.find(s => s.id === task.projectStage);
             const isStageCompleted = currentStage?.title === "Completed" || currentStage?.title === "Complete";
 
             const isOverdue =
-              isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete" && !isStageCompleted;
+              dueDate && isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete" && !isStageCompleted;
 
             // Determine current assignee ID
             const currentAssigneeUser = teamMembers.find(u => u.name === task.assignee);
@@ -309,13 +316,13 @@ export function TaskListView({
                           variant={"outline"}
                           className={cn(
                             "w-[180px] h-8 justify-start text-left font-normal",
-                            !task.dueDate && "text-muted-foreground",
+                            !dueDate && "text-muted-foreground",
                             isOverdue && "text-status-overdue",
-                            isToday(dueDate) && "text-primary"
+                            dueDate && isToday(dueDate) && "text-primary"
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {task.dueDate ? (
+                          {dueDate ? (
                             format(dueDate, "MMM dd, yyyy")
                           ) : (
                             <span>Pick a date</span>
@@ -325,7 +332,7 @@ export function TaskListView({
                       <PopoverContent className="w-auto p-0">
                         <Calendar
                           mode="single"
-                          selected={dueDate}
+                          selected={dueDate || undefined}
                           onSelect={(date) =>
                             onTaskUpdate(task.id, {
                               dueDate: date?.toISOString(),
@@ -339,10 +346,10 @@ export function TaskListView({
                     <span
                       className={cn(
                         isOverdue && "text-status-overdue font-medium",
-                        isToday(dueDate) && "text-primary font-medium"
+                        dueDate && isToday(dueDate) && "text-primary font-medium"
                       )}
                     >
-                      {format(dueDate, "MMM dd, yyyy")}
+                      {dueDate ? format(dueDate, "MMM dd, yyyy") : "No date"}
                     </span>
                   )}
                 </TableCell>
