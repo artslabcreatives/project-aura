@@ -276,7 +276,11 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				) : (
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
 						<User className="h-3 w-3" />
-						<span>{task.assignee}</span>
+						<span>
+							{(task.assignedUsers && task.assignedUsers.length === 1)
+								? task.assignedUsers[0].name
+								: task.assignee}
+						</span>
 					</div>
 				)}
 

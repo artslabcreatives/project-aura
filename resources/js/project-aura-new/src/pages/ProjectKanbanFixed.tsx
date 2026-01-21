@@ -127,7 +127,17 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				}
 				setProject(currentProject);
 				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
-				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+				let projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+
+				// Filter tasks for regular users - only show what is assigned to them
+				if (currentUser?.role === 'user') {
+					projectTasks = projectTasks.filter(task => {
+						const isAssigned = task.assignee === currentUser.name ||
+							(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+						return isAssigned;
+					});
+				}
+
 				setTasks(projectTasks);
 				setAllTasks(await taskService.getAll());
 				setTeamMembers(await userService.getAll());
