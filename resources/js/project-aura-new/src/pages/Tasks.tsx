@@ -581,8 +581,8 @@ export default function Tasks() {
 				}}
 				onSave={handleTaskSave}
 				editTask={editingTask}
-				availableProjects={allProjects.map((p) => p.name)}
-				allProjects={allProjects}
+				availableProjects={allProjects.filter((p) => !p.isArchived).map((p) => p.name)}
+				allProjects={allProjects.filter((p) => !p.isArchived)}
 				availableStatuses={userStages}
 				useProjectStages={false}
 				teamMembers={teamMembers}
