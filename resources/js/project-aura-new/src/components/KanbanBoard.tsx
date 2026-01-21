@@ -23,6 +23,29 @@ import {
 } from "@/components/ui/tooltip";
 
 import { TaskCompletionDialog } from "./TaskCompletionDialog";
+import {
+  isToday,
+  isThisWeek,
+  isThisMonth,
+  subMonths,
+  isAfter,
+  isWithinInterval,
+  parseISO,
+  startOfDay,
+  endOfDay,
+  format
+} from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Filter, Calendar as CalendarIcon } from "lucide-react";
+import { DateRange } from "react-day-picker";
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -76,6 +99,8 @@ export function KanbanBoard({
   const [pendingComplete, setPendingComplete] = useState<{ taskId: string; stageId: string } | null>(null);
   const [columnSearchQueries, setColumnSearchQueries] = useState<Record<string, string>>({});
   const [columnSearchOpen, setColumnSearchOpen] = useState<Record<string, boolean>>({});
+  const [columnDateFilters, setColumnDateFilters] = useState<Record<string, string>>({});
+  const [columnCustomDateRanges, setColumnCustomDateRanges] = useState<Record<string, DateRange | undefined>>({});
   const { currentUser } = useUser();
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -156,6 +181,34 @@ export function KanbanBoard({
         return task.userStatus === stageId;
       }
     });
+
+    const stage = stages.find(s => s.id === stageId);
+    const isCompletedStage = stage && (stage.title.toLowerCase().includes('completed') || stage.title.toLowerCase().includes('complete') || stage.title.toLowerCase().includes('archive'));
+    const dateFilter = columnDateFilters[stageId] || (isCompletedStage ? "week" : "all");
+
+    if (dateFilter && dateFilter !== "all") {
+      filtered = filtered.filter((task) => {
+        const dateStr = task.completedAt || task.createdAt;
+        if (!dateStr) return false;
+        const date = parseISO(dateStr);
+
+        if (dateFilter === "today") return isToday(date);
+        if (dateFilter === "week") return isThisWeek(date, { weekStartsOn: 1 });
+        if (dateFilter === "month") return isThisMonth(date);
+        if (dateFilter === "2months") {
+          const twoMonthsAgo = subMonths(new Date(), 2);
+          return isAfter(date, twoMonthsAgo);
+        }
+        if (dateFilter === "custom") {
+          const range = columnCustomDateRanges[stageId];
+          if (!range?.from) return true;
+          const start = startOfDay(range.from);
+          const end = range.to ? endOfDay(range.to) : endOfDay(range.from);
+          return isWithinInterval(date, { start, end });
+        }
+        return true;
+      });
+    }
 
     const searchQuery = columnSearchQueries[stageId];
     if (searchQuery) {
@@ -311,6 +364,46 @@ export function KanbanBoard({
                       >
                         <Search className="h-4 w-4" />
                       </Button>
+                    )}
+                  </div>
+                )}
+
+                {(column.title.toLowerCase().includes('completed') || column.title.toLowerCase().includes('complete') || column.title.toLowerCase().includes('archive')) && (
+                  <div className="flex items-center">
+                    <Select value={columnDateFilters[column.id] || "week"} onValueChange={(val) => setColumnDateFilters(prev => ({ ...prev, [column.id]: val }))}>
+                      <SelectTrigger className="h-6 w-6 p-0 border-none bg-transparent hover:bg-accent focus:ring-0 [&>svg]:hidden flex items-center justify-center hover:[&_svg]:text-white">
+                        <div className="flex items-center justify-center w-full h-full">
+                          <Filter className="h-4 w-4 text-muted-foreground transition-colors" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="week">This Week</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="2months">This 2 Months</SelectItem>
+                        <SelectItem value="custom">Custom Time Period</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {columnDateFilters[column.id] === 'custom' && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+                            <CalendarIcon className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={columnCustomDateRanges[column.id]?.from}
+                            selected={columnCustomDateRanges[column.id]}
+                            onSelect={(range) => setColumnCustomDateRanges(prev => ({ ...prev, [column.id]: range }))}
+                            numberOfMonths={2}
+                          />
+                        </PopoverContent>
+                      </Popover>
                     )}
                   </div>
                 )}
