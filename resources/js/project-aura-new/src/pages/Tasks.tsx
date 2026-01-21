@@ -558,6 +558,7 @@ export default function Tasks() {
 						onTaskDelete={handleTaskDelete}
 						onTaskUpdate={handleTaskUpdate}
 						teamMembers={teamMembers}
+						departments={departments}
 						canManage={currentUser?.role !== "user"}
 						showProjectColumn={true}
 					/>

@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
+import { Department } from "@/types/department";
 import { format, isPast, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
@@ -29,6 +31,7 @@ interface TaskListViewProps {
   tasks: Task[];
   stages: Stage[];
   teamMembers: User[];
+  departments?: Department[];
   onTaskEdit: (task: Task) => void;
   onTaskDelete: (taskId: string) => void;
   onTaskUpdate: (taskId: string, updates: Partial<Task>) => void;
@@ -54,6 +57,7 @@ export function TaskListView({
   tasks,
   stages,
   teamMembers,
+  departments = [],
   onTaskEdit,
   onTaskDelete,
   onTaskUpdate,
@@ -82,6 +86,27 @@ export function TaskListView({
       return { key, direction: "asc" };
     });
   };
+
+  const getDepartmentName = (departmentId: string) => {
+    return departments.find(dep => dep.id === departmentId)?.name || "Uncategorized";
+  };
+
+  const memberOptions = useMemo<SearchableOption[]>(() => {
+    const options = teamMembers.map((member) => ({
+      value: String(member.id),
+      label: member.name,
+      group: getDepartmentName(member.department),
+    }));
+
+    // Add Unassigned option
+    options.unshift({
+      value: "unassigned",
+      label: "Unassigned",
+      group: "General"
+    });
+
+    return options;
+  }, [teamMembers, departments]);
 
   const sortedTasks = useMemo(() => {
     if (!sortConfig.key || !sortConfig.direction) return tasks;
@@ -192,6 +217,11 @@ export function TaskListView({
             const dueDate = new Date(task.dueDate);
             const isOverdue =
               isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
+
+            // Determine current assignee ID
+            const currentAssigneeUser = teamMembers.find(u => u.name === task.assignee);
+            const currentAssigneeValue = currentAssigneeUser ? String(currentAssigneeUser.id) : (task.assignee ? undefined : "unassigned");
+
             return (
               <TableRow key={task.id} className="h-12">
                 <TableCell className="font-medium py-2">
@@ -315,30 +345,22 @@ export function TaskListView({
                 </TableCell>
                 {showAssigneeColumn && (
 
-                  <TableCell className="py-2">
-                    <Select
-                      value={task.assignee || "--UNASSIGNED--"}
+                  <TableCell className="py-2 max-w-[200px]">
+                    <SearchableSelect
+                      value={currentAssigneeValue}
                       onValueChange={(value) => {
-                        const newAssignee =
-                          value === "--UNASSIGNED--" ? "" : value;
-                        onTaskUpdate(task.id, { assignee: newAssignee });
+                        let newAssigneeName = "";
+                        if (value !== "unassigned") {
+                          const selectedMember = teamMembers.find(m => String(m.id) === value);
+                          if (selectedMember) newAssigneeName = selectedMember.name;
+                        }
+                        onTaskUpdate(task.id, { assignee: newAssigneeName });
                       }}
+                      options={memberOptions}
+                      placeholder="Unassigned"
                       disabled={!canManage}
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Unassigned" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="--UNASSIGNED--">
-                          Unassigned
-                        </SelectItem>
-                        {teamMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.name}>
-                            {member.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      className="h-8"
+                    />
                   </TableCell>
                 )}
 
@@ -368,8 +390,6 @@ export function TaskListView({
                         Review Task
                       </Button>
                     )}
-
-
 
                     {canManage && (
                       <>
