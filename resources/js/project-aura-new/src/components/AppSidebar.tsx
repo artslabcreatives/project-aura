@@ -638,6 +638,28 @@ export function AppSidebar() {
 		}, {} as Record<string, GroupedDepartment>);
 	}, [projects, userRole, currentUser, departments]);
 
+	const userDepartmentGroups = useMemo(() => {
+		const groups: Record<string, { id: string; name: string; projects: Project[] }> = {};
+		const ungrouped: Project[] = [];
+
+		userDepartmentProjects.forEach(project => {
+			if (project.group && project.group.id) {
+				if (!groups[project.group.id]) {
+					groups[project.group.id] = {
+						id: project.group.id,
+						name: project.group.name,
+						projects: []
+					};
+				}
+				groups[project.group.id].projects.push(project);
+			} else {
+				ungrouped.push(project);
+			}
+		});
+
+		return { groups, ungrouped };
+	}, [userDepartmentProjects]);
+
 	const departmentGroups = Object.values(projectsByDepartment).sort((a, b) => {
 		if (a.id === 'uncategorized') return 1;
 		if (b.id === 'uncategorized') return -1;
@@ -963,7 +985,49 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{userDepartmentProjects.map((project) => (
+										{Object.values(userDepartmentGroups.groups).map((group) => (
+											<Collapsible
+												key={group.id}
+												open={expandedProjectGroups.has(group.id)}
+												onOpenChange={() => toggleProjectGroupExpanded(group.id)}
+											>
+												<SidebarMenuItem>
+													<CollapsibleTrigger asChild>
+														<SidebarMenuButton className="w-full">
+															<div className="flex items-center gap-2 flex-1">
+																<FolderKanban className="h-4 w-4" />
+																<span className="text-sm font-medium">{group.name}</span>
+															</div>
+															<ChevronRight
+																className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
+																	}`}
+															/>
+														</SidebarMenuButton>
+													</CollapsibleTrigger>
+													<CollapsibleContent>
+														<SidebarMenuSub>
+															{group.projects.map((project) => (
+																<SidebarMenuItem key={project.id}>
+																	<SidebarMenuButton asChild>
+																		<NavLink
+																			to={getProjectUrl(project)}
+																			className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isProjectActive(project)
+																				? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+																				: ""
+																				}`}
+																		>
+																			<FolderKanban className="h-4 w-4" />
+																			<span className="text-sm">{project.name}</span>
+																		</NavLink>
+																	</SidebarMenuButton>
+																</SidebarMenuItem>
+															))}
+														</SidebarMenuSub>
+													</CollapsibleContent>
+												</SidebarMenuItem>
+											</Collapsible>
+										))}
+										{userDepartmentGroups.ungrouped.map((project) => (
 											<SidebarMenuItem key={project.id}>
 												<SidebarMenuButton asChild>
 													<NavLink
