@@ -6,6 +6,7 @@ use App\Models\Task;
 use App\Models\Stage;
 use App\Models\User;
 use App\Notifications\TaskCompletedNotification;
+use App\Notifications\TaskReviewNeededNotification;
 use Illuminate\Support\Facades\Log;
 
 class TaskObserver
@@ -147,6 +148,17 @@ class TaskObserver
              }
              
              if ($user) {
+                 // Check if the new stage is a review stage and notify the responsible user
+                 if ($newStage && $newStage->is_review_stage && $newStage->mainResponsible) {
+                     $responsibleUser = $newStage->mainResponsible;
+                     
+                     // Avoid double notification if the responsible user is the one who moved the task (optional but good UX)
+                     if ($responsibleUser->id !== $user->id) {
+                         $responsibleUser->notify(new TaskReviewNeededNotification($task, $user, $stageName));
+                         Log::info("Sent review needed notification for task {$task->id} to user {$responsibleUser->id}");
+                     }
+                 }
+
                  // Get Admins and Team Leads
                  // Ideally filter by project department if applicable, but for now sends to all relevant roles
                  $recipients = User::whereIn('role', ['admin', 'team-lead'])->get();
