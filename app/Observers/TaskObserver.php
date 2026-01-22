@@ -7,6 +7,7 @@ use App\Models\Stage;
 use App\Models\User;
 use App\Notifications\TaskCompletedNotification;
 use App\Notifications\TaskReviewNeededNotification;
+use App\Notifications\TaskStageChangedNotification;
 use Illuminate\Support\Facades\Log;
 
 class TaskObserver
@@ -136,42 +137,74 @@ class TaskObserver
         // Note: 'updating' runs before DB update, 'updated' runs after.
         // But 'getChanges()' in 'updated' should show what changed.
         if ($task->wasChanged('project_stage_id')) {
+            $previousStageId = $task->getOriginal('project_stage_id');
+            $previousStage = $previousStageId ? Stage::find($previousStageId) : null;
             $newStage = Stage::find($task->project_stage_id);
             $stageName = $newStage ? $newStage->title : 'Unknown Stage';
             
             // Current user who performed the action (if available in request/auth)
             // Since this is an observer, Auth::user() usually works if the action was triggered by an HTTP request
-             $user = auth()->user();
-             if (!$user && $task->assignee_id) {
-                 // Fallback if no auth user (e.g. queue job), though for now we assume interactive
-                 $user = User::find($task->assignee_id); 
-             }
-             
-             if ($user) {
-                 // Check if the new stage is a review stage and notify the responsible user
-                 if ($newStage && $newStage->is_review_stage && $newStage->mainResponsible) {
-                     $responsibleUser = $newStage->mainResponsible;
-                     
-                     // Avoid double notification if the responsible user is the one who moved the task (optional but good UX)
-                     if ($responsibleUser->id !== $user->id) {
-                         $responsibleUser->notify(new TaskReviewNeededNotification($task, $user, $stageName));
-                         Log::info("Sent review needed notification for task {$task->id} to user {$responsibleUser->id}");
-                     }
-                 }
+            $user = auth()->user();
+            if (!$user && $task->assignee_id) {
+                // Fallback if no auth user (e.g. queue job), though for now we assume interactive
+                $user = User::find($task->assignee_id); 
+            }
+            
+            if ($user) {
+                // Check if the new stage is a review stage and notify the responsible user
+                if ($newStage && $newStage->is_review_stage && $newStage->mainResponsible) {
+                    $responsibleUser = $newStage->mainResponsible;
+                    
+                    // Avoid double notification if the responsible user is the one who moved the task (optional but good UX)
+                    if ($responsibleUser->id !== $user->id) {
+                        $responsibleUser->notify(new TaskReviewNeededNotification($task, $user, $stageName));
+                        Log::info("Sent review needed notification for task {$task->id} to user {$responsibleUser->id}");
+                    }
+                }
 
-                 // Get Admins and Team Leads
-                 // Ideally filter by project department if applicable, but for now sends to all relevant roles
-                 $recipients = User::whereIn('role', ['admin', 'team-lead'])->get();
-                 
-                 foreach ($recipients as $recipient) {
-                     // Don't notify self? Optional.
-                     // if ($recipient->id === $user->id) continue;
-                     
-                     $recipient->notify(new TaskCompletedNotification($task, $user, $stageName));
-                 }
-                 
-                 Log::info("Sent task movement notifications for task {$task->id} to " . $recipients->count() . " users.");
-             }
+                // Get Admins and Team Leads
+                // Ideally filter by project department if applicable, but for now sends to all relevant roles
+                $recipients = User::whereIn('role', ['admin', 'team-lead'])->get();
+                
+                foreach ($recipients as $recipient) {
+                    // Don't notify self? Optional.
+                    // if ($recipient->id === $user->id) continue;
+                    
+                    $recipient->notify(new TaskCompletedNotification($task, $user, $stageName));
+                }
+                
+                Log::info("Sent task movement notifications for task {$task->id} to " . $recipients->count() . " users.");
+
+                if (in_array($user->role, ['admin', 'team-lead'])) {
+                    $task->loadMissing('project');
+                    $departmentId = $task->project?->department_id;
+
+                    if ($departmentId) {
+                        $departmentTeamLeads = User::where('role', 'team-lead')
+                            ->where('department_id', $departmentId)
+                            ->get();
+
+                        foreach ($departmentTeamLeads as $departmentLead) {
+                            if ($departmentLead->id === $user->id) {
+                                continue;
+                            }
+
+                            $departmentLead->notify(new TaskStageChangedNotification(
+                                $task,
+                                $previousStage?->title ?? 'Unknown Stage',
+                                $newStage?->title ?? 'Unknown Stage',
+                                $user->name
+                            ));
+                        }
+
+                        if ($departmentTeamLeads->isNotEmpty()) {
+                            Log::info(
+                                "Sent stage change notifications for task {$task->id} to {$departmentTeamLeads->count()} team leads in department {$departmentId}."
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 }

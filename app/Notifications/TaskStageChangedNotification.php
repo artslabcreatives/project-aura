@@ -17,15 +17,17 @@ class TaskStageChangedNotification extends Notification
     public $task;
     public $fromStage;
     public $toStage;
+    public $movedBy;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct($task, $fromStage, $toStage)
+    public function __construct($task, $fromStage, $toStage, $movedBy = 'System')
     {
         $this->task = $task;
         $this->fromStage = $fromStage;
         $this->toStage = $toStage;
+        $this->movedBy = $movedBy;
     }
 
     /**
@@ -48,7 +50,13 @@ class TaskStageChangedNotification extends Notification
         return [
             'task_id' => $this->task->id,
             'title' => 'Task Stage Changed',
-            'message' => "Task '{$this->task->title}' moved from '{$this->fromStage}' to '{$this->toStage}'.",
+            'message' => sprintf(
+                "%s moved task '%s' from '%s' to '%s'.",
+                $this->movedBy ?? 'System',
+                $this->task->title,
+                $this->fromStage,
+                $this->toStage
+            ),
             'type' => 'task_stage_changed',
             'link' => "/project/{$this->task->project_id}?task={$this->task->id}",
         ];
