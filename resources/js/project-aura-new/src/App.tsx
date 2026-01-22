@@ -16,6 +16,7 @@ import { UserProvider, useUser } from "@/hooks/use-user";
 import { Login } from "@/components/Login";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 						<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
 					</div>
 					<div className="flex items-center gap-3">
+						<ThemeToggle />
 						<div className="flex flex-col items-center mr-2">
 							<Button
 								variant="ghost"
