@@ -410,9 +410,10 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			const updatedStages = project.stages.filter(s => s.id !== stageId);
 			setProject({ ...project, stages: updatedStages });
 			toast({ title: 'Stage deleted', description: 'Stage deleted successfully.' });
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Error deleting stage:', error);
-			toast({ title: 'Error', description: 'Failed to delete stage.', variant: 'destructive' });
+			const msg = error.response?.data?.message || error.message || 'Failed to delete stage.';
+			toast({ title: 'Error', description: msg, variant: 'destructive' });
 		}
 	};
 	const handleSaveStage = async (stage: Omit<Stage, 'order'>) => {
