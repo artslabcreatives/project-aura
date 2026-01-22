@@ -21,6 +21,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import { TaskCompletionDialog } from "./TaskCompletionDialog";
 import {
@@ -102,6 +112,14 @@ export function KanbanBoard({
   const [columnDateFilters, setColumnDateFilters] = useState<Record<string, string>>({});
   const [columnCustomDateRanges, setColumnCustomDateRanges] = useState<Record<string, DateRange | undefined>>({});
   const { currentUser } = useUser();
+  const [stageToDelete, setStageToDelete] = useState<string | null>(null);
+
+  const confirmDeleteStage = () => {
+    if (stageToDelete && onStageDelete) {
+      onStageDelete(stageToDelete);
+    }
+    setStageToDelete(null);
+  };
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -441,7 +459,7 @@ export function KanbanBoard({
                           Edit Stage
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => onStageDelete(column.id)}
+                          onClick={() => setStageToDelete(column.id)}
                           className="text-destructive"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
@@ -502,6 +520,26 @@ export function KanbanBoard({
         onConfirm={handleConfirmation}
         taskTitle={pendingComplete ? tasks.find(t => t.id === pendingComplete.taskId)?.title : undefined}
       />
+
+      <AlertDialog open={!!stageToDelete} onOpenChange={(open) => !open && setStageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Stage</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this stage? Tasks in this stage will need to be moved to another stage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteStage}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

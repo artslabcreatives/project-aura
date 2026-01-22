@@ -340,14 +340,21 @@ export default function ProjectKanban() {
 
 	const handleAddStage = () => { setEditingStage(null); setIsStageDialogOpen(true); };
 	const handleEditStage = (stage: Stage) => { setEditingStage(stage); setIsStageDialogOpen(true); };
-	const handleDeleteStage = (stageId: string) => {
+	const handleDeleteStage = async (stageId: string) => {
 		if (!project || !currentUser) return;
 		const stageToDelete = project.stages.find(s => s.id === stageId);
-		if (stageToDelete) {
-			addHistoryEntry({ action: 'DELETE_STAGE', entityId: stageId, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: stageToDelete.title } });
+		try {
+			await stageService.delete(stageId);
+			if (stageToDelete) {
+				addHistoryEntry({ action: 'DELETE_STAGE', entityId: stageId, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: stageToDelete.title } });
+			}
+			const updatedStages = project.stages.filter(s => s.id !== stageId);
+			setProject({ ...project, stages: updatedStages });
+			toast({ title: "Stage deleted", description: "Stage deleted successfully." });
+		} catch (error) {
+			console.error("Error deleting stage:", error);
+			toast({ title: "Error", description: "Failed to delete stage.", variant: "destructive" });
 		}
-		const updatedStages = project.stages.filter(s => s.id !== stageId);
-		updateProjectInStorage({ ...project, stages: updatedStages });
 	};
 
 	const handleSaveStage = async (stage: Omit<Stage, "order">) => {
