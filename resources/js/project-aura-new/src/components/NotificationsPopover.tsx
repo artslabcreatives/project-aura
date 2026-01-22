@@ -10,12 +10,17 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { notificationService, Notification } from '@/services/notificationService';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { echo } from '@/services/echoService';
+import { useUser } from '@/hooks/use-user';
+import { useToast } from "@/hooks/use-toast";
 
 export function NotificationsPopover() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [open, setOpen] = useState(false);
     const navigate = useNavigate();
+    const { currentUser } = useUser();
+    const { toast } = useToast();
 
     const fetchNotifications = async () => {
         try {
@@ -29,9 +34,46 @@ export function NotificationsPopover() {
 
     useEffect(() => {
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+
+        // Listen for real-time notifications
+        if (currentUser) {
+            console.log(`Subscribing to notifications for user ${currentUser.id}`);
+            const channel = echo.private(`App.Models.User.${currentUser.id}`);
+
+            channel.notification((notification: any) => {
+                console.log('Real-time notification received:', notification);
+
+                // Add to list optimistically
+                const newNotification: Notification = {
+                    id: notification.id,
+                    type: notification.type,
+                    data: {
+                        title: notification.title,
+                        message: notification.message,
+                        link: notification.link
+                    },
+                    read_at: null,
+                    created_at: new Date().toISOString(),
+                };
+
+                setNotifications(prev => [newNotification, ...prev]);
+                setUnreadCount(prev => prev + 1);
+
+                toast({
+                    title: notification.title,
+                    description: notification.message,
+                });
+            });
+
+            return () => {
+                console.log(`Unsubscribing from notifications for user ${currentUser.id}`);
+                echo.leave(`App.Models.User.${currentUser.id}`);
+            };
+        }
+
+        const interval = setInterval(fetchNotifications, 60000); // Poll every minute as backup
         return () => clearInterval(interval);
-    }, []);
+    }, [currentUser]);
 
     const handleMarkAsRead = async (id: string) => {
         try {

@@ -4,6 +4,8 @@ namespace App\Observers;
 
 use App\Models\Task;
 use App\Models\Stage;
+use App\Models\User;
+use App\Notifications\TaskCompletedNotification;
 use Illuminate\Support\Facades\Log;
 
 class TaskObserver
@@ -126,6 +128,38 @@ class TaskObserver
                     $parent->update(['user_status' => 'complete']);
                 }
             }
+        }
+
+        // Send notification if stage changed or completed
+        // We check if project_stage_id was changed in this update cycle
+        // Note: 'updating' runs before DB update, 'updated' runs after.
+        // But 'getChanges()' in 'updated' should show what changed.
+        if ($task->wasChanged('project_stage_id')) {
+            $newStage = Stage::find($task->project_stage_id);
+            $stageName = $newStage ? $newStage->title : 'Unknown Stage';
+            
+            // Current user who performed the action (if available in request/auth)
+            // Since this is an observer, Auth::user() usually works if the action was triggered by an HTTP request
+             $user = auth()->user();
+             if (!$user && $task->assignee_id) {
+                 // Fallback if no auth user (e.g. queue job), though for now we assume interactive
+                 $user = User::find($task->assignee_id); 
+             }
+             
+             if ($user) {
+                 // Get Admins and Team Leads
+                 // Ideally filter by project department if applicable, but for now sends to all relevant roles
+                 $recipients = User::whereIn('role', ['admin', 'team-lead'])->get();
+                 
+                 foreach ($recipients as $recipient) {
+                     // Don't notify self? Optional.
+                     // if ($recipient->id === $user->id) continue;
+                     
+                     $recipient->notify(new TaskCompletedNotification($task, $user, $stageName));
+                 }
+                 
+                 Log::info("Sent task movement notifications for task {$task->id} to " . $recipients->count() . " users.");
+             }
         }
     }
 }
