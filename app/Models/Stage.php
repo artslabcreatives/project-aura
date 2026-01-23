@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Scout\Searchable;
 
 class Stage extends Model
 {
@@ -28,6 +29,21 @@ class Stage extends Model
     protected $casts = [
         'is_review_stage' => 'boolean',
     ];
+
+	/**
+	 * Get the indexable data array for the model.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toSearchableArray()
+	{
+		return array_merge($this->toArray(),[
+			'id' => (string) $this->id,
+			'title' => $this->title,
+			'type' => $this->type,
+			'created_at' => $this->created_at->timestamp,
+		]);
+	}
 
     /**
      * Get the project that owns the stage.

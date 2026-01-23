@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Laravel\Scout\Searchable;
 
 class RevisionHistory extends Model
 {
@@ -22,6 +23,20 @@ class RevisionHistory extends Model
         'requested_at' => 'datetime',
         'resolved_at' => 'datetime',
     ];
+
+	/**
+	 * Get the indexable data array for the model.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toSearchableArray()
+	{
+		return array_merge($this->toArray(),[
+			'id' => (string) $this->id,
+			'comment' => $this->comment,
+			'created_at' => $this->created_at->timestamp,
+		]);
+	}
 
     /**
      * Get the task that owns the revision history.

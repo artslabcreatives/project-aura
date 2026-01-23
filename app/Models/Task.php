@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Scout\Searchable;
 
 class Task extends Model
 {
@@ -40,6 +41,23 @@ class Task extends Model
         'completed_at' => 'datetime',
         'is_in_specific_stage' => 'boolean',
     ];
+
+	/**
+	 * Get the indexable data array for the model.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toSearchableArray()
+	{
+		return array_merge($this->toArray(),[
+			'id' => (string) $this->id,
+			'title' => $this->title,
+			'description' => $this->description,
+			'priority' => $this->priority,
+			'tags' => $this->tags,
+			'created_at' => $this->created_at->timestamp,
+		]);
+	}
 
     /**
      * Get the project that owns the task.

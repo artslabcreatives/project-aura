@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Laravel\Scout\Searchable;
 
 class HistoryEntry extends Model
 {
@@ -24,6 +25,21 @@ class HistoryEntry extends Model
         'timestamp' => 'datetime',
         'details' => 'array',
     ];
+
+	/**
+	 * Get the indexable data array for the model.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toSearchableArray()
+	{
+		return array_merge($this->toArray(),[
+			'id' => (string) $this->id,
+			'action' => $this->action,
+			'details' => $this->details,
+			'created_at' => $this->created_at->timestamp,
+		]);
+	}
 
     /**
      * Boot the model.

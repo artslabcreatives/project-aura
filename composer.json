@@ -15,9 +15,11 @@
 		"laravel/mcp": "^0.4.0",
 		"laravel/reverb": "^1.7",
 		"laravel/sanctum": "^4.0",
+		"laravel/scout": "^10.23",
 		"laravel/slack-notification-channel": "^3.7",
 		"laravel/tinker": "^2.8",
-		"spatie/laravel-backup": "^9.3"
+		"spatie/laravel-backup": "^9.3",
+		"typesense/typesense-php": "^5.2"
 	},
 	"require-dev": {
 		"fakerphp/faker": "^1.9.1",
