@@ -25,6 +25,7 @@ import { NotificationsPopover } from "@/components/NotificationsPopover";
 import { Bug } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ReportIssueDialog } from "@/components/ReportIssueDialog";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const { open } = useSidebar();
@@ -50,6 +51,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 				<header className={`sticky top-0 z-40 h-16 border-b border-border/50 flex items-center justify-between px-6 bg-card/80 backdrop-blur-md shadow-sm transition-[padding] duration-200 ${open ? 'pr-12' : ''}`}>
 					<div className="flex items-center gap-4">
 						<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
+						<GlobalSearch />
 					</div>
 					<div className="flex items-center gap-3">
 						<ThemeToggle />
