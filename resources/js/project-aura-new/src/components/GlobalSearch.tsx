@@ -1,19 +1,17 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
     Command,
     CommandInput,
     CommandList,
     CommandEmpty,
-    CommandGroup,
     CommandItem,
 } from "@/components/ui/command";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, Folder, CheckSquare, Layers, Users, FileText } from "lucide-react";
+import { Search, Loader2, FileText, History } from "lucide-react";
 import { api } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { useDebounce } from "@/hooks/use-debounce";
-import { cn } from "@/lib/utils";
 
 export const GlobalSearch = () => {
     const [open, setOpen] = useState(false);
@@ -21,6 +19,7 @@ export const GlobalSearch = () => {
     const debouncedQuery = useDebounce(query, 300);
     const [results, setResults] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -34,6 +33,38 @@ export const GlobalSearch = () => {
         return () => document.removeEventListener("keydown", down);
     }, []);
 
+    // Load history on mount
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("aura_search_history_text");
+            if (raw) {
+                setRecentSearches(JSON.parse(raw));
+            }
+        } catch (e) {
+            console.error("Failed to load history", e);
+        }
+    }, []);
+
+    const addToHistory = (searchTerm: string) => {
+        if (!searchTerm || !searchTerm.trim()) return;
+        const term = searchTerm.trim();
+        try {
+            const raw = localStorage.getItem("aura_search_history_text");
+            let history: string[] = raw ? JSON.parse(raw) : [];
+            // Remove duplicates
+            history = history.filter((h) => h !== term);
+            // Add to top
+            history.unshift(term);
+            // Cap at 5
+            if (history.length > 5) history = history.slice(0, 5);
+
+            localStorage.setItem("aura_search_history_text", JSON.stringify(history));
+            setRecentSearches(history);
+        } catch (e) {
+            console.error("Failed to save history", e);
+        }
+    };
+
     useEffect(() => {
         const search = async () => {
             if (!debouncedQuery) {
@@ -46,6 +77,7 @@ export const GlobalSearch = () => {
                 setResults(data);
             } catch (error) {
                 console.error("Search error:", error);
+                setResults(null);
             } finally {
                 setLoading(false);
             }
@@ -54,6 +86,7 @@ export const GlobalSearch = () => {
     }, [debouncedQuery]);
 
     const handleSelect = (category: string, item: any) => {
+        addToHistory(query);
         setOpen(false);
         switch (category) {
             case 'projects':
@@ -107,17 +140,40 @@ export const GlobalSearch = () => {
                                 ) : (
                                     <div className="flex flex-col items-center gap-2 opacity-60">
                                         <Search className="h-10 w-10" />
-                                        <p>No results found for "{query}"</p>
+                                        <p>{query ? `No results found for "${query}"` : "Type to search..."}</p>
                                     </div>
                                 )}
                             </CommandEmpty>
 
-                            {!loading && results && (
+                            {/* Recent Searches (Text History) */}
+                            {!query && recentSearches.length > 0 && (
+                                <div className="space-y-3">
+                                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                                        Recent Searches
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2 px-1">
+                                        {recentSearches.map((term, index) => (
+                                            <CommandItem
+                                                key={`history-${index}`}
+                                                value={term}
+                                                onSelect={() => setQuery(term)}
+                                                className="flex-none inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 text-secondary-foreground hover:bg-secondary cursor-pointer transition-all aria-selected:bg-blue-600 aria-selected:text-white group"
+                                            >
+                                                <History className="h-3.5 w-3.5 opacity-70 group-aria-selected:text-white" />
+                                                <span className="text-sm font-medium">{term}</span>
+                                            </CommandItem>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Actual Search Results */}
+                            {!loading && results && debouncedQuery && (
                                 <>
                                     {/* Tasks Group */}
                                     {results.tasks?.length > 0 && (
                                         <div className="space-y-4">
-                                            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 px-1">Tasks Search Result</h3>
+                                            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 px-1">Tasks</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                 {results.tasks.map((task: any) => (
                                                     <CommandItem
@@ -146,7 +202,6 @@ export const GlobalSearch = () => {
                                                                     {task.title}
                                                                 </div>
 
-                                                                {/* Placeholder for 'Merged Result' from wireframe if needed, using Priority/Status for now */}
                                                                 <div className="bg-blue-600/10 text-blue-700 dark:text-blue-300 p-2 rounded-md text-xs font-medium text-center">
                                                                     Status: {task.priority || "Normal"}
                                                                 </div>
@@ -161,12 +216,15 @@ export const GlobalSearch = () => {
                                     {/* Attachments Group */}
                                     {results.task_attachments?.length > 0 && (
                                         <div className="space-y-4">
-                                            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 px-1">Files Attachments</h3>
+                                            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 px-1">Files</h3>
                                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                                 {results.task_attachments.map((file: any) => (
                                                     <CommandItem
                                                         key={`file-${file.id}`}
-                                                        onSelect={() => window.open(file.url || file.path, '_blank')}
+                                                        onSelect={() => {
+                                                            addToHistory(query);
+                                                            window.open(file.url || file.path, '_blank');
+                                                        }}
                                                         className="block p-0 aria-selected:bg-transparent data-[selected=true]:bg-transparent"
                                                     >
                                                         <div className="flex flex-col items-center gap-2 group cursor-pointer">
@@ -191,7 +249,7 @@ export const GlobalSearch = () => {
                                     {/* Projects Group */}
                                     {results.projects?.length > 0 && (
                                         <div className="space-y-4">
-                                            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 px-1">Project</h3>
+                                            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 px-1">Projects</h3>
                                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                                 {results.projects.map((project: any) => (
                                                     <CommandItem

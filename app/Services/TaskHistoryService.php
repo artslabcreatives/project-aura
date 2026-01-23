@@ -18,6 +18,7 @@ class TaskHistoryService
         
         $action = $newStage && $newStage->is_review_stage ? 'moved_to_review_stage' : 'stage_changed';
         
+        // Populate both incoming and outgoing, even if same
         TaskHistory::create([
             'action' => $action,
             'details' => sprintf(
@@ -26,8 +27,10 @@ class TaskHistoryService
                 $newStage?->title ?? 'Unknown'
             ),
             'previous_details' => [
-                'stage_id' => $oldStageId,
-                'stage_title' => $oldStage?->title,
+                'old_stage_id' => $oldStageId,
+                'old_stage_title' => $oldStage?->title,
+                'new_stage_id' => $newStageId,
+                'new_stage_title' => $newStage?->title,
             ],
             'incoming_stage_id' => $oldStageId,
             'outgoing_stage_id' => $newStageId,
@@ -58,13 +61,17 @@ class TaskHistoryService
             ),
         };
         
+        // Populate both incoming and outgoing, even if same
         TaskHistory::create([
             'action' => $action,
             'details' => $details,
             'previous_details' => [
-                'assignee_id' => $oldAssigneeId,
-                'assignee_name' => $oldAssignee?->name,
-                'assignee_email' => $oldAssignee?->email,
+                'old_assignee_id' => $oldAssigneeId,
+                'old_assignee_name' => $oldAssignee?->name,
+                'old_assignee_email' => $oldAssignee?->email,
+                'new_assignee_id' => $newAssigneeId,
+                'new_assignee_name' => $newAssignee?->name,
+                'new_assignee_email' => $newAssignee?->email,
             ],
             'incoming_user_id' => $oldAssigneeId,
             'outgoing_user_id' => $newAssigneeId,
@@ -84,7 +91,8 @@ class TaskHistoryService
             'action' => 'status_changed',
             'details' => sprintf('Status changed from "%s" to "%s"', $oldStatus, $newStatus),
             'previous_details' => [
-                'status' => $oldStatus,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
             ],
             'task_id' => $task->id,
             'user_id' => $userId ?? auth()->id(),
@@ -110,7 +118,9 @@ class TaskHistoryService
             }
             
             $details[] = sprintf('%s changed', ucfirst(str_replace('_', ' ', $attribute)));
-            $previousDetails[$attribute] = $oldValue;
+            // Store both old and new values for complete change tracking
+            $previousDetails['old_' . $attribute] = $oldValue;
+            $previousDetails['new_' . $attribute] = $newValue;
         }
         
         if (empty($details)) {
@@ -175,8 +185,10 @@ class TaskHistoryService
             'action' => 'completed',
             'details' => 'Task marked as complete',
             'previous_details' => [
-                'completed_at' => $task->getOriginal('completed_at'),
-                'user_status' => $task->getOriginal('user_status'),
+                'old_completed_at' => $task->getOriginal('completed_at'),
+                'new_completed_at' => $task->completed_at,
+                'old_user_status' => $task->getOriginal('user_status'),
+                'new_user_status' => $task->user_status,
             ],
             'task_id' => $task->id,
             'user_id' => $userId ?? auth()->id(),
@@ -209,8 +221,13 @@ class TaskHistoryService
             'action' => 'archived',
             'details' => 'Task archived',
             'previous_details' => [
-                'archived_at' => $task->getOriginal('archived_at'),
+                'old_archived_at' => $task->getOriginal('archived_at'),
+                'new_archived_at' => now(),
+                'archived_from_stage_id' => $task->project_stage_id,
+                'archived_from_assignee_id' => $task->assignee_id,
             ],
+            'incoming_stage_id' => $task->project_stage_id,
+            'incoming_user_id' => $task->assignee_id,
             'task_id' => $task->id,
             'user_id' => $userId ?? auth()->id(),
         ]);
@@ -238,7 +255,9 @@ class TaskHistoryService
      */
     public function trackChanges(Task $task, ?int $userId = null): void
     {
-        $changes = $task->getDirty();
+        // Use getChanges() instead of getDirty() since this is called in the 'updated' event
+        // getDirty() only works before save, getChanges() returns what was actually changed
+        $changes = $task->getChanges();
         
         // Track stage change
         if (isset($changes['project_stage_id'])) {
