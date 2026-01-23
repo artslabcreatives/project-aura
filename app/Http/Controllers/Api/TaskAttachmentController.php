@@ -191,4 +191,54 @@ class TaskAttachmentController extends Controller
         $taskAttachment->delete();
         return response()->json(null, 204);
     }
+
+    #[OA\Get(
+        path: "/task-attachments/{id}/download",
+        summary: "Download or track download of an attachment",
+        security: [["bearerAuth" => []]],
+        tags: ["Task Attachments"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Download tracked"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Attachment not found")
+        ]
+    )]
+    public function download(TaskAttachment $taskAttachment): JsonResponse
+    {
+        $task = $taskAttachment->task;
+        
+        if ($task) {
+            // Track the download in task history
+            \App\Models\TaskHistory::create([
+                'action' => 'attachment_downloaded',
+                'details' => sprintf(
+                    'Attachment "%s" downloaded by %s',
+                    $taskAttachment->name ?? 'Unnamed attachment',
+                    auth()->user()?->name ?? 'Unknown user'
+                ),
+                'previous_details' => [
+                    'attachment_id' => $taskAttachment->id,
+                    'attachment_name' => $taskAttachment->name,
+                    'attachment_url' => $taskAttachment->url,
+                    'attachment_type' => $taskAttachment->type,
+                ],
+                'task_id' => $task->id,
+                'user_id' => auth()->id(),
+            ]);
+        }
+        
+        return response()->json([
+            'message' => 'Download tracked',
+            'url' => $taskAttachment->url,
+            'name' => $taskAttachment->name,
+        ]);
+    }
 }

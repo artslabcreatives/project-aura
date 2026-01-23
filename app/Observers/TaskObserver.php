@@ -3,15 +3,32 @@
 namespace App\Observers;
 
 use App\Models\Task;
+use App\Models\TaskHistory;
 use App\Models\Stage;
 use App\Models\User;
 use App\Notifications\TaskCompletedNotification;
 use App\Notifications\TaskReviewNeededNotification;
 use App\Notifications\TaskStageChangedNotification;
+use App\Services\TaskHistoryService;
 use Illuminate\Support\Facades\Log;
 
 class TaskObserver
 {
+    protected TaskHistoryService $historyService;
+
+    public function __construct(TaskHistoryService $historyService)
+    {
+        $this->historyService = $historyService;
+    }
+
+    /**
+     * Handle the Task "created" event.
+     */
+    public function created(Task $task): void
+    {
+        $this->historyService->trackTaskCreated($task);
+    }
+
     /**
      * Handle the Task "updating" event.
      * This runs before the update is saved to the database.
@@ -111,6 +128,9 @@ class TaskObserver
      */
     public function updated(Task $task): void
     {
+        // Track all changes using the history service
+        $this->historyService->trackChanges($task);
+
         // Log for debugging purposes
         Log::debug("Task {$task->id} updated", [
             'status' => $task->user_status,
@@ -206,5 +226,24 @@ class TaskObserver
                 }
             }
         }
+    }
+
+    /**
+     * Handle the Task "deleted" event.
+     */
+    public function deleted(Task $task): void
+    {
+        // If soft deletes are enabled, this could be considered archiving
+        if (method_exists($task, 'isForceDeleting') && !$task->isForceDeleting()) {
+            $this->historyService->trackTaskArchived($task);
+        }
+    }
+
+    /**
+     * Handle the Task "restored" event.
+     */
+    public function restored(Task $task): void
+    {
+        $this->historyService->trackTaskRestored($task);
     }
 }
