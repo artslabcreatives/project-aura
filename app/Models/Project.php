@@ -11,6 +11,7 @@ use Laravel\Scout\Searchable;
 class Project extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = [
         'name',

@@ -10,6 +10,7 @@ use Laravel\Scout\Searchable;
 class RevisionHistory extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = [
         'task_id',

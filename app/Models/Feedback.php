@@ -7,6 +7,7 @@ use Laravel\Scout\Searchable;
 
 class Feedback extends Model
 {
+	use Searchable;
     protected $fillable = [
         'user_id',
         'description',

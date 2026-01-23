@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Search;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 use App\Models\Task;
 use App\Models\Tag;
@@ -21,10 +22,66 @@ use App\Models\RevisionHistory;
 class SearchController extends Controller
 {
 
-	/**
-     * Search all models, include relations, and support cross-model filters.
-     */
-    public function searchAllWithRelations(Request $request)
+	#[OA\Get(
+        path: "/search/all-with-relations",
+        summary: "Search all models with relations and cross-model filters",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                description: "Search query string",
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
+                name: "filters[project_name]",
+                in: "query",
+                required: false,
+                description: "Filter tasks by project name",
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
+                name: "filters[tag]",
+                in: "query",
+                required: false,
+                description: "Filter tasks by tag",
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
+                name: "filters[department_name]",
+                in: "query",
+                required: false,
+                description: "Filter projects by department name",
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Search results with relations",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "tasks", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "projects", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "tags", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "stages", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "project_groups", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "task_comments", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "task_attachments", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "history_entries", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "departments", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "feedback", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "suggested_tasks", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "revision_histories", type: "array", items: new OA\Items(type: "object"))
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
+	public function searchAllWithRelations(Request $request)
     {
         $query = $request->input('q');
         $filters = $request->input('filters', []);
@@ -110,9 +167,42 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
-    /**
-     * Search all models and return grouped results.
-     */
+    #[OA\Get(
+        path: "/search/all",
+        summary: "Search all models and return grouped results",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                description: "Search query string",
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
+                name: "filters",
+                in: "query",
+                required: false,
+                description: "Optional filters (JSON)",
+                schema: new OA\Schema(type: "object")
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Grouped search results",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "tasks", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "projects", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "tags", type: "array", items: new OA\Items(type: "object"))
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchAll(Request $request)
     {
         $query = $request->input('q');
@@ -138,7 +228,36 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
-    // Individual search endpoints for each model
+    #[OA\Get(
+        path: "/search/tasks",
+        summary: "Search tasks with filters",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
+                name: "filters[is_in_specific_stage]",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "boolean")
+            ),
+            new OA\Parameter(
+                name: "filters[tag]",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchTasks(Request $request)
     {
         $query = $request->input('q');
@@ -161,6 +280,24 @@ class SearchController extends Controller
         return response()->json($results->values());
     }
 
+    #[OA\Get(
+        path: "/search/tags",
+        summary: "Search tags",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchTags(Request $request)
     {
         $query = $request->input('q');
@@ -170,6 +307,30 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/projects",
+        summary: "Search projects with filters",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
+                name: "filters[is_archived]",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "boolean")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchProjects(Request $request)
     {
         $query = $request->input('q');
@@ -182,6 +343,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/task-comments",
+        summary: "Search task comments",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchTaskComments(Request $request)
     {
         $query = $request->input('q');
@@ -191,6 +370,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/project-groups",
+        summary: "Search project groups",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchProjectGroups(Request $request)
     {
         $query = $request->input('q');
@@ -200,6 +397,30 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/stages",
+        summary: "Search stages with filters",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
+                name: "filters[is_review_stage]",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "boolean")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchStages(Request $request)
     {
         $query = $request->input('q');
@@ -212,6 +433,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/task-attachments",
+        summary: "Search task attachments",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchTaskAttachments(Request $request)
     {
         $query = $request->input('q');
@@ -221,6 +460,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/history-entries",
+        summary: "Search history entries",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchHistoryEntries(Request $request)
     {
         $query = $request->input('q');
@@ -230,6 +487,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/departments",
+        summary: "Search departments",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchDepartments(Request $request)
     {
         $query = $request->input('q');
@@ -239,6 +514,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/feedback",
+        summary: "Search feedback",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchFeedback(Request $request)
     {
         $query = $request->input('q');
@@ -248,6 +541,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/suggested-tasks",
+        summary: "Search suggested tasks",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchSuggestedTasks(Request $request)
     {
         $query = $request->input('q');
@@ -257,6 +568,24 @@ class SearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: "/search/revision-histories",
+        summary: "Search revision histories",
+        security: [["bearerAuth" => []]],
+        tags: ["Search"],
+        parameters: [
+            new OA\Parameter(
+                name: "q",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Search results"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchRevisionHistories(Request $request)
     {
         $query = $request->input('q');

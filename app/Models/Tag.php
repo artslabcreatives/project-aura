@@ -7,9 +7,9 @@ use Laravel\Scout\Searchable;
 
 class Tag extends Model
 {
-    protected $fillable = ['name', 'department_id'];
+	use Searchable;
 
-	
+    protected $fillable = ['name', 'department_id'];
 
 	/**
 	 * Get the indexable data array for the model.

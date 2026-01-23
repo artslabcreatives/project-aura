@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\StageController;
 use App\Http\Controllers\Api\TaskAttachmentController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\Search\SearchController;
+use App\Http\Controllers\Api\Search\SearchIndexController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -59,4 +61,34 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/notifications/{id}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
     Route::apiResource('feedback', \App\Http\Controllers\Api\FeedbackController::class);
     Route::apiResource('tags', \App\Http\Controllers\Api\TagController::class);
+
+    // Search endpoints
+    Route::get('/search/all-with-relations', [SearchController::class, 'searchAllWithRelations']);
+    Route::get('/search/all', [SearchController::class, 'searchAll']);
+    Route::get('/search/tasks', [SearchController::class, 'searchTasks']);
+    Route::get('/search/tags', [SearchController::class, 'searchTags']);
+    Route::get('/search/projects', [SearchController::class, 'searchProjects']);
+    Route::get('/search/task-comments', [SearchController::class, 'searchTaskComments']);
+    Route::get('/search/project-groups', [SearchController::class, 'searchProjectGroups']);
+    Route::get('/search/stages', [SearchController::class, 'searchStages']);
+    Route::get('/search/task-attachments', [SearchController::class, 'searchTaskAttachments']);
+    Route::get('/search/history-entries', [SearchController::class, 'searchHistoryEntries']);
+    Route::get('/search/departments', [SearchController::class, 'searchDepartments']);
+    Route::get('/search/feedback', [SearchController::class, 'searchFeedback']);
+    Route::get('/search/suggested-tasks', [SearchController::class, 'searchSuggestedTasks']);
+    Route::get('/search/revision-histories', [SearchController::class, 'searchRevisionHistories']);
+
+    // Search index trigger endpoints
+    Route::post('/search/index/tasks', [SearchIndexController::class, 'indexTasks']);
+    Route::post('/search/index/tags', [SearchIndexController::class, 'indexTags']);
+    Route::post('/search/index/projects', [SearchIndexController::class, 'indexProjects']);
+    Route::post('/search/index/task-comments', [SearchIndexController::class, 'indexTaskComments']);
+    Route::post('/search/index/project-groups', [SearchIndexController::class, 'indexProjectGroups']);
+    Route::post('/search/index/stages', [SearchIndexController::class, 'indexStages']);
+    Route::post('/search/index/task-attachments', [SearchIndexController::class, 'indexTaskAttachments']);
+    Route::post('/search/index/history-entries', [SearchIndexController::class, 'indexHistoryEntries']);
+    Route::post('/search/index/departments', [SearchIndexController::class, 'indexDepartments']);
+    Route::post('/search/index/feedback', [SearchIndexController::class, 'indexFeedback']);
+    Route::post('/search/index/suggested-tasks', [SearchIndexController::class, 'indexSuggestedTasks']);
+    Route::post('/search/index/revision-histories', [SearchIndexController::class, 'indexRevisionHistories']);
 });

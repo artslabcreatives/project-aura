@@ -10,6 +10,7 @@ use Laravel\Scout\Searchable;
 class TaskAttachment extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = [
         'task_id',

@@ -8,12 +8,39 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
 {
-    /**
-     * Login user and return bearer token
-     */
+    #[OA\Post(
+        path: "/login",
+        summary: "Login user",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["email", "password"],
+                properties: [
+                    new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com"),
+                    new OA\Property(property: "password", type: "string", format: "password", example: "password123")
+                ]
+            )
+        ),
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Successful login",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Login successful"),
+                        new OA\Property(property: "user", type: "object"),
+                        new OA\Property(property: "token", type: "string", example: "1|abcdef123456...")
+                    ]
+                )
+            ),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function login(Request $request): JsonResponse
     {
         $request->validate([
@@ -39,9 +66,24 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Logout user - revoke current token
-     */
+    #[OA\Post(
+        path: "/logout",
+        summary: "Logout user",
+        security: [["bearerAuth" => []]],
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Successful logout",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Logout successful")
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function logout(Request $request): JsonResponse
     {
         // Revoke the current token
@@ -52,17 +94,58 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Get authenticated user
-     */
+    #[OA\Get(
+        path: "/user",
+        summary: "Get authenticated user",
+        security: [["bearerAuth" => []]],
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "User data",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "id", type: "integer"),
+                        new OA\Property(property: "name", type: "string"),
+                        new OA\Property(property: "email", type: "string"),
+                        new OA\Property(property: "department", type: "object")
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function user(Request $request): JsonResponse
     {
         return response()->json($request->user()->load('department'));
     }
 
-    /**
-     * Check if email exists
-     */
+    #[OA\Post(
+        path: "/check-email",
+        summary: "Check if email exists",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["email"],
+                properties: [
+                    new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com")
+                ]
+            )
+        ),
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Email exists",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Email exists")
+                    ]
+                )
+            ),
+            new OA\Response(response: 404, description: "Email not found")
+        ]
+    )]
     public function checkEmail(Request $request): JsonResponse
     {
         $request->validate(['email' => 'required|email']);
@@ -76,9 +159,33 @@ class AuthController extends Controller
         return response()->json(['message' => 'Email exists']);
     }
 
-    /**
-     * Send OTP for password reset
-     */
+    #[OA\Post(
+        path: "/forgot-password",
+        summary: "Send OTP for password reset",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["email"],
+                properties: [
+                    new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com")
+                ]
+            )
+        ),
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Verification code sent",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Verification code sent")
+                    ]
+                )
+            ),
+            new OA\Response(response: 422, description: "Validation error"),
+            new OA\Response(response: 500, description: "Failed to send code")
+        ]
+    )]
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate(['email' => 'required|email|exists:users,email']);
@@ -107,9 +214,34 @@ class AuthController extends Controller
         return response()->json(['message' => 'Verification code sent']);
     }
 
-    /**
-     * Verify OTP
-     */
+    #[OA\Post(
+        path: "/verify-otp",
+        summary: "Verify OTP code",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["email", "otp"],
+                properties: [
+                    new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com"),
+                    new OA\Property(property: "otp", type: "string", example: "123456", minLength: 6, maxLength: 6)
+                ]
+            )
+        ),
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Code verified successfully",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Code verified successfully")
+                    ]
+                )
+            ),
+            new OA\Response(response: 400, description: "Invalid or expired code"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function verifyOtp(Request $request): JsonResponse
     {
         $request->validate([
@@ -126,9 +258,35 @@ class AuthController extends Controller
         return response()->json(['message' => 'Code verified successfully']);
     }
 
-    /**
-     * Reset Password
-     */
+    #[OA\Post(
+        path: "/reset-password",
+        summary: "Reset password with OTP",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["email", "otp", "password"],
+                properties: [
+                    new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com"),
+                    new OA\Property(property: "otp", type: "string", example: "123456", minLength: 6, maxLength: 6),
+                    new OA\Property(property: "password", type: "string", format: "password", example: "newpassword123", minLength: 8)
+                ]
+            )
+        ),
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Password reset successfully",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Password reset successfully")
+                    ]
+                )
+            ),
+            new OA\Response(response: 400, description: "Invalid or expired code"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate([

@@ -8,6 +8,8 @@ use Laravel\Scout\Searchable;
 
 class SuggestedTask extends Model
 {
+	use Searchable;
+	
     protected $fillable = [
         'project_id',
         'title',

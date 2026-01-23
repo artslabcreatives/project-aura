@@ -11,6 +11,7 @@ use Laravel\Scout\Searchable;
 class Stage extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = [
         'title',

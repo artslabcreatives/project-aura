@@ -9,6 +9,7 @@ use Laravel\Scout\Searchable;
 class TaskComment extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = ['task_id', 'user_id', 'comment'];
 

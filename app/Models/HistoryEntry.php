@@ -10,6 +10,7 @@ use Laravel\Scout\Searchable;
 class HistoryEntry extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = [
         'timestamp',
@@ -33,10 +34,17 @@ class HistoryEntry extends Model
 	 */
 	public function toSearchableArray()
 	{
+		$details = [];
+		if ($this->details && is_array($this->details)) {
+			foreach ($this->details as $key => $value) {
+				$details[] = is_array($value) ? json_encode($value) : (string) $value;
+			}
+		}
+		
 		return array_merge($this->toArray(),[
 			'id' => (string) $this->id,
 			'action' => $this->action,
-			'details' => $this->details,
+			'details' => $details,
 			'created_at' => $this->created_at->timestamp,
 		]);
 	}

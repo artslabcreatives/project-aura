@@ -7,12 +7,53 @@ use App\Models\Task;
 use App\Events\TaskUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use OpenApi\Attributes as OA;
 
 class TaskController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    #[OA\Get(
+        path: "/tasks",
+        summary: "List all tasks",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "project_id",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "integer")
+            ),
+            new OA\Parameter(
+                name: "assignee_id",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "integer")
+            ),
+            new OA\Parameter(
+                name: "user_status",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "string", enum: ["pending", "in-progress", "complete"])
+            ),
+            new OA\Parameter(
+                name: "priority",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "string", enum: ["low", "medium", "high"])
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "List of tasks",
+                content: new OA\JsonContent(
+                    type: "array",
+                    items: new OA\Items(type: "object")
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
@@ -42,9 +83,37 @@ class TaskController extends Controller
         return response()->json($tasks);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    #[OA\Post(
+        path: "/tasks",
+        summary: "Create a new task",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["title", "project_id"],
+                properties: [
+                    new OA\Property(property: "title", type: "string", example: "Design homepage"),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "project_id", type: "integer", example: 1),
+                    new OA\Property(property: "assignee_id", type: "integer", nullable: true),
+                    new OA\Property(property: "assignee_ids", type: "array", items: new OA\Items(type: "integer")),
+                    new OA\Property(property: "due_date", type: "string", format: "date", nullable: true),
+                    new OA\Property(property: "user_status", type: "string", enum: ["pending", "in-progress", "complete"], example: "pending"),
+                    new OA\Property(property: "project_stage_id", type: "integer", nullable: true),
+                    new OA\Property(property: "priority", type: "string", enum: ["low", "medium", "high"], example: "medium"),
+                    new OA\Property(property: "tags", type: "array", items: new OA\Items(type: "string")),
+                    new OA\Property(property: "estimated_hours", type: "number", nullable: true),
+                    new OA\Property(property: "parent_id", type: "integer", nullable: true)
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        responses: [
+            new OA\Response(response: 201, description: "Task created"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -120,17 +189,63 @@ class TaskController extends Controller
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']), 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
+    #[OA\Get(
+        path: "/tasks/{id}",
+        summary: "Get task by ID",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task details"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function show(Task $task): JsonResponse
     {
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments', 'assignedUsers']));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+    #[OA\Put(
+        path: "/tasks/{id}",
+        summary: "Update task",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "title", type: "string"),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "assignee_id", type: "integer", nullable: true),
+                    new OA\Property(property: "assignee_ids", type: "array", items: new OA\Items(type: "integer")),
+                    new OA\Property(property: "due_date", type: "string", format: "date", nullable: true),
+                    new OA\Property(property: "user_status", type: "string", enum: ["pending", "in-progress", "complete"]),
+                    new OA\Property(property: "project_stage_id", type: "integer", nullable: true),
+                    new OA\Property(property: "priority", type: "string", enum: ["low", "medium", "high"])
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task updated"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function update(Request $request, Task $task): JsonResponse
     {
         $validated = $request->validate([
@@ -309,9 +424,25 @@ class TaskController extends Controller
         }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    #[OA\Delete(
+        path: "/tasks/{id}",
+        summary: "Delete task",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 204, description: "Task deleted"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function destroy(Task $task): JsonResponse
     {
         $projectId = $task->project_id; // Capture for event
@@ -332,9 +463,25 @@ class TaskController extends Controller
         return response()->json(null, 204);
     }
 
-    /**
-     * Start the task (move to designated stage).
-     */
+    #[OA\Post(
+        path: "/tasks/{id}/start",
+        summary: "Start a task (move to designated stage)",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task started"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function start(Request $request, Task $task): JsonResponse
     {
         \Illuminate\Support\Facades\DB::transaction(function () use ($task) {
@@ -380,9 +527,35 @@ class TaskController extends Controller
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
     }
 
-    /**
-     * Complete the task with optional comments and resources.
-     */
+    #[OA\Post(
+        path: "/tasks/{id}/complete",
+        summary: "Complete a task with optional comments and attachments",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "user_status", type: "string", enum: ["complete"], example: "complete"),
+                    new OA\Property(property: "comment", type: "string", nullable: true),
+                    new OA\Property(property: "links", type: "array", items: new OA\Items(type: "string", format: "url")),
+                    new OA\Property(property: "files", type: "array", items: new OA\Items(type: "string", format: "binary"))
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task completed"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function complete(Request $request, Task $task): JsonResponse
     {
         $validated = $request->validate([
