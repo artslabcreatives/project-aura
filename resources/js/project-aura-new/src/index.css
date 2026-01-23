@@ -365,26 +365,26 @@
 		}
 	}
 
-	/* Select Component - Force visible selected text with dark color */
+	/* Select Component - Force visible selected text with correct theme color */
 	button[role="combobox"],
 	button[role="combobox"] *,
 	[data-radix-select-trigger],
 	[data-radix-select-trigger] * {
-		color: #1a1a1a !important;
+		color: hsl(var(--foreground)) !important;
 	}
 
 	button[role="combobox"]>span,
 	button[role="combobox"]>span>span,
 	[data-radix-select-trigger]>span,
 	[data-radix-select-trigger]>span>span {
-		color: #1a1a1a !important;
+		color: hsl(var(--foreground)) !important;
 		opacity: 1 !important;
 	}
 
-	/* Force dark text on select value */
+	/* Force theme color on select value */
 	[data-radix-select-trigger] span[style*="pointer-events"],
 	button[role="combobox"] span[style*="pointer-events"] {
-		color: #1a1a1a !important;
+		color: hsl(var(--foreground)) !important;
 		opacity: 1 !important;
 		display: inline-block !important;
 	}
@@ -392,11 +392,11 @@
 	/* Override any inline styles */
 	button[role="combobox"][style],
 	[data-radix-select-trigger][style] {
-		color: #1a1a1a !important;
+		color: hsl(var(--foreground)) !important;
 	}
 
 	/* Ensure placeholder is visible too */
 	[data-radix-select-viewport] {
-		color: #1a1a1a !important;
+		color: hsl(var(--foreground)) !important;
 	}
 }
