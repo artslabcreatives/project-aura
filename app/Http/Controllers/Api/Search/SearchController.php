@@ -85,9 +85,23 @@ class SearchController extends Controller
     {
         $query = $request->input('q');
         $filters = $request->input('filters', []);
+        $user = auth()->user();
+        
+        // Check if user is restricted (not admin)
+        $isRestricted = $user && $user->role !== 'admin';
+        $userDepartmentId = $user ? $user->department_id : null;
 
         // Tasks with relations and cross-model filters
         $tasks = Task::search($query)->get();
+        
+        // Filter by Department for restricted users
+        if ($isRestricted && $userDepartmentId) {
+            $tasks->load('project'); // Ensure project is loaded for filtering
+            $tasks = $tasks->filter(function ($task) use ($userDepartmentId) {
+                return $task->project && $task->project->department_id == $userDepartmentId;
+            });
+        }
+
         if (isset($filters['project_name'])) {
             $tasks = $tasks->filter(function ($task) use ($filters) {
                 return $task->project && str_contains(strtolower($task->project->name ?? ''), strtolower($filters['project_name']));
@@ -98,10 +112,19 @@ class SearchController extends Controller
                 return is_array($task->tags) && in_array($filters['tag'], $task->tags);
             });
         }
+        // Reload relations to ensure everything is fresh and consistent
         $tasks->load(['project', 'projectStage', 'startStage', 'previousStage', 'assignee', 'attachments', 'comments', 'assignees']);
 
         // Projects with relations
         $projects = Project::search($query)->get();
+        
+        // Filter Projects by Department
+        if ($isRestricted && $userDepartmentId) {
+            $projects = $projects->filter(function ($project) use ($userDepartmentId) {
+                return $project->department_id == $userDepartmentId;
+            });
+        }
+
         if (isset($filters['department_name'])) {
             $projects = $projects->filter(function ($project) use ($filters) {
                 return $project->department && str_contains(strtolower($project->department->name ?? ''), strtolower($filters['department_name']));
@@ -111,30 +134,74 @@ class SearchController extends Controller
 
         // Tags with department
         $tags = Tag::search($query)->get();
+        // Tags are usually department specific too ideally, or global
+        // If Tags have department_id, filter them
+        if ($isRestricted && $userDepartmentId) {
+             $tags = $tags->filter(function ($tag) use ($userDepartmentId) {
+                 // Check if tag has department_id or is global
+                 return empty($tag->department_id) || $tag->department_id == $userDepartmentId;
+             });
+        }
         $tags->load('department');
 
         // Stages with project
         $stages = Stage::search($query)->get();
+        if ($isRestricted && $userDepartmentId) {
+             $stages->load('project');
+             $stages = $stages->filter(function ($stage) use ($userDepartmentId) {
+                 return $stage->project && $stage->project->department_id == $userDepartmentId;
+             });
+        }
         $stages->load('project');
 
         // ProjectGroups with department and children
         $projectGroups = ProjectGroup::search($query)->get();
+        if ($isRestricted && $userDepartmentId) {
+             $projectGroups = $projectGroups->filter(function ($group) use ($userDepartmentId) {
+                 return $group->department_id == $userDepartmentId;
+             });
+        }
         $projectGroups->load(['department', 'projects', 'parent', 'children']);
 
         // TaskComments with task and user
         $taskComments = TaskComment::search($query)->get();
+        if ($isRestricted && $userDepartmentId) {
+             $taskComments->load('task.project');
+             $taskComments = $taskComments->filter(function ($comment) use ($userDepartmentId) {
+                 return $comment->task && $comment->task->project && $comment->task->project->department_id == $userDepartmentId;
+             });
+        }
         $taskComments->load(['task', 'user']);
 
         // TaskAttachments with task
         $taskAttachments = TaskAttachment::search($query)->get();
+        if ($isRestricted && $userDepartmentId) {
+             $taskAttachments->load('task.project');
+             $taskAttachments = $taskAttachments->filter(function ($attachment) use ($userDepartmentId) {
+                 return $attachment->task && $attachment->task->project && $attachment->task->project->department_id == $userDepartmentId;
+             });
+        }
         $taskAttachments->load('task');
 
         // HistoryEntries with user and project
         $historyEntries = HistoryEntry::search($query)->get();
+        // History entries might be trickier, filtering by project seems safest
+        if ($isRestricted && $userDepartmentId) {
+             $historyEntries->load('project');
+             $historyEntries = $historyEntries->filter(function ($entry) use ($userDepartmentId) {
+                 return $entry->project && $entry->project->department_id == $userDepartmentId;
+             });
+        }
         $historyEntries->load(['user', 'project']);
 
         // Departments with projects
         $departments = Department::search($query)->get();
+        // Probably only show their own department?
+        if ($isRestricted && $userDepartmentId) {
+             $departments = $departments->filter(function ($dept) use ($userDepartmentId) {
+                 return $dept->id == $userDepartmentId;
+             });
+        }
         $departments->load('projects');
 
         // Feedback with user
@@ -143,10 +210,22 @@ class SearchController extends Controller
 
         // SuggestedTasks with project
         $suggestedTasks = SuggestedTask::search($query)->get();
+        if ($isRestricted && $userDepartmentId) {
+             $suggestedTasks->load('project');
+             $suggestedTasks = $suggestedTasks->filter(function ($st) use ($userDepartmentId) {
+                 return $st->project && $st->project->department_id == $userDepartmentId;
+             });
+        }
         $suggestedTasks->load('project');
 
         // RevisionHistories with task and user
         $revisionHistories = RevisionHistory::search($query)->get();
+         if ($isRestricted && $userDepartmentId) {
+             $revisionHistories->load('task.project');
+             $revisionHistories = $revisionHistories->filter(function ($rh) use ($userDepartmentId) {
+                 return $rh->task && $rh->task->project && $rh->task->project->department_id == $userDepartmentId;
+             });
+        }
         $revisionHistories->load(['task', 'requestedBy']);
 
         $results = [
