@@ -32,12 +32,12 @@
                                     "email": {
                                         "type": "string",
                                         "format": "email",
-                                        "example": "user@example.com"
+                                        "example": "system@artslabcreatives.com"
                                     },
                                     "password": {
                                         "type": "string",
                                         "format": "password",
-                                        "example": "password123"
+                                        "example": "system@artslabcreatives"
                                     }
                                 },
                                 "type": "object"
