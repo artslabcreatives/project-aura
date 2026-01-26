@@ -48,7 +48,21 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
     );
   }).length;
 
-  const completed = tasks.filter((task) => task.userStatus === "complete" && task.projectStage !== null).length;
+  const completed = tasks.filter((task) => {
+    // Check if userStatus is complete
+    if (task.userStatus === "complete") return true;
+
+    // Also check if task is in a completed/archive project stage
+    if (projects && task.projectStage) {
+      const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
+      const stage = project?.stages.find(s => s.id === task.projectStage);
+      if (stage && ['complete', 'completed', 'archive'].includes(stage.title.toLowerCase())) {
+        return true;
+      }
+    }
+
+    return false;
+  }).length;
 
   const navigate = useNavigate();
 
