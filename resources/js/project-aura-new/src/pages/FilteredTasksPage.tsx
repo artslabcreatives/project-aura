@@ -84,27 +84,16 @@ export default function FilteredTasksPage() {
             if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
 
             // Apply role-based filtering first (same as Tasks.tsx/UserView.tsx basic logic)
-            // Ideally this should be shared, but mimicking simple assignment/project checks:
-            // For now, assuming API returns all tasks user has access to, or we filter simply:
-            const isAssigned =
-                task.assignee === currentUser?.name ||
-                (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser?.id)));
-            // Note: Team lead logic omitted for brevity in this specific user-centric view, logic can be added if needed.
-            // But usually "My Dashboard" implies tasks relevant to ME.
-            // If the user wants to see "Team's overdue tasks", that's different.
-            // Given the context of "My Dashboard", we usually start with assigned tasks.
-            // However, DashboardStats might be calculating based on ALL tasks passed to it.
-            // Let's verify DashboardStats source. It takes `tasks` prop.
-            // In UserView, tasks are filtered to user tasks. So we should maintain that.
-
-            // Replicate UserView filtering
-            if (currentUser) {
-                // Must be assigned to user (simplified check matching UserView)
+            // For Admin and Team Lead: show ALL tasks (not filtered by assignment)
+            // For regular users: show only their assigned tasks
+            if (currentUser && currentUser.role === 'user') {
+                // Must be assigned to user (for regular users only)
                 const isAssigned =
                     task.assignee === currentUser.name ||
                     (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
                 if (!isAssigned) return false;
             }
+            // Admin and team-lead see all tasks without assignment filtering
 
             // Now apply the specific category filter
             switch (filterType) {
