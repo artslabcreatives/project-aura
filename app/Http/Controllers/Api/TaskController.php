@@ -210,7 +210,7 @@ class TaskController extends Controller
     )]
     public function show(Task $task): JsonResponse
     {
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments', 'assignedUsers']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments', 'assignedUsers', 'taskHistories.user']));
     }
 
     #[OA\Put(

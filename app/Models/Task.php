@@ -155,6 +155,14 @@ class Task extends Model
     }
 
     /**
+     * Get the history entries for the task.
+     */
+    public function taskHistories(): HasMany
+    {
+        return $this->hasMany(TaskHistory::class)->orderBy('created_at', 'desc');
+    }
+
+    /**
      * Get the users assigned to the task.
      */
     public function assignedUsers()

@@ -42,6 +42,13 @@ function mapTask(raw: any): Task {
 			requestedAt: r.requested_at || r.created_at || new Date().toISOString(),
 			resolvedAt: r.resolved_at || undefined,
 		})) || [],
+		taskHistory: raw.task_histories?.map((h: any) => ({
+			id: String(h.id),
+			action: h.action,
+			details: h.details,
+			user: h.user ? { id: String(h.user.id), name: h.user.name } : undefined,
+			createdAt: h.created_at || new Date().toISOString(),
+		})) || [],
 		subtasks: raw.subtasks?.map(mapTask) || [],
 		parentId: raw.parent_id ? String(raw.parent_id) : null,
 	};

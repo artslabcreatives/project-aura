@@ -126,6 +126,8 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 	return <>{children}</>;
 };
 
+import TaskDetailsPage from "./pages/TaskDetailsPage";
+
 const App = () => (
 	<UserProvider>
 		<QueryClientProvider client={queryClient}>
@@ -137,6 +139,7 @@ const App = () => (
 						<Routes>
 							<Route path="/" element={<AppLayout><UserDashboard /></AppLayout>} />
 							<Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
+							<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
 							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
 							<Route path="/team" element={<AppLayout><Team /></AppLayout>} />
 							<Route path="/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />

@@ -18,6 +18,14 @@ export interface RevisionHistory {
 	resolvedAt?: string; // When user completed the revision
 }
 
+export interface TaskHistory {
+	id: string;
+	action: string;
+	details: string;
+	user?: { id: string; name: string };
+	createdAt: string;
+}
+
 export interface Task {
 	id: string;
 	title: string;
@@ -37,6 +45,7 @@ export interface Task {
 	isInSpecificStage?: boolean; // Whether task is in specific stage
 	revisionComment?: string; // Current/latest revision comment
 	revisionHistory?: RevisionHistory[]; // Array of all revision requests
+	taskHistory?: TaskHistory[]; // General task history (updates, moves, etc.)
 	previousStage?: string; // Store the stage before moving to Review (for revision workflow)
 	originalAssignee?: string; // Store the assignee who completed the task (for revision workflow)
 	completedAt?: string; // ISO 8601 date string
