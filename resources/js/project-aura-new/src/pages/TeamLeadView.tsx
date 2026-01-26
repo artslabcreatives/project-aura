@@ -8,6 +8,11 @@ import { Task, User } from "@/types/task";
 import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
 
+import { taskService } from "@/services/taskService";
+import { projectService } from "@/services/projectService";
+import { userService } from "@/services/userService";
+import { departmentService } from "@/services/departmentService";
+
 export default function TeamLeadView() {
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [projects, setProjects] = useState<Project[]>([]);
@@ -20,9 +25,9 @@ export default function TeamLeadView() {
 		const loadData = async () => {
 			try {
 				const [tasksData, projectsData, teamMembersData] = await Promise.all([
-					(await import("@/services/taskService")).taskService.getAll(),
-					(await import("@/services/projectService")).projectService.getAll(),
-					(await import("@/services/userService")).userService.getAll(),
+					taskService.getAll(),
+					projectService.getAll(),
+					userService.getAll(),
 				]);
 				setTasks(tasksData);
 				setProjects(projectsData);
@@ -113,7 +118,7 @@ export default function TeamLeadView() {
 	useEffect(() => {
 		const loadDepartments = async () => {
 			try {
-				const departmentsData = await (await import("@/services/departmentService")).departmentService.getAll();
+				const departmentsData = await departmentService.getAll();
 				setDepartments(departmentsData);
 			} catch {
 				setDepartments([]);

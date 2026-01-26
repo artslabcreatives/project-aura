@@ -10,6 +10,8 @@ import { isPast, isToday, isFuture, addDays, isTomorrow, isSameMonth } from "dat
 import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/use-user";
 
+import { taskService } from "@/services/taskService";
+
 export default function UserView() {
 	const { currentUser } = useUser();
 	const [tasks, setTasks] = useState<Task[]>([]);
@@ -21,7 +23,7 @@ export default function UserView() {
 			if (currentUser) {
 				try {
 					const [tasksData, projectsData] = await Promise.all([
-						(await import("@/services/taskService")).taskService.getAll(),
+						taskService.getAll(),
 						projectService.getAll()
 					]);
 

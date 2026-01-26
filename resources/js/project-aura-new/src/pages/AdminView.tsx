@@ -8,6 +8,9 @@ import { Task } from "@/types/task";
 import { Project } from "@/types/project";
 import { FeedbackList } from "@/components/FeedbackList";
 
+import { taskService } from "@/services/taskService";
+import { projectService } from "@/services/projectService";
+
 export default function AdminView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -18,8 +21,8 @@ export default function AdminView() {
     const loadData = async () => {
       try {
         const [tasksData, projectsData] = await Promise.all([
-          (await import("@/services/taskService")).taskService.getAll(),
-          (await import("@/services/projectService")).projectService.getAll()
+          taskService.getAll(),
+          projectService.getAll()
         ]);
 
         setProjects(projectsData);
