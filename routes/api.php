@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
+use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -92,4 +93,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/search/index/feedback', [SearchIndexController::class, 'indexFeedback']);
     Route::post('/search/index/suggested-tasks', [SearchIndexController::class, 'indexSuggestedTasks']);
     Route::post('/search/index/revision-histories', [SearchIndexController::class, 'indexRevisionHistories']);
+
+    // Mattermost magic link authentication
+    Route::get('/mattermost/magic-link', [MattermostAuthController::class, 'getMagicLink']);
+    Route::get('/mattermost/redirect', [MattermostAuthController::class, 'redirect']);
 });

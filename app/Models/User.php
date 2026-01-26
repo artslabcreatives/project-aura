@@ -34,6 +34,7 @@ class User extends Authenticatable implements FilamentUser
         'department_id',
         'status',
         'capacity_hours_per_day',
+        'mattermost_user_id',
     ];
 
     /**

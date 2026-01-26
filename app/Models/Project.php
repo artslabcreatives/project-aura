@@ -23,6 +23,7 @@ class Project extends Model
         'created_by',
         'project_group_id',
         'is_archived',
+        'mattermost_channel_id',
     ];
 
     protected $casts = [

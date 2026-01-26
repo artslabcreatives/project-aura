@@ -7,11 +7,13 @@ use App\Models\Task;
 use App\Models\TaskComment;
 use App\Models\TaskAttachment;
 use App\Models\Project;
+use App\Models\User;
 
 use App\Observers\TaskObserver;
 use App\Observers\TaskCommentObserver;
 use App\Observers\TaskAttachmentObserver;
 use App\Observers\ProjectObserver;
+use App\Observers\UserObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,5 +35,6 @@ class AppServiceProvider extends ServiceProvider
         TaskComment::observe(TaskCommentObserver::class);
         TaskAttachment::observe(TaskAttachmentObserver::class);
         Project::observe(ProjectObserver::class);
+        User::observe(UserObserver::class);
     }
 }

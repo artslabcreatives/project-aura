@@ -397,14 +397,6 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 									className="flex items-center gap-2 text-xs p-1 hover:bg-muted/50 rounded group/subtask cursor-pointer"
 									onClick={(e) => {
 										e.stopPropagation();
-										// Allow viewing details if clicking the text, OR toggle if clicking the radio?
-										// User requested "user side complete this subtask", implying quick action.
-										// Let's make the whole row toggle or just the radio?
-										// Usually clicking the row is View, clicking radio is Toggle.
-										// But the user said "click it and go to the page" for tasks. For subtasks, likely just completion.
-										// Let's effectively make the radio the primary toggle.
-										// If I want to allow viewing subtask (which is a Task), I should keep the row click as View?
-										// The current row click calls onViewSubtask.
 										if (onViewSubtask) onViewSubtask(subtask);
 									}}
 								>
@@ -420,8 +412,6 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 											// Toggle status
 											const newStatus: UserStatus = subtask.userStatus === 'complete' ? 'pending' : 'complete';
 											try {
-												// Optimistic UI update via parent callback would be best, 
-												// but we'll trigger the update in the callback
 
 												// Call API
 												await taskService.update(subtask.id, { userStatus: newStatus });

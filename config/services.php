@@ -31,4 +31,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'mattermost' => [
+        'url' => env('MATTERMOST_URL'),
+        'token' => env('MATTERMOST_TOKEN'),
+        'team_id' => env('MATTERMOST_TEAM_ID'),
+    ],
+
 ];
