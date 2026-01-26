@@ -11,6 +11,7 @@ import { taskService } from "@/services/taskService";
 
 export default function UserView() {
 	const { currentUser } = useUser();
+	const [statsTasks, setStatsTasks] = useState<Task[]>([]);
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [viewTask, setViewTask] = useState<Task | null>(null);
 	const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -24,7 +25,29 @@ export default function UserView() {
 						projectService.getAll()
 					]);
 
-					// Filter out system stages
+					// Helper to flatten tasks (recursive + unique)
+					const flattenTasks = (taskList: Task[]): Task[] => {
+						const flattened: Task[] = [];
+						const seenIds = new Set<string>();
+
+						const recurse = (items: Task[]) => {
+							for (const item of items) {
+								if (!seenIds.has(item.id)) {
+									seenIds.add(item.id);
+									flattened.push(item);
+									if (item.subtasks && item.subtasks.length > 0) {
+										recurse(item.subtasks);
+									}
+								}
+							}
+						};
+						recurse(taskList);
+						return flattened;
+					};
+
+					const allFlatTasks = flattenTasks(tasksData);
+
+					// Filter out system stages for Active Tasks (Calendar)
 					const forbiddenStageTitles = ['pending', 'suggested', 'suggested task', 'archive', 'completed', 'complete'];
 					const forbiddenStageIds = new Set<string>();
 					projectsData.forEach((p: Project) => {
@@ -40,7 +63,8 @@ export default function UserView() {
 						projectsData.filter((p: Project) => p.isArchived).map((p: Project) => p.id)
 					);
 
-					const userTasks = tasksData.filter((task: Task) => {
+					// Base Filter: Assigned to User & Not Archived Project
+					const allAssignedTasks = allFlatTasks.filter((task: Task) => {
 						// Exclude tasks from archived projects
 						if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
 
@@ -51,15 +75,36 @@ export default function UserView() {
 
 						if (!isAssigned) return false;
 
-						// Must not be in a forbidden stage
-						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
+						// Additional check: If it's a subtask, it might not have project info directly attached in some APIs,
+						// but usually it inherits or we can check parent. 
+						// For now assuming flattenTasks preserves task properties clearly.
 
 						return true;
 					});
 
-					setTasks(userTasks);
+					// Stats should show ALL assigned tasks (including pending/completed)
+					setStatsTasks(allAssignedTasks);
+
+					// Calendar/List should show only "Active" tasks (excluding system stages/completed/pending if desires)
+					// The user previously had 'pending' and 'complete' in forbidden.
+					// We keep that for the 'tasks' state which feeds the calendar.
+					const activeTasks = allAssignedTasks.filter((task: Task) => {
+						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
+						// Also filter by userStatus if needed to match previous logic
+						if (['complete', 'completed', 'pending', 'archive'].includes(task.userStatus)) {
+							// If the stage check didn't catch it (e.g. no stage ID), check status status
+							// We allow 'pending' status if it's NOT in a forbidden stage? 
+							// The original logic filtered out forbidden STAGES.
+							// Tasks often have 'pending' status but are in 'To Do' stage.
+							// If stage is forbidden (e.g. "Pending" stage), it's out.
+						}
+						return true;
+					});
+
+					setTasks(activeTasks);
 				} catch {
 					setTasks([]);
+					setStatsTasks([]);
 				}
 			}
 		};
@@ -88,7 +133,7 @@ export default function UserView() {
 				</div>
 			</div>
 
-			<DashboardStats tasks={tasks} />
+			<DashboardStats tasks={statsTasks} />
 
 			<div className="mt-8 mb-8">
 				<div className="flex items-center gap-2 mb-4">

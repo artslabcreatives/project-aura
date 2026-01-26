@@ -54,9 +54,35 @@ export default function FilteredTasksPage() {
     const filteredTasks = useMemo(() => {
         if (!filterType) return [];
 
+        // Helper to flatten tasks (recursive + unique)
+        const flattenTasks = (taskList: Task[]): Task[] => {
+            const flattened: Task[] = [];
+            const seenIds = new Set<string>();
+
+            const recurse = (items: Task[]) => {
+                for (const item of items) {
+                    if (!seenIds.has(item.id)) {
+                        seenIds.add(item.id);
+                        flattened.push(item);
+                        if (item.subtasks && item.subtasks.length > 0) {
+                            recurse(item.subtasks);
+                        }
+                    }
+                }
+            };
+            recurse(taskList);
+            return flattened;
+        };
+
+        const allFlatTasks = flattenTasks(tasks);
         const today = new Date();
 
-        return tasks.filter(task => {
+        return allFlatTasks.filter(task => {
+            const archivedProjectIds = new Set(
+                projects.filter(p => p.isArchived).map(p => p.id)
+            );
+            if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
+
             // Apply role-based filtering first (same as Tasks.tsx/UserView.tsx basic logic)
             // Ideally this should be shared, but mimicking simple assignment/project checks:
             // For now, assuming API returns all tasks user has access to, or we filter simply:
@@ -70,11 +96,6 @@ export default function FilteredTasksPage() {
             // However, DashboardStats might be calculating based on ALL tasks passed to it.
             // Let's verify DashboardStats source. It takes `tasks` prop.
             // In UserView, tasks are filtered to user tasks. So we should maintain that.
-
-            const archivedProjectIds = new Set(
-                projects.filter(p => p.isArchived).map(p => p.id)
-            );
-            if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
 
             // Replicate UserView filtering
             if (currentUser) {
