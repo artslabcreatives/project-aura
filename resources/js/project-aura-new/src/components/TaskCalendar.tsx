@@ -63,7 +63,7 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
         listTasks = weekTasks;
         listTitle = "This Week";
     } else if (filter === 'today' && isToday(selectedDate)) {
-        listTitle = <>{format(selectedDate, 'EEEE, MMMM do')} <Badge className="ml-2">Today</Badge></>;
+        listTitle = <>{format(selectedDate, 'EEEE, MMMM do')}</>;
     }
 
     return (
