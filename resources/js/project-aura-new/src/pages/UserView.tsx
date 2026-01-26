@@ -48,7 +48,8 @@ export default function UserView() {
 					const allFlatTasks = flattenTasks(tasksData);
 
 					// Filter out system stages for Active Tasks (Calendar)
-					const forbiddenStageTitles = ['pending', 'suggested', 'suggested task', 'archive', 'completed', 'complete'];
+					// Removed 'pending' so assigned pending tasks show in calendar
+					const forbiddenStageTitles = ['suggested', 'suggested task', 'archive', 'completed', 'complete'];
 					const forbiddenStageIds = new Set<string>();
 					projectsData.forEach((p: Project) => {
 						p.stages.forEach(s => {
