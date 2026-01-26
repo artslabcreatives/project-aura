@@ -183,18 +183,35 @@ export default function FilteredTasksPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredTasks.map(task => (
-                    <TaskCard
-                        key={task.id}
-                        task={task}
-                        onDragStart={() => { }}
-                        onEdit={() => { }}
-                        onDelete={() => { }}
-                        onView={() => handleViewTask(task)}
-                        canManage={false}
-                        canDrag={false}
-                    />
-                ))}
+                {filteredTasks.map(task => {
+                    // Determine the current stage for this task
+                    let taskStage: Stage | undefined;
+                    if (task.projectStage && projects) {
+                        const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
+                        const stage = project?.stages.find(s => s.id === task.projectStage);
+                        if (stage) {
+                            taskStage = stage;
+                        }
+                    }
+                    // If task.userStatus is complete, use the system complete stage
+                    if (task.userStatus === "complete" && !taskStage) {
+                        taskStage = systemStages[2]; // Completed stage
+                    }
+
+                    return (
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            onDragStart={() => { }}
+                            onEdit={() => { }}
+                            onDelete={() => { }}
+                            onView={() => handleViewTask(task)}
+                            canManage={false}
+                            canDrag={false}
+                            currentStage={taskStage}
+                        />
+                    );
+                })}
                 {filteredTasks.length === 0 && (
                     <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground">
                         <p>No tasks found for this category.</p>
