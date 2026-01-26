@@ -6,7 +6,6 @@ import { isPast, isToday, isFuture, addDays, isTomorrow, isSameMonth } from "dat
 import { useEffect, useState } from "react";
 import { Task } from "@/types/task";
 import { Project } from "@/types/project";
-import { FeedbackList } from "@/components/FeedbackList";
 
 import { taskService } from "@/services/taskService";
 import { projectService } from "@/services/projectService";
@@ -290,8 +289,6 @@ export default function AdminView() {
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
       />
-
-      <FeedbackList />
     </div>
   );
 }
