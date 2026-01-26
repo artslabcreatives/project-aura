@@ -97,17 +97,46 @@ export default function FilteredTasksPage() {
             );
             if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
 
-            // Apply role-based filtering first (same as Tasks.tsx/UserView.tsx basic logic)
-            // For Admin and Team Lead: show ALL tasks (not filtered by assignment)
-            // For regular users: show only their assigned tasks
-            if (currentUser && currentUser.role === 'user') {
-                // Must be assigned to user (for regular users only)
-                const isAssigned =
-                    task.assignee === currentUser.name ||
-                    (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
-                if (!isAssigned) return false;
+            // Apply role-based filtering first
+            if (currentUser) {
+                if (currentUser.role === 'user') {
+                    // Regular users: show only their assigned tasks
+                    const isAssigned =
+                        task.assignee === currentUser.name ||
+                        (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+                    if (!isAssigned) return false;
+                } else if (currentUser.role === 'team-lead') {
+                    // Team Lead: show only tasks in their department (matching TeamLeadView)
+                    // 1. Get team members in current user's department
+                    const departmentMembers = teamMembers
+                        .filter(member => member.department === currentUser.department)
+                        .map(member => member.name);
+
+                    // 2. Check if assigned to department member
+                    const isAssignedToDepartment = departmentMembers.includes(task.assignee) ||
+                        (task.assignedUsers && task.assignedUsers.some(u => departmentMembers.includes(u.name))); // Check assignedUsers names if available, or fetch user details? 
+                    // Simplified: assuming legacy task.assignee name check works for now as primary.
+
+                    // 3. Check if project is in department
+                    // We need project details. task.project is name.
+                    const taskProject = projects.find(p => p.id === task.projectId || p.name === task.project);
+                    const isProjectInDepartment = taskProject?.department?.id === currentUser.department;
+
+                    if (!isAssignedToDepartment && !isProjectInDepartment) {
+                        return false;
+                    }
+                }
+                // Admin sees all tasks (no additional filter needed)
             }
-            // Admin and team-lead see all tasks without assignment filtering
+
+            // Exclude 'suggested' tasks (matches AdminView/TeamLeadView logic)
+            if (projects && task.projectStage) {
+                const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
+                const stage = project?.stages.find(s => s.id === task.projectStage);
+                if (stage && ['suggested', 'suggested task'].includes(stage.title.toLowerCase().trim())) {
+                    return false;
+                }
+            }
 
             // Now apply the specific category filter
             switch (filterType) {
