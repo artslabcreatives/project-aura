@@ -38,7 +38,7 @@ export default function FilteredTasksPage() {
     const [loading, setLoading] = useState(true);
 
     // Date filter state for completed tasks
-    const [dateFilter, setDateFilter] = useState<string>("all");
+    const [dateFilter, setDateFilter] = useState<string>("month");
     const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
 
     useEffect(() => {

@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, AlertCircle, TrendingUp, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Task } from "@/types/task";
-import { isToday, isPast, isFuture, addDays } from "date-fns";
+import { isToday, isPast, isFuture, addDays, isThisMonth, parseISO } from "date-fns";
 
 interface DashboardStatsProps {
   tasks: Task[];
@@ -14,11 +14,43 @@ import { Project } from "@/types/project";
 export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
   const today = new Date();
 
-  const dueToday = tasks.filter(
+  // Helper to flatten tasks (recursive + unique) - matches FilteredTasksPage
+  const flattenTasks = (taskList: Task[]): Task[] => {
+    const flattened: Task[] = [];
+    const seenIds = new Set<string>();
+
+    const recurse = (items: Task[]) => {
+      for (const item of items) {
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          flattened.push(item);
+          if (item.subtasks && item.subtasks.length > 0) {
+            recurse(item.subtasks);
+          }
+        }
+      }
+    };
+    recurse(taskList);
+    return flattened;
+  };
+
+  const allTasksRaw = flattenTasks(tasks);
+
+  // Filter out tasks from archived projects (matches FilteredTasksPage)
+  const allTasks = allTasksRaw.filter(task => {
+    if (!projects) return true;
+    const archivedProjectIds = new Set(
+      projects.filter(p => p.isArchived).map(p => p.id)
+    );
+    if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
+    return true;
+  });
+
+  const dueToday = allTasks.filter(
     (task) => task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate))
   ).length;
 
-  const overdue = tasks.filter(
+  const overdue = allTasks.filter(
     (task) => {
       let isCompleteStage = false;
       if (projects && task.projectStage) {
@@ -37,7 +69,7 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
     }
   ).length;
 
-  const upcoming = tasks.filter((task) => {
+  const upcoming = allTasks.filter((task) => {
     if (!task.dueDate) return false;
     const dueDate = new Date(task.dueDate);
     const nextWeek = addDays(today, 7);
@@ -48,20 +80,32 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
     );
   }).length;
 
-  const completed = tasks.filter((task) => {
+  const completed = allTasks.filter((task) => {
+    // First check if task is completed
+    let isCompleted = false;
+
     // Check if userStatus is complete
-    if (task.userStatus === "complete") return true;
+    if (task.userStatus === "complete") {
+      isCompleted = true;
+    }
 
     // Also check if task is in a completed/archive project stage
-    if (projects && task.projectStage) {
+    if (!isCompleted && projects && task.projectStage) {
       const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
       const stage = project?.stages.find(s => s.id === task.projectStage);
       if (stage && ['complete', 'completed', 'archive'].includes(stage.title.toLowerCase())) {
-        return true;
+        isCompleted = true;
       }
     }
 
-    return false;
+    if (!isCompleted) return false;
+
+    // Filter by this month
+    const dateStr = task.completedAt || task.createdAt;
+    if (!dateStr) return false;
+
+    const taskDate = parseISO(dateStr);
+    return isThisMonth(taskDate);
   }).length;
 
   const navigate = useNavigate();
@@ -92,7 +136,7 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
       path: "/tasks/filter/upcoming"
     },
     {
-      title: "Completed",
+      title: "Completed (This Month)",
       value: completed,
       icon: CheckCircle2,
       iconColor: "text-status-done",
