@@ -11,6 +11,7 @@ class Feedback extends Model
     protected $fillable = [
         'user_id',
         'description',
+        'images',
         'screenshot_path',
         'device_info',
         'type',
@@ -19,6 +20,7 @@ class Feedback extends Model
 
     protected $casts = [
         'device_info' => 'array',
+        'images' => 'array',
     ];
 
 	/**

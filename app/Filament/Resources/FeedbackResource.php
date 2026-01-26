@@ -62,9 +62,20 @@ class FeedbackResource extends Resource
                             ->disk('public')
                             ->directory('feedback-screenshots')
                             ->visibility('public')
-                            ->label('Screenshot')
+                            ->label('Screenshot (Legacy)')
                             ->openable()
                             ->downloadable(),
+                        Forms\Components\FileUpload::make('images')
+                            ->image()
+                            ->disk('public')
+                            ->multiple()
+                            ->directory('feedback-screenshots')
+                            ->visibility('public')
+                            ->label('Additional Images')
+                            ->openable()
+                            ->downloadable()
+                            ->reorderable()
+                            ->appendFiles(),
                         Forms\Components\KeyValue::make('device_info')
                             ->label('Device Metadata')
                             ->columnSpanFull(),

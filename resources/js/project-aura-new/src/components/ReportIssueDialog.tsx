@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2, Camera, X } from "lucide-react";
-import { toPng } from 'html-to-image';
+import { toJpeg } from 'html-to-image';
 import { api } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,10 +24,11 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
     const { toast } = useToast();
     const [description, setDescription] = useState("");
     const [screenshot, setScreenshot] = useState<string | null>(null);
+    const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
     const [isCapturing, setIsCapturing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const dialogContentRef = useRef<HTMLDivElement>(null);
-
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const captureScreen = async () => {
         setIsCapturing(true);
@@ -37,7 +38,8 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
 
         setTimeout(async () => {
             try {
-                const dataUrl = await toPng(document.body, {
+                const dataUrl = await toJpeg(document.body, {
+                    quality: 0.8,
                     cacheBust: true,
                     filter: (node) => {
                         // Only ignore elements explicitly marked to be ignored
@@ -59,6 +61,32 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
         }, 500); // Increased delay slightly to 500ms to ensure animation clears
     };
 
+    const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const newFiles = Array.from(e.target.files);
+            const validFiles = newFiles.filter(file => {
+                if (file.size > MAX_FILE_SIZE) {
+                    toast({
+                        title: "File too large",
+                        description: `${file.name} exceeds the 2MB limit.`,
+                        variant: "destructive"
+                    });
+                    return false;
+                }
+                return true;
+            });
+
+            if (validFiles.length > 0) {
+                setAttachedFiles(prev => [...prev, ...validFiles]);
+            }
+        }
+    };
+
+    const removeFile = (index: number) => {
+        setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+    };
 
     const handleSubmit = async () => {
         if (!description.trim()) {
@@ -80,20 +108,38 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
 
             if (screenshot) {
                 const blob = await (await fetch(screenshot)).blob();
-                formData.append("screenshot", blob, "screenshot.png");
+                formData.append("screenshot", blob, "screenshot.jpg");
+            }
+
+            if (attachedFiles.length > 0) {
+                attachedFiles.forEach((file) => {
+                    formData.append("images[]", file);
+                });
             }
 
             await api.post("/feedback", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                }
             });
 
             toast({ title: "Report Sent", description: "Thank you for your feedback!" });
             onOpenChange(false);
             setDescription("");
             setScreenshot(null);
-        } catch (error) {
+            setAttachedFiles([]);
+        } catch (error: any) {
             console.error("Failed to submit report", error);
-            toast({ title: "Error", description: "Failed to send report.", variant: "destructive" });
+            let errorMessage = error.response?.data?.message || "Failed to send report.";
+
+            if (error.response?.data?.errors) {
+                const validationErrors = Object.values(error.response.data.errors).flat().join(", ");
+                if (validationErrors) {
+                    errorMessage += ` (${validationErrors})`;
+                }
+            }
+
+            toast({ title: "Error", description: errorMessage, variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -105,7 +151,7 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
                 <DialogHeader>
                     <DialogTitle>Report an Issue</DialogTitle>
                     <DialogDescription>
-                        Found a bug? Let us know. You can attach a screenshot of the current screen.
+                        Found a bug? Let us know. You can attach a screenshot or upload images.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -121,32 +167,78 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Screenshot</Label>
-                        {screenshot ? (
-                            <div className="relative border rounded-md overflow-hidden group">
-                                <img src={screenshot} alt="Screenshot" className="w-full h-auto max-h-[200px] object-contain bg-muted" />
-                                <Button
-                                    variant="destructive"
-                                    size="icon"
-                                    className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => setScreenshot(null)}
+                        <Label>Attachments</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Screenshot Capture Area */}
+                            {screenshot ? (
+                                <div className="relative border rounded-md overflow-hidden group aspect-video">
+                                    <img src={screenshot} alt="Screenshot" className="w-full h-full object-cover" />
+                                    <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => setScreenshot(null)}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 truncate">
+                                        Screen Capture
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    className="border-2 border-dashed rounded-md p-4 flex flex-col items-center justify-center text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors aspect-video"
+                                    onClick={captureScreen}
                                 >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ) : (
+                                    {isCapturing ? (
+                                        <Loader2 className="h-6 w-6 animate-spin mb-1" />
+                                    ) : (
+                                        <Camera className="h-6 w-6 mb-1" />
+                                    )}
+                                    <span className="text-xs text-center">Capture Screen</span>
+                                </div>
+                            )}
+
+                            {/* Uploaded Files */}
+                            {attachedFiles.map((file, index) => (
+                                <div key={index} className="relative border rounded-md overflow-hidden group aspect-video">
+                                    <img
+                                        src={URL.createObjectURL(file)}
+                                        alt={`Preview ${index}`}
+                                        className="w-full h-full object-cover"
+                                        onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                                    />
+                                    <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => removeFile(index)}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 truncate">
+                                        {file.name}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Upload Button */}
                             <div
-                                className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={captureScreen}
+                                className="border-2 border-dashed rounded-md p-4 flex flex-col items-center justify-center text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors aspect-video"
+                                onClick={() => fileInputRef.current?.click()}
                             >
-                                {isCapturing ? (
-                                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                                ) : (
-                                    <Camera className="h-8 w-8 mb-2" />
-                                )}
-                                <span className="text-sm">Click to capture current screen</span>
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    className="hidden"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                />
+                                <span className="text-2xl mb-1">+</span>
+                                <span className="text-xs text-center">Upload Images</span>
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
 
@@ -154,7 +246,7 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                         Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={isSubmitting || !description}>
+                    <Button onClick={handleSubmit} disabled={isSubmitting || (!description && !screenshot && attachedFiles.length === 0)}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Submit Report
                     </Button>
