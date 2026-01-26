@@ -11,10 +11,20 @@ import { TaskListView } from "@/components/TaskListView";
 import { TaskCard } from "@/components/TaskCard";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { isToday, isPast, isFuture, addDays } from "date-fns";
+import { ArrowLeft, Filter, Calendar as CalendarIcon } from "lucide-react";
+import { isToday, isPast, isFuture, addDays, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay, format } from "date-fns";
 import { Stage } from "@/types/stage";
 import { useUser } from "@/hooks/use-user";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DateRange } from "react-day-picker";
 
 export default function FilteredTasksPage() {
     const { filterType } = useParams<{ filterType: string }>();
@@ -26,6 +36,10 @@ export default function FilteredTasksPage() {
     const [teamMembers, setTeamMembers] = useState<User[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Date filter state for completed tasks
+    const [dateFilter, setDateFilter] = useState<string>("all");
+    const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
 
     useEffect(() => {
         const loadData = async () => {
@@ -126,24 +140,52 @@ export default function FilteredTasksPage() {
                     );
 
                 case 'completed':
+                    // First check if task is completed
+                    let isCompleted = false;
+
                     // Check if userStatus is complete
-                    if (task.userStatus === "complete") return true;
+                    if (task.userStatus === "complete") {
+                        isCompleted = true;
+                    }
 
                     // Also check if task is in a completed/archive project stage
-                    if (projects && task.projectStage) {
+                    if (!isCompleted && projects && task.projectStage) {
                         const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
                         const stage = project?.stages.find(s => s.id === task.projectStage);
                         if (stage && ['complete', 'completed', 'archive'].includes(stage.title.toLowerCase())) {
-                            return true;
+                            isCompleted = true;
                         }
                     }
-                    return false;
+
+                    if (!isCompleted) return false;
+
+                    // Apply date filter for completed tasks
+                    if (dateFilter !== "all") {
+                        const dateStr = task.completedAt || task.createdAt;
+                        if (!dateStr) return dateFilter === "all";
+
+                        const taskDate = parseISO(dateStr);
+
+                        if (dateFilter === "today") {
+                            return isToday(taskDate);
+                        } else if (dateFilter === "week") {
+                            return isThisWeek(taskDate, { weekStartsOn: 1 });
+                        } else if (dateFilter === "month") {
+                            return isThisMonth(taskDate);
+                        } else if (dateFilter === "custom" && customDateRange?.from) {
+                            const start = startOfDay(customDateRange.from);
+                            const end = customDateRange.to ? endOfDay(customDateRange.to) : endOfDay(customDateRange.from);
+                            return isWithinInterval(taskDate, { start, end });
+                        }
+                    }
+
+                    return true;
 
                 default:
                     return true;
             }
         });
-    }, [tasks, projects, filterType, currentUser]);
+    }, [tasks, projects, filterType, currentUser, dateFilter, customDateRange]);
 
     const getPageTitle = () => {
         switch (filterType) {
@@ -172,14 +214,66 @@ export default function FilteredTasksPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{getPageTitle()}</h1>
-                    <p className="text-muted-foreground">{filteredTasks.length} tasks found</p>
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                        <ArrowLeft className="h-5 w-5" />
+                    </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">{getPageTitle()}</h1>
+                        <p className="text-muted-foreground">{filteredTasks.length} tasks found</p>
+                    </div>
                 </div>
+
+                {/* Date Filter - Only for Completed Tasks */}
+                {filterType === 'completed' && (
+                    <div className="flex items-center gap-2">
+                        <Select value={dateFilter} onValueChange={setDateFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <Filter className="h-4 w-4 mr-2" />
+                                <SelectValue placeholder="Filter by date" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="today">Today</SelectItem>
+                                <SelectItem value="week">This Week</SelectItem>
+                                <SelectItem value="month">This Month</SelectItem>
+                                <SelectItem value="custom">Custom Range</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {dateFilter === 'custom' && (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="gap-2">
+                                        <CalendarIcon className="h-4 w-4" />
+                                        {customDateRange?.from ? (
+                                            customDateRange.to ? (
+                                                <>
+                                                    {format(customDateRange.from, "MMM d")} - {format(customDateRange.to, "MMM d, yyyy")}
+                                                </>
+                                            ) : (
+                                                format(customDateRange.from, "MMM d, yyyy")
+                                            )
+                                        ) : (
+                                            "Select dates"
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={customDateRange?.from}
+                                        selected={customDateRange}
+                                        onSelect={setCustomDateRange}
+                                        numberOfMonths={2}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
