@@ -12,9 +12,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface TaskCalendarProps {
     tasks: Task[];
     onViewTask?: (task: Task) => void;
+    onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
 }
 
-export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
+export function TaskCalendar({ tasks, onViewTask, onTaskUpdate }: TaskCalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [filter, setFilter] = useState<'today' | 'week' | 'overdue' | 'custom'>('today');
@@ -218,6 +219,7 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
                                                     onView={() => onViewTask?.(task)}
                                                     canManage={false}
                                                     canDrag={false}
+                                                    onTaskUpdate={onTaskUpdate}
                                                 />
                                             </div>
                                         ))}
@@ -254,6 +256,7 @@ export function TaskCalendar({ tasks, onViewTask }: TaskCalendarProps) {
                                                 onView={() => onViewTask?.(task)}
                                                 canManage={false}
                                                 canDrag={false}
+                                                onTaskUpdate={onTaskUpdate}
                                             />
                                         ))}
                                     </div>

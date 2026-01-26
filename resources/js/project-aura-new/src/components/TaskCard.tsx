@@ -1,9 +1,9 @@
-import { Task } from "@/types/task";
+import { Task, UserStatus } from "@/types/task";
 import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -394,22 +394,65 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							{task.subtasks?.map(subtask => (
 								<div
 									key={subtask.id}
-									className="flex items-center gap-2 text-xs p-1 hover:bg-muted/50 rounded group/subtask"
+									className="flex items-center gap-2 text-xs p-1 hover:bg-muted/50 rounded group/subtask cursor-pointer"
 									onClick={(e) => {
 										e.stopPropagation();
+										// Allow viewing details if clicking the text, OR toggle if clicking the radio?
+										// User requested "user side complete this subtask", implying quick action.
+										// Let's make the whole row toggle or just the radio?
+										// Usually clicking the row is View, clicking radio is Toggle.
+										// But the user said "click it and go to the page" for tasks. For subtasks, likely just completion.
+										// Let's effectively make the radio the primary toggle.
+										// If I want to allow viewing subtask (which is a Task), I should keep the row click as View?
+										// The current row click calls onViewSubtask.
 										if (onViewSubtask) onViewSubtask(subtask);
 									}}
 								>
-									<div className={cn(
-										"h-3 w-3 border rounded-sm flex items-center justify-center transition-colors",
-										subtask.userStatus === 'complete'
-											? "bg-primary border-primary text-primary-foreground"
-											: "border-muted-foreground/50"
-									)}>
-										{subtask.userStatus === 'complete' && <CheckSquare className="h-2 w-2" />}
+									<div
+										className={cn(
+											"h-4 w-4 border rounded-full flex items-center justify-center transition-colors cursor-pointer hover:border-primary",
+											subtask.userStatus === 'complete'
+												? "bg-primary border-primary text-primary-foreground"
+												: "border-muted-foreground/50"
+										)}
+										onClick={async (e) => {
+											e.stopPropagation();
+											// Toggle status
+											const newStatus: UserStatus = subtask.userStatus === 'complete' ? 'pending' : 'complete';
+											try {
+												// Optimistic UI update via parent callback would be best, 
+												// but we'll trigger the update in the callback
+
+												// Call API
+												await taskService.update(subtask.id, { userStatus: newStatus });
+
+												// Notify parent to refresh/update state
+												if (onTaskUpdate) {
+													// Construct updated subtasks array
+													const updatedSubtasks = task.subtasks?.map(st =>
+														st.id === subtask.id ? { ...st, userStatus: newStatus } : st
+													) || [];
+
+													onTaskUpdate(task.id, { subtasks: updatedSubtasks });
+												}
+												toast({
+													title: newStatus === 'complete' ? "Subtask Completed" : "Subtask Reopened",
+													description: "Task updated successfully."
+												});
+											} catch (error) {
+												console.error("Failed to toggle subtask", error);
+												toast({
+													title: "Error",
+													description: "Failed to update subtask.",
+													variant: "destructive"
+												});
+											}
+										}}
+									>
+										{subtask.userStatus === 'complete' && <Check className="h-2.5 w-2.5" />}
 									</div>
 									<span className={cn(
-										"flex-1 truncate",
+										"flex-1 truncate select-none",
 										subtask.userStatus === 'complete' && "line-through text-muted-foreground"
 									)}>
 										{subtask.title}

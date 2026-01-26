@@ -112,6 +112,39 @@ export default function UserView() {
 		loadTasks();
 	}, [currentUser]);
 
+	const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+		// Update helper
+		const updateTaskInList = (list: Task[]) => {
+			return list.map(t => {
+				if (t.id === taskId) return { ...t, ...updates };
+				if (t.subtasks) {
+					// Also update subtasks if they match, or if parent matches?
+					// If subtask status changed, it's passed as updates to the PARENT task ID if coming from TaskCard
+					// But TaskCard passes `task.id` which is the PARENT ID.
+					// And updates contains `{subtasks: [...]}`.
+					// So simple merge works.
+					// BUT if we flattened the list... 't' might be the subtask itself?
+					// TaskCard is rendered for the item in the list.
+					// If the list is flattened, 't' IS the subtask.
+					// But wait, TaskCard usually renders subtasks inside it.
+					// In UserView, we render individual tasks.
+					// The Flattening logic puts subtasks as top-level cards?
+					// Let's check UserView rendering.
+					return { ...t, subtasks: updateTaskInList(t.subtasks) };
+				}
+				return t;
+			});
+		};
+
+		// If we are strictly flattened, `taskId` matches the card's task.
+		// If `TaskCard` calls onTaskUpdate(subtask.id, ...), it updates that item.
+		// BUT `TaskCard` logic I wrote calls `onTaskUpdate(task.id, { subtasks: ... })`.
+		// `task.id` is the card's ID.
+
+		setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+		setStatsTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+	};
+
 	return (
 		<div className="space-y-8 fade-in">
 			{/* Hero Header with Gradient */}
@@ -147,6 +180,7 @@ export default function UserView() {
 						setViewTask(task);
 						setIsViewDialogOpen(true);
 					}}
+					onTaskUpdate={handleTaskUpdate}
 				/>
 			</div>
 
@@ -154,6 +188,7 @@ export default function UserView() {
 				task={viewTask}
 				open={isViewDialogOpen}
 				onOpenChange={setIsViewDialogOpen}
+				onTaskUpdate={handleTaskUpdate}
 			/>
 		</div >
 	);

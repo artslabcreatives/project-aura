@@ -18,9 +18,10 @@ interface TaskDetailsDialogProps {
 	task: Task | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
 }
 
-export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialogProps) {
+export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate }: TaskDetailsDialogProps) {
 	const navigate = useNavigate();
 
 	if (!task) return null;
