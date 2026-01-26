@@ -12,6 +12,7 @@ import Team from "./pages/Team";
 import NotFound from "./pages/NotFound";
 import ProjectKanbanFixed from "./pages/ProjectKanbanFixed";
 import UserProjectStageTasks from "./pages/UserProjectStageTasks";
+import FilteredTasksPage from "./pages/FilteredTasksPage";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { Login } from "@/components/Login";
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,7 @@ const App = () => (
 						<Routes>
 							<Route path="/" element={<AppLayout><UserDashboard /></AppLayout>} />
 							<Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
+							<Route path="/tasks/filter/:filterType" element={<AppLayout><FilteredTasksPage /></AppLayout>} />
 							<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
 							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
 							<Route path="/team" element={<AppLayout><Team /></AppLayout>} />

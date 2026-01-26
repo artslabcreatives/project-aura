@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, AlertCircle, TrendingUp, CheckCircle2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Task } from "@/types/task";
 import { isToday, isPast, isFuture, addDays } from "date-fns";
 
@@ -49,6 +50,8 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
 
   const completed = tasks.filter((task) => task.userStatus === "complete" && task.projectStage !== null).length;
 
+  const navigate = useNavigate();
+
   const stats = [
     {
       title: "Due Today",
@@ -56,6 +59,7 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
       icon: Clock,
       iconColor: "text-primary",
       bgColor: "bg-primary/10",
+      path: "/tasks/filter/due-today"
     },
     {
       title: "Overdue",
@@ -63,6 +67,7 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
       icon: AlertCircle,
       iconColor: "text-status-overdue",
       bgColor: "bg-status-overdue/10",
+      path: "/tasks/filter/overdue"
     },
     {
       title: "Upcoming (7 days)",
@@ -70,6 +75,7 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
       icon: TrendingUp,
       iconColor: "text-status-progress",
       bgColor: "bg-status-progress/10",
+      path: "/tasks/filter/upcoming"
     },
     {
       title: "Completed",
@@ -77,13 +83,18 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
       icon: CheckCircle2,
       iconColor: "text-status-done",
       bgColor: "bg-status-done/10",
+      path: "/tasks/filter/completed"
     },
   ];
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
-        <Card key={stat.title} className="hover:shadow-md transition-shadow">
+        <Card
+          key={stat.title}
+          className="hover:shadow-md transition-shadow cursor-pointer hover:bg-accent/40"
+          onClick={() => navigate(stat.path)}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               {stat.title}
