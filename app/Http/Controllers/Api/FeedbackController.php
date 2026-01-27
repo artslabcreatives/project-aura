@@ -87,6 +87,43 @@ class FeedbackController extends Controller
 
         $feedback = \App\Models\Feedback::create($feedbackData);
 
+        $this->sendToWebhook($feedback);
+
         return response()->json($feedback, 201);
+    }
+
+    protected function sendToWebhook(\App\Models\Feedback $feedback)
+    {
+        try {
+            $webhookUrl = env('BUG_REPORT_WEBHOOK_URL');
+            $webhookSecret = env('BUG_REPORT_WEBHOOK_SECRET');
+
+            if (!$webhookUrl) {
+                return;
+            }
+
+            $user = $feedback->user;
+            
+            $payload = [
+                'user_name' => $user->name,
+                'user_email' => $user->email,
+                'description' => $feedback->description,
+                'type' => $feedback->type,
+                'url' => request()->header('referer'),
+                'device_info' => $feedback->device_info,
+                'created_at' => $feedback->created_at->toDateTimeString(),
+            ];
+
+            // proper header authentication name is system-admin and the value is ...
+            \Illuminate\Support\Facades\Http::withHeaders([
+                'system-admin' => $webhookSecret,
+            ])->post($webhookUrl, $payload);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send bug report webhook', [
+                'error' => $e->getMessage(),
+                'feedback_id' => $feedback->id
+            ]);
+        }
     }
 }
