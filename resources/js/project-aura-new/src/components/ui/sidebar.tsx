@@ -264,32 +264,39 @@ const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"bu
       e.stopPropagation();
 
       setIsResizing(true);
-      dragRef.current.isDragging = true;
+      // Don't set isDragging to true yet - wait for movement
+      dragRef.current.isDragging = false;
       dragRef.current.startX = e.clientX;
 
       // Calculate initial width in pixels
       const doc = document.documentElement;
-      // Default to 16px if can't determine
       const remToPx = parseFloat(getComputedStyle(doc).fontSize) || 16;
       dragRef.current.startWidth = width.endsWith('rem')
         ? parseFloat(width) * remToPx
         : parseFloat(width);
 
       const handleMouseMove = (e: MouseEvent) => {
-        if (!dragRef.current.isDragging) return;
         const delta = e.clientX - dragRef.current.startX;
-        const newWidth = Math.max(200, Math.min(600, dragRef.current.startWidth + delta));
-        setWidth(`${newWidth}px`);
+
+        // Only consider it a drag if moved more than 3 pixels
+        if (!dragRef.current.isDragging && Math.abs(delta) > 3) {
+          dragRef.current.isDragging = true;
+        }
+
+        if (dragRef.current.isDragging) {
+          const newWidth = Math.max(200, Math.min(600, dragRef.current.startWidth + delta));
+          setWidth(`${newWidth}px`);
+        }
       };
 
       const handleMouseUp = () => {
         setIsResizing(false);
-        dragRef.current.isDragging = false;
+        // Do NOT set isDragging to false here immediately
+
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
 
-        // Use a timeout to reset the drag flag so the click handler can check it
-        // The click event fires immediately after mouseup
+        // Reset proper state after a small delay to handle onClick
         setTimeout(() => {
           dragRef.current.isDragging = false;
         }, 100);
