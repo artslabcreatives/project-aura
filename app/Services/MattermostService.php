@@ -150,9 +150,10 @@ class MattermostService
                 return false;
             }
 
+            // Use user's personal token if available
             $response = $this->makeRequest('POST', "/api/v4/channels/{$channelId}/members", [
                 'user_id' => $mattermostUserId,
-            ]);
+            ], $user);
 
             return $response->successful();
         } catch (\Exception $e) {
@@ -196,7 +197,7 @@ class MattermostService
     protected function createMattermostUser(User $user, ?string $password = null): ?array
     {
         $username = $this->generateUsername($user->email);
-        $password = $password ?? Str::random(32);
+        $password = $password ?? Str::random(32). '!Aa1';
 
         $response = $this->makeRequest('POST', '/api/v4/users', [
             'email' => $user->email,
@@ -215,6 +216,9 @@ class MattermostService
 
             // Add user to team
             $this->addUserToTeam($mattermostUser['id']);
+
+            // Generate and store personal access token for the user
+            $this->generateAndStoreUserToken($user, $mattermostUser['id']);
 
             Log::info('Mattermost user created', [
                 'user_id' => $user->id,
@@ -250,6 +254,11 @@ class MattermostService
             
             // Store/update Mattermost user ID
             $this->storeMattermostUserId($user, $mattermostUser['id']);
+
+            // Regenerate personal access token if not exists
+            if (!$user->mattermost_token) {
+                $this->generateAndStoreUserToken($user, $mattermostUser['id']);
+            }
 
             return $mattermostUser;
         }
@@ -300,17 +309,13 @@ class MattermostService
                 return null;
             }
 
-            // Create a login token
-            $response = $this->makeRequest('POST', "/api/v4/users/{$mattermostUserId}/tokens", [
-                'description' => 'Magic link signin - ' . now()->toDateTimeString(),
-            ]);
-
-            if ($response->successful()) {
-                $tokenData = $response->json();
-                return $tokenData['token'];
+            // Use the stored personal access token if available
+            if ($user->mattermost_token) {
+                return $user->mattermost_token;
             }
 
-            return null;
+            // Otherwise generate a new token and store it
+            return $this->generateAndStoreUserToken($user, $mattermostUserId);
         } catch (\Exception $e) {
             Log::error('Exception generating Mattermost magic link token', [
                 'user_id' => $user->id,
@@ -337,11 +342,14 @@ class MattermostService
     /**
      * Make HTTP request to Mattermost API
      */
-    protected function makeRequest(string $method, string $endpoint, array $data = [])
+    protected function makeRequest(string $method, string $endpoint, array $data = [], ?User $user = null)
     {
         $url = $this->baseUrl . $endpoint;
+        
+        // Use user's personal token if provided and available, otherwise use admin token
+        $token = ($user && $user->mattermost_token) ? $user->mattermost_token : $this->token;
 
-        return Http::withToken($this->token)
+        return Http::withToken($token)
             ->accept('application/json')
             ->$method($url, $data);
     }
@@ -419,5 +427,56 @@ class MattermostService
     protected function storeMattermostUserId(User $user, string $mattermostUserId): void
     {
         $user->update(['mattermost_user_id' => $mattermostUserId]);
+    }
+
+    /**
+     * Generate and store personal access token for user
+     */
+    protected function generateAndStoreUserToken(User $user, string $mattermostUserId): ?string
+    {
+        try {
+            // Create a personal access token for the user
+            $response = $this->makeRequest('POST', "/api/v4/users/{$mattermostUserId}/tokens", [
+                'description' => 'Personal API Token - Generated ' . now()->toDateTimeString(),
+            ]);
+
+            if ($response->successful()) {
+                $tokenData = $response->json();
+                $token = $tokenData['token'];
+                
+                // Store token in database
+                $user->update(['mattermost_token' => $token]);
+
+                Log::info('Generated personal access token for user', [
+                    'user_id' => $user->id,
+                    'mattermost_user_id' => $mattermostUserId,
+                ]);
+
+                return $token;
+            }
+
+            Log::error('Failed to generate personal access token for user', [
+                'user_id' => $user->id,
+                'mattermost_user_id' => $mattermostUserId,
+                'response' => $response->json(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Exception generating personal access token for user', [
+                'user_id' => $user->id,
+                'mattermost_user_id' => $mattermostUserId,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get user's Mattermost token
+     */
+    protected function getMattermostToken(User $user): ?string
+    {
+        return $user->mattermost_token ?? null;
     }
 }
