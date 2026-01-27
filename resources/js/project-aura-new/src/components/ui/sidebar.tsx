@@ -27,6 +27,10 @@ type SidebarContext = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  width: string;
+  setWidth: (width: string) => void;
+  isResizing: boolean;
+  setIsResizing: (width: boolean) => void;
 };
 
 const SidebarContext = React.createContext<SidebarContext | null>(null);
@@ -50,6 +54,8 @@ const SidebarProvider = React.forwardRef<
 >(({ defaultOpen = true, open: openProp, onOpenChange: setOpenProp, className, style, children, ...props }, ref) => {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+  const [width, setWidth] = React.useState(SIDEBAR_WIDTH);
+  const [isResizing, setIsResizing] = React.useState(false);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -101,8 +107,12 @@ const SidebarProvider = React.forwardRef<
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      width,
+      setWidth,
+      isResizing,
+      setIsResizing
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
+    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, width, setWidth, isResizing, setIsResizing],
   );
 
   return (
@@ -111,7 +121,7 @@ const SidebarProvider = React.forwardRef<
         <div
           style={
             {
-              "--sidebar-width": SIDEBAR_WIDTH,
+              "--sidebar-width": width,
               "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
               ...style,
             } as React.CSSProperties
@@ -243,7 +253,64 @@ SidebarTrigger.displayName = "SidebarTrigger";
 
 const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"button">>(
   ({ className, ...props }, ref) => {
-    const { toggleSidebar } = useSidebar();
+    const { toggleSidebar, width, setWidth, setIsResizing } = useSidebar();
+    const dragRef = React.useRef({ startX: 0, startWidth: 0, isDragging: false });
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      // Only trigger resize on left click
+      if (e.button !== 0) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      setIsResizing(true);
+      dragRef.current.isDragging = true;
+      dragRef.current.startX = e.clientX;
+
+      // Calculate initial width in pixels
+      const doc = document.documentElement;
+      // Default to 16px if can't determine
+      const remToPx = parseFloat(getComputedStyle(doc).fontSize) || 16;
+      dragRef.current.startWidth = width.endsWith('rem')
+        ? parseFloat(width) * remToPx
+        : parseFloat(width);
+
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!dragRef.current.isDragging) return;
+        const delta = e.clientX - dragRef.current.startX;
+        const newWidth = Math.max(200, Math.min(600, dragRef.current.startWidth + delta));
+        setWidth(`${newWidth}px`);
+      };
+
+      const handleMouseUp = () => {
+        setIsResizing(false);
+        dragRef.current.isDragging = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+
+        // Use a timeout to reset the drag flag so the click handler can check it
+        // The click event fires immediately after mouseup
+        setTimeout(() => {
+          dragRef.current.isDragging = false;
+        }, 100);
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleClick = (e: React.MouseEvent) => {
+      // If we didn't really drag (or dragged very little, handled by mouseup timing?), toggle
+      // For simplicity, if we are here, we can toggle. 
+      // But preventDefault on mousedown might stop click.
+      // Let's rely on standard click behavior if drag didn't consume it?
+      // Actually, let's just allow toggling if validation says so, 
+      // but often rails are EITHER resize OR toggle. 
+      // Toggle on click is fine.
+      if (!dragRef.current.isDragging) {
+        toggleSidebar();
+      }
+    };
 
     return (
       <button
@@ -251,7 +318,8 @@ const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"bu
         data-sidebar="rail"
         aria-label="Toggle Sidebar"
         tabIndex={-1}
-        onClick={toggleSidebar}
+        onMouseDown={handleMouseDown}
+        onClick={handleClick}
         title="Toggle Sidebar"
         className={cn(
           "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] group-data-[side=left]:-right-4 group-data-[side=right]:left-0 hover:after:bg-sidebar-border sm:flex",

@@ -15,6 +15,7 @@ import {
 	SidebarMenuSub,
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
+	SidebarRail,
 } from "@/components/ui/sidebar";
 import {
 	Collapsible,
@@ -1197,6 +1198,7 @@ export function AppSidebar() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+			<SidebarRail />
 		</Sidebar>
 	);
 }
