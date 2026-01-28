@@ -62,9 +62,10 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const mainMenuItems = [
-	{ title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "team-lead", "user"] },
+	{ title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "team-lead", "user", "account-manager"] },
 	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead"] },
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
+	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },
 ];
 
 interface GroupedDepartment {
@@ -114,7 +115,7 @@ export function AppSidebar() {
 			setDepartments(departmentsData);
 			setProjectGroups(projectGroupsData);
 
-			if (userRole === 'admin' || userRole === 'team-lead') {
+			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') {
 				const usersData = await userService.getAll();
 				setTeamMembers(usersData);
 			}
@@ -122,7 +123,7 @@ export function AppSidebar() {
 			// Do NOT reset expanded departments here to avoid collapsing user view on refresh
 			// setExpandedDepartments(new Set()); 
 
-			if (userRole === 'user' && currentUser) {
+			if ((userRole === 'user' || userRole === 'account-manager') && currentUser) {
 				// Fetch tasks for user only (client-side filter)
 				const tasksData = await taskService.getAll();
 				const userProjectStages = new Map<string, Set<string>>();
@@ -152,7 +153,15 @@ export function AppSidebar() {
 						...project,
 						stages: project.stages.filter(stage => {
 							const title = stage.title.toLowerCase().trim();
+							// Base hidden stages
 							const hiddenStages = ['suggested', 'suggested task', 'task', 'archive', 'completed', 'pending'];
+
+							// For account managers, hide review stages from this list (they have a dedicated view)
+							if (currentUser.role === 'account-manager') {
+								if (stage.isReviewStage || title.includes('review')) {
+									return false;
+								}
+							}
 
 							// User requested to hide specific system stages
 							if (hiddenStages.includes(title)) return false;
@@ -541,6 +550,11 @@ export function AppSidebar() {
 					const hasSpecialPermission = isDigitalDept && isDesignProject;
 					return hasMatchingDepartment || hasNoDepartment || hasSpecialPermission;
 				});
+			} else if (userRole === "account-manager" && currentUser) {
+				// Account Manager: Strict Department Only
+				filteredProjects = projectList.filter(project => {
+					return project.department?.id === currentUser.department;
+				});
 			}
 
 			// Helper to build tree
@@ -579,7 +593,7 @@ export function AppSidebar() {
 			};
 
 			// For team-lead non-digital (flat view previously, now hierarchy for their dept)
-			if (userRole === "team-lead" && currentUser) {
+			if ((userRole === "team-lead" || userRole === "account-manager") && currentUser) {
 				const currentDept = departments.find(d => d.id === currentUser.department);
 				const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
 
@@ -669,7 +683,7 @@ export function AppSidebar() {
 		const archivedList = projects.filter(p => p.isArchived);
 
 		return {
-			active: groupProjects(activeList),
+			active: pruneGroupsInDepartment(groupProjects(activeList)),
 			archived: pruneGroupsInDepartment(groupProjects(archivedList))
 		};
 	}, [projects, userRole, currentUser, departments, projectGroups]);
@@ -917,155 +931,7 @@ export function AppSidebar() {
 					</SidebarGroupContent>
 				</SidebarGroup>
 
-				{(userRole === "admin" || userRole === "team-lead") && (
-					<SidebarGroup>
-						<Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
-							<div className="flex items-center justify-between px-2">
-								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
-									<SidebarGroupLabel className="hover:bg-transparent">Projects</SidebarGroupLabel>
-									<ChevronRight
-										className={`h-4 w-4 transition-transform ${projectsOpen ? "rotate-90" : ""
-											}`}
-									/>
-								</CollapsibleTrigger>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-6 w-6 ml-1"
-									onClick={() => setIsProjectDialogOpen(true)}
-									title="Add new project"
-								>
-									<Plus className="h-4 w-4" />
-								</Button>
-							</div>
-							<CollapsibleContent>
-								<SidebarGroupContent>
-									<SidebarMenu>
-										{departmentGroups.length === 0 ? (
-											<div className="px-3 py-2 text-sm text-muted-foreground">
-												No projects found
-											</div>
-										) : userRole === "team-lead" && departmentGroups[0]?.id === 'flat' ? (
-											// Non-Digital Team-lead: Show flat list (with hierarchy support)
-											<>
-												{departmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
-												{departmentGroups[0].ungroupedProjects.map((project) => renderProjectItem(project))}
-											</>
-										) : (
-											// Admin or Digital Team-lead: Show grouped by department
-											departmentGroups.map((departmentGroup) => (
-												<Collapsible
-													key={departmentGroup.id}
-													open={expandedDepartments.has(departmentGroup.id)}
-													onOpenChange={() => toggleDepartmentExpanded(departmentGroup.id)}
-												>
-													<SidebarMenuItem>
-														<CollapsibleTrigger asChild>
-															<SidebarMenuButton className="w-full">
-																<div className="flex items-center gap-2 flex-1 w-full">
-																	<Building2 className="h-4 w-4 shrink-0" />
-																	<span className="text-sm font-medium flex-1 truncate">{departmentGroup.name}</span>
-																	<span className="text-xs text-muted-foreground mr-2 shrink-0">
-																		({(() => {
-																			const countGroupProjects = (group: TreeGroup): number => {
-																				return group.projects.length + group.children.reduce((acc, child) => acc + countGroupProjects(child), 0);
-																			};
-																			return departmentGroup.ungroupedProjects.length + departmentGroup.rootGroups.reduce((acc, group) => acc + countGroupProjects(group), 0);
-																		})()})
-																	</span>
-																</div>
-																<ChevronRight
-																	className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(departmentGroup.id) ? "rotate-90" : ""
-																		}`}
-																/>
-															</SidebarMenuButton>
-														</CollapsibleTrigger>
-														<CollapsibleContent>
-															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
-																{/* Render Root Project Groups within Department */}
-																{departmentGroup.rootGroups.map(group => renderProjectGroup(group))}
-
-																{/* Render Ungrouped Projects */}
-																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
-															</SidebarMenuSub>
-														</CollapsibleContent>
-													</SidebarMenuItem>
-												</Collapsible>
-											))
-										)}
-									</SidebarMenu>
-								</SidebarGroupContent>
-							</CollapsibleContent>
-						</Collapsible>
-					</SidebarGroup>
-				)}
-
-				{(userRole === 'admin' || userRole === 'team-lead') && archivedDepartmentGroups.length > 0 && (
-					<SidebarGroup>
-						<Collapsible open={archivedProjectsOpen} onOpenChange={setArchivedProjectsOpen}>
-							<div className="flex items-center justify-between px-2">
-								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
-									<SidebarGroupLabel className="hover:bg-transparent">Archived Projects</SidebarGroupLabel>
-									<ChevronRight
-										className={`h-4 w-4 transition-transform ${archivedProjectsOpen ? "rotate-90" : ""
-											}`}
-									/>
-								</CollapsibleTrigger>
-							</div>
-							<CollapsibleContent>
-								<SidebarGroupContent>
-									<SidebarMenu>
-										{userRole === "team-lead" && archivedDepartmentGroups[0]?.id === 'flat' ? (
-											<>
-												{archivedDepartmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
-												{archivedDepartmentGroups[0].ungroupedProjects.map((project) => renderProjectItem(project))}
-											</>
-										) : (
-											archivedDepartmentGroups.map((departmentGroup) => (
-												<Collapsible
-													key={departmentGroup.id}
-													open={expandedDepartments.has(departmentGroup.id + '-archive')}
-													onOpenChange={() => toggleDepartmentExpanded(departmentGroup.id + '-archive')}
-												>
-													<SidebarMenuItem>
-														<CollapsibleTrigger asChild>
-															<SidebarMenuButton className="w-full">
-																<div className="flex items-center gap-2 flex-1 w-full">
-																	<Building2 className="h-4 w-4 shrink-0" />
-																	<span className="text-sm font-medium flex-1 truncate">{departmentGroup.name}</span>
-																	<span className="text-xs text-muted-foreground mr-2 shrink-0">
-																		({(() => {
-																			const countGroupProjects = (group: TreeGroup): number => {
-																				return group.projects.length + group.children.reduce((acc, child) => acc + countGroupProjects(child), 0);
-																			};
-																			return departmentGroup.ungroupedProjects.length + departmentGroup.rootGroups.reduce((acc, group) => acc + countGroupProjects(group), 0);
-																		})()})
-																	</span>
-																</div>
-																<ChevronRight
-																	className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(departmentGroup.id + '-archive') ? "rotate-90" : ""
-																		}`}
-																/>
-															</SidebarMenuButton>
-														</CollapsibleTrigger>
-														<CollapsibleContent>
-															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
-																{departmentGroup.rootGroups.map(group => renderProjectGroup(group))}
-																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
-															</SidebarMenuSub>
-														</CollapsibleContent>
-													</SidebarMenuItem>
-												</Collapsible>
-											))
-										)}
-									</SidebarMenu>
-								</SidebarGroupContent>
-							</CollapsibleContent>
-						</Collapsible>
-					</SidebarGroup>
-				)}
-
-				{userRole === "user" && userAssignedProjects.length > 0 && (
+				{(userRole === "user" || userRole === "account-manager") && userAssignedProjects.length > 0 && (
 					<SidebarGroup>
 						<Collapsible open={assignedProjectsOpen} onOpenChange={setAssignedProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
@@ -1130,7 +996,157 @@ export function AppSidebar() {
 					</SidebarGroup>
 				)}
 
-				{userRole === "user" && userDepartmentProjects.length > 0 && (
+				{(userRole === "admin" || userRole === "team-lead" || userRole === "account-manager") && (
+					<SidebarGroup>
+						<Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
+							<div className="flex items-center justify-between px-2">
+								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
+									<SidebarGroupLabel className="hover:bg-transparent">Projects</SidebarGroupLabel>
+									<ChevronRight
+										className={`h-4 w-4 transition-transform ${projectsOpen ? "rotate-90" : ""
+											}`}
+									/>
+								</CollapsibleTrigger>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-6 w-6 ml-1"
+									onClick={() => setIsProjectDialogOpen(true)}
+									title="Add new project"
+								>
+									<Plus className="h-4 w-4" />
+								</Button>
+							</div>
+							<CollapsibleContent>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{departmentGroups.length === 0 ? (
+											<div className="px-3 py-2 text-sm text-muted-foreground">
+												No projects found
+											</div>
+										) : (userRole === "team-lead" || userRole === "account-manager") && departmentGroups[0]?.id === 'flat' ? (
+											// Non-Digital Team-lead: Show flat list (with hierarchy support)
+											<>
+												{departmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
+												{departmentGroups[0].ungroupedProjects.map((project) => renderProjectItem(project))}
+											</>
+										) : (
+											// Admin or Digital Team-lead: Show grouped by department
+											departmentGroups.map((departmentGroup) => (
+												<Collapsible
+													key={departmentGroup.id}
+													open={expandedDepartments.has(departmentGroup.id)}
+													onOpenChange={() => toggleDepartmentExpanded(departmentGroup.id)}
+												>
+													<SidebarMenuItem>
+														<CollapsibleTrigger asChild>
+															<SidebarMenuButton className="w-full">
+																<div className="flex items-center gap-2 flex-1 w-full">
+																	<Building2 className="h-4 w-4 shrink-0" />
+																	<span className="text-sm font-medium flex-1 truncate">{departmentGroup.name}</span>
+																	<span className="text-xs text-muted-foreground mr-2 shrink-0">
+																		({(() => {
+																			const countGroupProjects = (group: TreeGroup): number => {
+																				return group.projects.length + group.children.reduce((acc, child) => acc + countGroupProjects(child), 0);
+																			};
+																			return departmentGroup.ungroupedProjects.length + departmentGroup.rootGroups.reduce((acc, group) => acc + countGroupProjects(group), 0);
+																		})()})
+																	</span>
+																</div>
+																<ChevronRight
+																	className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(departmentGroup.id) ? "rotate-90" : ""
+																		}`}
+																/>
+															</SidebarMenuButton>
+														</CollapsibleTrigger>
+														<CollapsibleContent>
+															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+																{/* Render Root Project Groups within Department */}
+																{departmentGroup.rootGroups.map(group => renderProjectGroup(group))}
+
+																{/* Render Ungrouped Projects */}
+																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
+											))
+										)}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</CollapsibleContent>
+						</Collapsible>
+					</SidebarGroup>
+				)}
+
+				{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') && archivedDepartmentGroups.length > 0 && (
+					<SidebarGroup>
+						<Collapsible open={archivedProjectsOpen} onOpenChange={setArchivedProjectsOpen}>
+							<div className="flex items-center justify-between px-2">
+								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
+									<SidebarGroupLabel className="hover:bg-transparent">Archived Projects</SidebarGroupLabel>
+									<ChevronRight
+										className={`h-4 w-4 transition-transform ${archivedProjectsOpen ? "rotate-90" : ""
+											}`}
+									/>
+								</CollapsibleTrigger>
+							</div>
+							<CollapsibleContent>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{(userRole === "team-lead" || userRole === "account-manager") && archivedDepartmentGroups[0]?.id === 'flat' ? (
+											<>
+												{archivedDepartmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
+												{archivedDepartmentGroups[0].ungroupedProjects.map((project) => renderProjectItem(project))}
+											</>
+										) : (
+											archivedDepartmentGroups.map((departmentGroup) => (
+												<Collapsible
+													key={departmentGroup.id}
+													open={expandedDepartments.has(departmentGroup.id + '-archive')}
+													onOpenChange={() => toggleDepartmentExpanded(departmentGroup.id + '-archive')}
+												>
+													<SidebarMenuItem>
+														<CollapsibleTrigger asChild>
+															<SidebarMenuButton className="w-full">
+																<div className="flex items-center gap-2 flex-1 w-full">
+																	<Building2 className="h-4 w-4 shrink-0" />
+																	<span className="text-sm font-medium flex-1 truncate">{departmentGroup.name}</span>
+																	<span className="text-xs text-muted-foreground mr-2 shrink-0">
+																		({(() => {
+																			const countGroupProjects = (group: TreeGroup): number => {
+																				return group.projects.length + group.children.reduce((acc, child) => acc + countGroupProjects(child), 0);
+																			};
+																			return departmentGroup.ungroupedProjects.length + departmentGroup.rootGroups.reduce((acc, group) => acc + countGroupProjects(group), 0);
+																		})()})
+																	</span>
+																</div>
+																<ChevronRight
+																	className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(departmentGroup.id + '-archive') ? "rotate-90" : ""
+																		}`}
+																/>
+															</SidebarMenuButton>
+														</CollapsibleTrigger>
+														<CollapsibleContent>
+															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+																{departmentGroup.rootGroups.map(group => renderProjectGroup(group))}
+																{departmentGroup.ungroupedProjects.map((project) => renderProjectItem(project))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
+											))
+										)}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</CollapsibleContent>
+						</Collapsible>
+					</SidebarGroup>
+				)}
+
+
+
+				{(userRole === "user") && userDepartmentProjects.length > 0 && (
 					<SidebarGroup>
 						<Collapsible open={departmentProjectsOpen} onOpenChange={setDepartmentProjectsOpen}>
 							<div className="flex items-center justify-between px-2">

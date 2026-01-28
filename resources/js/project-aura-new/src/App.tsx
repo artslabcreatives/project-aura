@@ -128,6 +128,7 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 import TaskDetailsPage from "./pages/TaskDetailsPage";
+import ReviewNeededPage from "./pages/ReviewNeededPage";
 
 const App = () => (
 	<UserProvider>
@@ -145,6 +146,7 @@ const App = () => (
 							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
 							<Route path="/team" element={<AppLayout><Team /></AppLayout>} />
 							<Route path="/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
+							<Route path="/review-needed" element={<AppLayout><ReviewNeededPage /></AppLayout>} />
 							{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 							<Route path="*" element={<NotFound />} />
 						</Routes>

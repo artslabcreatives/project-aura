@@ -5,6 +5,8 @@ import UserView from "./UserView";
 
 import { Loading } from "@/components/Loading";
 
+import AccountManagerView from "./AccountManagerView";
+
 export default function UserDashboard() {
   const { currentUser } = useUser();
   const role = currentUser?.role;
@@ -14,6 +16,8 @@ export default function UserDashboard() {
       return <AdminView />;
     case "team-lead":
       return <TeamLeadView />;
+    case "account-manager":
+      return <AccountManagerView />;
     case "user":
       return <UserView />;
     default:

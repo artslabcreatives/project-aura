@@ -217,13 +217,13 @@ export default function Team() {
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Team</h1>
 					<p className="text-muted-foreground mt-1">
-						{currentUser?.role === "team-lead"
+						{(currentUser?.role === "team-lead" || currentUser?.role === "account-manager")
 							? `Manage ${getDepartmentName(currentUser.department)} team members`
 							: "View team members and their task progress"
 						}
 					</p>
 				</div>
-				{(currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
+				{(currentUser?.role === "admin" || currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && (
 					<Button onClick={() => setIsTeamDialogOpen(true)} className="gap-2">
 						<Plus className="h-4 w-4" />
 						Add Team Member
@@ -272,7 +272,7 @@ export default function Team() {
 													</p>
 												</div>
 												{(currentUser?.role === "admin" ||
-													(currentUser?.role === "team-lead" && member.department === currentUser.department)) && (
+													((currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && member.department === currentUser.department)) && (
 														<div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
 															<Button
 																variant="ghost"

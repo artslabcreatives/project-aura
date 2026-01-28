@@ -203,7 +203,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							<Eye className="h-3.5 w-3.5" />
 						</Button>
 						{/* Show Review Task button if in review stage */}
-						{currentStage?.isReviewStage && onReviewTask && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+						{currentStage?.isReviewStage && onReviewTask && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -227,7 +227,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 						)}
 
 
-						{canManage && (
+						{canManage && currentUser?.role !== 'account-manager' && (
 							<>
 								<Button
 									variant="ghost"

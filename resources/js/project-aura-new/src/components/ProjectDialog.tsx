@@ -144,7 +144,7 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 				{isSystem && <div className="w-4" />} {/* Spacer */}
 
 				<Input
-					value={stage.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead') ? "Backlog" : stage.title}
+					value={stage.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') ? "Backlog" : stage.title}
 					onChange={(e) => updateStage(stage.id, "title", e.target.value)}
 					placeholder="Stage name"
 					className="flex-1"
@@ -388,7 +388,7 @@ export function ProjectDialog({
 				setGroupId(editProject.group?.id ? String(editProject.group.id) : "");
 			} else {
 				// For new project, auto-select department for team-lead
-				if (currentUser?.role === "team-lead") {
+				if (currentUser?.role === "team-lead" || currentUser?.role === "account-manager") {
 					const userDepartment = departments.find(
 						dept => dept.id === currentUser.department
 					);
@@ -719,13 +719,13 @@ export function ProjectDialog({
 											setGroupId(""); // Reset group when dept changes
 										}
 									}}
-									disabled={currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
+									disabled={(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Select a department" />
 									</SelectTrigger>
 									<SelectContent>
-										{currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() === "digital" ? (
+										{(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() === "digital" ? (
 											departments
 												.filter(dept => dept.name.toLowerCase() === "digital" || dept.name.toLowerCase() === "design")
 												.map((dept) => (
@@ -843,7 +843,7 @@ export function ProjectDialog({
 							</div>
 
 							<div className="text-xs text-muted-foreground bg-muted p-2 rounded-md">
-								Note: <strong>Suggested, {(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') ? "Backlog" : "Pending"}, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
+								Note: <strong>Suggested, {(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') ? "Backlog" : "Pending"}, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
 							</div>
 
 							{stages.length === 0 && !editProject ? (

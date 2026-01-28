@@ -49,6 +49,7 @@ class UserResource extends Resource
                             ->options([
                                 'user' => 'User',
                                 'team-lead' => 'Team Lead',
+                                'account-manager' => 'Account Manager',
                                 'admin' => 'Admin',
                             ])
                             ->default('user')
@@ -78,6 +79,7 @@ class UserResource extends Resource
                     ->color(fn (string $state): string => match ($state) {
                         'user' => 'gray',
                         'team-lead' => 'info',
+                        'account-manager' => 'warning',
                         'admin' => 'success',
                         default => 'gray',
                     }),
@@ -97,6 +99,7 @@ class UserResource extends Resource
                     ->options([
                         'user' => 'User',
                         'team-lead' => 'Team Lead',
+                        'account-manager' => 'Account Manager',
                         'admin' => 'Admin',
                     ]),
                 Tables\Filters\SelectFilter::make('department')

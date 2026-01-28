@@ -99,7 +99,7 @@ export default function FilteredTasksPage() {
 
             // Apply role-based filtering first
             if (currentUser) {
-                if (currentUser.role === 'user') {
+                if (currentUser.role === 'user' || currentUser.role === 'account-manager') {
                     // Regular users: show only their assigned tasks
                     const isAssigned =
                         task.assignee === currentUser.name ||

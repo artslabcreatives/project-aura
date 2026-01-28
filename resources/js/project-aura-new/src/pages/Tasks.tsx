@@ -385,6 +385,24 @@ export default function Tasks() {
 
 				return isAssignedToDepartment || isProjectInDepartment || isDesignProject;
 			});
+		} else if (currentUser?.role === "account-manager") {
+			// Account Manager: Strict Department Only
+			const departmentMembers = teamMembers
+				.filter((member) => member.department === currentUser.department)
+				.map((member) => member.name);
+
+			tasksToProcess = tasksToProcess.filter((task) => {
+				// 1. Task is assigned to someone in the department
+				const isAssignedToDepartment = departmentMembers.includes(task.assignee);
+
+				// 2. Task belongs to a project in the department
+				const taskProject =
+					allProjects.find((p) => p.id === (task.projectId ?? -1)) ||
+					allProjects.find((p) => p.name === task.project);
+				const isProjectInDepartment = taskProject?.department?.id === currentUser.department;
+
+				return isAssignedToDepartment || isProjectInDepartment;
+			});
 		}
 
 		return tasksToProcess
@@ -536,7 +554,13 @@ export default function Tasks() {
 				onAssigneeChange={setSelectedAssignee}
 				selectedTag={selectedTag}
 				onTagChange={setSelectedTag}
-				availableProjects={allProjects.filter(p => !p.isArchived)}
+				availableProjects={allProjects.filter(p => !p.isArchived).filter(p => {
+					if (currentUser?.role === 'admin') return true;
+					if (currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') {
+						return p.department?.id === currentUser.department;
+					}
+					return true;
+				})}
 				availableStatuses={fixedKanbanStages}
 				teamMembers={teamMembers}
 				departments={departments}

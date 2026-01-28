@@ -120,7 +120,7 @@ export function TaskDialog({
 			if (fixedDepartmentId) {
 				setTagDepartmentId(fixedDepartmentId);
 			} else if (currentUser) {
-				if (currentUser.role === 'team-lead') {
+				if (currentUser.role === 'team-lead' || currentUser.role === 'account-manager') {
 					setTagDepartmentId(currentUser.department);
 				} else if (currentUser.role === 'admin') {
 					// Admin defaults to their department but can change it. 
@@ -590,7 +590,7 @@ export function TaskDialog({
 											})
 											.map((status) => (
 												<SelectItem key={status.id} value={status.id}>
-													{status.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead')
+													{status.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager')
 														? "Backlog"
 														: status.title}
 												</SelectItem>
@@ -698,7 +698,7 @@ export function TaskDialog({
 							<div className="grid gap-2">
 								<div className="flex items-center justify-between">
 									<Label htmlFor="startDate">Start Date</Label>
-									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 										<div className="flex items-center space-x-2">
 											<Checkbox
 												id="noStartDate"
@@ -737,7 +737,7 @@ export function TaskDialog({
 							<div className="grid gap-2">
 								<div className="flex items-center justify-between">
 									<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
-									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 										<div className="flex items-center space-x-2">
 											<Checkbox
 												id="noEndDate"

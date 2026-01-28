@@ -27,7 +27,7 @@ class UserController extends Controller
                 name: "role",
                 in: "query",
                 required: false,
-                schema: new OA\Schema(type: "string", enum: ["user", "team-lead", "admin"])
+                schema: new OA\Schema(type: "string", enum: ["user", "team-lead", "admin", "account-manager"])
             )
         ],
         responses: [
@@ -70,7 +70,7 @@ class UserController extends Controller
                     new OA\Property(property: "name", type: "string", example: "John Doe"),
                     new OA\Property(property: "email", type: "string", format: "email", example: "john@example.com"),
                     new OA\Property(property: "password", type: "string", format: "password", nullable: true),
-                    new OA\Property(property: "role", type: "string", enum: ["user", "team-lead", "admin"], example: "user"),
+                    new OA\Property(property: "role", type: "string", enum: ["user", "team-lead", "admin", "account-manager"], example: "user"),
                     new OA\Property(property: "department_id", type: "integer", nullable: true)
                 ]
             )
@@ -88,7 +88,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'nullable|string|min:8',
-            'role' => 'sometimes|in:user,team-lead,admin',
+            'role' => 'sometimes|in:user,team-lead,admin,account-manager',
             'department_id' => 'nullable|exists:departments,id',
         ]);
 
@@ -137,7 +137,7 @@ class UserController extends Controller
                     new OA\Property(property: "name", type: "string"),
                     new OA\Property(property: "email", type: "string", format: "email"),
                     new OA\Property(property: "password", type: "string", format: "password"),
-                    new OA\Property(property: "role", type: "string", enum: ["user", "team-lead", "admin"]),
+                    new OA\Property(property: "role", type: "string", enum: ["user", "team-lead", "admin", "account-manager"]),
                     new OA\Property(property: "department_id", type: "integer", nullable: true)
                 ]
             )
@@ -163,7 +163,7 @@ class UserController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|email|unique:users,email,' . $user->id,
             'password' => 'sometimes|string|min:8',
-            'role' => 'sometimes|in:user,team-lead,admin',
+            'role' => 'sometimes|in:user,team-lead,admin,account-manager',
             'department_id' => 'nullable|exists:departments,id',
         ]);
 
