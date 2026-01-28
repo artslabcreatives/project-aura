@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\RevisionHistoryController;
 use App\Http\Controllers\Api\StageController;
+use App\Http\Controllers\Api\StageGroupController;
 use App\Http\Controllers\Api\TaskAttachmentController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\UserController;
@@ -46,6 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('stages', StageController::class);
+    Route::apiResource('stage-groups', StageGroupController::class);
     Route::apiResource('tasks', TaskController::class);
     Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);

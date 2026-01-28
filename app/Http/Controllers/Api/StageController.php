@@ -22,15 +22,34 @@ class StageController extends Controller
                 required: false,
                 description: "Filter by project ID",
                 schema: new OA\Schema(type: "integer")
+            ),
+            new OA\Parameter(
+                name: "stage_group_id",
+                in: "query",
+                required: false,
+                description: "Filter by stage group ID",
+                schema: new OA\Schema(type: "integer")
             )
         ],
         responses: [
             new OA\Response(
                 response: 200,
-                description: "List of stages",
+                description: "List of stages with stage group information",
                 content: new OA\JsonContent(
                     type: "array",
-                    items: new OA\Items(type: "object")
+                    items: new OA\Items(
+                        properties: [
+                            new OA\Property(property: "id", type: "integer", example: 1),
+                            new OA\Property(property: "title", type: "string", example: "Design"),
+                            new OA\Property(property: "color", type: "string", example: "bg-blue-500"),
+                            new OA\Property(property: "order", type: "integer", example: 1),
+                            new OA\Property(property: "type", type: "string", enum: ["user", "project"], example: "project"),
+                            new OA\Property(property: "stage_group_id", type: "integer", nullable: true, example: 1),
+                            new OA\Property(property: "project", type: "object", example: {"id": 1, "name": "Project Name"}),
+                            new OA\Property(property: "stageGroup", type: "object", example: {"id": 1, "name": "Completed"}, nullable: true),
+                        ],
+                        type: "object"
+                    )
                 )
             ),
             new OA\Response(response: 401, description: "Unauthorized")
@@ -38,10 +57,14 @@ class StageController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $query = Stage::with(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2']);
+        $query = Stage::with(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2', 'stageGroup']);
         
         if ($request->has('project_id')) {
             $query->where('project_id', $request->project_id);
+        }
+
+        if ($request->has('stage_group_id')) {
+            $query->where('stage_group_id', $request->stage_group_id);
         }
         
         $stages = $query->orderBy('order')->get();
@@ -58,10 +81,11 @@ class StageController extends Controller
                 required: ["title"],
                 properties: [
                     new OA\Property(property: "title", type: "string", example: "Design"),
-                    new OA\Property(property: "color", type: "string", example: "#FF5733"),
+                    new OA\Property(property: "color", type: "string", example: "bg-blue-500"),
                     new OA\Property(property: "order", type: "integer", example: 1),
                     new OA\Property(property: "type", type: "string", enum: ["user", "project"], example: "project"),
                     new OA\Property(property: "project_id", type: "integer", nullable: true),
+                    new OA\Property(property: "stage_group_id", type: "integer", nullable: true, description: "ID of the stage group this stage belongs to"),
                     new OA\Property(property: "main_responsible_id", type: "integer", nullable: true),
                     new OA\Property(property: "is_review_stage", type: "boolean", example: false)
                 ]
@@ -69,7 +93,7 @@ class StageController extends Controller
         ),
         tags: ["Stages"],
         responses: [
-            new OA\Response(response: 201, description: "Stage created"),
+            new OA\Response(response: 201, description: "Stage created with stage group information"),
             new OA\Response(response: 401, description: "Unauthorized"),
             new OA\Response(response: 422, description: "Validation error")
         ]
@@ -88,10 +112,11 @@ class StageController extends Controller
             'is_review_stage' => 'sometimes|boolean',
             'linked_review_stage_id' => 'nullable|exists:stages,id',
             'approved_target_stage_id' => 'nullable|exists:stages,id',
+            'stage_group_id' => 'nullable|exists:stage_groups,id',
         ]);
 
         $stage = Stage::create($validated);
-        return response()->json($stage->load(['project', 'mainResponsible']), 201);
+        return response()->json($stage->load(['project', 'mainResponsible', 'stageGroup']), 201);
     }
 
     #[OA\Get(
@@ -108,14 +133,14 @@ class StageController extends Controller
             )
         ],
         responses: [
-            new OA\Response(response: 200, description: "Stage details"),
+            new OA\Response(response: 200, description: "Stage details with stage group information"),
             new OA\Response(response: 401, description: "Unauthorized"),
             new OA\Response(response: 404, description: "Stage not found")
         ]
     )]
     public function show(Stage $stage): JsonResponse
     {
-        return response()->json($stage->load(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2', 'tasks']));
+        return response()->json($stage->load(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2', 'stageGroup', 'tasks']));
     }
 
     #[OA\Put(
@@ -128,6 +153,7 @@ class StageController extends Controller
                     new OA\Property(property: "title", type: "string"),
                     new OA\Property(property: "color", type: "string"),
                     new OA\Property(property: "order", type: "integer"),
+                    new OA\Property(property: "stage_group_id", type: "integer", nullable: true, description: "ID of the stage group this stage belongs to"),
                     new OA\Property(property: "main_responsible_id", type: "integer", nullable: true),
                     new OA\Property(property: "is_review_stage", type: "boolean")
                 ]
@@ -143,7 +169,7 @@ class StageController extends Controller
             )
         ],
         responses: [
-            new OA\Response(response: 200, description: "Stage updated"),
+            new OA\Response(response: 200, description: "Stage updated with stage group information"),
             new OA\Response(response: 401, description: "Unauthorized"),
             new OA\Response(response: 404, description: "Stage not found")
         ]
@@ -162,10 +188,11 @@ class StageController extends Controller
             'is_review_stage' => 'sometimes|boolean',
             'linked_review_stage_id' => 'nullable|exists:stages,id',
             'approved_target_stage_id' => 'nullable|exists:stages,id',
+            'stage_group_id' => 'nullable|exists:stage_groups,id',
         ]);
 
         $stage->update($validated);
-        return response()->json($stage->load(['project', 'mainResponsible']));
+        return response()->json($stage->load(['project', 'mainResponsible', 'stageGroup']));
     }
 
     #[OA\Delete(

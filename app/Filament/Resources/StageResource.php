@@ -47,6 +47,11 @@ class StageResource extends Resource
                             ->relationship('project', 'name')
                             ->searchable()
                             ->preload(),
+                        Forms\Components\Select::make('stage_group_id')
+                            ->relationship('stageGroup', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->label('Stage Group'),
                         Forms\Components\Toggle::make('is_review_stage')
                             ->default(false),
                     ])->columns(2),
@@ -94,6 +99,10 @@ class StageResource extends Resource
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('project.name')
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('stageGroup.name')
+                    ->label('Stage Group')
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('type')

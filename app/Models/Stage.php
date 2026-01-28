@@ -25,6 +25,7 @@ class Stage extends Model
         'is_review_stage',
         'linked_review_stage_id',
         'approved_target_stage_id',
+        'stage_group_id',
     ];
 
     protected $casts = [
@@ -52,6 +53,14 @@ class Stage extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    /**
+     * Get the stage group this stage belongs to.
+     */
+    public function stageGroup(): BelongsTo
+    {
+        return $this->belongsTo(StageGroup::class);
     }
 
     /**
