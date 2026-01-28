@@ -158,7 +158,7 @@ const App = () => (
 								</ProtectedRoute>
 							} />
 							<Route path="/tasks/filter/:filterType" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
 									<AppLayout><FilteredTasksPage /></AppLayout>
 								</ProtectedRoute>
 							} />

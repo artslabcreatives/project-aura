@@ -45,8 +45,8 @@ class StageController extends Controller
                             new OA\Property(property: "order", type: "integer", example: 1),
                             new OA\Property(property: "type", type: "string", enum: ["user", "project"], example: "project"),
                             new OA\Property(property: "stage_group_id", type: "integer", nullable: true, example: 1),
-                            new OA\Property(property: "project", type: "object", example: {"id": 1, "name": "Project Name"}),
-                            new OA\Property(property: "stageGroup", type: "object", example: {"id": 1, "name": "Completed"}, nullable: true),
+                            new OA\Property(property: "project", type: "object", example: ["id" => 1, "name" => "Project Name"]),
+                            new OA\Property(property: "stageGroup", type: "object", example: ["id" => 1, "name" => "Completed"], nullable: true),
                         ],
                         type: "object"
                     )
