@@ -31,6 +31,13 @@ export default function TaskDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    const [visibleHistoryCount, setVisibleHistoryCount] = useState(5);
+
+    // Reset visible count when task changes
+    useEffect(() => {
+        setVisibleHistoryCount(5);
+    }, [taskId]);
+
     useEffect(() => {
         const fetchTask = async () => {
             if (!taskId) return;
@@ -399,31 +406,46 @@ export default function TaskDetailsPage() {
                 </CardHeader>
                 <CardContent>
                     {task.taskHistory && task.taskHistory.length > 0 ? (
-                        <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-                            {task.taskHistory.map((history) => (
-                                <div key={history.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                    {/* Icon */}
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-300 group-[.is-active]:bg-emerald-500 text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                                        <Clock className="h-5 w-5" />
-                                    </div>
-
-                                    {/* Card */}
-                                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-card p-4 rounded border border-slate-200 dark:border-border shadow">
-                                        <div className="flex items-center justify-between space-x-2 mb-1">
-                                            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                                                {history.details}
+                        <div className="space-y-6">
+                            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                                {[...task.taskHistory]
+                                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                    .slice(0, visibleHistoryCount)
+                                    .map((history) => (
+                                        <div key={history.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                            {/* Icon */}
+                                            <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-300 group-[.is-active]:bg-emerald-500 text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                                                <Clock className="h-5 w-5" />
                                             </div>
-                                            <time className="font-caveat font-medium text-xs text-indigo-500">
-                                                {format(new Date(history.createdAt), "MMM dd, hh:mm a")}
-                                            </time>
+
+                                            {/* Card */}
+                                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-card p-4 rounded border border-slate-200 dark:border-border shadow">
+                                                <div className="flex items-center justify-between space-x-2 mb-1">
+                                                    <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                                                        {history.details}
+                                                    </div>
+                                                    <time className="font-caveat font-medium text-xs text-indigo-500">
+                                                        {format(new Date(history.createdAt), "MMM dd, hh:mm a")}
+                                                    </time>
+                                                </div>
+                                                <div className="text-slate-500 dark:text-muted-foreground text-xs flex items-center gap-1">
+                                                    <User className="h-3 w-3" />
+                                                    {history.user?.name || "System"}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="text-slate-500 dark:text-muted-foreground text-xs flex items-center gap-1">
-                                            <User className="h-3 w-3" />
-                                            {history.user?.name || "System"}
-                                        </div>
-                                    </div>
+                                    ))}
+                            </div>
+                            {visibleHistoryCount < task.taskHistory.length && (
+                                <div className="flex justify-center pt-4">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setVisibleHistoryCount(prev => prev + 5)}
+                                    >
+                                        Load More
+                                    </Button>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     ) : (
                         <div className="text-sm text-muted-foreground text-center py-8 italic bg-muted/30 rounded-lg border border-dashed">
