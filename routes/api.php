@@ -10,6 +10,10 @@ use App\Http\Controllers\Api\StageGroupController;
 use App\Http\Controllers\Api\TaskAttachmentController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\ProjectGroupController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\FeedbackController;
+use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
 use App\Http\Controllers\MattermostAuthController;
@@ -56,15 +60,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
     Route::apiResource('users', UserController::class);
-    Route::apiResource('project-groups', \App\Http\Controllers\Api\ProjectGroupController::class);
+    Route::apiResource('project-groups', ProjectGroupController::class);
 
     // Notifications
-    Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
-    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
-    Route::patch('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
-    Route::delete('/notifications/{id}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
-    Route::apiResource('feedback', \App\Http\Controllers\Api\FeedbackController::class);
-    Route::apiResource('tags', \App\Http\Controllers\Api\TagController::class);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+    Route::apiResource('feedback', FeedbackController::class);
+    Route::apiResource('tags', TagController::class);
 
     // Search endpoints
     Route::get('/search/all-with-relations', [SearchController::class, 'searchAllWithRelations']);

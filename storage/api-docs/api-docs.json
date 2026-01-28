@@ -681,8 +681,18 @@
                                         "example": "App crashes when..."
                                     },
                                     "screenshot": {
+                                        "description": "Legacy single screenshot",
                                         "type": "string",
                                         "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "images[]": {
+                                        "description": "Multiple images",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        },
                                         "nullable": true
                                     },
                                     "device_info": {
@@ -2945,16 +2955,71 @@
                         "schema": {
                             "type": "integer"
                         }
+                    },
+                    {
+                        "name": "stage_group_id",
+                        "in": "query",
+                        "description": "Filter by stage group ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of stages",
+                        "description": "List of stages with stage group information",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "array",
                                     "items": {
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer",
+                                                "example": 1
+                                            },
+                                            "title": {
+                                                "type": "string",
+                                                "example": "Design"
+                                            },
+                                            "color": {
+                                                "type": "string",
+                                                "example": "bg-blue-500"
+                                            },
+                                            "order": {
+                                                "type": "integer",
+                                                "example": 1
+                                            },
+                                            "type": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "user",
+                                                    "project"
+                                                ],
+                                                "example": "project"
+                                            },
+                                            "stage_group_id": {
+                                                "type": "integer",
+                                                "example": 1,
+                                                "nullable": true
+                                            },
+                                            "project": {
+                                                "type": "object",
+                                                "example": {
+                                                    "id": 1,
+                                                    "name": "Project Name"
+                                                }
+                                            },
+                                            "stageGroup": {
+                                                "type": "object",
+                                                "example": {
+                                                    "id": 1,
+                                                    "name": "Completed"
+                                                },
+                                                "nullable": true
+                                            }
+                                        },
                                         "type": "object"
                                     }
                                 }
@@ -2992,7 +3057,7 @@
                                     },
                                     "color": {
                                         "type": "string",
-                                        "example": "#FF5733"
+                                        "example": "bg-blue-500"
                                     },
                                     "order": {
                                         "type": "integer",
@@ -3007,6 +3072,11 @@
                                         "example": "project"
                                     },
                                     "project_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "stage_group_id": {
+                                        "description": "ID of the stage group this stage belongs to",
                                         "type": "integer",
                                         "nullable": true
                                     },
@@ -3026,7 +3096,7 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Stage created"
+                        "description": "Stage created with stage group information"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -3061,7 +3131,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Stage details"
+                        "description": "Stage details with stage group information"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -3106,6 +3176,11 @@
                                     "order": {
                                         "type": "integer"
                                     },
+                                    "stage_group_id": {
+                                        "description": "ID of the stage group this stage belongs to",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
                                     "main_responsible_id": {
                                         "type": "integer",
                                         "nullable": true
@@ -3121,7 +3196,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Stage updated"
+                        "description": "Stage updated with stage group information"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -3161,6 +3236,262 @@
                     },
                     "404": {
                         "description": "Stage not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/stage-groups": {
+            "get": {
+                "tags": [
+                    "Stage Groups"
+                ],
+                "summary": "List all stage groups",
+                "description": "Retrieve all stage groups with their associated stages. Stages include their names and stage_group_id.",
+                "operationId": "3485d109162436c03df9ad3033a28e6c",
+                "parameters": [
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "description": "Filter by project ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of stage groups with stages",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer",
+                                                "example": 1
+                                            },
+                                            "name": {
+                                                "type": "string",
+                                                "example": "Completed"
+                                            },
+                                            "description": {
+                                                "type": "string",
+                                                "example": "Stages for completed tasks",
+                                                "nullable": true
+                                            },
+                                            "stages": {
+                                                "type": "array",
+                                                "items": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "title": {
+                                                            "type": "string"
+                                                        },
+                                                        "stage_group_id": {
+                                                            "type": "integer"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Stage Groups"
+                ],
+                "summary": "Create a new stage group",
+                "description": "Create a stage group that can be used to classify stages internally (e.g., Completed, Pending, Active)",
+                "operationId": "f55bf6fd9ff9eb27fae0b94b617fb00e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "description": "Name of the stage group",
+                                        "type": "string",
+                                        "example": "Completed"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Stages for completed tasks",
+                                        "nullable": true
+                                    },
+                                    "project_id": {
+                                        "description": "Optional project ID to scope the group to a specific project",
+                                        "type": "integer",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Stage group created with empty stages array"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/stage-groups/{id}": {
+            "get": {
+                "tags": [
+                    "Stage Groups"
+                ],
+                "summary": "Get stage group by ID",
+                "description": "Retrieve a specific stage group with all its associated stages that include stage_group_id",
+                "operationId": "23e34542d8e32b9e4c1ca06bb79707c9",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stage group details with stages"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Stage group not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Stage Groups"
+                ],
+                "summary": "Update stage group",
+                "description": "Update a stage group's name, description, or project association",
+                "operationId": "d762d08c3ab6f014210d3082e9e97635",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "project_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Stage group updated with stages"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Stage group not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Stage Groups"
+                ],
+                "summary": "Delete stage group",
+                "description": "Delete a stage group. Note: Associated stages will have their stage_group_id set to null",
+                "operationId": "b002b392ffcc9808f94a967999ff811b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Stage group deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Stage group not found"
                     }
                 },
                 "security": [
@@ -3465,6 +3796,41 @@
                 "responses": {
                     "204": {
                         "description": "Attachment deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Attachment not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/task-attachments/{id}/download": {
+            "get": {
+                "tags": [
+                    "Task Attachments"
+                ],
+                "summary": "Download or track download of an attachment",
+                "operationId": "07457af16839347bc7373f8ce583e120",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Download tracked"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -3943,7 +4309,8 @@
                             "enum": [
                                 "user",
                                 "team-lead",
-                                "admin"
+                                "admin",
+                                "account-manager"
                             ]
                         }
                     }
@@ -4007,7 +4374,8 @@
                                         "enum": [
                                             "user",
                                             "team-lead",
-                                            "admin"
+                                            "admin",
+                                            "account-manager"
                                         ],
                                         "example": "user"
                                     },
@@ -4110,7 +4478,8 @@
                                         "enum": [
                                             "user",
                                             "team-lead",
-                                            "admin"
+                                            "admin",
+                                            "account-manager"
                                         ]
                                     },
                                     "department_id": {
@@ -4265,6 +4634,10 @@
         {
             "name": "Stages",
             "description": "Stages"
+        },
+        {
+            "name": "Stage Groups",
+            "description": "Stage Groups"
         },
         {
             "name": "Tags",
