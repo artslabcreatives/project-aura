@@ -101,6 +101,7 @@ export function AppSidebar() {
 	const [isAssignGroupOpen, setIsAssignGroupOpen] = useState(false);
 	const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
 	const [expandedProjectGroups, setExpandedProjectGroups] = useState<Set<string>>(new Set());
+	const [reviewNeededCount, setReviewNeededCount] = useState(0);
 	const userRole = currentUser?.role;
 
 	const fetchData = async () => {
@@ -146,6 +147,28 @@ export function AppSidebar() {
 							userProjectStages.get(task.project)?.add(task.projectStage);
 						}
 					});
+
+				// Calculate Review Needed count for Account Managers
+				if (userRole === 'account-manager') {
+					const count = tasksData.filter(task => {
+						const isAssigned = task.assignee === currentUser.name ||
+							(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+
+						if (!isAssigned) return false;
+
+						// We need to find the project and the stage from the fresh data
+						// Note: projectsData is usually available in scope here as it was fetched above
+						const project = projectsData.find(p => p.name === task.project);
+						if (!project) return false;
+
+						const stage = project.stages.find(s => s.id === task.projectStage);
+						if (!stage) return false;
+
+						const isReview = stage.isReviewStage || stage.title.toLowerCase().includes("review");
+						return isReview && task.userStatus !== 'complete';
+					}).length;
+					setReviewNeededCount(count);
+				}
 
 				const assignedProjects = projectsData
 					.filter(project => userProjectStages.has(project.name) && !project.isArchived)
@@ -922,7 +945,12 @@ export function AppSidebar() {
 											activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 										>
 											<item.icon className="h-4 w-4" />
-											<span>{item.title}</span>
+											<span className="flex-1">{item.title}</span>
+											{item.title === "Review Needed" && reviewNeededCount > 0 && (
+												<span className="flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs font-semibold text-white bg-primary rounded-full animate-in zoom-in-50 duration-300">
+													{reviewNeededCount}
+												</span>
+											)}
 										</NavLink>
 									</SidebarMenuButton>
 								</SidebarMenuItem>
