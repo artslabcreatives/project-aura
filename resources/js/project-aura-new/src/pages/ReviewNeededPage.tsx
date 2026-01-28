@@ -86,6 +86,7 @@ export default function ReviewNeededPage() {
             // Logic similar to ProjectKanban.handleTaskUpdate + history
             const updates: any = {
                 projectStage: targetStageId,
+                projectStageId: parseInt(targetStageId), // FIX: Add projectStageId for backend mapping
                 isInSpecificStage: false,
                 previousStage: undefined,
                 originalAssignee: undefined,
@@ -161,6 +162,7 @@ export default function ReviewNeededPage() {
 
         const updates: any = {
             projectStage: targetStageId,
+            projectStageId: parseInt(targetStageId), // FIX: Add projectStageId for backend mapping
             userStatus: 'pending',
             isInSpecificStage: false,
             revisionComment: comment,
