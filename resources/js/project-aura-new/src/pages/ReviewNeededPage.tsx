@@ -77,29 +77,42 @@ export default function ReviewNeededPage() {
         const task = tasks.find(t => t.id === taskId);
         if (!task) return;
 
-        // Find project to track history correctly
+        // Find project
         const project = projects.find(p => p.name === task.project);
         const projectId = project ? String(project.id) : undefined;
-        const targetStage = project?.stages.find(s => s.id === targetStageId);
+        // Robust lookup
+        const targetStage = project?.stages.find(s => String(s.id) === String(targetStageId));
 
         try {
-            // Logic similar to ProjectKanban.handleTaskUpdate + history
             const updates: any = {
                 projectStage: targetStageId,
-                projectStageId: parseInt(targetStageId), // FIX: Add projectStageId for backend mapping
+                projectStageId: parseInt(targetStageId),
                 isInSpecificStage: false,
                 previousStage: undefined,
                 originalAssignee: undefined,
                 revisionComment: undefined
             };
 
-            // If moving to a "Completed" stage (title check or property check), add tag
-            // Note: ProjectKanban checks for last stage. Let's do similar or simple title check.
-            // Simplified logic:
+            // Status Logic
             if (targetStage?.title.toLowerCase().includes('complete')) {
                 updates.userStatus = 'complete';
             } else {
                 updates.userStatus = 'pending';
+            }
+
+            // Assignee Logic - logic similar to Kanban to handle responsibility change
+            if (targetStage?.mainResponsibleId) {
+                const mr = teamMembers.find(m => m.id === targetStage.mainResponsibleId);
+                if (mr) {
+                    updates.assignee = mr.name;
+                    updates.assigneeId = parseInt(mr.id);
+                } else {
+                    updates.assignee = '';
+                    updates.assigneeId = null;
+                }
+            } else {
+                updates.assignee = '';
+                updates.assigneeId = null;
             }
 
             // Call API
@@ -119,7 +132,8 @@ export default function ReviewNeededPage() {
                     details: {
                         action: 'approved',
                         comment,
-                        targetStage: targetStage?.title || targetStageId
+                        targetStage: targetStage?.title || targetStageId,
+                        newAssignee: updates.assignee || 'Unassigned'
                     }
                 });
             }
@@ -162,7 +176,7 @@ export default function ReviewNeededPage() {
 
         const updates: any = {
             projectStage: targetStageId,
-            projectStageId: parseInt(targetStageId), // FIX: Add projectStageId for backend mapping
+            projectStageId: parseInt(targetStageId),
             userStatus: 'pending',
             isInSpecificStage: false,
             revisionComment: comment,
@@ -189,9 +203,8 @@ export default function ReviewNeededPage() {
             if (currentUser && projectId) {
                 // Note: 'UPDATE_TASK_STATUS' seems appropriate or generic 'UPDATE_TASK'
                 // ProjectKanban calls handleTaskUpdate which logs log based on changes.
-                // We'll just log "Revision requested".
                 addHistoryEntry({ // Using generic addHistoryEntry from generic useHistory hook
-                    action: 'UPDATE_TASK_STATUS', // Using STATUS for consistency with Approval? Or just custom.
+                    action: 'UPDATE_TASK_STATUS',
                     entityId: taskId,
                     entityType: 'task',
                     projectId: projectId,
@@ -246,7 +259,6 @@ export default function ReviewNeededPage() {
                                     setIsViewDialogOpen(true);
                                 }}
                                 // Enable review capability here
-                                // We pass onReviewTask to show the review button (icon)
                                 // onReviewTask={() => openReviewDialog(task)}
                                 onReviewTask={() => {
                                     setReviewTask(task);
