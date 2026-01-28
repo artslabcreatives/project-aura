@@ -171,6 +171,7 @@ class StageGroupController extends Controller
     #[OA\Delete(
         path: "/stage-groups/{id}",
         summary: "Delete stage group",
+        description: "Delete a stage group. Note: Associated stages will have their stage_group_id set to null",
         security: [["bearerAuth" => []]],
         tags: ["Stage Groups"],
         parameters: [
@@ -182,7 +183,7 @@ class StageGroupController extends Controller
             )
         ],
         responses: [
-            new OA\Response(response: 204, description: "Stage group deleted"),
+            new OA\Response(response: 204, description: "Stage group deleted successfully"),
             new OA\Response(response: 401, description: "Unauthorized"),
             new OA\Response(response: 404, description: "Stage group not found")
         ]

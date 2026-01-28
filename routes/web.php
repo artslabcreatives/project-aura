@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+//api should excempted from this any
+
+
 // Serve the React app for all routes (React Router handles client-side routing)
 Route::get('/{any?}', function () {
 	return view('app');
