@@ -202,34 +202,54 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 			{['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) ? null : (
 				<>
 					{stageGroups.length > 0 && (
-						<div className="flex items-center gap-4 ml-6 my-2">
-							{stageGroups.map(group => {
-								let colorClass = "bg-gray-400";
-								if (group.id === 1) colorClass = "bg-red-500";
-								if (group.id === 2) colorClass = "bg-orange-500";
-								if (group.id === 3) colorClass = "bg-green-500";
+						<div className="ml-6 my-2">
+							{!isSystem ? (
+								<div className="flex items-center gap-4">
+									{stageGroups.map(group => {
+										let colorClass = "bg-gray-400";
+										if (group.id === 1) colorClass = "bg-red-500";
+										if (group.id === 2) colorClass = "bg-orange-500";
+										if (group.id === 3) colorClass = "bg-green-500";
 
-								const isSelected = stage.stageGroupId === group.id;
+										const isSelected = stage.stageGroupId === group.id;
 
-								return (
-									<div
-										key={group.id}
-										className={cn(
-											"flex items-center gap-2 cursor-pointer transition-opacity",
-											isSystem ? "opacity-50 cursor-not-allowed" : "hover:opacity-80"
-										)}
-										onClick={() => !isSystem && updateStage(stage.id, 'stageGroupId', group.id)}
-									>
-										<div className={cn(
-											"h-4 w-4 rounded-full border flex items-center justify-center",
-											isSelected ? "border-primary" : "border-muted-foreground"
-										)}>
-											{isSelected && <div className={cn("h-2.5 w-2.5 rounded-full", colorClass)} />}
-										</div>
-										<span className="text-xs capitalize">{group.name}</span>
-									</div>
-								);
-							})}
+										return (
+											<div
+												key={group.id}
+												className={cn(
+													"flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80"
+												)}
+												onClick={() => updateStage(stage.id, 'stageGroupId', group.id)}
+											>
+												<div className={cn(
+													"h-4 w-4 rounded-full border flex items-center justify-center",
+													isSelected ? "border-primary" : "border-muted-foreground"
+												)}>
+													{isSelected && <div className={cn("h-2.5 w-2.5 rounded-full", colorClass)} />}
+												</div>
+												<span className="text-xs capitalize">{group.name}</span>
+											</div>
+										);
+									})}
+								</div>
+							) : (
+								<div className="flex items-center gap-2">
+									{stage.stageGroupId && (() => {
+										const group = stageGroups.find(g => g.id === stage.stageGroupId);
+										if (!group) return null;
+										let colorClass = "bg-gray-400";
+										if (group.id === 1) colorClass = "bg-red-500";
+										if (group.id === 2) colorClass = "bg-orange-500";
+										if (group.id === 3) colorClass = "bg-green-500";
+										return (
+											<div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-xs text-muted-foreground">
+												<div className={cn("h-2 w-2 rounded-full", colorClass)} />
+												{group.name} Group
+											</div>
+										);
+									})()}
+								</div>
+							)}
 						</div>
 					)}
 
@@ -435,10 +455,10 @@ export function ProjectDialog({
 				}
 				if (stages.length === 0) {
 					setStages([
-						{ id: 'system-suggested', title: 'Suggested Task', color: 'bg-slate-200', order: 0, type: 'project', isReviewStage: false },
-						{ id: 'system-pending', title: 'Pending', color: 'bg-orange-500', order: 1, type: 'project', isReviewStage: false },
-						{ id: 'system-completed', title: 'Completed', color: 'bg-green-500', order: 998, type: 'project', isReviewStage: false },
-						{ id: 'system-archive', title: 'Archive', color: 'bg-slate-500', order: 999, type: 'project', isReviewStage: false },
+						{ id: 'system-suggested', title: 'Suggested Task', color: 'bg-slate-200', order: 0, type: 'project', isReviewStage: false, stageGroupId: 1 },
+						{ id: 'system-pending', title: 'Pending', color: 'bg-orange-500', order: 1, type: 'project', isReviewStage: false, stageGroupId: 1 },
+						{ id: 'system-completed', title: 'Completed', color: 'bg-green-500', order: 998, type: 'project', isReviewStage: false, stageGroupId: 3 },
+						{ id: 'system-archive', title: 'Archive', color: 'bg-slate-500', order: 999, type: 'project', isReviewStage: false, stageGroupId: 3 },
 					]);
 				}
 			}
@@ -650,6 +670,7 @@ export function ProjectDialog({
 
 			backupResponsibleId2: undefined,
 			isReviewStage: false,
+			stageGroupId: 2, // Default to Active/Orange group
 		};
 		// Add to middle
 		setStages([...topStages, ...middleStages, newStage, ...bottomStages]);
