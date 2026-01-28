@@ -33,6 +33,7 @@ import { Department } from "@/types/department";
 import { Project } from "@/types/project";
 import { ProjectGroup } from "@/types/project-group";
 import { projectGroupService } from "@/services/projectGroupService";
+import { stageGroupService, StageGroup } from "@/services/stageGroupService";
 import { SearchableSelect, SearchableOption } from "./ui/searchable-select";
 import {
 	DndContext,
@@ -110,9 +111,10 @@ interface SortableStageItemProps {
 	memberOptions: SearchableOption[];
 	isSystem?: boolean;
 	currentUser?: User | null;
+	stageGroups: StageGroup[];
 }
 
-function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem, currentUser }: SortableStageItemProps) {
+function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem, currentUser, stageGroups }: SortableStageItemProps) {
 	const {
 		attributes,
 		listeners,
@@ -199,6 +201,38 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 
 			{['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) ? null : (
 				<>
+					{stageGroups.length > 0 && (
+						<div className="flex items-center gap-4 ml-6 my-2">
+							{stageGroups.map(group => {
+								let colorClass = "bg-gray-400";
+								if (group.id === 1) colorClass = "bg-red-500";
+								if (group.id === 2) colorClass = "bg-orange-500";
+								if (group.id === 3) colorClass = "bg-green-500";
+
+								const isSelected = stage.stageGroupId === group.id;
+
+								return (
+									<div
+										key={group.id}
+										className={cn(
+											"flex items-center gap-2 cursor-pointer transition-opacity",
+											isSystem ? "opacity-50 cursor-not-allowed" : "hover:opacity-80"
+										)}
+										onClick={() => !isSystem && updateStage(stage.id, 'stageGroupId', group.id)}
+									>
+										<div className={cn(
+											"h-4 w-4 rounded-full border flex items-center justify-center",
+											isSelected ? "border-primary" : "border-muted-foreground"
+										)}>
+											{isSelected && <div className={cn("h-2.5 w-2.5 rounded-full", colorClass)} />}
+										</div>
+										<span className="text-xs capitalize">{group.name}</span>
+									</div>
+								);
+							})}
+						</div>
+					)}
+
 					<div className="flex items-center gap-2 ml-6">
 						<Checkbox
 							id={`review-stage-${stage.id}`}
@@ -320,6 +354,7 @@ export function ProjectDialog({
 	const [department, setDepartment] = useState<Department | undefined>();
 	const [groupId, setGroupId] = useState<string>("");
 	const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
+	const [stageGroups, setStageGroups] = useState<StageGroup[]>([]);
 	const [phoneNumbersOptions, setPhoneNumbersOptions] = useState<{ value: string, label: string }[]>([]);
 	const [errors, setErrors] = useState<
 		Partial<Record<keyof ProjectFormData, string>>
@@ -374,6 +409,10 @@ export function ProjectDialog({
 				.catch(error => {
 					console.error('Error fetching phone numbers:', error);
 				});
+
+			stageGroupService.getAll()
+				.then(groups => setStageGroups(groups))
+				.catch(err => console.error("Failed to load stage groups", err));
 
 			// Populate form if editing
 			if (editProject) {
@@ -864,6 +903,7 @@ export function ProjectDialog({
 											memberOptions={memberOptions}
 											isSystem={true}
 											currentUser={currentUser}
+											stageGroups={stageGroups}
 										/>
 									))}
 
@@ -886,6 +926,7 @@ export function ProjectDialog({
 													memberOptions={memberOptions}
 													isSystem={false}
 													currentUser={currentUser}
+													stageGroups={stageGroups}
 												/>
 											))}
 										</SortableContext>
@@ -914,6 +955,7 @@ export function ProjectDialog({
 											memberOptions={memberOptions}
 											isSystem={true}
 											currentUser={currentUser}
+											stageGroups={stageGroups}
 										/>
 									))}
 								</div>

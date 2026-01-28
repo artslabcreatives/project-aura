@@ -15,6 +15,7 @@ function mapToBackend(stage: Partial<Stage> & { projectId?: string | number }): 
 		is_review_stage: stage.isReviewStage,
 		linked_review_stage_id: stage.linkedReviewStageId ? parseInt(stage.linkedReviewStageId) : null,
 		approved_target_stage_id: stage.approvedTargetStageId ? parseInt(stage.approvedTargetStageId) : null,
+		stage_group_id: stage.stageGroupId || null,
 	};
 }
 
@@ -42,6 +43,7 @@ function mapFromBackend(raw: any): Stage {
 		isReviewStage: raw.is_review_stage ?? false,
 		linkedReviewStageId: raw.linked_review_stage_id ? String(raw.linked_review_stage_id) : undefined,
 		approvedTargetStageId: raw.approved_target_stage_id ? String(raw.approved_target_stage_id) : undefined,
+		stageGroupId: raw.stage_group_id ? raw.stage_group_id : undefined,
 	};
 }
 
@@ -88,6 +90,7 @@ export const stageService = {
 		if ('isReviewStage' in updates) refinedPayload.is_review_stage = updates.isReviewStage;
 		if ('linkedReviewStageId' in updates) refinedPayload.linked_review_stage_id = updates.linkedReviewStageId ? parseInt(updates.linkedReviewStageId) : null;
 		if ('approvedTargetStageId' in updates) refinedPayload.approved_target_stage_id = updates.approvedTargetStageId ? parseInt(updates.approvedTargetStageId) : null;
+		if ('stageGroupId' in updates) refinedPayload.stage_group_id = updates.stageGroupId;
 
 		const { data } = await api.put(`/stages/${id}`, refinedPayload);
 		return mapFromBackend(data);
