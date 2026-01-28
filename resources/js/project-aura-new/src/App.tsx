@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Loading } from "@/components/Loading";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserDashboard from "./pages/UserDashboard";
@@ -127,6 +127,18 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 	return <>{children}</>;
 };
 
+const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) => {
+	const { currentUser, isLoading } = useUser();
+
+	if (isLoading) return <Loading />;
+
+	if (!currentUser || !allowedRoles.includes(currentUser.role)) {
+		return <Navigate to="/" replace />;
+	}
+
+	return <>{children}</>;
+};
+
 import TaskDetailsPage from "./pages/TaskDetailsPage";
 import ReviewNeededPage from "./pages/ReviewNeededPage";
 
@@ -140,13 +152,29 @@ const App = () => (
 					<AuthWrapper>
 						<Routes>
 							<Route path="/" element={<AppLayout><UserDashboard /></AppLayout>} />
-							<Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
-							<Route path="/tasks/filter/:filterType" element={<AppLayout><FilteredTasksPage /></AppLayout>} />
+							<Route path="/tasks" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Tasks /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/tasks/filter/:filterType" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><FilteredTasksPage /></AppLayout>
+								</ProtectedRoute>
+							} />
 							<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
 							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
-							<Route path="/team" element={<AppLayout><Team /></AppLayout>} />
+							<Route path="/team" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Team /></AppLayout>
+								</ProtectedRoute>
+							} />
 							<Route path="/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
-							<Route path="/review-needed" element={<AppLayout><ReviewNeededPage /></AppLayout>} />
+							<Route path="/review-needed" element={
+								<ProtectedRoute allowedRoles={['account-manager']}>
+									<AppLayout><ReviewNeededPage /></AppLayout>
+								</ProtectedRoute>
+							} />
 							{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 							<Route path="*" element={<NotFound />} />
 						</Routes>
