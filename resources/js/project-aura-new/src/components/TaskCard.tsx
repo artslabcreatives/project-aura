@@ -203,28 +203,35 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							<Eye className="h-3.5 w-3.5" />
 						</Button>
 						{/* Show Review Task button if in review stage */}
-						{currentStage?.isReviewStage && onReviewTask && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-											onClick={(e) => {
-												e.stopPropagation();
-												onReviewTask();
-											}}
-										>
-											<ClipboardCheck className="h-3.5 w-3.5" />
-										</Button>
-									</TooltipTrigger>
-									<TooltipContent>
-										<p>Review Task</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-						)}
+						{currentStage?.isReviewStage && onReviewTask && (
+							currentUser?.role === 'admin' ||
+							currentUser?.role === 'team-lead' ||
+							(currentUser?.role === 'account-manager' && (
+								task.assignee === currentUser?.name ||
+								(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser?.id)))
+							))
+						) && (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+												onClick={(e) => {
+													e.stopPropagation();
+													onReviewTask();
+												}}
+											>
+												<ClipboardCheck className="h-3.5 w-3.5" />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Review Task</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							)}
 
 
 						{canManage && currentUser?.role !== 'account-manager' && (

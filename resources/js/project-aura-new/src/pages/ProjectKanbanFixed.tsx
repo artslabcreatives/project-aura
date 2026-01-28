@@ -612,7 +612,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								onTaskDelete={!project.isArchived ? handleTaskDelete : undefined}
 								useProjectStages
 								canManageTasks={currentUser?.role !== 'user' && !project.isArchived}
-								canDragTasks={currentUser?.role !== 'user' && !project.isArchived}
+								canDragTasks={currentUser?.role !== 'user' && currentUser?.role !== 'account-manager' && !project.isArchived}
 								disableColumnScroll={true}
 								onTaskReview={!project.isArchived ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
 								onAddTaskToStage={!project.isArchived ? handleAddTaskToStage : undefined}

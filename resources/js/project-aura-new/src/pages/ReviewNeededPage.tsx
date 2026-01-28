@@ -10,6 +10,8 @@ import { useUser } from "@/hooks/use-user";
 import { Loading } from "@/components/Loading";
 import { useToast } from "@/hooks/use-toast";
 import { FileCog } from "lucide-react";
+import { ReviewTaskDialog } from "@/components/ReviewTaskDialog";
+import { useHistory } from "@/hooks/use-history";
 
 export default function ReviewNeededPage() {
     const { currentUser } = useUser();
@@ -18,16 +20,22 @@ export default function ReviewNeededPage() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [viewTask, setViewTask] = useState<Task | null>(null);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    const [reviewTask, setReviewTask] = useState<Task | null>(null);
+    const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const { addHistoryEntry } = useHistory();
+    const [teamMembers, setTeamMembers] = useState<User[]>([]);
 
     const fetchData = async () => {
         try {
-            const [tasksData, projectsData] = await Promise.all([
+            const [tasksData, projectsData, usersData] = await Promise.all([
                 taskService.getAll(),
-                projectService.getAll()
+                projectService.getAll(),
+                userService.getAll()
             ]);
             setTasks(tasksData);
             setProjects(projectsData);
+            setTeamMembers(usersData);
         } catch (error) {
             console.error("Failed to fetch data:", error);
         } finally {
@@ -37,7 +45,6 @@ export default function ReviewNeededPage() {
 
     useEffect(() => {
         fetchData();
-        // Subscribe to events if needed (omitted for brevity, consistent with other pages)
     }, []);
 
     const reviewNeededTasks = useMemo(() => {
@@ -66,43 +73,141 @@ export default function ReviewNeededPage() {
         });
     }, [tasks, projects, currentUser]);
 
-    const handleTaskReview = async (task: Task) => {
-        // Find next stage (Complete usually, or derived logic)
-        // For simple "Review" button action, we might just mark it complete OR move it to next stage.
-        // The instruction says "same process like admin review task".
-        // Admin review usually moves it to 'Complete' or approves it.
-        // Let's assume approval moves it to 'Complete' stage of the project.
+    const handleApproveTask = async (taskId: string, targetStageId: string, comment?: string) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        // Find project to track history correctly
+        const project = projects.find(p => p.name === task.project);
+        const projectId = project ? String(project.id) : undefined;
+        const targetStage = project?.stages.find(s => s.id === targetStageId);
 
         try {
-            // Logic to find 'Complete' stage or move forward.
-            // If we look at TaskCard, onReviewTask expects a function.
-            // We can re-use projectService.moveTask if we knew the next stage.
-            // But simpler might be to update status to complete?
-            // Usually review implies moving from "Review" -> "Complete".
+            // Logic similar to ProjectKanban.handleTaskUpdate + history
+            const updates: any = {
+                projectStage: targetStageId,
+                isInSpecificStage: false,
+                previousStage: undefined,
+                originalAssignee: undefined,
+                revisionComment: undefined
+            };
 
-            const project = projects.find(p => p.name === task.project);
-            if (!project) return;
-
-            // Find "Complete" stage
-            const completeStage = project.stages.find(s =>
-                s.title.toLowerCase() === 'complete' ||
-                s.title.toLowerCase() === 'completed'
-            );
-
-            if (completeStage) {
-                await taskService.move(task.id, completeStage.id);
-                toast({ title: "Task Approved", description: "Task moved to Completed." });
-                // Optimistic update
-                setTasks(prev => prev.filter(t => t.id !== task.id));
+            // If moving to a "Completed" stage (title check or property check), add tag
+            // Note: ProjectKanban checks for last stage. Let's do similar or simple title check.
+            // Simplified logic:
+            if (targetStage?.title.toLowerCase().includes('complete')) {
+                updates.userStatus = 'complete';
             } else {
-                // Fallback: just mark status complete?
-                await taskService.update(task.id, { userStatus: 'complete' });
-                toast({ title: "Task Completed", description: "Task marked as complete." });
-                setTasks(prev => prev.filter(t => t.id !== task.id));
+                updates.userStatus = 'pending';
             }
+
+            // Call API
+            await taskService.update(taskId, updates);
+
+            // Optimistic update
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+
+            // History
+            if (currentUser && projectId) {
+                addHistoryEntry({
+                    action: 'UPDATE_TASK_STATUS',
+                    entityId: taskId,
+                    entityType: 'task',
+                    projectId: projectId,
+                    userId: currentUser.id,
+                    details: {
+                        action: 'approved',
+                        comment,
+                        targetStage: targetStage?.title || targetStageId
+                    }
+                });
+            }
+
+            toast({ title: 'Task approved', description: `Task moved to ${targetStage?.title || 'selected stage'}.` });
+
         } catch (error) {
-            console.error("Failed to review task:", error);
+            console.error("Failed to approve task:", error);
             toast({ title: "Error", description: "Failed to approve task.", variant: "destructive" });
+        }
+    };
+
+    const handleRequestRevision = async (taskId: string, targetStageId: string, comment: string) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const project = projects.find(p => p.name === task.project);
+        const projectId = project ? String(project.id) : undefined;
+        const targetStage = project?.stages.find(s => s.id === targetStageId);
+
+        const originalAssigneeName = task.originalAssignee || task.assignee;
+        if (!originalAssigneeName) {
+            toast({ title: 'Error', description: 'Could not find the task assignee.', variant: 'destructive' });
+            return;
+        }
+
+        const newRevision = {
+            id: Date.now().toString(),
+            comment,
+            requestedBy: currentUser?.name || 'Unknown',
+            requestedAt: new Date().toISOString()
+        };
+
+        const updatedRevisionHistory = [...(task.revisionHistory || []), newRevision];
+        const updatedTags = task.tags ? [...task.tags] : [];
+        if (!updatedTags.includes('Redo')) updatedTags.push('Redo');
+
+        // Logic matched from ProjectKanban to restore assignee
+        const originalAssigneeUser = teamMembers.find(u => u.name === originalAssigneeName);
+
+        const updates: any = {
+            projectStage: targetStageId,
+            userStatus: 'pending',
+            isInSpecificStage: false,
+            revisionComment: comment,
+            revisionHistory: updatedRevisionHistory,
+            tags: updatedTags,
+            previousStage: undefined,
+            originalAssignee: undefined
+        };
+
+        if (originalAssigneeUser) {
+            updates.assignee = originalAssigneeName;
+            updates.assigneeId = parseInt(originalAssigneeUser.id);
+        }
+
+        try {
+            await taskService.update(taskId, updates);
+
+            // Optimistic update (remove assigneeId for local state if needed, or just spread)
+            const localUpdates = { ...updates };
+            delete localUpdates.assigneeId;
+
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...localUpdates } : t));
+
+            if (currentUser && projectId) {
+                // Note: 'UPDATE_TASK_STATUS' seems appropriate or generic 'UPDATE_TASK'
+                // ProjectKanban calls handleTaskUpdate which logs log based on changes.
+                // We'll just log "Revision requested".
+                addHistoryEntry({ // Using generic addHistoryEntry from generic useHistory hook
+                    action: 'UPDATE_TASK_STATUS', // Using STATUS for consistency with Approval? Or just custom.
+                    entityId: taskId,
+                    entityType: 'task',
+                    projectId: projectId,
+                    userId: currentUser.id,
+                    details: {
+                        action: 'revision_requested',
+                        comment,
+                        targetStage: targetStage?.title || targetStageId,
+                        assignedTo: originalAssigneeName
+                    }
+                });
+            }
+
+            toast({ title: 'Revision requested', description: `Task returned for revision.` });
+
+        } catch (error) {
+            console.error("Failed to request revision:", error);
+            toast({ title: "Error", description: "Failed to request revision.", variant: "destructive" });
         }
     };
 
@@ -140,7 +245,11 @@ export default function ReviewNeededPage() {
                                 }}
                                 // Enable review capability here
                                 // We pass onReviewTask to show the review button (icon)
-                                onReviewTask={() => handleTaskReview(task)}
+                                // onReviewTask={() => openReviewDialog(task)}
+                                onReviewTask={() => {
+                                    setReviewTask(task);
+                                    setIsReviewDialogOpen(true);
+                                }}
                                 canManage={false} // Account managers typically can't edit/delete here unless specified, user said "dont allow to delete or edit task on project section". Assuming safe to disable here too, only Review allowed.
                                 currentStage={stage}
                                 canDrag={false}
@@ -159,6 +268,19 @@ export default function ReviewNeededPage() {
                 task={viewTask}
                 open={isViewDialogOpen}
                 onOpenChange={setIsViewDialogOpen}
+            />
+
+            <ReviewTaskDialog
+                open={isReviewDialogOpen}
+                onOpenChange={setIsReviewDialogOpen}
+                task={reviewTask}
+                stages={(() => {
+                    if (!reviewTask) return [];
+                    const proj = projects.find(p => p.name === reviewTask.project);
+                    return proj?.stages || [];
+                })()}
+                onApprove={handleApproveTask}
+                onRequestRevision={handleRequestRevision}
             />
         </div>
     );
