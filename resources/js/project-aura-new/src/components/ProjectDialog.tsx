@@ -199,7 +199,7 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 				{isSystem && <div className="w-9" />} {/* Spacer for delete button */}
 			</div>
 
-			{['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) ? null : (
+			{!isSystem && (
 				<>
 					{stageGroups.length > 0 && (
 						<div className="ml-6 my-2">
@@ -317,37 +317,39 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 							</div>
 						)}
 					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
-							<SearchableSelect
-								value={stage.mainResponsibleId}
-								onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
-								options={memberOptions.filter(o => o.value !== stage.backupResponsibleId1 && o.value !== stage.backupResponsibleId2)}
-								placeholder="Select main"
-							/>
-						</div>
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
-							<SearchableSelect
-								value={stage.backupResponsibleId1}
-								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
-								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
-								placeholder="Select backup 1"
-							/>
-						</div>
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
-							<SearchableSelect
-								value={stage.backupResponsibleId2}
-								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
-								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
-								placeholder="Select backup 2"
-							/>
-						</div>
-					</div>
 				</>
+			)}
+
+			{!['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) && (
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
+						<SearchableSelect
+							value={stage.mainResponsibleId}
+							onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
+							options={memberOptions.filter(o => o.value !== stage.backupResponsibleId1 && o.value !== stage.backupResponsibleId2)}
+							placeholder="Select main"
+						/>
+					</div>
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
+						<SearchableSelect
+							value={stage.backupResponsibleId1}
+							onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
+							options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
+							placeholder="Select backup 1"
+						/>
+					</div>
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
+						<SearchableSelect
+							value={stage.backupResponsibleId2}
+							onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
+							options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
+							placeholder="Select backup 2"
+						/>
+					</div>
+				</div>
 			)}
 		</div>
 	);
