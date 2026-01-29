@@ -26,6 +26,18 @@ export interface TaskHistory {
 	createdAt: string;
 }
 
+export interface TaskComment {
+	id: string;
+	comment: string;
+	userId: string;
+	createdAt: string;
+	user?: {
+		id: string;
+		name: string;
+		avatar?: string;
+	};
+}
+
 export interface Task {
 	id: string;
 	title: string;
@@ -49,6 +61,7 @@ export interface Task {
 	previousStage?: string; // Store the stage before moving to Review (for revision workflow)
 	originalAssignee?: string; // Store the assignee who completed the task (for revision workflow)
 	completedAt?: string; // ISO 8601 date string
+	comments?: TaskComment[];
 	assignedUsers?: AssignedUser[]; // Multiple assignees
 	subtasks?: Task[]; // Subtasks
 	parentId?: string | null; // Parent task ID

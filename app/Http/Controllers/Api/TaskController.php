@@ -210,7 +210,7 @@ class TaskController extends Controller
     )]
     public function show(Task $task): JsonResponse
     {
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments', 'assignedUsers', 'taskHistories.user']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments.user', 'assignedUsers', 'taskHistories.user']));
     }
 
     #[OA\Put(
@@ -529,7 +529,7 @@ class TaskController extends Controller
 
     #[OA\Post(
         path: "/tasks/{id}/complete",
-        summary: "Complete a task with optional comments and attachments",
+        summary: "Complete a task with optional comments.user and attachments",
         security: [["bearerAuth" => []]],
         requestBody: new OA\RequestBody(
             content: new OA\JsonContent(
@@ -622,7 +622,7 @@ class TaskController extends Controller
             
             // Add Comment
             if (!empty($validated['comment'])) {
-                $task->comments()->create([
+                $task->comments.user()->create([
                     'user_id' => $request->user()->id,
                     'comment' => $validated['comment'],
                 ]);
@@ -655,6 +655,6 @@ class TaskController extends Controller
             }
         });
 
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments', 'assignedUsers']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments.user', 'assignedUsers']));
     }
 }

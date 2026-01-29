@@ -133,21 +133,25 @@ export default function TaskDetailsPage() {
                 {/* Main Content */}
                 <div className="md:col-span-2 space-y-6">
                     {/* Revision Alert */}
-                    {task.revisionComment && task.tags?.includes("Redo") && (
-                        <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-500 dark:border-amber-600 rounded-lg animate-in fade-in slide-in-from-top-2">
-                            <div className="flex items-start gap-3">
-                                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
-                                <div className="flex-1">
-                                    <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2">
-                                        Revision Requested
-                                    </h3>
-                                    <p className="text-sm text-amber-800 dark:text-amber-200 whitespace-pre-wrap">
-                                        {task.revisionComment}
-                                    </p>
+                    {
+                        task.revisionComment && task.tags?.includes("Redo") && (
+                            <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-500 dark:border-amber-600 rounded-lg animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1">
+                                        <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2">
+                                            Revision Requested
+                                        </h3>
+                                        <p className="text-sm text-amber-800 dark:text-amber-200 whitespace-pre-wrap">
+                                            {task.revisionComment}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )
+                    }
+
+
 
                     <Card>
                         <CardHeader>
@@ -260,6 +264,8 @@ export default function TaskDetailsPage() {
                             )}
                         </CardContent>
                     </Card>
+
+
 
                 </div>
 
@@ -395,6 +401,53 @@ export default function TaskDetailsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Task Submission & Comments - Full Width */}
+            {((task.comments && task.comments.length > 0) || task.completedAt) && (
+                <Card className="w-full border-green-500/20 bg-green-50/10">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2 text-green-700 dark:text-green-500">
+                            <CheckCircle2 className="h-5 w-5" />
+                            Task Submission & Comments
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {task.completedAt && (
+                                <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                                    <span>
+                                        Task marked as complete on <span className="font-medium text-foreground">{format(new Date(task.completedAt), "MMM dd, yyyy 'at' hh:mm a")}</span>
+                                    </span>
+                                </div>
+                            )}
+
+                            {task.comments && task.comments.length > 0 ? (
+                                <div className="space-y-3 pt-2">
+                                    {[...task.comments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((comment) => (
+                                        <div key={comment.id} className="bg-white dark:bg-card/50 p-3 rounded-md border text-sm shadow-sm">
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                                        {comment.user?.name.charAt(0) || "U"}
+                                                    </div>
+                                                    <span className="font-semibold text-xs">{comment.user?.name || "Unknown User"}</span>
+                                                </div>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {format(new Date(comment.createdAt), "MMM dd, hh:mm a")}
+                                                </span>
+                                            </div>
+                                            <p className="whitespace-pre-wrap text-foreground/90 pl-7">{comment.comment}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                task.completedAt && <p className="text-sm text-muted-foreground italic">No comments added.</p>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Activity Log (Task History) - Full Width */}
             <Card className="w-full">

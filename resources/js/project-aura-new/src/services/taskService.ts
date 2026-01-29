@@ -35,6 +35,16 @@ function mapTask(raw: any): Task {
 		previousStage: raw.previous_stage_id ? String(raw.previous_stage_id) : undefined,
 		originalAssignee: raw.original_assignee ? raw.original_assignee.name : undefined,
 		completedAt: raw.completed_at || undefined,
+		comments: raw.comments?.map((c: any) => ({
+			id: String(c.id),
+			comment: c.comment,
+			userId: String(c.user_id),
+			createdAt: c.created_at || new Date().toISOString(),
+			user: c.user ? {
+				id: String(c.user.id),
+				name: c.user.name,
+			} : undefined
+		})) || [],
 		revisionHistory: raw.revision_histories?.map((r: any) => ({
 			id: String(r.id),
 			comment: r.comment,
