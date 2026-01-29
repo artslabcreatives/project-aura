@@ -14,9 +14,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Stage } from "@/types/stage";
-import { Plus, Trash2, GripVertical, Check, X } from "lucide-react";
+import { Plus, Trash2, GripVertical, Check, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/task";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
 	Select,
 	SelectContent,
@@ -201,71 +207,76 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 
 			{!isSystem && (
 				<>
-					{stageGroups.length > 0 && (
-						<div className="ml-6 my-2">
-							{!isSystem ? (
-								<div className="flex items-center gap-4">
-									{stageGroups.map(group => {
-										let colorClass = "bg-gray-400";
-										if (group.id === 1) colorClass = "bg-red-500";
-										if (group.id === 2) colorClass = "bg-orange-500";
-										if (group.id === 3) colorClass = "bg-green-500";
-
-										const isSelected = stage.stageGroupId === group.id;
-
-										return (
-											<div
-												key={group.id}
-												className={cn(
-													"flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80"
-												)}
-												onClick={() => updateStage(stage.id, 'stageGroupId', group.id)}
-											>
-												<div className={cn(
-													"h-4 w-4 rounded-full border flex items-center justify-center",
-													isSelected ? "border-primary" : "border-muted-foreground"
-												)}>
-													{isSelected && <div className={cn("h-2.5 w-2.5 rounded-full", colorClass)} />}
-												</div>
-												<span className="text-xs capitalize">{group.name}</span>
-											</div>
-										);
-									})}
-								</div>
-							) : (
-								<div className="flex items-center gap-2">
-									{stage.stageGroupId && (() => {
-										const group = stageGroups.find(g => g.id === stage.stageGroupId);
-										if (!group) return null;
-										let colorClass = "bg-gray-400";
-										if (group.id === 1) colorClass = "bg-red-500";
-										if (group.id === 2) colorClass = "bg-orange-500";
-										if (group.id === 3) colorClass = "bg-green-500";
-										return (
-											<div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-xs text-muted-foreground">
-												<div className={cn("h-2 w-2 rounded-full", colorClass)} />
-												{group.name} Group
-											</div>
-										);
-									})()}
-								</div>
-							)}
+					<div className="flex flex-wrap items-center justify-between gap-4 mt-4 ml-6 mr-2">
+						<div className="flex items-center gap-2">
+							<Checkbox
+								id={`review-stage-${stage.id}`}
+								checked={stage.isReviewStage}
+								onCheckedChange={(checked) => updateStage(stage.id, "isReviewStage", checked === true)}
+								disabled={isSystem}
+							/>
+							<Label
+								htmlFor={`review-stage-${stage.id}`}
+								className="text-xs font-normal cursor-pointer select-none"
+							>
+								Mark as Review Stage
+							</Label>
 						</div>
-					)}
 
-					<div className="flex items-center gap-2 ml-6">
-						<Checkbox
-							id={`review-stage-${stage.id}`}
-							checked={stage.isReviewStage}
-							onCheckedChange={(checked) => updateStage(stage.id, "isReviewStage", checked === true)}
-							disabled={isSystem}
-						/>
-						<Label
-							htmlFor={`review-stage-${stage.id}`}
-							className="text-xs font-normal cursor-pointer"
-						>
-							Mark as Review Stage
-						</Label>
+						{stageGroups.length > 0 && (
+							<div className="flex items-center gap-2">
+								<TooltipProvider>
+									<Tooltip delayDuration={300}>
+										<TooltipTrigger asChild>
+											<Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+										</TooltipTrigger>
+										<TooltipContent className="max-w-[300px] p-3">
+											<div className="space-y-2">
+												<p className="font-semibold text-xs">Stage Group (Click to change)</p>
+												<p className="text-xs text-muted-foreground">
+													Click the button to cycle through stage types:
+												</p>
+												<ul className="text-xs space-y-1 list-disc pl-3">
+													<li><span className="font-medium text-red-500">Pending</span>: Not started</li>
+													<li><span className="font-medium text-orange-500">Active</span>: In progress</li>
+													<li><span className="font-medium text-green-500">Completed</span>: Finished</li>
+												</ul>
+											</div>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+
+								{(() => {
+									const currentGroup = stageGroups.find(g => g.id === stage.stageGroupId) || stageGroups[1]; // Default to active if missing
+									if (!currentGroup) return null;
+
+									let colorClass = "bg-orange-500";
+									if (currentGroup.id === 1) colorClass = "bg-red-500";
+									else if (currentGroup.id === 2) colorClass = "bg-orange-500";
+									else if (currentGroup.id === 3) colorClass = "bg-green-500";
+
+									return (
+										<div
+											className="flex items-center gap-2 cursor-pointer group select-none bg-muted/30 hover:bg-muted/60 pl-1.5 pr-3 py-1.5 rounded-full border border-transparent hover:border-border transition-all"
+											onClick={() => {
+												// Cycle: 1 (Pending) -> 2 (Active) -> 3 (Completed) -> 1
+												const nextId = currentGroup.id === 1 ? 2 : currentGroup.id === 2 ? 3 : 1;
+												updateStage(stage.id, 'stageGroupId', nextId);
+											}}
+										>
+											<div className={cn(
+												"h-4 w-4 rounded-full border border-primary flex items-center justify-center p-0.5",
+											)}>
+												<div className={cn("h-full w-full rounded-full transition-colors", colorClass)} />
+											</div>
+											<span className="text-xs font-medium uppercase tracking-wide text-foreground">
+												{currentGroup.name}
+											</span>
+										</div>
+									);
+								})()}
+							</div>
+						)}
 					</div>
 
 					{/* Stage Transition Configuration */}
