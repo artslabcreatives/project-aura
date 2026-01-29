@@ -321,8 +321,12 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 			)}
 
 			{!['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) && (
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-					<div className="flex flex-col gap-1.5">
+				<div className={cn("grid gap-2 mt-2 transition-all duration-300 ease-in-out",
+					!stage.mainResponsibleId ? "grid-cols-1" :
+						!stage.backupResponsibleId1 ? "grid-cols-1 md:grid-cols-2" :
+							"grid-cols-1 md:grid-cols-3"
+				)}>
+					<div className="flex flex-col gap-1.5 transition-all">
 						<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
 						<SearchableSelect
 							value={stage.mainResponsibleId}
@@ -331,24 +335,28 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 							placeholder="Select main"
 						/>
 					</div>
-					<div className="flex flex-col gap-1.5">
-						<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
-						<SearchableSelect
-							value={stage.backupResponsibleId1}
-							onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
-							options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
-							placeholder="Select backup 1"
-						/>
-					</div>
-					<div className="flex flex-col gap-1.5">
-						<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
-						<SearchableSelect
-							value={stage.backupResponsibleId2}
-							onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
-							options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
-							placeholder="Select backup 2"
-						/>
-					</div>
+					{stage.mainResponsibleId && (
+						<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+							<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
+							<SearchableSelect
+								value={stage.backupResponsibleId1}
+								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
+								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
+								placeholder="Select backup 1"
+							/>
+						</div>
+					)}
+					{stage.mainResponsibleId && stage.backupResponsibleId1 && (
+						<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+							<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
+							<SearchableSelect
+								value={stage.backupResponsibleId2}
+								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
+								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
+								placeholder="Select backup 2"
+							/>
+						</div>
+					)}
 				</div>
 			)}
 		</div>
