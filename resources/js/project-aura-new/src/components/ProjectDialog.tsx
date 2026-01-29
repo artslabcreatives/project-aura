@@ -164,28 +164,25 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 					onValueChange={(value) => updateStage(stage.id, "color", value)}
 					disabled={isSystem}
 				>
-					<SelectTrigger className="w-[140px]">
+					<SelectTrigger className="w-[60px] px-2 flex justify-center">
 						<SelectValue>
-							<div className="flex items-center gap-2">
+							<div className="flex items-center justify-center w-full">
 								<div
-									className="h-3 w-3 rounded-full border border-slate-200"
+									className="h-4 w-4 rounded-full border border-slate-200 shadow-sm"
 									style={{ backgroundColor: colorOptions.find(c => c.value === stage.color)?.hex }}
 								/>
-								<span className="text-sm">
-									{colorOptions.find(c => c.value === stage.color)?.label}
-								</span>
 							</div>
 						</SelectValue>
 					</SelectTrigger>
-					<SelectContent>
+					<SelectContent align="end" className="min-w-[50px]">
 						{colorOptions.map((option) => (
-							<SelectItem key={option.value} value={option.value}>
-								<div className="flex items-center gap-2">
+							<SelectItem key={option.value} value={option.value} className="justify-center px-2 cursor-pointer">
+								<div className="flex items-center justify-center w-full">
 									<div
-										className="h-3 w-3 rounded-full border border-slate-200"
+										className="h-4 w-4 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-110"
 										style={{ backgroundColor: option.hex }}
+										title={option.label}
 									/>
-									<span>{option.label}</span>
 								</div>
 							</SelectItem>
 						))}
