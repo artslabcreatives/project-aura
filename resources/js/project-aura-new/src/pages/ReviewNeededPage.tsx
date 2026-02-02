@@ -7,7 +7,7 @@ import { userService } from "@/services/userService";
 import { TaskCard } from "@/components/TaskCard";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
 import { useUser } from "@/hooks/use-user";
-import { Loading } from "@/components/Loading";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { FileCog } from "lucide-react";
