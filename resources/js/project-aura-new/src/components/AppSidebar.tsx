@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -60,6 +60,16 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const mainMenuItems = [
 	{ title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "team-lead", "user", "account-manager"] },
@@ -102,6 +112,10 @@ export function AppSidebar() {
 	const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
 	const [expandedProjectGroups, setExpandedProjectGroups] = useState<Set<string>>(new Set());
 	const [reviewNeededCount, setReviewNeededCount] = useState(0);
+	const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+	const [projectToDuplicate, setProjectToDuplicate] = useState<Project | null>(null);
+	const [newProjectName, setNewProjectName] = useState("");
+	const [isDuplicating, setIsDuplicating] = useState(false);
 	const userRole = currentUser?.role;
 
 	const fetchData = async () => {
@@ -822,6 +836,119 @@ export function AppSidebar() {
 		}
 	};
 
+	const handleDuplicateProject = async () => {
+		if (!currentUser || !projectToDuplicate || !newProjectName.trim()) return;
+
+		setIsDuplicating(true);
+		try {
+			// 1. Create the new project
+			const newProject = await projectService.create({
+				name: newProjectName,
+				description: projectToDuplicate.description,
+				// Same location: same department and group
+				department: projectToDuplicate.department,
+				group: projectToDuplicate.group,
+				emails: [],
+				phoneNumbers: [],
+				stages: []
+			});
+
+			// 2. Fetch fresh project details to get default stages
+			const fetchedNewProject = await projectService.getById(String(newProject.id));
+			const existingSystemStages = new Map(fetchedNewProject.stages.map(s => [s.title.toLowerCase().trim(), s]));
+
+			// 3. Prepare to replicate stages
+			const sourceStages = projectToDuplicate.stages;
+
+			const stageIdMap = new Map<string, number>(); // SourceID -> NewRealID
+			const createdStages: { realId: number, originalStage: Stage }[] = [];
+
+			for (const stage of sourceStages) {
+				const systemStage = existingSystemStages.get(stage.title.toLowerCase().trim());
+
+				if (systemStage) {
+					// Update system stage
+					stageIdMap.set(stage.id, Number(systemStage.id));
+
+					await api.put(`/stages/${systemStage.id}`, {
+						color: stage.color,
+						order: stage.order,
+						main_responsible_id: stage.mainResponsibleId,
+						backup_responsible_id_1: stage.backupResponsibleId1,
+						backup_responsible_id_2: stage.backupResponsibleId2,
+					});
+					createdStages.push({ realId: Number(systemStage.id), originalStage: stage });
+				} else {
+					// Create custom stage
+					const response = await api.post('/stages', {
+						title: stage.title,
+						color: stage.color,
+						order: stage.order,
+						project_id: newProject.id,
+						type: stage.type,
+						main_responsible_id: stage.mainResponsibleId,
+						backup_responsible_id_1: stage.backupResponsibleId1,
+						backup_responsible_id_2: stage.backupResponsibleId2,
+						is_review_stage: stage.isReviewStage,
+					});
+					stageIdMap.set(stage.id, response.data.id);
+					createdStages.push({ realId: response.data.id, originalStage: stage });
+				}
+			}
+
+			// 4. Link stages
+			for (const { realId, originalStage } of createdStages) {
+				const updates: any = {};
+
+				if (originalStage.linkedReviewStageId) {
+					const linkedId = stageIdMap.get(originalStage.linkedReviewStageId);
+					if (linkedId) updates.linked_review_stage_id = linkedId;
+				}
+
+				if (originalStage.approvedTargetStageId) {
+					const approvedId = stageIdMap.get(originalStage.approvedTargetStageId);
+					if (approvedId) updates.approved_target_stage_id = approvedId;
+				}
+
+				if (Object.keys(updates).length > 0) {
+					await api.put(`/stages/${realId}`, updates);
+				}
+			}
+
+			const projectsData = await projectService.getAll();
+			setProjects(projectsData);
+
+			addHistoryEntry({
+				action: 'CREATE_PROJECT',
+				entityId: newProject.id?.toString(),
+				entityType: 'project',
+				projectId: newProject.id?.toString(),
+				userId: currentUser.id,
+				details: { name: newProject.name, message: `Duplicated from ${projectToDuplicate.name}` },
+			});
+
+			toast({
+				title: 'Project duplicated',
+				description: `${newProjectName} created successfully.`,
+			});
+
+			setIsDuplicateDialogOpen(false);
+			setNewProjectName("");
+			setProjectToDuplicate(null);
+			navigate(getProjectUrl(newProject));
+
+		} catch (error) {
+			console.error('Failed to duplicate project:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to duplicate project.',
+				variant: 'destructive',
+			});
+		} finally {
+			setIsDuplicating(false);
+		}
+	};
+
 	const filteredMainMenuItems = mainMenuItems.filter(item =>
 		userRole && item.roles.includes(userRole)
 	);
@@ -868,6 +995,17 @@ export function AppSidebar() {
 								>
 									<Pencil className="mr-2 h-4 w-4" />
 									<span>Edit Project</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={(e) => {
+										e.stopPropagation();
+										setProjectToDuplicate(project);
+										setNewProjectName(`${project.name} (Copy)`);
+										setIsDuplicateDialogOpen(true);
+									}}
+								>
+									<Copy className="mr-2 h-4 w-4" />
+									<span>Duplicate Project</span>
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									onClick={(e) => {
@@ -1243,6 +1381,33 @@ export function AppSidebar() {
 				</AlertDialogContent>
 			</AlertDialog>
 			<SidebarRail />
+			<Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Duplicate Project</DialogTitle>
+						<DialogDescription>
+							Enter a name for the new project. All stages will be copied from <strong>{projectToDuplicate?.name}</strong>. Tasks will not be copied.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="py-4">
+						<Label htmlFor="projectName">Project Name</Label>
+						<Input
+							id="projectName"
+							value={newProjectName}
+							onChange={(e) => setNewProjectName(e.target.value)}
+							placeholder="New Project Name"
+							className="mt-2"
+						/>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setIsDuplicateDialogOpen(false)}>Cancel</Button>
+						<Button onClick={handleDuplicateProject} disabled={!newProjectName.trim() || isDuplicating}>
+							{isDuplicating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+							{isDuplicating ? "Duplicating..." : "Duplicate Project"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</Sidebar>
 	);
 }
