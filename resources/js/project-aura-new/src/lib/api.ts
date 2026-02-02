@@ -44,6 +44,7 @@ class ApiClient {
 				if (response.status === 401) {
 					// Clear invalid token
 					removeToken();
+					window.location.href = '/';
 				}
 				throw Error(`API Error: ${response.statusText}`);
 			}

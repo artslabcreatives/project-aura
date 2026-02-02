@@ -112,6 +112,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
 		initAuth();
 	}, []);
 
+	useEffect(() => {
+		const checkToken = () => {
+			const token = getToken();
+			if (!token) {
+				// If we think we are logged in, OR if we are on a non-root path (trying to access protected content)
+				if (isAuthenticated || window.location.pathname !== '/') {
+					console.warn('Token missing during periodic check. Redirecting to login.');
+					// Clear strict local state just in case
+					removeToken();
+					setCurrentUser(null);
+					setIsAuthenticated(false);
+					setTeamMembers([]);
+					// Force redirect to login page
+					window.location.href = '/';
+				}
+			}
+		};
+
+		// Check every 5 seconds
+		const interval = setInterval(checkToken, 5000);
+		return () => clearInterval(interval);
+	}, [isAuthenticated]);
+
 	return (
 		<UserContext.Provider value={{ currentUser, teamMembers, isLoading, isAuthenticated, logout, refreshUser }}>
 			{children}

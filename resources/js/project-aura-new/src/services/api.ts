@@ -28,6 +28,7 @@ api.interceptors.response.use(
 	async (error) => {
 		if (error.response?.status === 401) {
 			removeToken();
+			window.location.href = '/';
 		}
 		return Promise.reject(error);
 	}
