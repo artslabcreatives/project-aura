@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Task, UserStatus } from "@/types/task";
 import { useUser } from "@/hooks/use-user";
 import { Stage } from "@/types/stage";
@@ -114,6 +114,10 @@ export function KanbanBoard({
   const { currentUser } = useUser();
   const [stageToDelete, setStageToDelete] = useState<string | null>(null);
 
+  const boardRef = useRef<HTMLDivElement>(null);
+  const scrollIntervalRef = useRef<number | null>(null);
+  const mouseCoords = useRef<{ x: number, y: number } | null>(null);
+
   const confirmDeleteStage = () => {
     if (stageToDelete && onStageDelete) {
       onStageDelete(stageToDelete);
@@ -138,6 +142,67 @@ export function KanbanBoard({
     e.preventDefault();
     setDraggedOverColumn(columnId);
   };
+
+  // Track global mouse position for auto-scrolling
+  useEffect(() => {
+    if (!draggedTask) return;
+
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      mouseCoords.current = { x: e.clientX, y: e.clientY };
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    return () => window.removeEventListener('dragover', handleWindowDragOver);
+  }, [draggedTask]);
+
+  // Scroll loop
+  useEffect(() => {
+    if (!draggedTask) {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const scrollContainer = boardRef.current?.parentElement;
+    if (!scrollContainer) return;
+
+    const checkAndScroll = () => {
+      if (!mouseCoords.current) return;
+
+      const x = mouseCoords.current.x;
+      const viewportWidth = window.innerWidth;
+
+      // Settings
+      const threshold = 180; // Detect within 180px of edge
+      const baseSpeed = 8;
+      const maxSpeed = 35;
+
+      // Right Edge
+      if (x > viewportWidth - threshold) {
+        const intensity = Math.min(1, (x - (viewportWidth - threshold)) / threshold);
+        const speed = baseSpeed + (intensity * (maxSpeed - baseSpeed));
+        scrollContainer.scrollLeft += speed;
+      }
+      // Left Edge
+      else if (x < threshold) {
+        const intensity = Math.min(1, (threshold - x) / threshold);
+        const speed = baseSpeed + (intensity * (maxSpeed - baseSpeed));
+        scrollContainer.scrollLeft -= speed;
+      }
+    };
+
+    scrollIntervalRef.current = window.setInterval(checkAndScroll, 16);
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+    };
+  }, [draggedTask]);
+
 
   const handleDragLeave = () => {
     setDraggedOverColumn(null);
@@ -258,6 +323,7 @@ export function KanbanBoard({
 
   return (
     <div
+      ref={boardRef}
       className={cn("grid gap-4", !disableColumnScroll && "h-full")}
       style={{
         gridTemplateColumns: `repeat(${visibleStages.length}, minmax(350px, 1fr))`,
