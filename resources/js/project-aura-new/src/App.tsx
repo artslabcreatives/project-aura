@@ -142,6 +142,18 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 import TaskDetailsPage from "./pages/TaskDetailsPage";
 import ReviewNeededPage from "./pages/ReviewNeededPage";
 
+import HRDashboard from "./pages/HRDashboard";
+
+const Dashboard = () => {
+	const { currentUser } = useUser();
+
+	if (currentUser?.role === 'hr') {
+		return <HRDashboard />;
+	}
+
+	return <UserDashboard />;
+};
+
 const App = () => (
 	<UserProvider>
 		<QueryClientProvider client={queryClient}>
@@ -151,7 +163,7 @@ const App = () => (
 				<BrowserRouter>
 					<AuthWrapper>
 						<Routes>
-							<Route path="/" element={<AppLayout><UserDashboard /></AppLayout>} />
+							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
 							<Route path="/tasks" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
 									<AppLayout><Tasks /></AppLayout>

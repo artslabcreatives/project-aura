@@ -1,6 +1,6 @@
 export type UserStatus = "pending" | "in-progress" | "complete";
 export type TaskPriority = "low" | "medium" | "high";
-export type UserRole = "user" | "team-lead" | "admin" | "account-manager";
+export type UserRole = "user" | "team-lead" | "admin" | "account-manager" | "hr";
 
 export interface TaskAttachment {
 	id: string;

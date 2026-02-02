@@ -51,6 +51,7 @@ class UserResource extends Resource
                                 'team-lead' => 'Team Lead',
                                 'account-manager' => 'Account Manager',
                                 'admin' => 'Admin',
+                                'hr' => 'HR',
                             ])
                             ->default('user')
                             ->required(),
@@ -81,6 +82,7 @@ class UserResource extends Resource
                         'team-lead' => 'info',
                         'account-manager' => 'warning',
                         'admin' => 'success',
+                        'hr' => 'danger',
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('department.name')
@@ -101,6 +103,7 @@ class UserResource extends Resource
                         'team-lead' => 'Team Lead',
                         'account-manager' => 'Account Manager',
                         'admin' => 'Admin',
+                        'hr' => 'HR',
                     ]),
                 Tables\Filters\SelectFilter::make('department')
                     ->relationship('department', 'name'),
