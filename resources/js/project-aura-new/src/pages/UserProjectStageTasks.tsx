@@ -18,6 +18,7 @@ import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
+import { api } from "@/services/api";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
@@ -50,10 +51,35 @@ export default function UserProjectStageTasks() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [loading, setLoading] = useState(true);
 
+	const fetchUserStages = async () => {
+		if (!currentUser) return;
+		try {
+			const { data } = await api.get('/stages', { params: { type: 'user' } });
+			const customStages: Stage[] = data.map((s: any) => ({
+				id: String(s.id),
+				title: s.title,
+				color: s.color,
+				order: s.order,
+				type: 'user',
+				isReviewStage: s.is_review_stage
+			}));
+
+			const defaultStages = getDefaultUserTaskStages();
+			const pending = defaultStages.find(s => s.id === 'pending')!;
+			const complete = defaultStages.find(s => s.id === 'complete')!;
+
+			customStages.sort((a, b) => a.order - b.order);
+
+			setUserStages([pending, ...customStages, complete]);
+		} catch (e) {
+			console.error("Failed to load user stages", e);
+			setUserStages(getDefaultUserTaskStages());
+		}
+	};
+
 	useEffect(() => {
-		// Use default user stages only (no localStorage)
-		setUserStages(getDefaultUserTaskStages());
-	}, []);
+		fetchUserStages();
+	}, [currentUser]);
 
 	useEffect(() => {
 		const taskIdParam = searchParams.get('task');
@@ -211,43 +237,47 @@ export default function UserProjectStageTasks() {
 		});
 	};
 
-	const handleSaveStage = (newStage: Stage) => {
+	const handleSaveStage = async (newStage: Stage) => {
 		if (!currentUser) return;
 
-		const updatedStages = [...userStages];
+		try {
+			if (editingStage) {
+				// Update existing stage
+				await api.put(`/stages/${editingStage.id}`, {
+					title: newStage.title,
+					color: newStage.color,
+					order: editingStage.order,
+				});
+				toast({
+					title: "Stage updated",
+					description: `"${newStage.title}" has been updated.`,
+				});
+			} else {
+				// Create new stage
+				// Get current custom stages to determine order
+				const customStages = userStages.filter(s => s.id !== 'pending' && s.id !== 'complete');
+				const maxOrder = customStages.length > 0 ? Math.max(...customStages.map(s => s.order)) : 0;
 
-		if (editingStage) {
-			// Update existing stage
-			const index = updatedStages.findIndex(s => s.id === editingStage.id);
-			if (index !== -1) {
-				updatedStages[index] = { ...newStage, order: updatedStages[index].order };
+				await api.post('/stages', {
+					title: newStage.title,
+					color: newStage.color,
+					order: maxOrder + 1,
+					type: 'user',
+					is_review_stage: false
+				});
+				toast({
+					title: "Stage created",
+					description: `"${newStage.title}" has been added to your workflow.`,
+				});
 			}
-
-			setUserStages(updatedStages);
-			toast({
-				title: "Stage updated",
-				description: `"${newStage.title}" has been updated.`,
-			});
 			setEditingStage(null);
-		} else {
-			// Insert new stage before "Complete"
-			const completeIndex = updatedStages.findIndex(s => s.id === "complete");
-
-			const newOrder = completeIndex > 0 ? completeIndex : updatedStages.length - 1;
-			newStage.order = newOrder;
-
-			updatedStages.splice(completeIndex, 0, newStage);
-
-			// Re-order all stages
-			const reorderedStages = updatedStages.map((stage, index) => ({
-				...stage,
-				order: index,
-			}));
-
-			setUserStages(reorderedStages);
+			fetchUserStages();
+		} catch (error) {
+			console.error("Failed to save stage:", error);
 			toast({
-				title: "Stage created",
-				description: `"${newStage.title}" has been added to your workflow.`,
+				title: "Error",
+				description: "Failed to save stage.",
+				variant: "destructive",
 			});
 		}
 	};
@@ -257,7 +287,7 @@ export default function UserProjectStageTasks() {
 		setIsStageDialogOpen(true);
 	};
 
-	const handleDeleteStage = (stageIdToDelete: string) => {
+	const handleDeleteStage = async (stageIdToDelete: string) => {
 		if (!currentUser) return;
 
 		const stageToDelete = userStages.find(s => s.id === stageIdToDelete);
@@ -274,19 +304,21 @@ export default function UserProjectStageTasks() {
 			return;
 		}
 
-		const updatedStages = userStages.filter(s => s.id !== stageIdToDelete);
-
-		// Re-order remaining stages
-		const reorderedStages = updatedStages.map((stage, index) => ({
-			...stage,
-			order: index,
-		}));
-
-		setUserStages(reorderedStages);
-		toast({
-			title: "Stage deleted",
-			description: `"${stageToDelete.title}" has been removed.`,
-		});
+		try {
+			await api.delete(`/stages/${stageIdToDelete}`);
+			toast({
+				title: "Stage deleted",
+				description: `"${stageToDelete.title}" has been removed.`,
+			});
+			fetchUserStages();
+		} catch (error) {
+			console.error("Failed to delete stage:", error);
+			toast({
+				title: "Error",
+				description: "Failed to delete stage.",
+				variant: "destructive",
+			});
+		}
 	};
 
 	const handleDialogClose = (open: boolean) => {

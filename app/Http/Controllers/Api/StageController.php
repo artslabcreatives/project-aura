@@ -66,6 +66,13 @@ class StageController extends Controller
         if ($request->has('stage_group_id')) {
             $query->where('stage_group_id', $request->stage_group_id);
         }
+
+        if ($request->has('type')) {
+            $query->where('type', $request->type);
+            if ($request->type === 'user') {
+                $query->where('user_id', auth()->id());
+            }
+        }
         
         $stages = $query->orderBy('order')->get();
         return response()->json($stages);
@@ -114,6 +121,10 @@ class StageController extends Controller
             'approved_target_stage_id' => 'nullable|exists:stages,id',
             'stage_group_id' => 'nullable|exists:stage_groups,id',
         ]);
+
+        if (isset($validated['type']) && $validated['type'] === 'user') {
+            $validated['user_id'] = auth()->id();
+        }
 
         $stage = Stage::create($validated);
         return response()->json($stage->load(['project', 'mainResponsible', 'stageGroup']), 201);

@@ -26,6 +26,7 @@ class Stage extends Model
         'linked_review_stage_id',
         'approved_target_stage_id',
         'stage_group_id',
+        'user_id',
     ];
 
     protected $casts = [
