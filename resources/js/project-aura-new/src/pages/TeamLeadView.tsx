@@ -12,6 +12,7 @@ import { taskService } from "@/services/taskService";
 import { projectService } from "@/services/projectService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TeamLeadView() {
 	const [tasks, setTasks] = useState<Task[]>([]);
@@ -20,9 +21,11 @@ export default function TeamLeadView() {
 	const [viewTask, setViewTask] = useState<Task | null>(null);
 	const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 	const { currentUser } = useUser();
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const loadData = async () => {
+			setLoading(true);
 			try {
 				const [tasksData, projectsData, teamMembersData] = await Promise.all([
 					taskService.getAll(),
@@ -37,6 +40,8 @@ export default function TeamLeadView() {
 				setProjects([]);
 				setTeamMembers([]);
 				// Optionally show a toast or error message
+			} finally {
+				setLoading(false);
 			}
 		};
 		loadData();
@@ -134,6 +139,48 @@ export default function TeamLeadView() {
 		}
 		return "Your Department";
 	};
+
+	if (loading) {
+		return (
+			<div className="space-y-8 fade-in">
+				{/* Hero Header Skeleton */}
+				<div className="relative overflow-hidden rounded-2xl p-8 bg-background border shadow-sm">
+					<div className="flex items-center gap-3 mb-2">
+						<Skeleton className="h-12 w-12 rounded-xl" />
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-6 w-48" />
+						</div>
+					</div>
+				</div>
+
+				{/* Stats Skeleton */}
+				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+					{[1, 2, 3, 4].map(i => (
+						<div key={i} className="p-6 rounded-xl border bg-card">
+							<Skeleton className="h-4 w-24 mb-2" />
+							<Skeleton className="h-8 w-16" />
+						</div>
+					))}
+				</div>
+
+				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+					{[1, 2, 3, 4].map(i => (
+						<Card key={i} className="overflow-hidden">
+							<CardHeader>
+								<Skeleton className="h-6 w-32" />
+							</CardHeader>
+							<CardContent className="space-y-3">
+								<Skeleton className="h-24 w-full rounded-lg" />
+								<Skeleton className="h-24 w-full rounded-lg" />
+								<Skeleton className="h-24 w-full rounded-lg" />
+							</CardContent>
+						</Card>
+					))}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-8 fade-in">

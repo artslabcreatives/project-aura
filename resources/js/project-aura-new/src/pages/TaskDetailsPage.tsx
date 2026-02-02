@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TaskDetailsPage() {
     const { taskId } = useParams<{ taskId: string }>();
@@ -58,8 +58,111 @@ export default function TaskDetailsPage() {
 
     if (loading) {
         return (
-            <div className="flex h-full items-center justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="space-y-6 max-w-5xl mx-auto p-6 pb-20">
+                {/* Header Skeleton */}
+                <div className="flex items-start gap-4">
+                    <Skeleton className="h-10 w-10 rounded-md" />
+                    <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-3">
+                            <Skeleton className="h-8 w-1/3" />
+                            <Skeleton className="h-6 w-20" />
+                        </div>
+                        <div className="flex gap-3">
+                            <Skeleton className="h-6 w-24" />
+                            <Skeleton className="h-6 w-24" />
+                            <Skeleton className="h-6 w-24" />
+                        </div>
+                    </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Main Content Skeleton */}
+                    <div className="md:col-span-2 space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-32" />
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-3/4" />
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-32" />
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <Skeleton className="h-12 w-full" />
+                                <Skeleton className="h-12 w-full" />
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-32" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <Skeleton className="h-16 w-full" />
+                                    <Skeleton className="h-16 w-full" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Sidebar Skeleton */}
+                    <div className="md:col-span-1 space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-24" />
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-2">
+                                    <Skeleton className="h-4 w-20" />
+                                    <Skeleton className="h-8 w-full" />
+                                </div>
+                                <Separator />
+                                <div className="space-y-3">
+                                    <div className="flex justify-between">
+                                        <Skeleton className="h-4 w-20" />
+                                        <Skeleton className="h-4 w-24" />
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <Skeleton className="h-4 w-20" />
+                                        <Skeleton className="h-4 w-24" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-20" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex gap-2">
+                                    <Skeleton className="h-6 w-16" />
+                                    <Skeleton className="h-6 w-16" />
+                                    <Skeleton className="h-6 w-16" />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-24" />
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
             </div>
         );
     }

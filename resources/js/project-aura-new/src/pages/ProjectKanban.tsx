@@ -24,7 +24,8 @@ import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { SuggestedTaskCard } from "@/components/SuggestedTaskCard";
-import { Loading } from "@/components/Loading";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProjectKanban() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -215,7 +216,7 @@ export default function ProjectKanban() {
 				}
 			}
 
-			await taskService.update(taskId, backendUpdates);
+			await taskService.update(taskId, backendUpdates as any);
 
 			// For local state, we keep using the name
 			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
@@ -244,7 +245,7 @@ export default function ProjectKanban() {
 				tags: ["AI Suggestion"],
 			};
 
-			const newTask = await taskService.create(newTaskData);
+			const newTask = await taskService.create(newTaskData as any);
 			setTasks([...tasks, newTask]);
 			setSuggestedTasks(suggestedTasks.filter(t => t.id !== suggestedTaskId));
 
@@ -268,7 +269,7 @@ export default function ProjectKanban() {
 		if (!currentUser || !project) return;
 		try {
 			if (editingTask) {
-				await taskService.update(editingTask.id, task);
+				await taskService.update(editingTask.id, task as any);
 				setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...task } : t));
 				addHistoryEntry({
 					action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id,
@@ -276,7 +277,7 @@ export default function ProjectKanban() {
 				});
 				toast({ title: "Task updated", description: "Task updated successfully." });
 			} else {
-				const newTask = await taskService.create({ ...task, projectId: project.id });
+				const newTask = await taskService.create({ ...task, projectId: project.id } as any);
 
 				// Upload pending files after task creation
 				if (pendingFiles && pendingFiles.length > 0) {
@@ -468,7 +469,50 @@ export default function ProjectKanban() {
 		setReviewTask(null);
 	};
 
-	if (isLoading) return <Loading />;
+	if (isLoading) {
+		return (
+			<div className="flex flex-col h-screen overflow-hidden">
+				<div className="flex-shrink-0 border-b p-4 space-y-4">
+					<div className="flex items-center justify-between">
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-4 w-96" />
+						</div>
+						<div className="flex gap-2">
+							<Skeleton className="h-9 w-24" />
+							<Skeleton className="h-9 w-32" />
+							<Skeleton className="h-9 w-24" />
+						</div>
+					</div>
+				</div>
+				<div className="flex-1 overflow-auto p-4">
+					<div className="flex gap-4">
+						{[1, 2, 3, 4].map((i) => (
+							<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+								<Skeleton className="h-12 w-full rounded-lg" />
+								<div className="space-y-4">
+									{[1, 2, 3].map((j) => (
+										<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+											<div className="flex justify-between">
+												<Skeleton className="h-4 w-20" />
+												<Skeleton className="h-4 w-4 rounded-full" />
+											</div>
+											<Skeleton className="h-4 w-full" />
+											<Skeleton className="h-4 w-3/4" />
+											<div className="flex items-center justify-between pt-2">
+												<Skeleton className="h-6 w-6 rounded-full" />
+												<Skeleton className="h-5 w-16" />
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		);
+	}
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	return (

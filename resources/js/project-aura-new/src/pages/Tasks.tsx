@@ -18,6 +18,7 @@ import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ✅ API payload type that avoids conflicts with Task.startStageId (string)
 type TaskApiPayload = Omit<
@@ -57,9 +58,11 @@ export default function Tasks() {
 	const [selectedDateFilter, setSelectedDateFilter] = useState("this-week");
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const loadData = async () => {
+			setLoading(true);
 			try {
 				const projectsData = await projectService.getAll();
 				setAllProjects(projectsData);
@@ -79,6 +82,8 @@ export default function Tasks() {
 					description: "Failed to load data. Please try again.",
 					variant: "destructive",
 				});
+			} finally {
+				setLoading(false);
 			}
 		};
 
@@ -501,6 +506,56 @@ export default function Tasks() {
 			projectStage: task.fixedStageId,
 		}));
 	}, [filteredTasks]);
+
+	if (loading) {
+		return (
+			<div className="space-y-6 h-full flex flex-col">
+				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+					<div className="space-y-2">
+						<Skeleton className="h-8 w-48" />
+						<Skeleton className="h-4 w-64" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="h-9 w-24" />
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				<div className="flex flex-wrap gap-4 py-4">
+					<Skeleton className="h-10 w-64" />
+					<Skeleton className="h-10 w-32" />
+					<Skeleton className="h-10 w-32" />
+					<Skeleton className="h-10 w-32" />
+				</div>
+
+				<div className="flex-1 overflow-hidden">
+					<div className="flex h-full gap-6 overflow-auto pb-4">
+						{[1, 2, 3].map((i) => (
+							<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+								<Skeleton className="h-12 w-full rounded-lg" />
+								<div className="space-y-4">
+									{[1, 2, 3].map((j) => (
+										<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+											<div className="flex justify-between">
+												<Skeleton className="h-4 w-20" />
+												<Skeleton className="h-4 w-4 rounded-full" />
+											</div>
+											<Skeleton className="h-4 w-full" />
+											<Skeleton className="h-4 w-3/4" />
+											<div className="flex items-center justify-between pt-2">
+												<Skeleton className="h-6 w-6 rounded-full" />
+												<Skeleton className="h-5 w-16" />
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6 h-full flex flex-col">

@@ -22,6 +22,7 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@/components/ui/toggle-group";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const getDefaultUserTaskStages = (): Stage[] => [
 	{ id: "pending", title: "Pending", color: "bg-status-todo", order: 0, type: "user" },
@@ -47,6 +48,7 @@ export default function UserProjectStageTasks() {
 	const [departments, setDepartments] = useState<Department[]>([]);
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const [searchParams, setSearchParams] = useSearchParams();
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		// Use default user stages only (no localStorage)
@@ -76,6 +78,7 @@ export default function UserProjectStageTasks() {
 
 	useEffect(() => {
 		const loadData = async () => {
+			setLoading(true);
 			try {
 				const [usersData, departmentsData] = await Promise.all([
 					userService.getAll(),
@@ -116,6 +119,8 @@ export default function UserProjectStageTasks() {
 					description: "Failed to load data. Please refresh.",
 					variant: "destructive",
 				});
+			} finally {
+				setLoading(false);
 			}
 		};
 		loadData();
@@ -179,7 +184,7 @@ export default function UserProjectStageTasks() {
 
 	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (editingTask) {
-			await taskService.update(editingTask.id, taskData);
+			await taskService.update(editingTask.id, taskData as any);
 			const updatedTask = { ...editingTask, ...taskData };
 			setTasks((prev) => prev.map((task) => (task.id === editingTask.id ? updatedTask : task)));
 			toast({
@@ -339,8 +344,64 @@ export default function UserProjectStageTasks() {
 		}
 	};
 
+	if (loading) {
+		return (
+			<div className="space-y-4">
+				<div className="flex items-center justify-between">
+					<div className="space-y-2">
+						<Skeleton className="h-8 w-64" />
+						<Skeleton className="h-4 w-96" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="h-9 w-24" />
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				<div className="flex gap-4 overflow-hidden">
+					<div className="flex-shrink-0 w-80 flex flex-col gap-4">
+						<Skeleton className="h-12 w-full rounded-lg" />
+						<div className="space-y-4">
+							{[1, 2, 3].map((i) => (
+								<div key={i} className="p-4 rounded-lg border bg-card space-y-3">
+									<div className="flex justify-between">
+										<Skeleton className="h-4 w-20" />
+										<Skeleton className="h-4 w-4 rounded-full" />
+									</div>
+									<Skeleton className="h-4 w-full" />
+									<div className="flex items-center justify-between pt-2">
+										<Skeleton className="h-6 w-6 rounded-full" />
+										<Skeleton className="h-5 w-16" />
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+					<div className="flex-shrink-0 w-80 flex flex-col gap-4">
+						<Skeleton className="h-12 w-full rounded-lg" />
+						<div className="space-y-4">
+							{[1].map((i) => (
+								<div key={i} className="p-4 rounded-lg border bg-card space-y-3">
+									<div className="flex justify-between">
+										<Skeleton className="h-4 w-20" />
+										<Skeleton className="h-4 w-4 rounded-full" />
+									</div>
+									<Skeleton className="h-4 w-full" />
+									<div className="flex items-center justify-between pt-2">
+										<Skeleton className="h-6 w-6 rounded-full" />
+										<Skeleton className="h-5 w-16" />
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	if (!project || !stage) {
-		return <div>Loading or project/stage not found...</div>;
+		return <div>Project or Stage not found.</div>;
 	}
 
 	return (

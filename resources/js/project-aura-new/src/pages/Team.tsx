@@ -28,6 +28,7 @@ import {
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
 import { taskService } from "@/services/taskService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Team() {
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -39,11 +40,13 @@ export default function Team() {
 	const [userToDelete, setUserToDelete] = useState<User | null>(null);
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 	const { toast } = useToast();
+	const [loading, setLoading] = useState(true);
 	const { currentUser } = useUser();
 
 	// Load data from API on mount
 	useEffect(() => {
 		const loadData = async () => {
+			setLoading(true);
 			try {
 				const [usersData, departmentsData, tasksData] = await Promise.all([
 					userService.getAll(),
@@ -63,6 +66,8 @@ export default function Team() {
 					description: "Failed to load team data. Please try again.",
 					variant: "destructive",
 				});
+			} finally {
+				setLoading(false);
 			}
 		};
 
@@ -210,6 +215,51 @@ export default function Team() {
 			return a.name.localeCompare(b.name);
 		});
 	}, [filteredTeamMembers, getDepartmentName]);
+
+	if (loading) {
+		return (
+			<div className="space-y-6">
+				<div className="flex items-center justify-between">
+					<div className="space-y-2">
+						<Skeleton className="h-8 w-32" />
+						<Skeleton className="h-4 w-64" />
+					</div>
+					<Skeleton className="h-10 w-40" />
+				</div>
+
+				{[1, 2].map((group) => (
+					<div key={group} className="space-y-4">
+						<div className="flex items-center gap-3">
+							<div className="flex items-center gap-2">
+								<Skeleton className="h-6 w-32" />
+								<Skeleton className="h-5 w-20 rounded-full" />
+							</div>
+							<div className="h-px bg-border flex-1" />
+							<Skeleton className="h-5 w-5" />
+						</div>
+
+						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+							{[1, 2, 3].map((member) => (
+								<div key={member} className="rounded-lg border bg-card text-card-foreground shadow-sm">
+									<div className="p-6 flex flex-row items-center gap-4">
+										<Skeleton className="h-12 w-12 rounded-full" />
+										<div className="flex-1 space-y-2">
+											<Skeleton className="h-5 w-32" />
+											<Skeleton className="h-4 w-48" />
+										</div>
+									</div>
+									<div className="p-6 pt-0 flex items-center justify-between">
+										<Skeleton className="h-5 w-24 rounded-full" />
+										<Skeleton className="h-4 w-16" />
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				))}
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">

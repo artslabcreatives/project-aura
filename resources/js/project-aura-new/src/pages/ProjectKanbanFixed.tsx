@@ -29,7 +29,8 @@ import { stageService } from "@/services/stageService";
 import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
 import { echo } from "@/services/echoService";
 
-import { Loading } from "@/components/Loading";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -67,7 +68,58 @@ export default function ProjectKanbanFixed() {
 		fetchProject();
 	}, [projectId]);
 
-	if (loading) return <Loading />;
+	if (loading) {
+		return (
+			<div className="flex flex-col h-full bg-background">
+				{/* Header Skeleton */}
+				<div className="flex-shrink-0 border-b bg-background z-10 px-6 py-5">
+					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-4 w-96" />
+						</div>
+						<div className="flex items-center gap-3">
+							<Skeleton className="h-9 w-24" />
+							<Skeleton className="h-9 w-32" />
+							<Skeleton className="h-9 w-28" />
+						</div>
+					</div>
+					<div className="flex justify-start">
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				{/* Board Skeleton */}
+				<div className="flex-1 overflow-hidden">
+					<div className="h-full overflow-auto p-6 pb-10 bg-muted/5">
+						<div className="flex h-full gap-6">
+							{[1, 2, 3, 4].map((i) => (
+								<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+									<Skeleton className="h-12 w-full rounded-lg" />
+									<div className="space-y-4">
+										{[1, 2, 3].map((j) => (
+											<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+												<div className="flex justify-between">
+													<Skeleton className="h-4 w-20" />
+													<Skeleton className="h-4 w-4 rounded-full" />
+												</div>
+												<Skeleton className="h-4 w-full" />
+												<Skeleton className="h-4 w-3/4" />
+												<div className="flex items-center justify-between pt-2">
+													<Skeleton className="h-6 w-6 rounded-full" />
+													<Skeleton className="h-5 w-16" />
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	return <ProjectBoardContent key={project.id} project={project} />;
@@ -495,7 +547,58 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		setIsReviewTaskDialogOpen(false); setReviewTask(null);
 	};
 
-	if (isLoading) return <Loading />;
+	if (isLoading) {
+		return (
+			<div className="flex flex-col h-full bg-background">
+				{/* Header Skeleton */}
+				<div className="flex-shrink-0 border-b bg-background z-10 px-6 py-5">
+					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-4 w-96" />
+						</div>
+						<div className="flex items-center gap-3">
+							<Skeleton className="h-9 w-24" />
+							<Skeleton className="h-9 w-32" />
+							<Skeleton className="h-9 w-28" />
+						</div>
+					</div>
+					<div className="flex justify-start">
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				{/* Board Skeleton */}
+				<div className="flex-1 overflow-hidden">
+					<div className="h-full overflow-auto p-6 pb-10 bg-muted/5">
+						<div className="flex h-full gap-6">
+							{[1, 2, 3, 4].map((i) => (
+								<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+									<Skeleton className="h-12 w-full rounded-lg" />
+									<div className="space-y-4">
+										{[1, 2, 3].map((j) => (
+											<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+												<div className="flex justify-between">
+													<Skeleton className="h-4 w-20" />
+													<Skeleton className="h-4 w-4 rounded-full" />
+												</div>
+												<Skeleton className="h-4 w-full" />
+												<Skeleton className="h-4 w-3/4" />
+												<div className="flex items-center justify-between pt-2">
+													<Skeleton className="h-6 w-6 rounded-full" />
+													<Skeleton className="h-5 w-16" />
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	const handleSaveSubtask = async (subtaskData: { title: string; description: string; assignee: string; dueDate: string; userStatus: UserStatus }) => {

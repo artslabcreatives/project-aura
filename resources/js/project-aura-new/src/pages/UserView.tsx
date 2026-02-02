@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/use-user";
 
 import { taskService } from "@/services/taskService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function UserView() {
 	const { currentUser } = useUser();
@@ -15,10 +16,12 @@ export default function UserView() {
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [viewTask, setViewTask] = useState<Task | null>(null);
 	const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const loadTasks = async () => {
 			if (currentUser) {
+				setLoading(true);
 				try {
 					const [tasksData, projectsData] = await Promise.all([
 						taskService.getAll(),
@@ -106,6 +109,8 @@ export default function UserView() {
 				} catch {
 					setTasks([]);
 					setStatsTasks([]);
+				} finally {
+					setLoading(false);
 				}
 			}
 		};
@@ -118,32 +123,63 @@ export default function UserView() {
 			return list.map(t => {
 				if (t.id === taskId) return { ...t, ...updates };
 				if (t.subtasks) {
-					// Also update subtasks if they match, or if parent matches?
-					// If subtask status changed, it's passed as updates to the PARENT task ID if coming from TaskCard
-					// But TaskCard passes `task.id` which is the PARENT ID.
-					// And updates contains `{subtasks: [...]}`.
-					// So simple merge works.
-					// BUT if we flattened the list... 't' might be the subtask itself?
-					// TaskCard is rendered for the item in the list.
-					// If the list is flattened, 't' IS the subtask.
-					// But wait, TaskCard usually renders subtasks inside it.
-					// In UserView, we render individual tasks.
-					// The Flattening logic puts subtasks as top-level cards?
-					// Let's check UserView rendering.
 					return { ...t, subtasks: updateTaskInList(t.subtasks) };
 				}
 				return t;
 			});
 		};
 
-		// If we are strictly flattened, `taskId` matches the card's task.
-		// If `TaskCard` calls onTaskUpdate(subtask.id, ...), it updates that item.
-		// BUT `TaskCard` logic I wrote calls `onTaskUpdate(task.id, { subtasks: ... })`.
-		// `task.id` is the card's ID.
-
 		setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
 		setStatsTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
 	};
+
+	if (loading) {
+		return (
+			<div className="space-y-8 fade-in">
+				{/* Hero Header Skeleton */}
+				<div className="relative overflow-hidden rounded-2xl p-8 bg-background border shadow-sm">
+					<div className="flex items-center gap-3 mb-2">
+						<Skeleton className="h-12 w-12 rounded-xl" />
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-6 w-48" />
+						</div>
+					</div>
+				</div>
+
+				{/* Stats Skeleton */}
+				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+					{[1, 2, 3, 4].map(i => (
+						<div key={i} className="p-6 rounded-xl border bg-card">
+							<Skeleton className="h-4 w-24 mb-2" />
+							<Skeleton className="h-8 w-16" />
+						</div>
+					))}
+				</div>
+
+				<div className="mt-8 mb-8">
+					<div className="flex items-center gap-2 mb-4">
+						<div className="h-8 w-1 bg-primary rounded-full"></div>
+						<Skeleton className="h-6 w-48" />
+					</div>
+					<div className="rounded-md border p-4 space-y-4">
+						<div className="flex justify-between items-center mb-4">
+							<Skeleton className="h-8 w-32" />
+							<div className="flex gap-2">
+								<Skeleton className="h-8 w-8" />
+								<Skeleton className="h-8 w-8" />
+							</div>
+						</div>
+						<div className="grid grid-cols-7 gap-4">
+							{[...Array(35)].map((_, i) => (
+								<Skeleton key={i} className="h-24 w-full rounded-md" />
+							))}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-8 fade-in">
