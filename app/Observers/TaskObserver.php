@@ -182,45 +182,51 @@ class TaskObserver
                     }
                 }
 
-                // Get Admins and Team Leads
-                // Ideally filter by project department if applicable, but for now sends to all relevant roles
-                $recipients = User::whereIn('role', ['admin', 'team-lead'])->get();
-                
-                foreach ($recipients as $recipient) {
-                    // Don't notify self? Optional.
-                    // if ($recipient->id === $user->id) continue;
+                // Check if the new stage is "Complete" or "Completed"
+                // Only notify Admins and Team Leads if the task is moving to the completed stage
+                $isCompleteStage = $newStage && in_array(strtolower(trim($newStage->title)), ['complete', 'completed']);
+
+                if ($isCompleteStage) {
+                    // Get Admins and Team Leads
+                    // Ideally filter by project department if applicable, but for now sends to all relevant roles
+                    $recipients = User::whereIn('role', ['admin', 'team-lead'])->get();
                     
-                    $recipient->notify(new TaskCompletedNotification($task, $user, $stageName));
-                }
-                
-                Log::info("Sent task movement notifications for task {$task->id} to " . $recipients->count() . " users.");
+                    foreach ($recipients as $recipient) {
+                        // Don't notify self? Optional.
+                        // if ($recipient->id === $user->id) continue;
+                        
+                        $recipient->notify(new TaskCompletedNotification($task, $user, $stageName));
+                    }
+                    
+                    Log::info("Sent task movement notifications for task {$task->id} to " . $recipients->count() . " users.");
 
-                if (in_array($user->role, ['admin', 'team-lead'])) {
-                    $task->loadMissing('project');
-                    $departmentId = $task->project?->department_id;
+                    if (in_array($user->role, ['admin', 'team-lead'])) {
+                        $task->loadMissing('project');
+                        $departmentId = $task->project?->department_id;
 
-                    if ($departmentId) {
-                        $departmentTeamLeads = User::where('role', 'team-lead')
-                            ->where('department_id', $departmentId)
-                            ->get();
+                        if ($departmentId) {
+                            $departmentTeamLeads = User::where('role', 'team-lead')
+                                ->where('department_id', $departmentId)
+                                ->get();
 
-                        foreach ($departmentTeamLeads as $departmentLead) {
-                            if ($departmentLead->id === $user->id) {
-                                continue;
+                            foreach ($departmentTeamLeads as $departmentLead) {
+                                if ($departmentLead->id === $user->id) {
+                                    continue;
+                                }
+
+                                $departmentLead->notify(new TaskStageChangedNotification(
+                                    $task,
+                                    $previousStage?->title ?? 'Unknown Stage',
+                                    $newStage?->title ?? 'Unknown Stage',
+                                    $user->name
+                                ));
                             }
 
-                            $departmentLead->notify(new TaskStageChangedNotification(
-                                $task,
-                                $previousStage?->title ?? 'Unknown Stage',
-                                $newStage?->title ?? 'Unknown Stage',
-                                $user->name
-                            ));
-                        }
-
-                        if ($departmentTeamLeads->isNotEmpty()) {
-                            Log::info(
-                                "Sent stage change notifications for task {$task->id} to {$departmentTeamLeads->count()} team leads in department {$departmentId}."
-                            );
+                            if ($departmentTeamLeads->isNotEmpty()) {
+                                Log::info(
+                                    "Sent stage change notifications for task {$task->id} to {$departmentTeamLeads->count()} team leads in department {$departmentId}."
+                                );
+                            }
                         }
                     }
                 }

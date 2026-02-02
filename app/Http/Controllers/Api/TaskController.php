@@ -320,8 +320,6 @@ class TaskController extends Controller
              if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
                  $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
              }
-             $admins = \App\Models\User::where('role', 'admin')->get();
-             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
         }
 
         // -----------------------------------------------------
