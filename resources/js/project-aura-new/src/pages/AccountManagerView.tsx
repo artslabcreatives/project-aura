@@ -136,27 +136,37 @@ export default function AccountManagerView() {
     // Helper to check if task is completed
     const isTaskCompleted = (task: Task) => {
         if (task.userStatus === "complete") return true;
-        if (task.projectStage) {
+
+        let stage: any = undefined;
+
+        if (task.projectId && projects.length > 0) {
             const project = projects.find(p => String(p.id) === String(task.projectId));
-            if (project) {
-                const stage = project.stages.find(s => String(s.id) === String(task.projectStage));
-                if (stage) {
-                    const title = stage.title.toLowerCase().trim();
-                    if (title === 'complete' || title === 'completed' || title === 'archive' || title === 'done') {
-                        return true;
-                    }
-                }
+            if (project && task.projectStage) {
+                stage = project.stages.find(s => String(s.id) === String(task.projectStage));
             }
         }
+
+        if (!stage && task.projectStage && projects.length > 0) {
+            // Robust search by stage ID
+            const project = projects.find(p => p.stages.some(s => String(s.id) === String(task.projectStage)));
+            stage = project?.stages.find(s => String(s.id) === String(task.projectStage));
+        }
+
+        if (stage) {
+            const title = stage.title.toLowerCase().trim();
+            return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
+        }
+
         return false;
     };
 
     const dueTodayTasks = departmentTasks.filter(
-        (task) => !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate))
+        (task) => !task.parentId && !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate))
     );
 
     const overdueTasks = departmentTasks.filter(
         (task) =>
+            !task.parentId &&
             !isTaskCompleted(task) &&
             task.dueDate &&
             isPast(new Date(task.dueDate)) &&
@@ -164,13 +174,14 @@ export default function AccountManagerView() {
     );
 
     const tomorrowTasks = departmentTasks.filter((task) => {
-        return !isTaskCompleted(task) && task.dueDate && isTomorrow(new Date(task.dueDate));
+        return !task.parentId && !isTaskCompleted(task) && task.dueDate && isTomorrow(new Date(task.dueDate));
     });
 
     const thisMonthTasks = departmentTasks.filter((task) => {
         if (!task.dueDate) return false;
         const dueDate = new Date(task.dueDate);
         return (
+            !task.parentId &&
             !isTaskCompleted(task) &&
             isSameMonth(dueDate, today) &&
             !isPast(dueDate)

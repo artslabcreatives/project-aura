@@ -36,8 +36,9 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
 
   const allTasksRaw = flattenTasks(tasks);
 
-  // Filter out tasks from archived projects (matches FilteredTasksPage)
+  // Filter out tasks from archived projects (matches FilteredTasksPage) and exclude subtasks
   const allTasks = allTasksRaw.filter(task => {
+    if (task.parentId) return false; // Exclude subtasks
     if (!projects) return true;
     const archivedProjectIds = new Set(
       projects.filter(p => p.isArchived).map(p => p.id)
@@ -52,20 +53,26 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
     if (task.userStatus === "complete") return true;
 
     // 2. Project Stage Check
-    if (projects && task.projectStage) {
-      // Find project (optimize by map if needed, but array find is okay for small sets)
-      // We need to find which project this stage belongs to. 
-      // Since we don't have direct stage->project map, we search projects.
-      // Optimization: task has projectId.
-      const project = projects.find(p => String(p.id) === String(task.projectId));
-      if (project) {
-        const stage = project.stages.find(s => String(s.id) === String(task.projectStage));
-        if (stage) {
-          const title = stage.title.toLowerCase().trim();
-          if (title === 'complete' || title === 'completed' || title === 'archive' || title === 'done') {
-            return true;
-          }
+    if (projects && projects.length > 0 && task.projectStage) {
+      let stage: any = undefined;
+
+      if (task.projectId) {
+        // Try finding specific project first
+        const project = projects.find(p => String(p.id) === String(task.projectId));
+        if (project) {
+          stage = project.stages.find(s => String(s.id) === String(task.projectStage));
         }
+      }
+
+      if (!stage) {
+        // Fallback: Robust search by stage ID (finds project containing the stage)
+        const project = projects.find(p => p.stages.some(s => String(s.id) === String(task.projectStage)));
+        stage = project?.stages.find(s => String(s.id) === String(task.projectStage));
+      }
+
+      if (stage) {
+        const title = stage.title.toLowerCase().trim();
+        return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
       }
     }
     return false;

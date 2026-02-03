@@ -93,6 +93,8 @@ export default function FilteredTasksPage() {
         const today = new Date();
 
         return allFlatTasks.filter(task => {
+            if (task.parentId) return false; // Exclude subtasks
+
             const archivedProjectIds = new Set(
                 projects.filter(p => p.isArchived).map(p => p.id)
             );
@@ -144,17 +146,24 @@ export default function FilteredTasksPage() {
             // Helper to check if task is completed
             const isTaskCompleted = (t: Task) => {
                 if (t.userStatus === "complete") return true;
-                if (t.projectStage) {
+
+                let stage: any = undefined;
+
+                if (t.projectId && projects.length > 0) {
                     const project = projects.find(p => String(p.id) === String(t.projectId));
-                    if (project) {
-                        const stage = project.stages.find(s => String(s.id) === String(t.projectStage));
-                        if (stage) {
-                            const title = stage.title.toLowerCase().trim();
-                            if (title === 'complete' || title === 'completed' || title === 'archive' || title === 'done') {
-                                return true;
-                            }
-                        }
+                    if (project && t.projectStage) {
+                        stage = project.stages.find(s => String(s.id) === String(t.projectStage));
                     }
+                }
+
+                if (!stage && t.projectStage && projects.length > 0) {
+                    const project = projects.find(p => p.stages.some(s => String(s.id) === String(t.projectStage)));
+                    stage = project?.stages.find(s => String(s.id) === String(t.projectStage));
+                }
+
+                if (stage) {
+                    const title = stage.title.toLowerCase().trim();
+                    return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
                 }
                 return false;
             };

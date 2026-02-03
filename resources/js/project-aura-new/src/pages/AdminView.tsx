@@ -59,41 +59,57 @@ export default function AdminView() {
 
   const today = new Date();
 
+  const isTaskCompleted = (task: Task) => {
+    if (task.userStatus === 'complete') return true;
+
+    // Logic to find the stage
+    let stage: any = undefined;
+
+    if (task.projectId && projects.length > 0) {
+      // 1. Try finding specific project first
+      const project = projects.find(p => String(p.id) === String(task.projectId));
+      if (project && task.projectStage) {
+        stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+      }
+    }
+
+    if (!stage && task.projectStage && projects.length > 0) {
+      // 2. Fallback: Search all projects for this stage ID
+      const project = projects.find(p => p.stages.some(s => String(s.id) === String(task.projectStage)));
+      stage = project?.stages.find(s => String(s.id) === String(task.projectStage));
+    }
+
+    if (stage) {
+      const title = stage.title.toLowerCase().trim();
+      return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
+    }
+
+    return false;
+  };
+
   const dueTodayTasks = tasks.filter(
-    (task) => task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate))
+    (task) => !task.parentId && !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate))
   );
 
   const overdueTasks = tasks.filter(
-    (task) => {
-      // Check if task is in a "Complete" stage
-      let isCompleteStage = false;
-      if (task.projectStage) {
-        // Find the project for this task - assuming task.project is the project name or we can start searching all projects
-        // More reliably, we can search by projectStage ID across all projects
-        const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
-        const stage = project?.stages.find(s => s.id === task.projectStage);
-        if (stage && (stage.title.toLowerCase() === 'complete' || stage.title.toLowerCase() === 'completed')) {
-          isCompleteStage = true;
-        }
-      }
-
-      return task.userStatus !== "complete" &&
-        !isCompleteStage &&
-        task.dueDate &&
-        isPast(new Date(task.dueDate)) &&
-        !isToday(new Date(task.dueDate));
-    }
+    (task) =>
+      !task.parentId &&
+      !isTaskCompleted(task) &&
+      task.dueDate &&
+      isPast(new Date(task.dueDate)) &&
+      !isToday(new Date(task.dueDate))
   );
 
   const tomorrowTasks = tasks.filter((task) => {
-    return task.userStatus !== "complete" && task.dueDate && isTomorrow(new Date(task.dueDate));
+    return !task.parentId && !isTaskCompleted(task) && task.dueDate && isTomorrow(new Date(task.dueDate));
   });
 
   const thisMonthTasks = tasks.filter((task) => {
     if (!task.dueDate) return false;
     const dueDate = new Date(task.dueDate);
     return (
-      task.userStatus !== "complete" &&
+      !task.parentId &&
+      !isTaskCompleted(task) &&
       isSameMonth(dueDate, today) &&
       !isPast(dueDate)
     );
