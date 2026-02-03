@@ -74,39 +74,45 @@ export default function AccountManagerView() {
 
     const today = new Date();
 
+    // Helper to check if task is completed
+    const isTaskCompleted = (task: Task) => {
+        if (task.userStatus === "complete") return true;
+        if (task.projectStage) {
+            const project = projects.find(p => String(p.id) === String(task.projectId));
+            if (project) {
+                const stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+                if (stage) {
+                    const title = stage.title.toLowerCase().trim();
+                    if (title === 'complete' || title === 'completed' || title === 'archive' || title === 'done') {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
     const dueTodayTasks = departmentTasks.filter(
-        (task) => task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate))
+        (task) => !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate))
     );
 
     const overdueTasks = departmentTasks.filter(
-        (task) => {
-            // Check if task is in a "Complete" stage
-            let isCompleteStage = false;
-            if (task.projectStage) {
-                const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
-                const stage = project?.stages.find(s => s.id === task.projectStage);
-                if (stage && (stage.title.toLowerCase() === 'complete' || stage.title.toLowerCase() === 'completed')) {
-                    isCompleteStage = true;
-                }
-            }
-
-            return task.userStatus !== "complete" &&
-                !isCompleteStage &&
-                task.dueDate &&
-                isPast(new Date(task.dueDate)) &&
-                !isToday(new Date(task.dueDate));
-        }
+        (task) =>
+            !isTaskCompleted(task) &&
+            task.dueDate &&
+            isPast(new Date(task.dueDate)) &&
+            !isToday(new Date(task.dueDate))
     );
 
     const tomorrowTasks = departmentTasks.filter((task) => {
-        return task.userStatus !== "complete" && task.dueDate && isTomorrow(new Date(task.dueDate));
+        return !isTaskCompleted(task) && task.dueDate && isTomorrow(new Date(task.dueDate));
     });
 
     const thisMonthTasks = departmentTasks.filter((task) => {
         if (!task.dueDate) return false;
         const dueDate = new Date(task.dueDate);
         return (
-            task.userStatus !== "complete" &&
+            !isTaskCompleted(task) &&
             isSameMonth(dueDate, today) &&
             !isPast(dueDate)
         );
