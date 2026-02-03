@@ -33,6 +33,26 @@ class TaskCommentObserver
             ]);
             
             Log::info("Comment {$taskComment->id} added to task {$task->id}");
+
+            // Notify Assignees
+            $recipients = collect([]);
+            if ($task->assignee_id && $task->assignee_id !== $taskComment->user_id) {
+                $recipients->push($task->assignee);
+            }
+            foreach ($task->assignedUsers as $assignedUser) {
+                if ($assignedUser->id !== $taskComment->user_id) {
+                    $recipients->push($assignedUser);
+                }
+            }
+            // Unique recipients
+            $recipients = $recipients->unique('id');
+
+            if ($recipients->isNotEmpty()) {
+                \Illuminate\Support\Facades\Notification::send(
+                    $recipients, 
+                    new \App\Notifications\TaskCommentNotification($task, $taskComment->comment, $user)
+                );
+            }
         }
     }
 

@@ -229,6 +229,33 @@ class TaskObserver
                             }
                         }
                     }
+                } else {
+                    // Generic Stage Change (Not Complete, Not Review - or even if Review/Complete but we want to notify assignee)
+                    // Notify the assignee if they are not the one who moved it.
+                    // If assignee changed, they get TaskAssignedNotification (handled in Controller usually, potentially here too?)
+                    // If assignee did NOT change, but stage did, and someone else moved it.
+                    
+                    if ($task->assignee_id && $task->assignee_id !== $user->id) {
+                         $task->assignee->notify(new TaskStageChangedNotification(
+                            $task,
+                            $previousStage?->title ?? 'Unknown Stage',
+                            $newStage?->title ?? 'Unknown Stage',
+                            $user->name
+                        ));
+                        Log::info("Sent stage change notification for task {$task->id} to assignee {$task->assignee_id}");
+                    }
+                    
+                    // Also notify other assigned users
+                    foreach ($task->assignedUsers as $assignedUser) {
+                        if ($assignedUser->id !== $user->id && $assignedUser->id !== $task->assignee_id) {
+                             $assignedUser->notify(new TaskStageChangedNotification(
+                                $task,
+                                $previousStage?->title ?? 'Unknown Stage',
+                                $newStage?->title ?? 'Unknown Stage',
+                                $user->name
+                            ));
+                        }
+                    }
                 }
             }
         }

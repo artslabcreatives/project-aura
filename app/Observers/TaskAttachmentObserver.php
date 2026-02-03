@@ -21,16 +21,38 @@ class TaskAttachmentObserver
     public function created(TaskAttachment $taskAttachment): void
     {
         $task = $taskAttachment->task;
+        $uploaderId = auth()->id();
+        $uploader = auth()->user();
         
         if ($task) {
             $this->historyService->trackAttachmentAdded(
                 $task,
                 $taskAttachment->name ?? 'Unnamed attachment',
                 $taskAttachment->url ?? '',
-                auth()->id()
+                $uploaderId
             );
             
             Log::info("Attachment {$taskAttachment->id} added to task {$task->id}");
+
+            // Notify Assignees
+            $recipients = collect([]);
+            if ($task->assignee_id && $task->assignee_id !== $uploaderId) {
+                $recipients->push($task->assignee);
+            }
+            foreach ($task->assignedUsers as $assignedUser) {
+                if ($assignedUser->id !== $uploaderId) {
+                    $recipients->push($assignedUser);
+                }
+            }
+            // Unique recipients
+            $recipients = $recipients->unique('id');
+
+            if ($uploader && $recipients->isNotEmpty()) {
+                \Illuminate\Support\Facades\Notification::send(
+                    $recipients, 
+                    new \App\Notifications\TaskAttachmentNotification($task, $taskAttachment, $uploader)
+                );
+            }
         }
     }
 

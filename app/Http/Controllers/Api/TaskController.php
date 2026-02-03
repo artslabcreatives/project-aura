@@ -172,10 +172,21 @@ class TaskController extends Controller
             }
         }
 
+        // Notify assignees
+        $notifiedUserIds = [];
+        // Primary assignee
         if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
             $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+            $notifiedUserIds[] = $task->assignee_id;
         }
-        // Notify other assignees? (Skipping for brevity, can iterate assignedUsers)
+        
+        // Multi-assignees
+        foreach ($task->assignedUsers as $user) {
+            if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedUserIds)) {
+                $user->notify(new \App\Notifications\TaskAssignedNotification($task));
+                $notifiedUserIds[] = $user->id;
+            }
+        }
 
         // Notify other assignees? (Skipping for brevity, can iterate assignedUsers)
 
@@ -277,9 +288,10 @@ class TaskController extends Controller
         $assigneeChanged = $task->isDirty('assignee_id');
         $newStatus = $task->user_status;
 
+        $syncChanges = [];
         // Handle multi-assignee sync
         if (isset($validated['assignee_ids'])) {
-            $task->assignedUsers()->sync($validated['assignee_ids']);
+            $syncChanges = $task->assignedUsers()->sync($validated['assignee_ids']);
             // Update primary assignee_id if not explicitly set but array changed? 
             // Better to keep existing logic: if assignee_id passed, use it, else keep it.
         }
@@ -311,14 +323,41 @@ class TaskController extends Controller
         $task->save();
 
         // Notify new assignee
+        // Notify new assignee
+        $notifiedUserIds = [];
+
         if ($assigneeChanged && $task->assignee_id && $task->assignee_id !== $request->user()->id) {
              $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+             $notifiedUserIds[] = $task->assignee_id;
+        }
+
+        // Notify newly attached multi-assignees
+        if (isset($syncChanges['attached'])) {
+            $newlyAssignedIds = $syncChanges['attached'];
+            if (!empty($newlyAssignedIds)) {
+                $newlyAssignedUsers = \App\Models\User::whereIn('id', $newlyAssignedIds)->get();
+                foreach ($newlyAssignedUsers as $user) {
+                    if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedUserIds)) {
+                        $user->notify(new \App\Notifications\TaskAssignedNotification($task));
+                        $notifiedUserIds[] = $user->id;
+                    }
+                }
+            }
         }
 
         // Notify if status updated (only if main task updated)
         if ($task->wasChanged('user_status')) {
+             $notifiedStatusUserIds = [];
              if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
                  $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
+                 $notifiedStatusUserIds[] = $task->assignee_id;
+             }
+             
+             foreach ($task->assignedUsers as $user) {
+                 if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedStatusUserIds)) {
+                     $user->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
+                     $notifiedStatusUserIds[] = $user->id;
+                 }
              }
         }
 
