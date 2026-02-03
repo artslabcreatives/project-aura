@@ -453,7 +453,7 @@ export function TaskDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+			<DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
 						<DialogTitle>
