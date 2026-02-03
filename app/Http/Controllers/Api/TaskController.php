@@ -620,7 +620,7 @@ class TaskController extends Controller
             
             // Add Comment
             if (!empty($validated['comment'])) {
-                $task->comments.user()->create([
+                $task->comments()->create([
                     'user_id' => $request->user()->id,
                     'comment' => $validated['comment'],
                 ]);
