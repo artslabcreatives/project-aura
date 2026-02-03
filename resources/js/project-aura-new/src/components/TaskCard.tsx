@@ -234,7 +234,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							)}
 
 
-						{canManage && currentUser?.role !== 'account-manager' && (
+						{canManage && (
 							<>
 								<Button
 									variant="ghost"
@@ -248,18 +248,20 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 								>
 									<Edit className="h-3.5 w-3.5" />
 								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-									onClick={(e) => {
-										e.stopPropagation();
-										onDelete();
-									}}
-									title="Delete task"
-								>
-									<Trash2 className="h-3.5 w-3.5" />
-								</Button>
+								{currentUser?.role !== 'account-manager' && (
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+										onClick={(e) => {
+											e.stopPropagation();
+											onDelete();
+										}}
+										title="Delete task"
+									>
+										<Trash2 className="h-3.5 w-3.5" />
+									</Button>
+								)}
 							</>
 						)}
 					</div>
