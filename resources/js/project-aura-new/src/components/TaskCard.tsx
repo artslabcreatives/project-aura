@@ -3,10 +3,11 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
 	Tooltip,
 	TooltipContent,
@@ -56,6 +57,9 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 	const [isShareOpen, setIsShareOpen] = useState(false);
 	const { toast } = useToast();
 	const { currentUser } = useUser();
+	const navigate = useNavigate();
+	const location = useLocation();
+	const isProjectView = location.pathname.includes('/project/');
 	const hasStartedRef = useRef(false);
 
 	useEffect(() => {
@@ -190,6 +194,23 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 								</div>
 							</PopoverContent>
 						</Popover>
+						{!isProjectView && (
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7"
+								onClick={(e) => {
+									e.stopPropagation();
+									const pId = projectId || task.projectId;
+									if (pId) {
+										navigate(`/project/${pId}`);
+									}
+								}}
+								title="Go to Project Board"
+							>
+								<ExternalLink className="h-3.5 w-3.5" />
+							</Button>
+						)}
 						<Button
 							variant="ghost"
 							size="icon"
@@ -321,9 +342,22 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				)}
 
 				<div className="flex items-center gap-2">
-					<Badge variant="outline" className="text-xs">
-						{task.project}
-					</Badge>
+					{!isProjectView && (
+						<Badge
+							variant="outline"
+							className={cn("text-xs cursor-pointer hover:bg-muted hover:text-primary transition-colors")}
+							onClick={(e) => {
+								e.stopPropagation();
+								const pId = projectId || task.projectId;
+								if (pId) {
+									navigate(`/project/${pId}`);
+								}
+							}}
+							title="Go to Project"
+						>
+							{task.project}
+						</Badge>
+					)}
 					<Badge
 						variant="outline"
 						className={cn("text-xs capitalize", priorityColors[task.priority])}
