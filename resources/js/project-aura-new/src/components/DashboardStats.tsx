@@ -46,27 +46,41 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
     return true;
   });
 
+  // Helper to check if a task is effectively completed
+  const isTaskCompleted = (task: Task) => {
+    // 1. Explicit status
+    if (task.userStatus === "complete") return true;
+
+    // 2. Project Stage Check
+    if (projects && task.projectStage) {
+      // Find project (optimize by map if needed, but array find is okay for small sets)
+      // We need to find which project this stage belongs to. 
+      // Since we don't have direct stage->project map, we search projects.
+      // Optimization: task has projectId.
+      const project = projects.find(p => String(p.id) === String(task.projectId));
+      if (project) {
+        const stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+        if (stage) {
+          const title = stage.title.toLowerCase().trim();
+          if (title === 'complete' || title === 'completed' || title === 'archive' || title === 'done') {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
   const dueToday = allTasks.filter(
-    (task) => task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate))
+    (task) => !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate))
   ).length;
 
   const overdue = allTasks.filter(
-    (task) => {
-      let isCompleteStage = false;
-      if (projects && task.projectStage) {
-        const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
-        const stage = project?.stages.find(s => s.id === task.projectStage);
-        if (stage && (stage.title.toLowerCase() === 'complete' || stage.title.toLowerCase() === 'completed')) {
-          isCompleteStage = true;
-        }
-      }
-
-      return task.userStatus !== "complete" &&
-        !isCompleteStage &&
-        task.dueDate &&
-        isPast(new Date(task.dueDate)) &&
-        !isToday(new Date(task.dueDate));
-    }
+    (task) =>
+      !isTaskCompleted(task) &&
+      task.dueDate &&
+      isPast(new Date(task.dueDate)) &&
+      !isToday(new Date(task.dueDate))
   ).length;
 
   const upcoming = allTasks.filter((task) => {
@@ -74,33 +88,17 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
     const dueDate = new Date(task.dueDate);
     const nextWeek = addDays(today, 7);
     return (
-      task.userStatus !== "complete" &&
+      !isTaskCompleted(task) &&
       isFuture(dueDate) &&
       dueDate <= nextWeek
     );
   }).length;
 
   const completed = allTasks.filter((task) => {
-    // First check if task is completed
-    let isCompleted = false;
-
-    // Check if userStatus is complete
-    if (task.userStatus === "complete") {
-      isCompleted = true;
-    }
-
-    // Also check if task is in a completed/archive project stage
-    if (!isCompleted && projects && task.projectStage) {
-      const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
-      const stage = project?.stages.find(s => s.id === task.projectStage);
-      if (stage && ['complete', 'completed', 'archive'].includes(stage.title.toLowerCase())) {
-        isCompleted = true;
-      }
-    }
-
-    if (!isCompleted) return false;
+    if (!isTaskCompleted(task)) return false;
 
     // Filter by this month
+    // If completedAt is missing, fallback to createdAt (best effort)
     const dateStr = task.completedAt || task.createdAt;
     if (!dateStr) return false;
 

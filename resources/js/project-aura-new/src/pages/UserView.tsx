@@ -14,6 +14,7 @@ export default function UserView() {
 	const { currentUser } = useUser();
 	const [statsTasks, setStatsTasks] = useState<Task[]>([]);
 	const [tasks, setTasks] = useState<Task[]>([]);
+	const [projects, setProjects] = useState<Project[]>([]);
 	const [viewTask, setViewTask] = useState<Task | null>(null);
 	const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
@@ -27,6 +28,7 @@ export default function UserView() {
 						taskService.getAll(),
 						projectService.getAll()
 					]);
+					setProjects(projectsData);
 
 					// Helper to flatten tasks (recursive + unique)
 					const flattenTasks = (taskList: Task[]): Task[] => {
@@ -79,10 +81,6 @@ export default function UserView() {
 
 						if (!isAssigned) return false;
 
-						// Additional check: If it's a subtask, it might not have project info directly attached in some APIs,
-						// but usually it inherits or we can check parent. 
-						// For now assuming flattenTasks preserves task properties clearly.
-
 						return true;
 					});
 
@@ -90,18 +88,8 @@ export default function UserView() {
 					setStatsTasks(allAssignedTasks);
 
 					// Calendar/List should show only "Active" tasks (excluding system stages/completed/pending if desires)
-					// The user previously had 'pending' and 'complete' in forbidden.
-					// We keep that for the 'tasks' state which feeds the calendar.
 					const activeTasks = allAssignedTasks.filter((task: Task) => {
 						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
-						// Also filter by userStatus if needed to match previous logic
-						if (['complete', 'completed', 'pending', 'archive'].includes(task.userStatus)) {
-							// If the stage check didn't catch it (e.g. no stage ID), check status status
-							// We allow 'pending' status if it's NOT in a forbidden stage? 
-							// The original logic filtered out forbidden STAGES.
-							// Tasks often have 'pending' status but are in 'To Do' stage.
-							// If stage is forbidden (e.g. "Pending" stage), it's out.
-						}
 						return true;
 					});
 
@@ -109,6 +97,7 @@ export default function UserView() {
 				} catch {
 					setTasks([]);
 					setStatsTasks([]);
+					setProjects([]);
 				} finally {
 					setLoading(false);
 				}
@@ -203,7 +192,7 @@ export default function UserView() {
 				</div>
 			</div>
 
-			<DashboardStats tasks={statsTasks} />
+			<DashboardStats tasks={statsTasks} projects={projects} />
 
 			<div className="mt-8 mb-8">
 				<div className="flex items-center gap-2 mb-4">

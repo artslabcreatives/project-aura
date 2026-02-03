@@ -132,29 +132,40 @@ export default function FilteredTasksPage() {
 
             // Exclude 'suggested' tasks (matches AdminView/TeamLeadView logic)
             if (projects && task.projectStage) {
-                const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
-                const stage = project?.stages.find(s => s.id === task.projectStage);
-                if (stage && ['suggested', 'suggested task'].includes(stage.title.toLowerCase().trim())) {
-                    return false;
+                const project = projects.find(p => String(p.id) === String(task.projectId));
+                if (project) {
+                    const stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+                    if (stage && ['suggested', 'suggested task'].includes(stage.title.toLowerCase().trim())) {
+                        return false;
+                    }
                 }
             }
+
+            // Helper to check if task is completed
+            const isTaskCompleted = (t: Task) => {
+                if (t.userStatus === "complete") return true;
+                if (t.projectStage) {
+                    const project = projects.find(p => String(p.id) === String(t.projectId));
+                    if (project) {
+                        const stage = project.stages.find(s => String(s.id) === String(t.projectStage));
+                        if (stage) {
+                            const title = stage.title.toLowerCase().trim();
+                            if (title === 'complete' || title === 'completed' || title === 'archive' || title === 'done') {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            };
 
             // Now apply the specific category filter
             switch (filterType) {
                 case 'due-today':
-                    return task.userStatus !== "complete" && task.dueDate && isToday(new Date(task.dueDate));
+                    return !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate));
 
                 case 'overdue':
-                    let isCompleteStage = false;
-                    if (projects && task.projectStage) {
-                        const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
-                        const stage = project?.stages.find(s => s.id === task.projectStage);
-                        if (stage && (stage.title.toLowerCase() === 'complete' || stage.title.toLowerCase() === 'completed')) {
-                            isCompleteStage = true;
-                        }
-                    }
-                    return task.userStatus !== "complete" &&
-                        !isCompleteStage &&
+                    return !isTaskCompleted(task) &&
                         task.dueDate &&
                         isPast(new Date(task.dueDate)) &&
                         !isToday(new Date(task.dueDate));
@@ -164,30 +175,13 @@ export default function FilteredTasksPage() {
                     const dueDate = new Date(task.dueDate);
                     const nextWeek = addDays(today, 7);
                     return (
-                        task.userStatus !== "complete" &&
+                        !isTaskCompleted(task) &&
                         isFuture(dueDate) &&
                         dueDate <= nextWeek
                     );
 
                 case 'completed':
-                    // First check if task is completed
-                    let isCompleted = false;
-
-                    // Check if userStatus is complete
-                    if (task.userStatus === "complete") {
-                        isCompleted = true;
-                    }
-
-                    // Also check if task is in a completed/archive project stage
-                    if (!isCompleted && projects && task.projectStage) {
-                        const project = projects.find(p => p.stages.some(s => s.id === task.projectStage));
-                        const stage = project?.stages.find(s => s.id === task.projectStage);
-                        if (stage && ['complete', 'completed', 'archive'].includes(stage.title.toLowerCase())) {
-                            isCompleted = true;
-                        }
-                    }
-
-                    if (!isCompleted) return false;
+                    if (!isTaskCompleted(task)) return false;
 
                     // Apply date filter for completed tasks
                     if (dateFilter !== "all") {
