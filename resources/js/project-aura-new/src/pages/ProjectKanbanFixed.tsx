@@ -166,9 +166,14 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			if (!numericProjectId) return;
 			if (!isBackground) setIsLoading(true);
 			try {
-				const currentProject = await projectService.getById(String(numericProjectId));
+				// Optimization: Fetch independent initial data in parallel
+				const [currentProject, departmentsData] = await Promise.all([
+					projectService.getById(String(numericProjectId)),
+					departmentService.getAll()
+				]);
+
 				if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
-				const departmentsData = await departmentService.getAll();
+
 				if (currentUser?.role === 'team-lead') {
 					const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
 					const currentDept = departmentsData.find(d => d.id === currentUser.department);
@@ -178,12 +183,19 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					if (!hasMatchingDepartment && !hasSpecialPermission) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 				}
 				setProject(currentProject);
-				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
+				setDepartments(departmentsData);
+
+				// Optimization: Fetch tasks and users in parallel
+				// Removed global taskService.getAll()
+				const [tasksData, usersData] = await Promise.all([
+					taskService.getAll({ projectId: String(currentProject.id) }),
+					userService.getAll()
+				]);
+
 				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
 				setTasks(projectTasks);
-				setAllTasks(await taskService.getAll());
-				setTeamMembers(await userService.getAll());
-				setDepartments(departmentsData);
+				setAllTasks(projectTasks); // Optimization: Use project tasks instead of full global fetch
+				setTeamMembers(usersData);
 
 				// Deep link handling
 				const taskIdParam = searchParams.get('task');

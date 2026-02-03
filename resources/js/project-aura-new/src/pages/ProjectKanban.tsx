@@ -55,13 +55,18 @@ export default function ProjectKanban() {
 			if (!numericProjectId) return;
 			setIsLoading(true);
 			try {
-				const currentProject = await projectService.getById(String(numericProjectId));
+				// Optimization: Fetch independent initial data in parallel
+				const [currentProject, departmentsData] = await Promise.all([
+					projectService.getById(String(numericProjectId)),
+					departmentService.getAll()
+				]);
+
 				if (!currentProject) {
 					setProject(null);
 					setIsLoading(false);
 					return;
 				}
-				const departmentsData = await departmentService.getAll();
+
 				if (currentUser?.role === 'team-lead') {
 					const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
 					const currentDept = departmentsData.find(d => d.id === currentUser.department);
@@ -75,17 +80,24 @@ export default function ProjectKanban() {
 					}
 				}
 				setProject(currentProject);
-				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
-				setTasks(tasksData.filter(t => t.projectId === currentProject.id));
-
-				const suggestedTasksData = await projectService.getSuggestedTasks(String(currentProject.id));
-				setSuggestedTasks(suggestedTasksData);
-
-				const allTasksData = await taskService.getAll();
-				setAllTasks(allTasksData);
-				const usersData = await userService.getAll();
-				setTeamMembers(usersData);
 				setDepartments(departmentsData);
+
+				// Optimization: Fetch remaining data in parallel
+				// REMOVED: const allTasksData = await taskService.getAll(); <- This was fetching ALL tasks in system, causing slowness.
+				const [tasksData, suggestedTasksData, usersData] = await Promise.all([
+					taskService.getAll({ projectId: String(currentProject.id) }),
+					projectService.getSuggestedTasks(String(currentProject.id)),
+					userService.getAll()
+				]);
+
+				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+				setTasks(projectTasks);
+				setSuggestedTasks(suggestedTasksData);
+				// We use project tasks for allTasks to avoid the massive global fetch. 
+				// This means the "task count" in assignee dropdown will reflect project-load, not global-load, which is acceptable for performance.
+				setAllTasks(projectTasks);
+				setTeamMembers(usersData);
+
 			} catch (error) {
 				console.error('Error loading project data:', error);
 				toast({
