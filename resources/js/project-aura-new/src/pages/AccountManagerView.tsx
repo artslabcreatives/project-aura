@@ -257,14 +257,6 @@ export default function AccountManagerView() {
                             </p>
                         </div>
                     </div>
-
-                    <Button
-                        onClick={() => setIsCreateDialogOpen(true)}
-                        className="bg-white text-secondary hover:bg-white/90 shadow-lg border-none"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        New Task
-                    </Button>
                 </div>
             </div>
 
