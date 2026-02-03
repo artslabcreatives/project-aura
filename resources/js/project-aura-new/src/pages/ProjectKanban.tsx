@@ -536,10 +536,12 @@ export default function ProjectKanban() {
 						<p className="text-muted-foreground">{project.description}</p>
 					</div>
 					<div className="flex gap-2">
-						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 							<>
 								<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>View History</Button>
-								<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>Manage Stages</Button>
+								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+									<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>Manage Stages</Button>
+								)}
 								<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
 									<Plus className="mr-2 h-4 w-4" /> Add Task
 								</Button>
@@ -624,7 +626,7 @@ export default function ProjectKanban() {
 				)}
 			</div>
 			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} stages={project.stages} />
-			<TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} onSave={handleSaveTask} editTask={editingTask} availableStatuses={project.stages} useProjectStages availableProjects={[project.name]} teamMembers={teamMembers} departments={departments} allTasks={allTasks} />
+			<TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} onSave={handleSaveTask} editTask={editingTask} availableStatuses={project.stages} useProjectStages availableProjects={[project.name]} allProjects={[project]} teamMembers={teamMembers} departments={departments} allTasks={allTasks} />
 			<StageManagement open={isStageManagementOpen} onOpenChange={setIsStageManagementOpen} stages={project.stages} onAddStage={handleAddStage} onEditStage={handleEditStage} onDeleteStage={handleDeleteStage} />
 			<StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} onSave={handleSaveStage} existingStages={project.stages} editStage={editingStage} teamMembers={teamMembers} />
 			<ReviewTaskDialog open={isReviewTaskDialogOpen} onOpenChange={setIsReviewTaskDialogOpen} task={reviewTask} stages={project.stages} onApprove={handleApproveTask} onRequestRevision={handleRequestRevision} />

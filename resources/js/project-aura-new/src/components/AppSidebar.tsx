@@ -1173,15 +1173,17 @@ export function AppSidebar() {
 											}`}
 									/>
 								</CollapsibleTrigger>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-6 w-6 ml-1"
-									onClick={() => setIsProjectDialogOpen(true)}
-									title="Add new project"
-								>
-									<Plus className="h-4 w-4" />
-								</Button>
+								{(userRole === 'admin' || userRole === 'team-lead') && (
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-6 w-6 ml-1"
+										onClick={() => setIsProjectDialogOpen(true)}
+										title="Add new project"
+									>
+										<Plus className="h-4 w-4" />
+									</Button>
+								)}
 							</div>
 							<CollapsibleContent>
 								<SidebarGroupContent>

@@ -2,16 +2,21 @@ import { DashboardStats } from "@/components/DashboardStats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCard } from "@/components/TaskCard";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
-import { isPast, isToday, isFuture, addDays, isTomorrow, isSameMonth } from "date-fns";
+import { TaskDialog } from "@/components/TaskDialog";
+import { Button } from "@/components/ui/button";
+import { isPast, isToday, isTomorrow, isSameMonth } from "date-fns";
 import { useEffect, useState, useMemo } from "react";
 import { Task, User } from "@/types/task";
 import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
+import { Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 import { taskService } from "@/services/taskService";
 import { projectService } from "@/services/projectService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
+import { attachmentService } from "@/services/attachmentService";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AccountManagerView() {
@@ -20,8 +25,25 @@ export default function AccountManagerView() {
     const [teamMembers, setTeamMembers] = useState<User[]>([]);
     const [viewTask, setViewTask] = useState<Task | null>(null);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const { currentUser } = useUser();
     const [loading, setLoading] = useState(true);
+    const { toast } = useToast();
+
+    // Get department name
+    const [departments, setDepartments] = useState<any[]>([]); // Typed loosely or import Department
+
+    useEffect(() => {
+        const loadDepartments = async () => {
+            try {
+                const departmentsData = await departmentService.getAll();
+                setDepartments(departmentsData);
+            } catch {
+                setDepartments([]);
+            }
+        };
+        loadDepartments();
+    }, []);
 
     useEffect(() => {
         const loadData = async () => {
@@ -39,13 +61,50 @@ export default function AccountManagerView() {
                 setTasks([]);
                 setProjects([]);
                 setTeamMembers([]);
-                // Optionally show a toast or error message
             } finally {
                 setLoading(false);
             }
         };
         loadData();
     }, []);
+
+    const handleCreateTask = async (taskData: any, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
+        try {
+            // Create task
+            const newTask = await taskService.create(taskData);
+
+            // Upload files
+            if (pendingFiles && pendingFiles.length > 0) {
+                for (const file of pendingFiles) {
+                    await attachmentService.uploadFile(newTask.id, file);
+                }
+            }
+
+            // Add links
+            if (pendingLinks && pendingLinks.length > 0) {
+                for (const link of pendingLinks) {
+                    await attachmentService.addLink(newTask.id, link.name, link.url);
+                }
+            }
+
+            // Refresh saved task to get attachments
+            const refreshedTask = await taskService.getById(newTask.id);
+
+            setTasks(prev => [refreshedTask || newTask, ...prev]);
+            setIsCreateDialogOpen(false);
+            toast({
+                title: "Success",
+                description: "Task created successfully",
+            });
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: "Error",
+                description: "Failed to create task",
+                variant: "destructive",
+            });
+        }
+    };
 
     // Filter tasks by assignment (Account Manager)
     const departmentTasks = useMemo(() => {
@@ -118,23 +177,9 @@ export default function AccountManagerView() {
         );
     });
 
-    // Get department name
-    const [departments, setDepartments] = useState([]);
-    useEffect(() => {
-        const loadDepartments = async () => {
-            try {
-                const departmentsData = await departmentService.getAll();
-                setDepartments(departmentsData);
-            } catch {
-                setDepartments([]);
-            }
-        };
-        loadDepartments();
-    }, []);
-
     const getDepartmentName = () => {
         if (currentUser && departments.length > 0) {
-            const dept = departments.find((d) => d.id === currentUser.department);
+            const dept = departments.find((d: any) => d.id === currentUser.department);
             return dept?.name || "Your Department";
         }
         return "Your Department";
@@ -187,8 +232,8 @@ export default function AccountManagerView() {
             {/* Hero Header with Gradient */}
             <div className="relative overflow-hidden rounded-2xl p-8 bg-gradient-to-br from-secondary via-secondary-light to-primary shadow-xl">
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-2">
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3">
                         <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                             <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -201,6 +246,14 @@ export default function AccountManagerView() {
                             </p>
                         </div>
                     </div>
+
+                    <Button
+                        onClick={() => setIsCreateDialogOpen(true)}
+                        className="bg-white text-secondary hover:bg-white/90 shadow-lg border-none"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        New Task
+                    </Button>
                 </div>
             </div>
 
@@ -376,6 +429,19 @@ export default function AccountManagerView() {
                 task={viewTask}
                 open={isViewDialogOpen}
                 onOpenChange={setIsViewDialogOpen}
+            />
+
+            <TaskDialog
+                open={isCreateDialogOpen}
+                onOpenChange={setIsCreateDialogOpen}
+                onSave={handleCreateTask}
+                teamMembers={teamMembers}
+                departments={departments}
+                allProjects={projects}
+                availableProjects={projects.map(p => p.name)}
+                availableStatuses={[]} // We are creating, so standard
+                useProjectStages={true}
+                currentUser={currentUser}
             />
         </div>
     );

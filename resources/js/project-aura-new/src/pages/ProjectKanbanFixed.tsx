@@ -679,16 +679,18 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							<p className="text-muted-foreground mt-1">{project.description}</p>
 						</div>
 						<div className="flex items-center gap-3">
-							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 								<>
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 										View History
 									</Button>
 									{!project.isArchived && (
 										<>
-											<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
-												Manage Stages
-											</Button>
+											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
+													Manage Stages
+												</Button>
+											)}
 											<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
 												<Plus className="mr-2 h-4 w-4" /> Add Task
 											</Button>
@@ -773,6 +775,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				availableStatuses={sortedStages}
 				useProjectStages
 				availableProjects={[project.name]}
+				allProjects={[project]}
 				teamMembers={teamMembers}
 				departments={departments}
 				allTasks={allTasks}
