@@ -3,9 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Loading } from "@/components/Loading";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import SimpleLayout from "@/components/SimpleLayout";
 import UserDashboard from "./pages/UserDashboard";
 import Tasks from "./pages/Tasks";
 import Team from "./pages/Team";
@@ -94,6 +95,22 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
 	const { currentUser, isLoading, isAuthenticated } = useUser();
+	const [searchParams] = useSearchParams();
+	const location = useLocation();
+
+	// Check if embedded: either via query param or if path starts with /mattermost/
+	const isEmbedded = searchParams.get('embed') === 'true' ||
+		searchParams.get('embed') === '1' ||
+		location.pathname.startsWith('/mattermost');
+
+	// Debug logging
+	console.log('AppLayout Debug:', {
+		pathname: location.pathname,
+		embed: searchParams.get('embed'),
+		isEmbedded,
+		currentUser: currentUser?.name
+	});
+
 	if (isLoading) {
 		if (isLoading) {
 			return <Loading />;
@@ -104,6 +121,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 		return null; // Login component will be shown by AuthWrapper
 	}
 
+	// Use SimpleLayout for embedded views (Mattermost iframes, etc.)
+	if (isEmbedded) {
+		return <SimpleLayout>{children}</SimpleLayout>;
+	}
+
+	// Use full DashboardLayout with sidebar for regular views
 	return (
 		<SidebarProvider>
 			<DashboardLayout>{children}</DashboardLayout>
@@ -163,6 +186,7 @@ const App = () => (
 				<BrowserRouter>
 					<AuthWrapper>
 						<Routes>
+							{/* Regular routes */}
 							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
 							<Route path="/tasks" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
@@ -187,6 +211,33 @@ const App = () => (
 									<AppLayout><ReviewNeededPage /></AppLayout>
 								</ProtectedRoute>
 							} />
+
+							{/* Mattermost embedded routes (with /mattermost prefix) */}
+							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />
+							<Route path="/mattermost/tasks" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Tasks /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/mattermost/tasks/filter/:filterType" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
+									<AppLayout><FilteredTasksPage /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/mattermost/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
+							<Route path="/mattermost/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
+							<Route path="/mattermost/team" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Team /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/mattermost/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
+							<Route path="/mattermost/review-needed" element={
+								<ProtectedRoute allowedRoles={['account-manager']}>
+									<AppLayout><ReviewNeededPage /></AppLayout>
+								</ProtectedRoute>
+							} />
+
 							{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 							<Route path="*" element={<NotFound />} />
 						</Routes>
