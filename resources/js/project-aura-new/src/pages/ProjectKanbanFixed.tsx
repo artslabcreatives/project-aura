@@ -3,7 +3,7 @@ import { api } from "@/services/api";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { Task, User, UserStatus } from "@/types/task";
+import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -613,12 +613,27 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	}
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
-	const handleSaveSubtask = async (subtaskData: { title: string; description: string; assignee: string; dueDate: string; userStatus: UserStatus }) => {
+	const handleSaveSubtask = async (subtaskData: {
+		title: string;
+		description: string;
+		assignee: string;
+		assigneeId?: string;
+		dueDate: string;
+		userStatus: UserStatus;
+		priority: TaskPriority;
+		startDate?: string;
+		tags?: string[];
+		pendingFiles?: File[];
+		pendingLinks?: { name: string; url: string }[];
+	}) => {
 		if (!project || !parentTaskForSubtask || !currentUser) return;
 		try {
-			const assigneeId = subtaskData.assignee ? teamMembers.find(m => m.name === subtaskData.assignee)?.id : undefined;
+			// Use provided ID or find by name if not provided
+			const assigneeId = subtaskData.assigneeId
+				? subtaskData.assigneeId
+				: (subtaskData.assignee ? teamMembers.find(m => m.name === subtaskData.assignee)?.id : undefined);
 
-			await taskService.create({
+			const newTask = await taskService.create({
 				title: subtaskData.title,
 				description: subtaskData.description,
 				projectId: project.id,
@@ -626,9 +641,22 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				dueDate: subtaskData.dueDate,
 				userStatus: subtaskData.userStatus,
 				projectStageId: parentTaskForSubtask.projectStage ? parseInt(parentTaskForSubtask.projectStage) : undefined,
-				priority: 'medium', // Default
+				priority: subtaskData.priority,
 				parentId: parentTaskForSubtask.id,
+				startDate: subtaskData.startDate,
+				tags: subtaskData.tags,
 			} as any);
+
+			// Handle Attachments
+			if (subtaskData.pendingFiles && subtaskData.pendingFiles.length > 0) {
+				await attachmentService.uploadFiles(newTask.id, subtaskData.pendingFiles);
+			}
+
+			if (subtaskData.pendingLinks && subtaskData.pendingLinks.length > 0) {
+				for (const link of subtaskData.pendingLinks) {
+					await attachmentService.addLink(newTask.id, link.name, link.url);
+				}
+			}
 
 			toast({ title: "Subtask added", description: "Subtask created successfully." });
 
@@ -814,8 +842,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				onOpenChange={setIsAddSubtaskDialogOpen}
 				onSave={handleSaveSubtask}
 				teamMembers={teamMembers}
+				parentTaskTitle={parentTaskForSubtask?.title || "Task"}
 				departments={departments}
-				parentTaskTitle={parentTaskForSubtask?.title || ''}
+				currentUser={currentUser}
 			/>
 		</div>
 	);
