@@ -54,6 +54,7 @@ interface TaskDialogProps {
 	isStageLocked?: boolean;
 	currentUser?: User;
 	fixedDepartmentId?: string;
+	disableBacklogRenaming?: boolean;
 }
 
 export function TaskDialog({
@@ -72,6 +73,7 @@ export function TaskDialog({
 	isStageLocked = false,
 	currentUser,
 	fixedDepartmentId,
+	disableBacklogRenaming = false,
 }: TaskDialogProps) {
 	const { toast } = useToast();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -590,7 +592,7 @@ export function TaskDialog({
 											})
 											.map((status) => (
 												<SelectItem key={status.id} value={status.id}>
-													{status.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager')
+													{status.title === "Pending" && !disableBacklogRenaming
 														? "Backlog"
 														: status.title}
 												</SelectItem>

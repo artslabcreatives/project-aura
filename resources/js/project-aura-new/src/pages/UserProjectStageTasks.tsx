@@ -530,6 +530,7 @@ export default function UserProjectStageTasks() {
 						canDragTasks={true}
 						projectId={projectId}
 						onTaskComplete={handleTaskCompleteWithDetails}
+						disableBacklogRenaming={true}
 					/>
 				) : (
 					<TaskListView
@@ -586,6 +587,7 @@ export default function UserProjectStageTasks() {
 				allTasks={allTasks}
 				currentUser={currentUser}
 				fixedDepartmentId={project.department?.id}
+				disableBacklogRenaming={true}
 			/>
 		</div>
 	);
