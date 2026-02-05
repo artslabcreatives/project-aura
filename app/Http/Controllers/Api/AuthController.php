@@ -63,6 +63,7 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'user' => $user->load('department'),
             'token' => $token,
+            'force_password_reset' => (bool) $user->force_password_reset,
         ]);
     }
 
@@ -310,5 +311,58 @@ class AuthController extends Controller
         \Illuminate\Support\Facades\Cache::forget('password_reset_otp_' . $request->email);
 
         return response()->json(['message' => 'Password reset successfully']);
+    }
+
+    #[OA\Post(
+        path: "/change-password",
+        summary: "Change password (for first login or regular password change)",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["current_password", "new_password", "new_password_confirmation"],
+                properties: [
+                    new OA\Property(property: "current_password", type: "string", format: "password", example: "currentpassword123"),
+                    new OA\Property(property: "new_password", type: "string", format: "password", example: "newpassword123", minLength: 8),
+                    new OA\Property(property: "new_password_confirmation", type: "string", format: "password", example: "newpassword123")
+                ]
+            )
+        ),
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Password changed successfully",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Password changed successfully")
+                    ]
+                )
+            ),
+            new OA\Response(response: 400, description: "Current password is incorrect"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
+    public function changePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        // Verify current password
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'Current password is incorrect'], 400);
+        }
+
+        // Update password
+        $user->password = Hash::make($request->new_password);
+        $user->force_password_reset = false;
+        $user->save();
+
+        return response()->json(['message' => 'Password changed successfully']);
     }
 }

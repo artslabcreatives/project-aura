@@ -13,10 +13,12 @@ interface LoginProps {
 }
 
 import { ResetPassword } from "./ResetPassword";
+import { ChangePassword } from "./ChangePassword";
 
 export function Login({ onLoginSuccess }: LoginProps) {
 	const { toast } = useToast();
 	const [isResetOpen, setIsResetOpen] = useState(false);
+	const [showChangePassword, setShowChangePassword] = useState(false);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
@@ -46,12 +48,20 @@ export function Login({ onLoginSuccess }: LoginProps) {
 			// Store the bearer token
 			setToken(data.token);
 
-			toast({
-				title: "Login successful",
-				description: "Welcome back to Aura!",
-			});
-
-			onLoginSuccess();
+			// Check if user needs to reset password
+			if (data.force_password_reset) {
+				toast({
+					title: "Password Change Required",
+					description: "Please set a new password before continuing.",
+				});
+				setShowChangePassword(true);
+			} else {
+				toast({
+					title: "Login successful",
+					description: "Welcome back to Aura!",
+				});
+				onLoginSuccess();
+			}
 		} catch (error) {
 			toast({
 				title: "Login failed",
@@ -62,6 +72,20 @@ export function Login({ onLoginSuccess }: LoginProps) {
 			setIsLoading(false);
 		}
 	};
+
+	const handlePasswordChangeSuccess = () => {
+		setShowChangePassword(false);
+		toast({
+			title: "Password updated",
+			description: "Welcome to Aura!",
+		});
+		onLoginSuccess();
+	};
+
+	// Show change password screen if needed
+	if (showChangePassword) {
+		return <ChangePassword onSuccess={handlePasswordChangeSuccess} />;
+	}
 
 	return (
 		<div className="min-h-screen w-full lg:grid lg:grid-cols-2 overflow-hidden bg-background">

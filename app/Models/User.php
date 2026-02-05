@@ -37,6 +37,7 @@ class User extends Authenticatable implements FilamentUser
         'mattermost_user_id',
         'mattermost_token',
         'slack_id',
+        'force_password_reset',
     ];
 
     /**
@@ -57,6 +58,7 @@ class User extends Authenticatable implements FilamentUser
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'force_password_reset' => 'boolean',
     ];
 
     /**
