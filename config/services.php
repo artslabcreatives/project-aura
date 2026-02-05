@@ -38,4 +38,7 @@ return [
         'api_key' => env('MATTERMOST_API_KEY'),
     ],
 
+	'slack' => [
+		'token' => env('SLACK_TOKEN'),
+	],
 ];

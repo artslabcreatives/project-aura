@@ -36,6 +36,7 @@ class User extends Authenticatable implements FilamentUser
         'capacity_hours_per_day',
         'mattermost_user_id',
         'mattermost_token',
+        'slack_id',
     ];
 
     /**

@@ -47,9 +47,9 @@ export const ThemeToggle = () => {
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
-					variant="outline"
-					size="sm"
-					className="hidden md:inline-flex items-center gap-2 font-medium tracking-tight border-border/70 bg-card/80 hover:bg-accent/40"
+					variant="ghost"
+					size="icon"
+					className="hidden md:inline-flex items-center justify-center border-border/70 hover:bg-accent/40 rounded-full"
 				>
 					<span className="sr-only">Toggle color theme</span>
 					<span className="relative flex h-5 w-5 items-center justify-center text-primary">
@@ -59,9 +59,6 @@ export const ThemeToggle = () => {
 						<Moon
 							className={`absolute transition-all duration-300 ${activeTheme === "dark" ? "scale-100 opacity-100" : "scale-0 opacity-0"}`}
 						/>
-					</span>
-					<span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-						{THEME_OPTIONS.find((option) => option.id === (mounted ? (theme as ThemeId) ?? "light" : "light"))?.label}
 					</span>
 				</Button>
 			</DropdownMenuTrigger>
@@ -74,9 +71,8 @@ export const ThemeToggle = () => {
 					<DropdownMenuItem
 						key={option.id}
 						onClick={() => setTheme(option.id)}
-						className={`flex flex-col items-start gap-0.5 py-2 text-sm ${
-							activeTheme === option.id ? "bg-primary/10 text-primary" : ""
-						}`}
+						className={`flex flex-col items-start gap-0.5 py-2 text-sm ${activeTheme === option.id ? "bg-primary/10 text-primary" : ""
+							}`}
 					>
 						<div className="flex w-full items-center justify-between">
 							<span>{option.label}</span>

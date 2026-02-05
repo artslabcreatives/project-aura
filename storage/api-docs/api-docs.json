@@ -12,6 +12,583 @@
         }
     ],
     "paths": {
+        "/api/analytics/completion": {
+            "get": {
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Get task completion analytics",
+                "description": "Get task completion analytics for a specific period",
+                "operationId": "20fa9de84beafb3676df792d92bec672",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Time period for analytics",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "week",
+                                "month",
+                                "quarter",
+                                "year"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Start date (optional, defaults to period start)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "End date (optional, defaults to now)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "description": "Filter by project ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "stage_id",
+                        "in": "query",
+                        "description": "Filter by stage ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "Filter by assignee user ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "priority",
+                        "in": "query",
+                        "description": "Filter by priority",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "low",
+                                "medium",
+                                "high"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "period": {
+                                            "type": "string",
+                                            "example": "month"
+                                        },
+                                        "start_date": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "end_date": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "total_completed": {
+                                            "type": "integer",
+                                            "example": 42
+                                        },
+                                        "breakdown": {
+                                            "type": "object",
+                                            "example": {
+                                                "2026-01": 15,
+                                                "2026-02": 27
+                                            }
+                                        },
+                                        "by_project": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "project_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "project_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "count": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "by_stage": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "stage_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "stage_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "count": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "by_user": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "user_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "user_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "count": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "by_priority": {
+                                            "type": "object",
+                                            "example": {
+                                                "high": 10,
+                                                "medium": 20,
+                                                "low": 12
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid period specified"
+                    }
+                }
+            }
+        },
+        "/api/analytics/comparison": {
+            "get": {
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Compare current period with previous period",
+                "description": "Get comparison analytics between current and previous period",
+                "operationId": "e378f7266e3173148b8b45c53f92f232",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Time period for comparison",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "week",
+                                "month",
+                                "quarter",
+                                "year"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "description": "Filter by project ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "stage_id",
+                        "in": "query",
+                        "description": "Filter by stage ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "Filter by assignee user ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "priority",
+                        "in": "query",
+                        "description": "Filter by priority",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "low",
+                                "medium",
+                                "high"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "current_period": {
+                                            "description": "Analytics for current period",
+                                            "type": "object"
+                                        },
+                                        "previous_period": {
+                                            "description": "Analytics for previous period",
+                                            "type": "object"
+                                        },
+                                        "comparison": {
+                                            "properties": {
+                                                "absolute_change": {
+                                                    "type": "integer",
+                                                    "example": 15
+                                                },
+                                                "percentage_change": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 35.71
+                                                },
+                                                "trend": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "up",
+                                                        "down",
+                                                        "stable"
+                                                    ],
+                                                    "example": "up"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid period specified"
+                    }
+                }
+            }
+        },
+        "/api/analytics/completion-rate": {
+            "get": {
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Get task completion rate statistics",
+                "description": "Get completion rate analytics",
+                "operationId": "79e1050726dee0a3bbb1bc6c98cff198",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Time period for analytics",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "week",
+                                "month",
+                                "quarter",
+                                "year"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "description": "Filter by project ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "stage_id",
+                        "in": "query",
+                        "description": "Filter by stage ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "Filter by assignee user ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "period": {
+                                            "type": "string",
+                                            "example": "month"
+                                        },
+                                        "start_date": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "end_date": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "total_tasks": {
+                                            "type": "integer",
+                                            "example": 100
+                                        },
+                                        "completed_tasks": {
+                                            "type": "integer",
+                                            "example": 75
+                                        },
+                                        "completion_rate": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 75
+                                        },
+                                        "pending_tasks": {
+                                            "type": "integer",
+                                            "example": 25
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid period specified"
+                    }
+                }
+            }
+        },
+        "/api/analytics/completion-time": {
+            "get": {
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Get average task completion time statistics",
+                "description": "Get average completion time analytics",
+                "operationId": "aa10c1c37065dd5d33a4708cdaa9c71e",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Time period for analytics",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "week",
+                                "month",
+                                "quarter",
+                                "year"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "description": "Filter by project ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "stage_id",
+                        "in": "query",
+                        "description": "Filter by stage ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "Filter by assignee user ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "period": {
+                                            "type": "string",
+                                            "example": "month"
+                                        },
+                                        "average_hours": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 48.5
+                                        },
+                                        "average_days": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 2.02
+                                        },
+                                        "median_hours": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 36
+                                        },
+                                        "median_days": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 1.5
+                                        },
+                                        "min_hours": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 2
+                                        },
+                                        "max_hours": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 168
+                                        },
+                                        "total_tasks": {
+                                            "type": "integer",
+                                            "example": 75
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid period specified"
+                    }
+                }
+            }
+        },
+        "/api/analytics/dashboard": {
+            "get": {
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Get comprehensive dashboard analytics",
+                "description": "Get comprehensive analytics dashboard data",
+                "operationId": "01d0416e13e4c4c6673ec3bffadced96",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Time period for analytics",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "week",
+                                "month",
+                                "quarter",
+                                "year"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "description": "Filter by project ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "completion_analytics": {
+                                            "type": "object"
+                                        },
+                                        "completion_rate": {
+                                            "type": "object"
+                                        },
+                                        "completion_time": {
+                                            "type": "object"
+                                        },
+                                        "comparison": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid period specified"
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "tags": [
@@ -4218,7 +4795,7 @@
                 "tags": [
                     "Tasks"
                 ],
-                "summary": "Complete a task with optional comments and attachments",
+                "summary": "Complete a task with optional comments.user and attachments",
                 "operationId": "1a0cb64c24fe22464e322f1b9a472d6a",
                 "parameters": [
                     {
@@ -4591,6 +5168,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Analytics",
+            "description": "Task completion analytics and reporting endpoints"
+        },
         {
             "name": "Authentication",
             "description": "Authentication"

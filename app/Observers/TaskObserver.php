@@ -58,6 +58,11 @@ class TaskObserver
         // Check if user_status is being changed to 'complete'
         if ($task->isDirty('user_status') && $task->user_status === 'complete') {
             
+            // Set completed_at timestamp if not already set
+            if (!$task->completed_at) {
+                $task->completed_at = now();
+            }
+            
             // If this is a subtask, DO NOT move it to another stage.
             // Subtasks stay in the parent's stage.
             if ($task->parent_id) {
@@ -117,7 +122,6 @@ class TaskObserver
                 // Update the project_stage_id if we found a target stage
                 if ($targetStageId) {
                     $task->project_stage_id = $targetStageId;
-                    $task->completed_at = now();
                 }
             }
         }

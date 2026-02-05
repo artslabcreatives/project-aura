@@ -159,133 +159,131 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				isOverdue && "border-destructive/50 bg-destructive/5"
 			)}
 		>
-			<CardHeader className="p-4 pb-2">
-				<div className="flex items-start justify-between gap-2">
-					<h4 className="font-semibold text-sm leading-tight flex-1">
-						{task.title}
-					</h4>
-					<div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-						<Popover open={isShareOpen} onOpenChange={setIsShareOpen}>
-							<PopoverTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7"
-									onClick={(e) => e.stopPropagation()}
-									title="Share task"
-								>
-									<Share2 className="h-3.5 w-3.5" />
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent className="w-56 p-1" align="end" onClick={(e) => e.stopPropagation()}>
-								<div className="flex flex-col">
-									<Button variant="ghost" className="justify-start h-9 text-xs font-normal" onClick={handleCopyLink}>
-										<Link className="h-3.5 w-3.5 mr-2" />
-										Copy link to Clipboard
-									</Button>
-									<Button variant="ghost" className="justify-start h-9 text-xs font-normal">
-										<Users className="h-3.5 w-3.5 mr-2" />
-										Internal Share
-									</Button>
-									<Button variant="ghost" className="justify-start h-9 text-xs font-normal">
-										<Globe className="h-3.5 w-3.5 mr-2" />
-										External Share
-									</Button>
-								</div>
-							</PopoverContent>
-						</Popover>
-						{!isProjectView && (
+			<CardHeader className="p-4 pb-2 relative">
+				<h4 className="font-semibold text-sm leading-tight w-full pr-2">
+					{task.title}
+				</h4>
+				<div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-card/90 backdrop-blur-[2px] rounded-md border shadow-sm p-0.5">
+					<Popover open={isShareOpen} onOpenChange={setIsShareOpen}>
+						<PopoverTrigger asChild>
 							<Button
 								variant="ghost"
 								size="icon"
 								className="h-7 w-7"
-								onClick={(e) => {
-									e.stopPropagation();
-									const pId = projectId || task.projectId;
-									if (pId) {
-										navigate(`/project/${pId}`);
-									}
-								}}
-								title="Go to Project Board"
+								onClick={(e) => e.stopPropagation()}
+								title="Share task"
 							>
-								<ExternalLink className="h-3.5 w-3.5" />
+								<Share2 className="h-3.5 w-3.5" />
 							</Button>
-						)}
+						</PopoverTrigger>
+						<PopoverContent className="w-56 p-1" align="end" onClick={(e) => e.stopPropagation()}>
+							<div className="flex flex-col">
+								<Button variant="ghost" className="justify-start h-9 text-xs font-normal" onClick={handleCopyLink}>
+									<Link className="h-3.5 w-3.5 mr-2" />
+									Copy link to Clipboard
+								</Button>
+								<Button variant="ghost" className="justify-start h-9 text-xs font-normal">
+									<Users className="h-3.5 w-3.5 mr-2" />
+									Internal Share
+								</Button>
+								<Button variant="ghost" className="justify-start h-9 text-xs font-normal">
+									<Globe className="h-3.5 w-3.5 mr-2" />
+									External Share
+								</Button>
+							</div>
+						</PopoverContent>
+					</Popover>
+					{!isProjectView && (
 						<Button
 							variant="ghost"
 							size="icon"
 							className="h-7 w-7"
 							onClick={(e) => {
 								e.stopPropagation();
-								onView();
+								const pId = projectId || task.projectId;
+								if (pId) {
+									navigate(`/project/${pId}`);
+								}
 							}}
-							title="View details"
+							title="Go to Project Board"
 						>
-							<Eye className="h-3.5 w-3.5" />
+							<ExternalLink className="h-3.5 w-3.5" />
 						</Button>
-						{/* Show Review Task button if in review stage */}
-						{currentStage?.isReviewStage && onReviewTask && (
-							currentUser?.role === 'admin' ||
-							currentUser?.role === 'team-lead' ||
-							(currentUser?.role === 'account-manager' && (
-								task.assignee === currentUser?.name ||
-								(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser?.id)))
-							))
-						) && (
-								<TooltipProvider>
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<Button
-												variant="ghost"
-												size="icon"
-												className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-												onClick={(e) => {
-													e.stopPropagation();
-													onReviewTask();
-												}}
-											>
-												<ClipboardCheck className="h-3.5 w-3.5" />
-											</Button>
-										</TooltipTrigger>
-										<TooltipContent>
-											<p>Review Task</p>
-										</TooltipContent>
-									</Tooltip>
-								</TooltipProvider>
-							)}
+					)}
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7"
+						onClick={(e) => {
+							e.stopPropagation();
+							onView();
+						}}
+						title="View details"
+					>
+						<Eye className="h-3.5 w-3.5" />
+					</Button>
+					{/* Show Review Task button if in review stage */}
+					{currentStage?.isReviewStage && onReviewTask && (
+						currentUser?.role === 'admin' ||
+						currentUser?.role === 'team-lead' ||
+						(currentUser?.role === 'account-manager' && (
+							task.assignee === currentUser?.name ||
+							(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser?.id)))
+						))
+					) && (
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+											onClick={(e) => {
+												e.stopPropagation();
+												onReviewTask();
+											}}
+										>
+											<ClipboardCheck className="h-3.5 w-3.5" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p>Review Task</p>
+									</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
+						)}
 
 
-						{canManage && (
-							<>
+					{canManage && (
+						<>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7"
+								onClick={(e) => {
+									e.stopPropagation();
+									onEdit();
+								}}
+								title="Edit task"
+							>
+								<Edit className="h-3.5 w-3.5" />
+							</Button>
+							{currentUser?.role !== 'account-manager' && (
 								<Button
 									variant="ghost"
 									size="icon"
-									className="h-7 w-7"
+									className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
 									onClick={(e) => {
 										e.stopPropagation();
-										onEdit();
+										onDelete();
 									}}
-									title="Edit task"
+									title="Delete task"
 								>
-									<Edit className="h-3.5 w-3.5" />
+									<Trash2 className="h-3.5 w-3.5" />
 								</Button>
-								{currentUser?.role !== 'account-manager' && (
-									<Button
-										variant="ghost"
-										size="icon"
-										className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-										onClick={(e) => {
-											e.stopPropagation();
-											onDelete();
-										}}
-										title="Delete task"
-									>
-										<Trash2 className="h-3.5 w-3.5" />
-									</Button>
-								)}
-							</>
-						)}
-					</div>
+							)}
+						</>
+					)}
 				</div>
 				{task.description && (
 					<p className="text-xs text-muted-foreground line-clamp-2 mt-1">

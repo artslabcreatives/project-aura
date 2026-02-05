@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\HistoryEntryController;
@@ -71,6 +72,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
     Route::apiResource('feedback', FeedbackController::class);
     Route::apiResource('tags', TagController::class);
+
+    // Analytics endpoints
+    Route::get('/analytics/completion', [AnalyticsController::class, 'getCompletionAnalytics']);
+    Route::get('/analytics/comparison', [AnalyticsController::class, 'getComparisonAnalytics']);
+    Route::get('/analytics/completion-rate', [AnalyticsController::class, 'getCompletionRate']);
+    Route::get('/analytics/completion-time', [AnalyticsController::class, 'getAverageCompletionTime']);
+    Route::get('/analytics/dashboard', [AnalyticsController::class, 'getDashboard']);
 
     // Search endpoints
     Route::get('/search/all-with-relations', [SearchController::class, 'searchAllWithRelations']);
