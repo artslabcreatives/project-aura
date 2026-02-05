@@ -85,25 +85,9 @@ class MattermostService
                 return false;
             }
 
-            $response = $this->makeRequest('DELETE', "/api/v4/channels/{$channelId}");
-
-            if ($response->successful()) {
-                Log::info("Mattermost channel archived for project: {$project->name}", [
-                    'project_id' => $project->id,
-                    'channel_id' => $channelId,
-                ]);
-                return true;
-            }
-
-            Log::error('Failed to archive Mattermost channel', [
-                'project_id' => $project->id,
-                'channel_id' => $channelId,
-                'response' => $response->json(),
-            ]);
-
-            return false;
+            return $this->deleteChannelById($channelId, $project->name);
         } catch (\Exception $e) {
-            Log::error('Exception archiving Mattermost channel', [
+            Log::error('Exception deleting Mattermost channel', [
                 'project_id' => $project->id,
                 'error' => $e->getMessage(),
             ]);
@@ -112,26 +96,280 @@ class MattermostService
     }
 
     /**
+     * Delete a Mattermost channel by ID
+     */
+    public function deleteChannelById(string $channelId, ?string $projectName = null): bool
+    {
+        try {
+            // Try permanent delete first (works for both deleted and non-deleted)
+            $url = "{$this->baseUrl}/api/v4/channels/{$channelId}?permanent=true";
+            $response = Http::withToken($this->token)
+                ->accept('application/json')
+                ->delete($url);
+
+            if ($response->successful()) {
+                Log::info("Permanently deleted channel" . ($projectName ? " for: {$projectName}" : ""), [
+                    'channel_id' => $channelId,
+                ]);
+                return true;
+            }
+            
+            // If permanent delete failed, try soft delete first then permanent
+            $softUrl = "{$this->baseUrl}/api/v4/channels/{$channelId}";
+            $softResponse = Http::withToken($this->token)
+                ->accept('application/json')
+                ->delete($softUrl);
+                
+            if ($softResponse->successful()) {
+                // Now try permanent delete
+                $permResponse = Http::withToken($this->token)
+                    ->accept('application/json')
+                    ->delete($url);
+                    
+                if ($permResponse->successful()) {
+                    Log::info("Soft deleted then permanently deleted channel", [
+                        'channel_id' => $channelId,
+                    ]);
+                    return true;
+                }
+            }
+
+            Log::error('Failed to delete channel', [
+                'channel_id' => $channelId,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Exception deleting channel by ID', [
+                'channel_id' => $channelId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Get all channels for the team (with pagination)
+     */
+    public function getAllTeamChannels(): array
+    {
+        try {
+            $allChannels = [];
+            $page = 0;
+            $perPage = 200;
+            
+            Log::info('Fetching all channels INCLUDING DELETED from Mattermost API');
+            
+            do {
+                $url = "{$this->baseUrl}/api/v4/channels";
+                
+                $response = Http::withToken($this->token)
+                    ->accept('application/json')
+                    ->get($url, [
+                        'page' => $page,
+                        'per_page' => $perPage,
+                        'include_deleted' => true,  // INCLUDE DELETED
+                    ]);
+
+                if (!$response->successful()) {
+                    Log::error('Failed to fetch channels', [
+                        'status' => $response->status(),
+                        'page' => $page,
+                        'body' => $response->body(),
+                    ]);
+                    break;
+                }
+
+                $channels = $response->json();
+                
+                // Filter by team_id if it exists
+                $teamChannels = array_filter($channels, function($ch) {
+                    return isset($ch['team_id']) && $ch['team_id'] === $this->teamId;
+                });
+                
+                $allChannels = array_merge($allChannels, $teamChannels);
+                
+                $page++;
+                
+                if (count($channels) < $perPage) {
+                    break;
+                }
+            } while ($page < 10);
+
+            Log::info('Fetched all channels INCLUDING DELETED', [
+                'count' => count($allChannels),
+                'channels' => array_map(fn($ch) => $ch['name'], $allChannels)
+            ]);
+
+            return $allChannels;
+        } catch (\Exception $e) {
+            Log::error('Exception fetching channels', [
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Get channel by name
+     */
+    public function getChannelByName(string $channelName): ?array
+    {
+        try {
+            $response = $this->makeRequest('GET', "/api/v4/teams/{$this->teamId}/channels/name/{$channelName}");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Delete all project-related channels from Mattermost
+     */
+    public function deleteAllProjectChannels(): int
+    {
+        $deleted = 0;
+        
+        // First, get visible channels and delete them
+        $channels = $this->getAllTeamChannels();
+        
+        Log::info('Deleting visible channels', ['count' => count($channels)]);
+        
+        foreach ($channels as $channel) {
+            if (!in_array($channel['name'], ['town-square', 'off-topic'])) {
+                if ($this->deleteChannelById($channel['id'], $channel['display_name'])) {
+                    $deleted++;
+                }
+            }
+        }
+        
+        // Then, try to delete channels by project name
+        $projects = \App\Models\Project::where('is_archived', false)->get();
+        
+        Log::info('Attempting to delete channels by project names', ['project_count' => $projects->count()]);
+        
+        foreach ($projects as $project) {
+            $channelName = $this->generateChannelName($project);
+            
+            // Try to fetch the channel by name
+            $channel = $this->getChannelByName($channelName);
+            
+            if ($channel) {
+                Log::info('Found channel by name, deleting', [
+                    'project_id' => $project->id,
+                    'channel_name' => $channelName,
+                    'channel_id' => $channel['id']
+                ]);
+                
+                if ($this->deleteChannelById($channel['id'], $channel['display_name'])) {
+                    $deleted++;
+                }
+            }
+        }
+        
+        Log::info('Total channels deleted', ['deleted' => $deleted]);
+        
+        return $deleted;
+    }
+
+    /**
      * Add project participants to the channel
      */
     protected function addProjectParticipants(Project $project, string $channelId): void
     {
-        // Get unique users from project tasks
-        $userIds = $project->tasks()
+        $users = $this->getProjectUsers($project);
+
+        foreach ($users as $user) {
+            $this->addUserToChannel($user, $channelId);
+        }
+    }
+
+    /**
+     * Get all unique users associated with a project
+     */
+    public function getProjectUsers(Project $project): \Illuminate\Support\Collection
+    {
+        $userIds = collect();
+
+        // Get users from project tasks (primary assignees)
+        $taskUserIds = $project->tasks()
             ->whereNotNull('assignee_id')
-            ->pluck('assignee_id')
-            ->unique();
+            ->pluck('assignee_id');
+        $userIds = $userIds->merge($taskUserIds);
+
+        // Get users from task_assignees junction table (multiple assignees per task)
+        $taskAssigneeIds = \DB::table('task_assignees')
+            ->join('tasks', 'task_assignees.task_id', '=', 'tasks.id')
+            ->where('tasks.project_id', $project->id)
+            ->pluck('task_assignees.user_id');
+        $userIds = $userIds->merge($taskAssigneeIds);
+
+        // Get users from stages (main and backup responsibles)
+        foreach ($project->stages as $stage) {
+            if ($stage->main_responsible_id) {
+                $userIds->push($stage->main_responsible_id);
+            }
+            if ($stage->backup_responsible_id_1) {
+                $userIds->push($stage->backup_responsible_id_1);
+            }
+            if ($stage->backup_responsible_id_2) {
+                $userIds->push($stage->backup_responsible_id_2);
+            }
+        }
 
         // Also add project creator
         if ($project->created_by) {
             $userIds->push($project->created_by);
         }
 
-        $users = User::whereIn('id', $userIds->unique())->get();
+        // Return unique users
+        return User::whereIn('id', $userIds->unique())->get();
+    }
+
+    /**
+     * Sync channel members to match project users
+     */
+    public function syncChannelMembers(Project $project, ?string $channelId = null): array
+    {
+        $channelId = $channelId ?? $this->getProjectChannelId($project);
+        
+        if (!$channelId) {
+            Log::warning('No Mattermost channel ID found for project sync', [
+                'project_id' => $project->id,
+            ]);
+            return ['added' => 0, 'failed' => 0];
+        }
+
+        $users = $this->getProjectUsers($project);
+        $added = 0;
+        $failed = 0;
 
         foreach ($users as $user) {
-            $this->addUserToChannel($user, $channelId);
+            if ($this->addUserToChannel($user, $channelId)) {
+                $added++;
+            } else {
+                $failed++;
+            }
         }
+
+        // Remove channel creator if they're not part of the project team
+        $this->removeChannelCreatorIfNotInTeam($project, $channelId);
+
+        Log::info("Synced members for project channel", [
+            'project_id' => $project->id,
+            'channel_id' => $channelId,
+            'added' => $added,
+            'failed' => $failed,
+        ]);
+
+        return ['added' => $added, 'failed' => $failed];
     }
 
     /**
@@ -167,24 +405,159 @@ class MattermostService
     }
 
     /**
+     * Remove a user from a channel
+     */
+    public function removeUserFromChannel(string $mattermostUserId, string $channelId): bool
+    {
+        try {
+            $response = $this->makeRequest('DELETE', "/api/v4/channels/{$channelId}/members/{$mattermostUserId}");
+
+            if ($response->successful()) {
+                Log::debug('Removed user from channel', [
+                    'mattermost_user_id' => $mattermostUserId,
+                    'channel_id' => $channelId,
+                ]);
+                return true;
+            }
+
+            Log::warning('Failed to remove user from channel', [
+                'mattermost_user_id' => $mattermostUserId,
+                'channel_id' => $channelId,
+                'response' => $response->json(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Exception removing user from Mattermost channel', [
+                'mattermost_user_id' => $mattermostUserId,
+                'channel_id' => $channelId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Get channel members
+     */
+    public function getChannelMembers(string $channelId): array
+    {
+        try {
+            $response = $this->makeRequest('GET', "/api/v4/channels/{$channelId}/members");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to fetch channel members', [
+                'channel_id' => $channelId,
+                'response' => $response->json(),
+            ]);
+
+            return [];
+        } catch (\Exception $e) {
+            Log::error('Exception fetching channel members', [
+                'channel_id' => $channelId,
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Remove channel creator if they are not part of the project team
+     */
+    public function removeChannelCreatorIfNotInTeam(Project $project, string $channelId): bool
+    {
+        try {
+            // Get all channel members
+            $members = $this->getChannelMembers($channelId);
+            
+            if (empty($members)) {
+                return false;
+            }
+
+            // Get project users' Mattermost IDs
+            $projectUsers = $this->getProjectUsers($project);
+            $projectMattermostUserIds = $projectUsers->pluck('mattermost_user_id')->filter()->toArray();
+
+            // Check each member and remove if not in project team
+            $removed = 0;
+            foreach ($members as $member) {
+                $memberId = $member['user_id'] ?? null;
+                
+                if ($memberId && !in_array($memberId, $projectMattermostUserIds)) {
+                    if ($this->removeUserFromChannel($memberId, $channelId)) {
+                        $removed++;
+                        Log::info('Removed non-team member from channel', [
+                            'mattermost_user_id' => $memberId,
+                            'channel_id' => $channelId,
+                            'project_id' => $project->id,
+                        ]);
+                    }
+                }
+            }
+
+            if ($removed > 0) {
+                Log::info("Removed {$removed} non-team member(s) from channel", [
+                    'project_id' => $project->id,
+                    'channel_id' => $channelId,
+                ]);
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Exception removing non-team members from channel', [
+                'project_id' => $project->id,
+                'channel_id' => $channelId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
      * Sync user with Mattermost (create or update)
      */
     public function syncUser(User $user, ?string $password = null): ?array
     {
         try {
+            // First check if we already have the Mattermost ID stored
+            if ($user->mattermost_user_id) {
+                Log::debug('User already has Mattermost ID stored', [
+                    'user_id' => $user->id,
+                    'mattermost_user_id' => $user->mattermost_user_id
+                ]);
+                return ['id' => $user->mattermost_user_id];
+            }
+            
             // Check if user exists in Mattermost by email
             $existingUser = $this->getUserByEmail($user->email);
 
             if ($existingUser) {
-                // Update existing user
+                Log::info('Found existing Mattermost user, storing ID', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'mattermost_user_id' => $existingUser['id']
+                ]);
+                
+                // Store the ID
+                $this->storeMattermostUserId($user, $existingUser['id']);
+                
+                // Update existing user info
                 return $this->updateMattermostUser($user, $existingUser['id']);
             } else {
                 // Create new user
+                Log::info('Creating new Mattermost user', [
+                    'user_id' => $user->id,
+                    'email' => $user->email
+                ]);
                 return $this->createMattermostUser($user, $password);
             }
         } catch (\Exception $e) {
             Log::error('Exception syncing user with Mattermost', [
                 'user_id' => $user->id,
+                'email' => $user->email,
                 'error' => $e->getMessage(),
             ]);
             return null;
@@ -349,9 +722,14 @@ class MattermostService
         // Use user's personal token if provided and available, otherwise use admin token
         $token = ($user && $user->mattermost_token) ? $user->mattermost_token : $this->token;
 
-        return Http::withToken($token)
-            ->accept('application/json')
-            ->$method($url, $data);
+        $http = Http::withToken($token)->accept('application/json');
+
+        // For DELETE requests, don't send data in the body
+        if (strtoupper($method) === 'DELETE') {
+            return $http->delete($url);
+        }
+
+        return $http->$method($url, $data);
     }
 
     /**
