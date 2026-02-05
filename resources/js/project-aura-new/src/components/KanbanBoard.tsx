@@ -578,6 +578,10 @@ export function KanbanBoard({
         task={viewTask}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
+        onEdit={canManageTasks && viewTask ? () => {
+          setIsViewDialogOpen(false);
+          onTaskEdit(viewTask);
+        } : undefined}
       />
 
       <TaskCompletionDialog

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Tag, Paperclip, Clock, X, ExternalLink, Download, AlertCircle, ArrowRight } from "lucide-react";
+import { Calendar, User, Tag, Paperclip, Clock, X, ExternalLink, Download, AlertCircle, ArrowRight, Edit } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -19,9 +19,10 @@ interface TaskDetailsDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
+	onEdit?: () => void;
 }
 
-export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate }: TaskDetailsDialogProps) {
+export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEdit }: TaskDetailsDialogProps) {
 	const navigate = useNavigate();
 
 	if (!task) return null;
@@ -41,8 +42,14 @@ export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate }: Ta
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto flex flex-col">
-				<DialogHeader>
-					<DialogTitle className="text-2xl">{task.title}</DialogTitle>
+				<DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+					<DialogTitle className="text-2xl font-bold flex-1 pr-4">{task.title}</DialogTitle>
+					{onEdit && (
+						<Button variant="outline" size="sm" onClick={onEdit}>
+							<Edit className="h-4 w-4 mr-2" />
+							Edit
+						</Button>
+					)}
 				</DialogHeader>
 
 				<div className="space-y-6 flex-1">
