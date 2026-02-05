@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\StageController;
 use App\Http\Controllers\Api\StageGroupController;
 use App\Http\Controllers\Api\TaskAttachmentController;
 use App\Http\Controllers\Api\TaskController;
+use App\Http\Controllers\Api\TaskHistoryController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ProjectGroupController;
 use App\Http\Controllers\Api\NotificationController;
@@ -55,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tasks', TaskController::class);
     Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);
+    Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
     Route::get('/task-attachments/{taskAttachment}/download', [TaskAttachmentController::class, 'download']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);
     Route::apiResource('revision-histories', RevisionHistoryController::class);

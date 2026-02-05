@@ -11,9 +11,14 @@ class TaskHistoryController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(\App\Models\Task $task)
     {
-        //
+        $histories = $task->taskHistories()
+            ->with(['user'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        return response()->json($histories);
     }
 
     /**

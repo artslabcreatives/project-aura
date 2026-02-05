@@ -5,6 +5,7 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { Stage } from "@/types/stage";
 import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
+import { useHistory } from "@/hooks/use-history";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List } from "lucide-react";
 import { UserStageDialog } from "@/components/UserStageDialog";
@@ -157,7 +158,38 @@ export default function UserProjectStageTasks() {
 		// This function is now a no-op
 	};
 
+	const { history, addHistoryEntry } = useHistory(projectId ? String(projectId) : undefined);
+
+	// ... existing handleTaskUpdate ...
 	const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+		const taskToUpdate = tasks.find(t => t.id === taskId);
+
+		// Record history for user actions
+		if (taskToUpdate && projectId && currentUser) {
+			// Check for "Started" (Pending -> anything else not complete)
+			if (updates.userStatus && taskToUpdate.userStatus === 'pending' && updates.userStatus !== 'pending' && updates.userStatus !== 'complete') {
+				addHistoryEntry({
+					action: 'USER_START_TASK',
+					entityId: taskId,
+					entityType: 'task',
+					projectId: projectId,
+					userId: currentUser.id,
+					details: { title: taskToUpdate.title },
+				});
+			}
+			// Check for "Completed"
+			if (updates.userStatus === 'complete' && taskToUpdate.userStatus !== 'complete') {
+				addHistoryEntry({
+					action: 'USER_COMPLETE_TASK',
+					entityId: taskId,
+					entityType: 'task',
+					projectId: projectId,
+					userId: currentUser.id,
+					details: { title: taskToUpdate.title },
+				});
+			}
+		}
+
 		// Update local state immediately for responsive UI
 		setTasks(prevTasks =>
 			prevTasks.map(task =>
@@ -165,7 +197,6 @@ export default function UserProjectStageTasks() {
 			)
 		);
 
-		// If task is completed, remove it from view after 10 seconds
 		// If task is completed, remove it from view after 10 seconds
 		if (updates.userStatus === "complete") {
 			console.log(`Task ${taskId} marked as complete, scheduling removal in 10s`);

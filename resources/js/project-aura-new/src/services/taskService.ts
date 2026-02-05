@@ -167,4 +167,22 @@ export const taskService = {
 		const { data } = await api.post(`/tasks/${id}/start`);
 		return mapTask(data);
 	},
+
+	getHistory: async (id: string, page: number = 1): Promise<{ data: any[]; meta: any }> => {
+		const { data } = await api.get(`/tasks/${id}/history?page=${page}`);
+		return {
+			data: data.data.map((h: any) => ({
+				id: String(h.id),
+				action: h.action,
+				details: h.details,
+				user: h.user ? { id: String(h.user.id), name: h.user.name } : undefined,
+				createdAt: h.created_at || new Date().toISOString(),
+			})),
+			meta: {
+				currentPage: data.current_page,
+				lastPage: data.last_page,
+				total: data.total
+			}
+		};
+	},
 };
