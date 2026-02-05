@@ -6,9 +6,12 @@ import { TaskCalendar } from "@/components/TaskCalendar";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
 import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/use-user";
-
 import { taskService } from "@/services/taskService";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { HelpCircle, Sparkles } from "lucide-react";
+import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
+import { userTourSteps } from "@/components/tourSteps";
 
 export default function UserView() {
 	const { currentUser } = useUser();
@@ -18,6 +21,17 @@ export default function UserView() {
 	const [viewTask, setViewTask] = useState<Task | null>(null);
 	const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
+
+	// Onboarding tour
+	const tourId = `user_dashboard_tour_${currentUser?.id}`;
+	const { isOpen: isTourOpen, startTour, endTour, autoStart, hasCompleted } = useOnboardingTour(tourId);
+
+	// Auto-start tour on first visit
+	useEffect(() => {
+		if (!loading && currentUser) {
+			autoStart();
+		}
+	}, [loading, currentUser, autoStart]);
 
 	useEffect(() => {
 		const loadTasks = async () => {
@@ -173,28 +187,41 @@ export default function UserView() {
 	return (
 		<div className="space-y-8 fade-in">
 			{/* Hero Header with Gradient */}
-			<div className="relative overflow-hidden rounded-2xl p-8 bg-gradient-to-br from-accent via-accent-light to-primary shadow-xl">
+			<div data-tour="dashboard-header" className="relative overflow-hidden rounded-2xl p-8 bg-gradient-to-br from-accent via-accent-light to-primary shadow-xl">
 				<div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
 				<div className="relative z-10">
-					<div className="flex items-center gap-3 mb-2">
-						<div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-							<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-							</svg>
+					<div className="flex items-start justify-between gap-4">
+						<div className="flex items-center gap-3 mb-2">
+							<div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+								<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+								</svg>
+							</div>
+							<div>
+								<h1 className="text-4xl font-bold text-white tracking-tight">My Dashboard</h1>
+								<p className="text-white/90 mt-1 text-lg">
+									Welcome back, {currentUser?.name}! 👋
+								</p>
+							</div>
 						</div>
-						<div>
-							<h1 className="text-4xl font-bold text-white tracking-tight">My Dashboard</h1>
-							<p className="text-white/90 mt-1 text-lg">
-								Welcome back, {currentUser?.name}! 👋
-							</p>
-						</div>
+						{/* Take a Tour Button */}
+						<Button
+							onClick={startTour}
+							variant="secondary"
+							className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm shadow-lg"
+						>
+							<Sparkles className="h-4 w-4 mr-2" />
+							{hasCompleted() ? 'Restart Tour' : 'Take a Tour'}
+						</Button>
 					</div>
 				</div>
 			</div>
 
-			<DashboardStats tasks={statsTasks} projects={projects} />
+			<div data-tour="dashboard-stats">
+				<DashboardStats tasks={statsTasks} projects={projects} />
+			</div>
 
-			<div className="mt-8 mb-8">
+			<div data-tour="task-calendar" className="mt-8 mb-8">
 				<div className="flex items-center gap-2 mb-4">
 					<div className="h-8 w-1 bg-primary rounded-full"></div>
 					<h3 className="text-xl font-bold text-foreground/80">Task Calendar</h3>
@@ -215,6 +242,15 @@ export default function UserView() {
 				onOpenChange={setIsViewDialogOpen}
 				onTaskUpdate={handleTaskUpdate}
 			/>
-		</div >
+
+			{/* Onboarding Tour */}
+			<OnboardingTour
+				tourId={tourId}
+				steps={userTourSteps}
+				isOpen={isTourOpen}
+				onComplete={endTour}
+				onSkip={endTour}
+			/>
+		</div>
 	);
 }

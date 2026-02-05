@@ -1098,7 +1098,7 @@ export function AppSidebar() {
 				</SidebarGroup>
 
 				{(userRole === "user" || userRole === "account-manager") && userAssignedProjects.length > 0 && (
-					<SidebarGroup>
+					<SidebarGroup data-tour="projects-list">
 						<Collapsible open={assignedProjectsOpen} onOpenChange={setAssignedProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
 								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">

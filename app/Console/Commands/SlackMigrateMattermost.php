@@ -119,7 +119,7 @@ class SlackMigrateMattermost extends Command
                 
                 // User doesn't exist, create them
                 if (!$email) {
-                    $email = "$username@migrated.local"; // Fallback email
+                    $email = "$username@artslabcreatives.com"; // Fallback email
                 }
                 
                 // Generate password that meets Mattermost requirements:

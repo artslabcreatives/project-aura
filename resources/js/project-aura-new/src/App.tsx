@@ -17,8 +17,10 @@ import FilteredTasksPage from "./pages/FilteredTasksPage";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { Login } from "@/components/Login";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, HelpCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
+import { userTourSteps } from "@/components/tourSteps";
 
 const queryClient = new QueryClient();
 
@@ -48,15 +50,21 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
 	return (
 		<div className="min-h-screen flex w-full bg-background">
-			<AppSidebar />
+			<div data-tour="sidebar">
+				<AppSidebar />
+			</div>
 			<div className="flex-1 flex flex-col min-w-0">
 				<header className={`sticky top-0 z-40 h-16 border-b border-border/50 flex items-center justify-between px-6 bg-card/80 backdrop-blur-md shadow-sm transition-[padding] duration-200 ${open ? 'pr-12' : ''}`}>
 					<div className="flex items-center gap-4">
 						<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
-						<GlobalSearch />
+						<div data-tour="global-search">
+							<GlobalSearch />
+						</div>
 					</div>
 					<div className="flex items-center gap-3">
-						<ThemeToggle />
+						<div data-tour="theme-toggle">
+							<ThemeToggle />
+						</div>
 						<div className="flex flex-col items-center mr-2">
 							<Button
 								variant="ghost"
@@ -69,19 +77,23 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 							</Button>
 							<span className="text-[10px] text-muted-foreground leading-none hidden md:block">Ctrl+Shift+R</span>
 						</div>
-						<NotificationsPopover />
-						<span className="text-sm text-muted-foreground hidden md:block">
-							{currentUser?.name} ({currentUser?.role})
-						</span>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={logout}
-							title="Logout"
-							className="hover:bg-accent/50 transition-colors"
-						>
-							<LogOut className="h-5 w-5" />
-						</Button>
+						<div data-tour="notifications">
+							<NotificationsPopover />
+						</div>
+						<div data-tour="user-menu" className="flex items-center gap-2">
+							<span className="text-sm text-muted-foreground hidden md:block">
+								{currentUser?.name} ({currentUser?.role})
+							</span>
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={logout}
+								title="Logout"
+								className="hover:bg-accent/50 transition-colors"
+							>
+								<LogOut className="h-5 w-5" />
+							</Button>
+						</div>
 					</div>
 				</header>
 				<main className="flex-1 p-6 overflow-y-auto">
@@ -92,6 +104,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 		</div>
 	);
 };
+
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
 	const { currentUser, isLoading, isAuthenticated } = useUser();
