@@ -55,7 +55,7 @@ export default function UserProjectStageTasks() {
 	const fetchUserStages = async () => {
 		if (!currentUser) return;
 		try {
-			const { data } = await api.get('/stages', { params: { type: 'user' } });
+			const { data } = await api.get('/stages', { params: { type: 'user', project_id: numericProjectId } });
 			const customStages: Stage[] = data.map((s: any) => ({
 				id: String(s.id),
 				title: s.title,
@@ -80,7 +80,7 @@ export default function UserProjectStageTasks() {
 
 	useEffect(() => {
 		fetchUserStages();
-	}, [currentUser]);
+	}, [currentUser, numericProjectId]);
 
 	useEffect(() => {
 		const taskIdParam = searchParams.get('task');
@@ -294,7 +294,8 @@ export default function UserProjectStageTasks() {
 					color: newStage.color,
 					order: maxOrder + 1,
 					type: 'user',
-					is_review_stage: false
+					is_review_stage: false,
+					project_id: numericProjectId
 				});
 				toast({
 					title: "Stage created",
