@@ -74,6 +74,7 @@ export const HistoryDialog = ({ open, onOpenChange, history, teamMembers, stages
 			case 'USER_START_TASK':
 				return `started task "${d.title}"`;
 			case 'USER_COMPLETE_TASK':
+				// Handle both potentially
 				return `completed task "${d.title}"`;
 			default:
 				return "performed an unknown action";

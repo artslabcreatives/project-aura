@@ -27,6 +27,7 @@ class Stage extends Model
         'approved_target_stage_id',
         'stage_group_id',
         'user_id',
+        'context_stage_id',
     ];
 
     protected $casts = [

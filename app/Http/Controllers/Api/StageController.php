@@ -71,6 +71,10 @@ class StageController extends Controller
             $query->where('type', $request->type);
             if ($request->type === 'user') {
                 $query->where('user_id', auth()->id());
+                
+                if ($request->has('context_stage_id')) {
+                    $query->where('context_stage_id', $request->context_stage_id);
+                }
             }
         }
         
@@ -120,6 +124,7 @@ class StageController extends Controller
             'linked_review_stage_id' => 'nullable|exists:stages,id',
             'approved_target_stage_id' => 'nullable|exists:stages,id',
             'stage_group_id' => 'nullable|exists:stage_groups,id',
+            'context_stage_id' => 'nullable|exists:stages,id',
         ]);
 
         if (isset($validated['type']) && $validated['type'] === 'user') {

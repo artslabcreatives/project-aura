@@ -55,7 +55,7 @@ export default function UserProjectStageTasks() {
 	const fetchUserStages = async () => {
 		if (!currentUser) return;
 		try {
-			const { data } = await api.get('/stages', { params: { type: 'user', project_id: numericProjectId } });
+			const { data } = await api.get('/stages', { params: { type: 'user', project_id: numericProjectId, context_stage_id: stageId } });
 			const customStages: Stage[] = data.map((s: any) => ({
 				id: String(s.id),
 				title: s.title,
@@ -80,7 +80,7 @@ export default function UserProjectStageTasks() {
 
 	useEffect(() => {
 		fetchUserStages();
-	}, [currentUser, numericProjectId]);
+	}, [currentUser, numericProjectId, stageId]);
 
 	useEffect(() => {
 		const taskIdParam = searchParams.get('task');
@@ -295,7 +295,8 @@ export default function UserProjectStageTasks() {
 					order: maxOrder + 1,
 					type: 'user',
 					is_review_stage: false,
-					project_id: numericProjectId
+					project_id: numericProjectId,
+					context_stage_id: stageId
 				});
 				toast({
 					title: "Stage created",
@@ -372,6 +373,19 @@ export default function UserProjectStageTasks() {
 			// Optimistic update
 			setTasks(prev => prev.map(t => t.id === taskId ? { ...t, userStatus: 'complete' } : t));
 
+			// Record history
+			const task = tasks.find(t => t.id === taskId);
+			if (task && projectId && currentUser) {
+				addHistoryEntry({
+					action: 'USER_COMPLETE_TASK',
+					entityId: taskId,
+					entityType: 'task',
+					projectId: projectId,
+					userId: currentUser.id,
+					details: { title: task.title },
+				});
+			}
+
 			// Backend call
 			await taskService.complete(taskId, {
 				status: 'complete',
@@ -403,8 +417,6 @@ export default function UserProjectStageTasks() {
 				description: "Failed to complete task.",
 				variant: "destructive",
 			});
-			// Re-fetch to revert on error
-			// loadData(); // Requires pulling loadData out or generic error handling
 		}
 	};
 

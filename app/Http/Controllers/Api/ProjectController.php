@@ -38,7 +38,9 @@ class ProjectController extends Controller
     )]
     public function index(): JsonResponse
     {
-        $projects = Project::with(['department', 'group', 'stages', 'tasks'])->get();
+        $projects = Project::with(['department', 'group', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }, 'tasks'])->get();
         return response()->json($projects);
     }
 
@@ -106,7 +108,9 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
         }
 
-        return response()->json($project->load(['department', 'group', 'stages']), 201);
+        return response()->json($project->load(['department', 'group', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }]), 201);
     }
 
     #[OA\Get(
@@ -145,7 +149,9 @@ class ProjectController extends Controller
     )]
     public function show(Project $project): JsonResponse
     {
-        return response()->json($project->load(['department', 'group', 'stages', 'tasks']));
+        return response()->json($project->load(['department', 'group', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }, 'tasks']));
     }
 
     #[OA\Put(
@@ -213,7 +219,9 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to broadcast project update: ' . $e->getMessage());
         }
 
-        return response()->json($project->load(['department', 'group', 'stages']));
+        return response()->json($project->load(['department', 'group', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }]));
     }
 
     #[OA\Delete(
@@ -343,7 +351,9 @@ class ProjectController extends Controller
         // Let's assume it's one of the values in the array for now, or we can use whereJsonContains.
         
         $projects = Project::whereJsonContains('phone_numbers', $groupId)
-            ->with(['department', 'stages', 'tasks'])
+            ->with(['department', 'stages' => function ($query) {
+                $query->where('type', 'project');
+            }, 'tasks'])
             ->get();
 
         return response()->json($projects);
@@ -378,7 +388,9 @@ class ProjectController extends Controller
 		$email = $request->input('email');
 
 		$projects = Project::whereJsonContains('emails', $email)
-			->with(['department', 'stages', 'tasks'])
+			->with(['department', 'stages' => function ($query) {
+				$query->where('type', 'project');
+			}, 'tasks'])
 			->get();	
 		return response()->json($projects);
 	}
