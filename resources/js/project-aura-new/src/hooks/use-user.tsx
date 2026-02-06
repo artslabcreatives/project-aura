@@ -37,6 +37,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				role: response.role,
 				department: response.department_id ? String(response.department_id) : '',
 				avatar: response.avatar,
+				preferences: response.preferences,
 			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);
@@ -61,6 +62,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				role: u.role,
 				department: u.department_id ? String(u.department_id) : '',
 				avatar: u.avatar,
+				preferences: u.preferences,
 			}));
 			setTeamMembers(users);
 		} catch (error) {

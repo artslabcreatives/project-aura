@@ -11,6 +11,7 @@ export const userService = {
 			email: u.email,
 			role: u.role,
 			department: u.department_id != null ? String(u.department_id) : '',
+			preferences: u.preferences,
 		}));
 	},
 
@@ -22,6 +23,7 @@ export const userService = {
 			email: data.email,
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
+			preferences: data.preferences,
 		};
 	},
 
@@ -46,6 +48,7 @@ export const userService = {
 			email: data.email,
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
+			preferences: data.preferences,
 		};
 	},
 
@@ -59,6 +62,9 @@ export const userService = {
 		if (updates.department) {
 			payload.department_id = parseInt(updates.department, 10);
 		}
+		if (updates.preferences) {
+			payload.preferences = updates.preferences;
+		}
 		const { data } = await api.put(`/users/${id}`, payload);
 		// Map response back to frontend format
 		return {
@@ -67,6 +73,7 @@ export const userService = {
 			email: data.email,
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
+			preferences: data.preferences,
 		};
 	},
 

@@ -11,8 +11,10 @@ import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
+import { userService } from "@/services/userService";
+
 export default function Configuration() {
-    const { currentUser } = useUser();
+    const { currentUser, refreshUser } = useUser();
     const { toast } = useToast();
 
     // Refs for scrolling
@@ -44,17 +46,17 @@ export default function Configuration() {
     const [passwordLoading, setPasswordLoading] = useState(false);
 
     // Load settings from localStorage on mount
+    // Load settings from currentUser preferences
     useEffect(() => {
-        const savedNotifications = localStorage.getItem('user_notifications');
-        const savedMotion = localStorage.getItem('user_reduced_motion');
-
-        if (savedNotifications) {
-            setNotifications(JSON.parse(savedNotifications));
+        if (currentUser?.preferences) {
+            if (currentUser.preferences.notifications) {
+                setNotifications(currentUser.preferences.notifications);
+            }
+            if (currentUser.preferences.reducedMotion !== undefined) {
+                setReducedMotion(currentUser.preferences.reducedMotion);
+            }
         }
-        if (savedMotion) {
-            setReducedMotion(JSON.parse(savedMotion));
-        }
-    }, []);
+    }, [currentUser]);
 
     const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
         ref.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,21 +91,60 @@ export default function Configuration() {
         }
 
         setNotifications(newSettings);
-        localStorage.setItem('user_notifications', JSON.stringify(newSettings));
+        // Save to DB
+        if (currentUser) {
+            try {
+                await userService.update(currentUser.id, {
+                    preferences: {
+                        notifications: newSettings,
+                        reducedMotion: reducedMotion
+                    }
+                });
+                await refreshUser();
 
-        toast({
-            title: "Settings Updated",
-            description: `${key.charAt(0).toUpperCase() + key.slice(1)} notifications ${newSettings[key] ? 'enabled' : 'disabled'}.`,
-        });
+                toast({
+                    title: "Settings Updated",
+                    description: `${key.charAt(0).toUpperCase() + key.slice(1)} notifications ${newSettings[key] ? 'enabled' : 'disabled'}.`,
+                });
+            } catch (error) {
+                console.error("Failed to save settings", error);
+                setNotifications(notifications); // Revert on error
+                toast({
+                    title: "Error",
+                    description: "Failed to save settings to database.",
+                    variant: "destructive"
+                });
+            }
+        }
     };
 
-    const handleMotionChange = (checked: boolean) => {
+    const handleMotionChange = async (checked: boolean) => {
         setReducedMotion(checked);
-        localStorage.setItem('user_reduced_motion', JSON.stringify(checked));
-        toast({
-            title: "Settings Updated",
-            description: `Reduced motion ${checked ? 'enabled' : 'disabled'}.`,
-        });
+
+        if (currentUser) {
+            try {
+                await userService.update(currentUser.id, {
+                    preferences: {
+                        notifications: notifications,
+                        reducedMotion: checked
+                    }
+                });
+                await refreshUser();
+
+                toast({
+                    title: "Settings Updated",
+                    description: `Reduced motion ${checked ? 'enabled' : 'disabled'}.`,
+                });
+            } catch (error) {
+                console.error("Failed to save settings", error);
+                setReducedMotion(!checked); // Revert
+                toast({
+                    title: "Error",
+                    description: "Failed to save settings to database.",
+                    variant: "destructive"
+                });
+            }
+        }
     };
 
     const handlePasswordChange = async (e: React.FormEvent) => {

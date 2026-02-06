@@ -89,4 +89,13 @@ export interface User {
 	role: UserRole;
 	department: string; // Department ID
 	avatar?: string;
+	preferences?: {
+		notifications?: {
+			email: boolean;
+			push: boolean;
+			whatsapp: boolean;
+			mattermost: boolean;
+		};
+		reducedMotion?: boolean;
+	};
 }
