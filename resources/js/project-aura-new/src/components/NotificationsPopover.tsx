@@ -7,7 +7,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { notificationService, Notification } from '@/services/notificationService';
+import { notificationService, type Notification as AppNotification } from '@/services/notificationService';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { echo } from '@/services/echoService';
@@ -65,7 +65,7 @@ if (typeof document !== 'undefined') {
 }
 
 export function NotificationsPopover() {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [open, setOpen] = useState(false);
     const [soundPromptShown, setSoundPromptShown] = useState(false);
@@ -152,7 +152,7 @@ export function NotificationsPopover() {
                 playNotificationSound();
 
                 // Add to list optimistically
-                const newNotification: Notification = {
+                const newNotification: AppNotification = {
                     id: notification.id,
                     type: notification.type,
                     data: {
@@ -171,6 +171,27 @@ export function NotificationsPopover() {
                     title: notification.title,
                     description: notification.message,
                 });
+
+                // Desktop Push Notification
+                const savedSettings = localStorage.getItem('user_notifications');
+                if (savedSettings) {
+                    const settings = JSON.parse(savedSettings);
+                    if (settings.push && "Notification" in window && Notification.permission === "granted") {
+                        try {
+                            const n = new Notification(notification.title, {
+                                body: notification.message,
+                                icon: '/favicon.ico', // Adjust path if needed
+                                tag: notification.id // Prevent duplicates
+                            });
+                            n.onclick = function () {
+                                window.focus();
+                                handleNotificationClick({ ...newNotification, id: notification.id } as AppNotification);
+                            };
+                        } catch (e) {
+                            console.error("Failed to send desktop notification", e);
+                        }
+                    }
+                }
             });
 
             return () => {
@@ -205,7 +226,7 @@ export function NotificationsPopover() {
         }
     };
 
-    const handleNotificationClick = (notification: Notification) => {
+    const handleNotificationClick = (notification: AppNotification) => {
         if (!notification.read_at) {
             handleMarkAsRead(notification.id);
         }

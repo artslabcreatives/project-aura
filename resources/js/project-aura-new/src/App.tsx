@@ -18,7 +18,7 @@ import { UserProvider, useUser } from "@/hooks/use-user";
 import { Login } from "@/components/Login";
 import { Button } from "@/components/ui/button";
 import { LogOut, HelpCircle } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
 import { userTourSteps } from "@/components/tourSteps";
 
@@ -30,6 +30,7 @@ import { Bug } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ReportIssueDialog } from "@/components/ReportIssueDialog";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { UserProfileMenu } from "@/components/UserProfileMenu";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const { open } = useSidebar();
@@ -62,9 +63,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 						</div>
 					</div>
 					<div className="flex items-center gap-3">
-						<div data-tour="theme-toggle">
-							<ThemeToggle />
-						</div>
+
 						<div className="flex flex-col items-center mr-2">
 							<Button
 								variant="ghost"
@@ -80,19 +79,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 						<div data-tour="notifications">
 							<NotificationsPopover />
 						</div>
-						<div data-tour="user-menu" className="flex items-center gap-2">
-							<span className="text-sm text-muted-foreground hidden md:block">
-								{currentUser?.name} ({currentUser?.role})
-							</span>
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={logout}
-								title="Logout"
-								className="hover:bg-accent/50 transition-colors"
-							>
-								<LogOut className="h-5 w-5" />
-							</Button>
+						<div data-tour="user-menu">
+							<UserProfileMenu />
 						</div>
 					</div>
 				</header>
@@ -177,8 +165,9 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 
 import TaskDetailsPage from "./pages/TaskDetailsPage";
 import ReviewNeededPage from "./pages/ReviewNeededPage";
-
 import HRDashboard from "./pages/HRDashboard";
+import Profile from "./pages/Profile";
+import Configuration from "./pages/Configuration";
 
 const Dashboard = () => {
 	const { currentUser } = useUser();
@@ -224,6 +213,9 @@ const App = () => (
 									<AppLayout><ReviewNeededPage /></AppLayout>
 								</ProtectedRoute>
 							} />
+							<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
+							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
+
 
 							{/* Mattermost embedded routes (with /mattermost prefix) */}
 							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />

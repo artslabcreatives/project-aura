@@ -70,6 +70,18 @@ export const userService = {
 		};
 	},
 
+	uploadAvatar: async (id: string, file: File): Promise<string> => {
+		const formData = new FormData();
+		formData.append('avatar', file);
+
+		const { data } = await api.post(`/users/${id}/avatar`, formData, {
+			headers: {
+				'Content-Type': 'multipart/form-data',
+			},
+		});
+		return data.avatar_url;
+	},
+
 	delete: async (id: string): Promise<void> => {
 		await api.delete(`/users/${id}`);
 	},
