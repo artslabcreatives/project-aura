@@ -65,6 +65,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('history-entries', HistoryEntryController::class);
     Route::apiResource('users', UserController::class);
     Route::apiResource('project-groups', ProjectGroupController::class);
+    Route::post('/users/{user}/avatar', [UserController::class, 'uploadAvatar']);
+    Route::apiResource('users', UserController::class);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

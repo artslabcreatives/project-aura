@@ -39,6 +39,7 @@ class User extends Authenticatable implements FilamentUser
         'slack_id',
         'force_password_reset',
         'preferences',
+        'avatar',
     ];
 
     /**

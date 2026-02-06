@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
@@ -231,4 +232,63 @@ class UserController extends Controller
 	    $exists = User::where('email', $request->email)->exists();
 	    return response()->json(['exists' => $exists]);
 	}
+
+    #[OA\Post(
+        path: "/users/{user}/avatar",
+        summary: "Upload user avatar",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: "avatar", type: "string", format: "binary")
+                    ]
+                )
+            )
+        ),
+        tags: ["Users"],
+        parameters: [
+            new OA\Parameter(
+                name: "user",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Avatar uploaded"),
+            new OA\Response(response: 400, description: "Invalid file"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "User not found")
+        ]
+    )]
+	public function uploadAvatar(Request $request, User $user): JsonResponse
+    {
+        $request->validate([
+            'avatar' => 'required|image|max:2048', // 2MB max
+        ]);
+
+        if ($request->hasFile('avatar')) {
+            // Delete old avatar if exists
+            if ($user->avatar) {
+                // Ensure we don't delete default avatars if any, but Storage::delete handles paths
+                $oldPath = str_replace('/storage/', '', $user->avatar);
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+
+            $path = $request->file('avatar')->store('avatars', 'public');
+            // Assuming the app is configured to serve public storage via /storage/
+            $url = '/storage/' . $path;
+            
+            $user->update(['avatar' => $url]);
+            
+            return response()->json(['avatar_url' => $url]);
+        }
+
+        return response()->json(['message' => 'No file uploaded'], 400);
+    }
 }
