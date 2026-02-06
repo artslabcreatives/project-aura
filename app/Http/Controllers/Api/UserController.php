@@ -165,6 +165,7 @@ class UserController extends Controller
             'password' => 'sometimes|string|min:8',
             'role' => 'sometimes|in:user,team-lead,admin,account-manager',
             'department_id' => 'nullable|exists:departments,id',
+            'preferences' => 'sometimes|nullable|array',
         ]);
 
         if (isset($validated['password'])) {
