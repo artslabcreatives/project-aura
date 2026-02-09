@@ -58,14 +58,6 @@ export const userTourSteps: TourStep[] = [
         placement: 'bottom',
         spotlightPadding: 8
     },
-    // Theme toggle
-    {
-        target: '[data-tour="theme-toggle"]',
-        title: '🎨 Theme Toggle',
-        content: 'Prefer dark mode? Click here to switch between light and dark themes. Your preference will be saved automatically.',
-        placement: 'bottom',
-        spotlightPadding: 8
-    },
     // User menu
     {
         target: '[data-tour="user-menu"]',
