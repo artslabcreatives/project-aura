@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { type LucideIcon, ShieldCheck, ShieldAlert, Copy, RefreshCw, KeyRound, Smartphone, Eye, EyeOff, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,7 +18,7 @@ import {
     InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldCheck, ShieldAlert, Copy, RefreshCw, KeyRound, Smartphone } from "lucide-react";
+
 import { twoFactorService, SetupTwoFactorResponse } from "@/services/twoFactorService";
 import { useUser } from "@/hooks/use-user";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
@@ -31,6 +32,7 @@ export function TwoFactorSection() {
     const [showEnableDialog, setShowEnableDialog] = useState(false);
     const [showRecoveryCodesDialog, setShowRecoveryCodesDialog] = useState(false);
     const [showConfirmPasswordDialog, setShowConfirmPasswordDialog] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [passwordAction, setPasswordAction] = useState<"disable" | "showCodes" | "regenerate">("disable");
 
     // Data
@@ -38,6 +40,13 @@ export function TwoFactorSection() {
     const [confirmCode, setConfirmCode] = useState("");
     const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
     const [passwordConfirm, setPasswordConfirm] = useState("");
+
+    useEffect(() => {
+        if (!showConfirmPasswordDialog) {
+            setPasswordConfirm("");
+            setShowPassword(false);
+        }
+    }, [showConfirmPasswordDialog]);
 
     if (!currentUser) return null;
 
@@ -120,6 +129,19 @@ export function TwoFactorSection() {
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         toast({ description: "Copied to clipboard" });
+    };
+
+    const downloadRecoveryCodes = () => {
+        const text = recoveryCodes.join("\n");
+        const blob = new Blob([text], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "recovery-codes.txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     return (
@@ -260,20 +282,24 @@ export function TwoFactorSection() {
 
                 {/* Recovery Codes Dialog */}
                 <Dialog open={showRecoveryCodesDialog} onOpenChange={setShowRecoveryCodesDialog}>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="sm:max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Recovery Codes</DialogTitle>
                             <DialogDescription>
                                 Save these codes in a secure place. You can use them to access your account if you lose your authentication device.
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="bg-muted p-4 rounded-lg grid grid-cols-2 gap-2 text-center font-mono text-sm">
+                        <div className="bg-muted p-4 rounded-lg grid grid-cols-2 gap-4 text-center font-mono text-sm">
                             {recoveryCodes.map((code, i) => (
-                                <div key={i} className="bg-background p-2 rounded border">{code}</div>
+                                <div key={i} className="bg-background p-3 rounded border shadow-sm">{code}</div>
                             ))}
                         </div>
-                        <DialogFooter>
-                            <Button onClick={() => {
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button variant="outline" onClick={downloadRecoveryCodes}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                            </Button>
+                            <Button variant="outline" onClick={() => {
                                 const text = recoveryCodes.join("\n");
                                 copyToClipboard(text);
                             }}>
@@ -285,7 +311,6 @@ export function TwoFactorSection() {
                     </DialogContent>
                 </Dialog>
 
-                {/* Confirm Password Dialog */}
                 <Dialog open={showConfirmPasswordDialog} onOpenChange={setShowConfirmPasswordDialog}>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
@@ -297,13 +322,32 @@ export function TwoFactorSection() {
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
                                 <Label htmlFor="confirm-password">Password</Label>
-                                <Input
-                                    id="confirm-password"
-                                    type="password"
-                                    value={passwordConfirm}
-                                    onChange={(e) => setPasswordConfirm(e.target.value)}
-                                    placeholder="••••••••"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        id="confirm-password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={passwordConfirm}
+                                        onChange={(e) => setPasswordConfirm(e.target.value)}
+                                        placeholder="••••••••"
+                                        className="pr-10"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                        {showPassword ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
+                                        <span className="sr-only">
+                                            {showPassword ? "Hide password" : "Show password"}
+                                        </span>
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                         <DialogFooter>

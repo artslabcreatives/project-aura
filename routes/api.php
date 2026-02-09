@@ -128,8 +128,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/two-factor/enable', [App\Http\Controllers\Api\TwoFactorController::class, 'enable']);
     Route::post('/two-factor/confirm', [App\Http\Controllers\Api\TwoFactorController::class, 'confirm']);
     Route::post('/two-factor/disable', [App\Http\Controllers\Api\TwoFactorController::class, 'disable']);
-    Route::get('/two-factor/recovery-codes', [App\Http\Controllers\Api\TwoFactorController::class, 'recoveryCodes']);
-    Route::post('/two-factor/recovery-codes', [App\Http\Controllers\Api\TwoFactorController::class, 'regenerateRecoveryCodes']);
+    Route::post('/two-factor/recovery-codes', [App\Http\Controllers\Api\TwoFactorController::class, 'recoveryCodes']);
+    Route::post('/two-factor/recovery-codes/regenerate', [App\Http\Controllers\Api\TwoFactorController::class, 'regenerateRecoveryCodes']);
 });
 
 // 2FA Verification during login

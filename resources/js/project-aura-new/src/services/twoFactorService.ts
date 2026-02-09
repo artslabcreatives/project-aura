@@ -27,11 +27,11 @@ export const twoFactorService = {
         return api.post<{ message: string }>('/two-factor/disable', { password });
     },
 
-    getRecoveryCodes: async (password?: string) => {
-        return api.get<RecoveryCodesResponse>('/two-factor/recovery-codes', { password });
+    getRecoveryCodes: async (password: string) => {
+        return api.post<RecoveryCodesResponse>('/two-factor/recovery-codes', { password });
     },
 
     regenerateRecoveryCodes: async (password: string) => {
-        return api.post<RecoveryCodesResponse>('/two-factor/recovery-codes', { password });
+        return api.post<RecoveryCodesResponse>('/two-factor/recovery-codes/regenerate', { password });
     },
 };
