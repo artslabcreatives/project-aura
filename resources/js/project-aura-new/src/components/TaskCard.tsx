@@ -287,7 +287,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				</div>
 				{task.description && (
 					<p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-						{task.description}
+						{task.description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()}
 					</p>
 				)}
 			</CardHeader>
