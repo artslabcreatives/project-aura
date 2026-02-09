@@ -188,6 +188,45 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 						))}
 					</SelectContent>
 				</Select>
+				{/* Info tooltip for Suggested Task stage */}
+				{isSystem && stage.title.toLowerCase().includes('suggested') && (
+					<TooltipProvider>
+						<Tooltip delayDuration={0}>
+							<TooltipTrigger asChild>
+								<div className="cursor-help">
+									<Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+								</div>
+							</TooltipTrigger>
+							<TooltipContent side="right" className="max-w-[300px] p-3">
+								<div className="space-y-3">
+									<p className="font-semibold text-sm">Client Requests</p>
+									<p className="text-xs text-muted-foreground">
+										This stage shows tasks suggested via WhatsApp and Email clients.
+									</p>
+									<div className="flex items-center gap-2 bg-muted/50 rounded px-2 py-1.5">
+										<span className="text-xs font-mono">+94 78 538 4672</span>
+										<button
+											type="button"
+											className="p-1 hover:bg-muted rounded transition-colors"
+											onClick={() => {
+												navigator.clipboard.writeText('+94785384672');
+											}}
+											title="Copy number"
+										>
+											<svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" />
+												<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" />
+											</svg>
+										</button>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										Add this number to the WhatsApp group to receive suggestions.
+									</p>
+								</div>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				)}
 				{!isSystem && (
 					<Button
 						type="button"
@@ -199,7 +238,7 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 						<Trash2 className="h-4 w-4" />
 					</Button>
 				)}
-				{isSystem && <div className="w-9" />} {/* Spacer for delete button */}
+				{isSystem && !stage.title.toLowerCase().includes('suggested') && <div className="w-9" />} {/* Spacer for delete button */}
 			</div>
 
 			{!isSystem && (
