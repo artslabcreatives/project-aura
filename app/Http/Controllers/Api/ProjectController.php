@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
@@ -40,7 +41,9 @@ class ProjectController extends Controller
     {
         $projects = Project::with(['department', 'group', 'stages' => function ($query) {
             $query->where('type', 'project');
-        }, 'tasks'])->get();
+        }, 'tasks', 'collaborators' => function ($query) {
+            $query->select('users.id', 'users.name', 'users.email', 'users.department_id');
+        }])->get();
         return response()->json($projects);
     }
 
@@ -394,4 +397,52 @@ class ProjectController extends Controller
 			->get();	
 		return response()->json($projects);
 	}
+
+    /**
+     * Add collaborators to a project.
+     */
+    public function addCollaborators(Request $request, Project $project): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+        ]);
+
+        $invitedBy = $request->user()->id;
+
+        foreach ($validated['user_ids'] as $userId) {
+            // Only add if not already a collaborator
+            if (!$project->collaborators()->where('user_id', $userId)->exists()) {
+                $project->collaborators()->attach($userId, ['invited_by' => $invitedBy]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Collaborators added successfully',
+            'collaborators' => $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get(),
+        ]);
+    }
+
+    /**
+     * Remove a collaborator from a project.
+     */
+    public function removeCollaborator(Project $project, User $user): JsonResponse
+    {
+        $project->collaborators()->detach($user->id);
+
+        return response()->json([
+            'message' => 'Collaborator removed successfully',
+            'collaborators' => $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get(),
+        ]);
+    }
+
+    /**
+     * Get collaborators for a project.
+     */
+    public function getCollaborators(Project $project): JsonResponse
+    {
+        return response()->json(
+            $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get()
+        );
+    }
 }

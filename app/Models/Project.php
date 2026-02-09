@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Scout\Searchable;
 
@@ -105,5 +106,15 @@ class Project extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the collaborators for the project (users from other departments).
+     */
+    public function collaborators(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'project_collaborators')
+            ->withPivot('invited_by')
+            ->withTimestamps();
     }
 }

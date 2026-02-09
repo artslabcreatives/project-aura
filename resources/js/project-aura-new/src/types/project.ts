@@ -14,4 +14,5 @@ export interface Project {
 	group?: ProjectGroup;
 	hasPendingTasks?: boolean;
 	isArchived?: boolean;
+	collaborators?: { id: number; name: string; email: string; department_id?: number }[];
 }

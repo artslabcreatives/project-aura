@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2 } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -46,6 +46,7 @@ import { departmentService } from "@/services/departmentService";
 import { userService } from "@/services/userService";
 import { projectGroupService } from "@/services/projectGroupService";
 import { AssignGroupDialog } from "./AssignGroupDialog";
+import { InviteUsersDialog } from "./InviteUsersDialog";
 import { ProjectGroup } from "@/types/project-group";
 import { FolderPlus } from "lucide-react";
 import { echo } from "@/services/echoService";
@@ -116,6 +117,10 @@ export function AppSidebar() {
 	const [projectToDuplicate, setProjectToDuplicate] = useState<Project | null>(null);
 	const [newProjectName, setNewProjectName] = useState("");
 	const [isDuplicating, setIsDuplicating] = useState(false);
+	const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+	const [projectToInvite, setProjectToInvite] = useState<Project | null>(null);
+	const [collaboratedProjects, setCollaboratedProjects] = useState<Project[]>([]);
+	const [invitedProjectsOpen, setInvitedProjectsOpen] = useState(true);
 	const userRole = currentUser?.role;
 
 	const fetchData = async () => {
@@ -207,7 +212,15 @@ export function AppSidebar() {
 						})
 					}))
 					.filter(project => project.stages.length > 0);
+
+				// Separately track projects where user is a collaborator (invited from other departments)
+				const collabProjects = projectsData.filter(project =>
+					!project.isArchived &&
+					project.collaborators?.some(c => String(c.id) === String(currentUser.id))
+				);
+
 				setUserAssignedProjects(assignedProjects);
+				setCollaboratedProjects(collabProjects);
 
 				const currentDept = departmentsData.find(d => d.id === currentUser.department);
 				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
@@ -1017,6 +1030,16 @@ export function AppSidebar() {
 									<FolderPlus className="mr-2 h-4 w-4" />
 									<span>Assign to Group</span>
 								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={(e) => {
+										e.stopPropagation();
+										setProjectToInvite(project);
+										setIsInviteDialogOpen(true);
+									}}
+								>
+									<UserPlus className="mr-2 h-4 w-4" />
+									<span>Invite Users</span>
+								</DropdownMenuItem>
 								{!project.isArchived ? (
 									<DropdownMenuItem
 										onClick={(e) => {
@@ -1150,6 +1173,88 @@ export function AppSidebar() {
 																		</SidebarMenuSubButton>
 																	</SidebarMenuSubItem>
 																))}
+														</SidebarMenuSub>
+													</CollapsibleContent>
+												</SidebarMenuItem>
+											</Collapsible>
+										))}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</CollapsibleContent>
+						</Collapsible>
+					</SidebarGroup>
+				)}
+
+				{/* Invited Projects Section - shows projects user was invited to collaborate on */}
+				{(userRole === "user" || userRole === "account-manager") && collaboratedProjects.length > 0 && (
+					<SidebarGroup>
+						<Collapsible open={invitedProjectsOpen} onOpenChange={setInvitedProjectsOpen}>
+							<div className="flex items-center justify-between px-2">
+								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
+									<SidebarGroupLabel className="hover:bg-transparent">Invited Projects</SidebarGroupLabel>
+									<ChevronRight
+										className={`h-4 w-4 transition-transform ${invitedProjectsOpen ? "rotate-90" : ""
+											}`}
+									/>
+								</CollapsibleTrigger>
+							</div>
+							<CollapsibleContent>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{/* Group collaborated projects by department */}
+										{Object.entries(
+											collaboratedProjects.reduce((acc, project) => {
+												const deptName = project.department?.name || 'Other';
+												if (!acc[deptName]) acc[deptName] = [];
+												acc[deptName].push(project);
+												return acc;
+											}, {} as Record<string, Project[]>)
+										).map(([deptName, deptProjects]) => (
+											<Collapsible
+												key={deptName}
+												open={expandedDepartments.has(`invited-${deptName}`)}
+												onOpenChange={() => {
+													const key = `invited-${deptName}`;
+													setExpandedDepartments(prev => {
+														const newSet = new Set(prev);
+														if (newSet.has(key)) {
+															newSet.delete(key);
+														} else {
+															newSet.add(key);
+														}
+														return newSet;
+													});
+												}}
+											>
+												<SidebarMenuItem>
+													<CollapsibleTrigger asChild>
+														<SidebarMenuButton className="w-full">
+															<div className="flex items-center gap-2 flex-1">
+																<Building2 className="h-4 w-4" />
+																<span className="text-sm font-medium">{deptName}</span>
+															</div>
+															<ChevronRight
+																className={`h-4 w-4 transition-transform ${expandedDepartments.has(`invited-${deptName}`) ? "rotate-90" : ""
+																	}`}
+															/>
+														</SidebarMenuButton>
+													</CollapsibleTrigger>
+													<CollapsibleContent>
+														<SidebarMenuSub>
+															{deptProjects.map(project => (
+																<SidebarMenuSubItem key={project.id}>
+																	<SidebarMenuSubButton asChild>
+																		<NavLink
+																			to={`/project/${project.id}`}
+																			className={`flex items-center gap-2 ${location.pathname === `/project/${project.id}` ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""
+																				}`}
+																		>
+																			<FolderKanban className="h-3 w-3" />
+																			<span className="text-sm">{project.name}</span>
+																		</NavLink>
+																	</SidebarMenuSubButton>
+																</SidebarMenuSubItem>
+															))}
 														</SidebarMenuSub>
 													</CollapsibleContent>
 												</SidebarMenuItem>
@@ -1410,6 +1515,21 @@ export function AppSidebar() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<InviteUsersDialog
+				open={isInviteDialogOpen}
+				onOpenChange={(open) => {
+					setIsInviteDialogOpen(open);
+					if (!open) setProjectToInvite(null);
+				}}
+				project={projectToInvite}
+				allUsers={teamMembers}
+				onUpdate={(updatedProject) => {
+					setProjects(prev =>
+						prev.map(p => p.id === updatedProject.id ? updatedProject : p)
+					);
+				}}
+			/>
 		</Sidebar>
 	);
 }

@@ -61,6 +61,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
     Route::get('/task-attachments/{taskAttachment}/download', [TaskAttachmentController::class, 'download']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);
+    
+    // Project Collaborators
+    Route::post('projects/{project}/collaborators', [ProjectController::class, 'addCollaborators']);
+    Route::delete('projects/{project}/collaborators/{user}', [ProjectController::class, 'removeCollaborator']);
+    Route::get('projects/{project}/collaborators', [ProjectController::class, 'getCollaborators']);
+    
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
     Route::apiResource('users', UserController::class);

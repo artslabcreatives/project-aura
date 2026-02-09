@@ -7,6 +7,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -94,5 +95,15 @@ class User extends Authenticatable implements FilamentUser
     public function revisionHistories(): HasMany
     {
         return $this->hasMany(RevisionHistory::class, 'requested_by_id');
+    }
+
+    /**
+     * Get the projects the user collaborates on (from other departments).
+     */
+    public function collaboratedProjects(): BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'project_collaborators')
+            ->withPivot('invited_by')
+            ->withTimestamps();
     }
 }

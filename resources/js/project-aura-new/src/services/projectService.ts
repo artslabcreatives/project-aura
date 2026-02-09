@@ -55,6 +55,14 @@ function mapProject(raw: any): Project {
 		group: raw.group ? { id: String(raw.group.id), name: raw.group.name, departmentId: String(raw.group.department_id) } : undefined,
 		hasPendingTasks,
 		isArchived: raw.is_archived,
+		collaborators: Array.isArray(raw.collaborators)
+			? raw.collaborators.map((c: any) => ({
+				id: c.id,
+				name: c.name,
+				email: c.email,
+				department_id: c.department_id,
+			}))
+			: undefined,
 	};
 }
 
