@@ -39,6 +39,8 @@ class User extends Authenticatable implements FilamentUser
         'mattermost_token',
         'slack_id',
         'force_password_reset',
+        'password_reset_token',
+        'password_reset_token_expires_at',
         'preferences',
         'avatar',
     ];

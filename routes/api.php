@@ -39,6 +39,7 @@ Route::post('/check-email', [AuthController::class, 'checkEmail']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/set-password', [AuthController::class, 'setPasswordFromToken']);
 
 Route::get('projects/{project}/suggested-tasks', [ProjectController::class, 'suggestedTasks']);
 Route::post('projects/{project}/suggested-tasks', [ProjectController::class, 'createSuggestedTasks']);

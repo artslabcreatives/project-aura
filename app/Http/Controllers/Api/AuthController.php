@@ -365,4 +365,74 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password changed successfully']);
     }
+
+    #[OA\Post(
+        path: "/set-password",
+        summary: "Set password using invite token (for new users)",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["email", "token", "password", "password_confirmation"],
+                properties: [
+                    new OA\Property(property: "email", type: "string", format: "email", example: "newuser@example.com"),
+                    new OA\Property(property: "token", type: "string", example: "abc123..."),
+                    new OA\Property(property: "password", type: "string", format: "password", example: "newpassword123"),
+                    new OA\Property(property: "password_confirmation", type: "string", format: "password", example: "newpassword123")
+                ]
+            )
+        ),
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Password set successfully",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Password set successfully"),
+                        new OA\Property(property: "user", type: "object"),
+                        new OA\Property(property: "token", type: "string")
+                    ]
+                )
+            ),
+            new OA\Response(response: 400, description: "Invalid or expired token"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
+    public function setPasswordFromToken(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = User::where('email', $request->email)
+            ->where('password_reset_token', $request->token)
+            ->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Invalid email or token'], 400);
+        }
+
+        // Check if token has expired
+        if ($user->password_reset_token_expires_at && now()->isAfter($user->password_reset_token_expires_at)) {
+            return response()->json(['message' => 'Token has expired. Please contact your administrator.'], 400);
+        }
+
+        // Update password and clear reset flags
+        $user->password = Hash::make($request->password);
+        $user->force_password_reset = false;
+        $user->password_reset_token = null;
+        $user->password_reset_token_expires_at = null;
+        $user->save();
+
+        // Create an auth token so they're logged in immediately
+        $authToken = $user->createToken('auth-token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Password set successfully',
+            'user' => $user->load('department'),
+            'token' => $authToken,
+        ]);
+    }
 }
