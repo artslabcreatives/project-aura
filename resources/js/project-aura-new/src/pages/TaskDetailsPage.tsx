@@ -286,9 +286,20 @@ export default function TaskDetailsPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-muted-foreground">
-                                {task.description || "No description provided."}
-                            </div>
+                            {task.description ? (
+                                /<\/?[a-z][\s\S]*>/i.test(task.description) ? (
+                                    <div
+                                        className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5"
+                                        dangerouslySetInnerHTML={{ __html: task.description }}
+                                    />
+                                ) : (
+                                    <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-muted-foreground">
+                                        {task.description}
+                                    </div>
+                                )
+                            ) : (
+                                <div className="text-muted-foreground italic">No description provided.</div>
+                            )}
                         </CardContent>
                     </Card>
 

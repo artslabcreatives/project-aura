@@ -30,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { attachmentService } from "@/services/attachmentService";
 import { tagService, Tag } from "@/services/tagService";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 // Represents a file that is pending upload (not yet saved to server)
 interface PendingFile {
@@ -484,14 +485,13 @@ export function TaskDialog({
 
 						<div className="grid gap-2">
 							<Label htmlFor="description">Description</Label>
-							<Textarea
+							<RichTextEditor
 								id="description"
 								value={formData.description}
-								onChange={(e) =>
-									setFormData({ ...formData, description: e.target.value })
+								onChange={(value) =>
+									setFormData({ ...formData, description: value })
 								}
 								placeholder="Enter task description"
-								rows={3}
 							/>
 						</div>
 

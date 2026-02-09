@@ -77,9 +77,16 @@ export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEd
 					{task.description && (
 						<div>
 							<h3 className="text-sm font-semibold mb-2">Description</h3>
-							<p className="text-sm text-muted-foreground whitespace-pre-wrap">
-								{task.description}
-							</p>
+							{/<\/?[a-z][\s\S]*>/i.test(task.description) ? (
+								<div
+									className="text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5"
+									dangerouslySetInnerHTML={{ __html: task.description }}
+								/>
+							) : (
+								<p className="text-sm text-muted-foreground whitespace-pre-wrap">
+									{task.description}
+								</p>
+							)}
 						</div>
 					)}
 
