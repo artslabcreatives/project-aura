@@ -76,6 +76,90 @@ export const userTourSteps: TourStep[] = [
     }
 ];
 
+// Tour steps for TEAM LEAD role - Focus on management and oversight
+export const teamLeadTourSteps: TourStep[] = [
+    // Welcome step - Team Lead context
+    {
+        target: '[data-tour="dashboard-header"]',
+        title: '👋 Welcome back, Team Lead!',
+        content: 'This is your command center. As a Team Lead, you have powerful tools to manage your department\'s projects, tasks, and team members. Let\'s explore!',
+        placement: 'bottom',
+        spotlightPadding: 16
+    },
+    // Dashboard stats - Department overview
+    {
+        target: '[data-tour="dashboard-stats"]',
+        title: '📊 Department Overview',
+        content: 'Get a high-level view of your department\'s performance. See total active tasks, project progress, and critical items that need attention.',
+        placement: 'bottom',
+        spotlightPadding: 12
+    },
+    // Tasks Overview Cards (Timeline)
+    {
+        target: '[data-tour="team-tasks-overview"]',
+        title: '📅 Task Timeline',
+        content: 'Quickly identify what\'s due today, tomorrow, or overdue across your team. These cards help you prioritize and ensure deadlines are met.',
+        placement: 'top',
+        spotlightPadding: 12
+    },
+    // Team Management Navigation
+    {
+        target: '[data-tour="nav-team"]',
+        title: '👥 Team Management',
+        content: 'Head here to view your team members, check their workload, and manage permissions. Keeping your team organized starts here.',
+        placement: 'right',
+        spotlightPadding: 8
+    },
+    // Global Tasks Navigation
+    {
+        target: '[data-tour="nav-tasks"]',
+        title: '✅ All Tasks',
+        content: 'Access the master list of all tasks in your department. You can filter, sort, and manage tasks across all projects from this central view.',
+        placement: 'right',
+        spotlightPadding: 8
+    },
+    // Create Project Button
+    {
+        target: '[data-tour="create-project-btn"]',
+        title: '🚀 Launch New Projects',
+        content: 'Ready to start something new? Click this button to create a new project, define its workflow stages, and assign it to your team.',
+        placement: 'right',
+        spotlightPadding: 8
+    },
+    // Global Search
+    {
+        target: '[data-tour="global-search"]',
+        title: '🔍 Power Search',
+        content: 'Find anything instantly. Search for specific tasks, project codes, or team members. Pro tip: Use Ctrl+K for quick access.',
+        placement: 'bottom',
+        spotlightPadding: 8
+    },
+    // Notifications
+    {
+        target: '[data-tour="notifications"]',
+        title: '🔔 Important Updates',
+        content: 'Stay informed about project updates, team activities, and urgent alerts. Check here to ensure nothing slips through the cracks.',
+        placement: 'bottom',
+        spotlightPadding: 8
+    },
+    // User Menu
+    {
+        target: '[data-tour="user-menu"]',
+        title: '⚙️ Settings & Profile',
+        content: 'Manage your personal preferences, account settings, and access system configurations from here.',
+        placement: 'left',
+        spotlightPadding: 8
+    },
+    // Final step
+    {
+        target: '[data-tour="dashboard-header"]',
+        title: '🎉 Ready to Lead!',
+        content: 'You\'re equipped with the tools to lead your team to success. Explore the features and setup your projects. We\'re here to support you along the way!',
+        placement: 'bottom',
+        spotlightPadding: 16
+    }
+];
+
 // Tour steps for detailed task interaction (shown when user opens first task)
 export const taskDetailsTourSteps: TourStep[] = [
     {

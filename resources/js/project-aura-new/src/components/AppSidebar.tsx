@@ -1102,6 +1102,7 @@ export function AppSidebar() {
 										<NavLink
 											to={item.url}
 											end
+											data-tour={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
 											className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent"
 											activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
 										>
@@ -1285,6 +1286,7 @@ export function AppSidebar() {
 										className="h-6 w-6 ml-1"
 										onClick={() => setIsProjectDialogOpen(true)}
 										title="Add new project"
+										data-tour="create-project-btn"
 									>
 										<Plus className="h-4 w-4" />
 									</Button>
