@@ -137,11 +137,18 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 	const { isAuthenticated, isLoading, refreshUser } = useUser();
+	const location = useLocation();
+
+	// Skip authentication for public routes
+	const publicPaths = ['/set-password'];
+	const isPublicRoute = publicPaths.some(path => location.pathname.startsWith(path));
+
+	if (isPublicRoute) {
+		return <>{children}</>;
+	}
 
 	if (isLoading) {
-		if (isLoading) {
-			return <Loading />;
-		}
+		return <Loading />;
 	}
 
 	if (!isAuthenticated) {
@@ -187,75 +194,70 @@ const App = () => (
 				<Toaster />
 				<Sonner />
 				<BrowserRouter>
-					<Routes>
-						{/* Public route for setting password from invite - MUST be outside AuthWrapper */}
-						<Route path="/set-password" element={<SetPassword />} />
+					<AuthWrapper>
+						<Routes>
+							{/* Public route for setting password from invite */}
+							<Route path="/set-password" element={<SetPassword />} />
 
-						{/* All other routes are wrapped in AuthWrapper */}
-						<Route path="*" element={
-							<AuthWrapper>
-								<Routes>
-									{/* Regular routes */}
-									<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-									<Route path="/tasks" element={
-										<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
-											<AppLayout><Tasks /></AppLayout>
-										</ProtectedRoute>
-									} />
-									<Route path="/tasks/filter/:filterType" element={
-										<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
-											<AppLayout><FilteredTasksPage /></AppLayout>
-										</ProtectedRoute>
-									} />
-									<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
-									<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
-									<Route path="/team" element={
-										<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
-											<AppLayout><Team /></AppLayout>
-										</ProtectedRoute>
-									} />
-									<Route path="/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
-									<Route path="/review-needed" element={
-										<ProtectedRoute allowedRoles={['account-manager']}>
-											<AppLayout><ReviewNeededPage /></AppLayout>
-										</ProtectedRoute>
-									} />
-									<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
-									<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
+							{/* Regular routes */}
+							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
+							<Route path="/tasks" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Tasks /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/tasks/filter/:filterType" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
+									<AppLayout><FilteredTasksPage /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
+							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
+							<Route path="/team" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Team /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
+							<Route path="/review-needed" element={
+								<ProtectedRoute allowedRoles={['account-manager']}>
+									<AppLayout><ReviewNeededPage /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
+							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
 
 
-									{/* Mattermost embedded routes (with /mattermost prefix) */}
-									<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />
-									<Route path="/mattermost/tasks" element={
-										<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
-											<AppLayout><Tasks /></AppLayout>
-										</ProtectedRoute>
-									} />
-									<Route path="/mattermost/tasks/filter/:filterType" element={
-										<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
-											<AppLayout><FilteredTasksPage /></AppLayout>
-										</ProtectedRoute>
-									} />
-									<Route path="/mattermost/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
-									<Route path="/mattermost/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
-									<Route path="/mattermost/team" element={
-										<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
-											<AppLayout><Team /></AppLayout>
-										</ProtectedRoute>
-									} />
-									<Route path="/mattermost/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
-									<Route path="/mattermost/review-needed" element={
-										<ProtectedRoute allowedRoles={['account-manager']}>
-											<AppLayout><ReviewNeededPage /></AppLayout>
-										</ProtectedRoute>
-									} />
+							{/* Mattermost embedded routes (with /mattermost prefix) */}
+							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />
+							<Route path="/mattermost/tasks" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Tasks /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/mattermost/tasks/filter/:filterType" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
+									<AppLayout><FilteredTasksPage /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/mattermost/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
+							<Route path="/mattermost/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
+							<Route path="/mattermost/team" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><Team /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/mattermost/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
+							<Route path="/mattermost/review-needed" element={
+								<ProtectedRoute allowedRoles={['account-manager']}>
+									<AppLayout><ReviewNeededPage /></AppLayout>
+								</ProtectedRoute>
+							} />
 
-									{/* Catch-all for 404 */}
-									<Route path="*" element={<NotFound />} />
-								</Routes>
-							</AuthWrapper>
-						} />
-					</Routes>
+							{/* Catch-all for 404 */}
+							<Route path="*" element={<NotFound />} />
+						</Routes>
+					</AuthWrapper>
 				</BrowserRouter>
 			</TooltipProvider>
 		</QueryClientProvider>

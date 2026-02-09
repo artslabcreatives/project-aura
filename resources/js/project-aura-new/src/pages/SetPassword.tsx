@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { api } from '@/lib/api';
-import { setToken } from '@/lib/api';
-import { Loader2, Eye, EyeOff, KeyRound, Check } from 'lucide-react';
+import { api, setToken } from '@/lib/api';
+import { Loader2, Eye, EyeOff, Lock, Check } from 'lucide-react';
+import loginImage from '@/assets/login-ui.jpg';
+import Logo from '@/assets/Logo.png';
 
 export function SetPassword() {
     const [searchParams] = useSearchParams();
-    const navigate = useNavigate();
     const { toast } = useToast();
 
     const [password, setPassword] = useState('');
@@ -88,55 +87,107 @@ export function SetPassword() {
         }
     };
 
+    // Success Screen
     if (isSuccess) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
-                <Card className="w-full max-w-md shadow-xl">
-                    <CardContent className="pt-10 pb-10 flex flex-col items-center text-center">
-                        <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
-                            <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="min-h-screen w-full lg:grid lg:grid-cols-2 overflow-hidden bg-background">
+                {/* Left Side - Image and Branding */}
+                <div className="hidden lg:relative lg:flex h-full w-full bg-zinc-900 items-center justify-center p-12">
+                    <div className="absolute inset-0 z-0">
+                        <img
+                            src={loginImage}
+                            alt="Project Aura Illustration"
+                            className="h-full w-full object-cover opacity-90"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
+                    </div>
+                    <div className="relative z-10 mt-auto w-full max-w-lg mb-12">
+                        <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">Aura Task Management System</h2>
+                        <p className="text-lg text-slate-200 leading-relaxed">
+                            Manage your projects, track tasks, and collaborate
+                            with your team efficiently in one unified workspace.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Right Side - Success Message */}
+                <div className="flex items-center justify-center p-8 lg:p-12 bg-white dark:bg-slate-950">
+                    <div className="mx-auto w-full max-w-[400px] space-y-8 text-center">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
+                            </div>
                         </div>
-                        <h2 className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">
+                        <h1 className="text-3xl font-bold tracking-tight text-green-600 dark:text-green-400">
                             Password Set Successfully!
-                        </h2>
-                        <p className="text-muted-foreground">
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400">
                             Redirecting you to the dashboard...
                         </p>
-                        <Loader2 className="h-5 w-5 animate-spin mt-4 text-primary" />
-                    </CardContent>
-                </Card>
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-600" />
+                    </div>
+                </div>
             </div>
         );
     }
 
+    // Main Form
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
-            <Card className="w-full max-w-md shadow-xl">
-                <CardHeader className="text-center pb-2">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                        <KeyRound className="h-8 w-8 text-primary" />
+        <div className="min-h-screen w-full lg:grid lg:grid-cols-2 overflow-hidden bg-background">
+            {/* Left Side - Image and Branding */}
+            <div className="hidden lg:relative lg:flex h-full w-full bg-zinc-900 items-center justify-center p-12">
+                {/* Background Illustration */}
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={loginImage}
+                        alt="Project Aura Illustration"
+                        className="h-full w-full object-cover opacity-90"
+                    />
+                    {/* Gradient Overlay for Text Readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
+                </div>
+
+                {/* Branding Text */}
+                <div className="relative z-10 mt-auto w-full max-w-lg mb-12">
+                    <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">Aura Task Management System</h2>
+                    <p className="text-lg text-slate-200 leading-relaxed">
+                        Manage your projects, track tasks, and collaborate
+                        with your team efficiently in one unified workspace.
+                    </p>
+                </div>
+            </div>
+
+            {/* Right Side - Form */}
+            <div className="flex items-center justify-center p-8 lg:p-12 bg-white dark:bg-slate-950">
+                <div className="mx-auto w-full max-w-[400px] space-y-8">
+                    <div className="text-center space-y-2">
+                        <div className="flex justify-center mb-4">
+                            <img src={Logo} alt="Aura Logo" className="h-20 w-auto object-contain" />
+                        </div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                            Welcome to Aura!
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400">
+                            You've been invited to join. Please set your password to get started.
+                        </p>
                     </div>
-                    <CardTitle className="text-2xl font-bold">Welcome to Aura!</CardTitle>
-                    <CardDescription>
-                        You've been invited to join Aura. Please set your password to get started.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">Email</Label>
                             <Input
                                 id="email"
                                 type="email"
                                 value={email || ''}
                                 disabled
-                                className="bg-muted"
+                                className="h-11 border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="password">New Password</Label>
+                            <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">New Password</Label>
                             <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <Input
                                     id="password"
                                     type={showPassword ? 'text' : 'password'}
@@ -145,39 +196,53 @@ export function SetPassword() {
                                     placeholder="Enter your new password"
                                     required
                                     minLength={8}
+                                    className="pl-10 pr-10 h-11 border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500 bg-slate-50 dark:bg-slate-900"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer z-10"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
                                 >
                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
                             </div>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
                                 Password must be at least 8 characters long
                             </p>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm Password</Label>
-                            <Input
-                                id="confirmPassword"
-                                type={showPassword ? 'text' : 'password'}
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="Confirm your new password"
-                                required
-                            />
+                            <Label htmlFor="confirmPassword" className="text-slate-700 dark:text-slate-300">Confirm Password</Label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <Input
+                                    id="confirmPassword"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Confirm your new password"
+                                    required
+                                    className="pl-10 h-11 border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-blue-500 bg-slate-50 dark:bg-slate-900"
+                                />
+                            </div>
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={isLoading || !token || !email}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Set Password & Continue
+                        <Button
+                            type="submit"
+                            className="w-full h-11 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-md hover:shadow-lg"
+                            disabled={isLoading || !token || !email}
+                        >
+                            {isLoading ? (
+                                <div className="flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Setting Password...
+                                </div>
+                            ) : "Set Password & Continue"}
                         </Button>
                     </form>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 }

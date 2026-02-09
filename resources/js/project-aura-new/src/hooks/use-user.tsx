@@ -119,6 +119,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		const checkToken = () => {
 			const token = getToken();
+
+			// Skip token check for public routes
+			const publicPaths = ['/set-password'];
+			const isPublicRoute = publicPaths.some(path => window.location.pathname.startsWith(path));
+			if (isPublicRoute) {
+				return; // Don't check token for public routes
+			}
+
 			if (!token) {
 				// If we think we are logged in, OR if we are on a non-root path (trying to access protected content)
 				if (isAuthenticated || window.location.pathname !== '/') {
