@@ -13,6 +13,7 @@ import { departmentService } from "@/services/departmentService";
 import { userService } from "@/services/userService";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TwoFactorSection } from "@/components/profile/TwoFactorSection";
 
 export default function Profile() {
     const { currentUser, refreshUser } = useUser();
@@ -190,6 +191,8 @@ export default function Profile() {
                     </CardContent>
                 </Card>
             </div>
+
+            <TwoFactorSection />
         </div>
     );
 }

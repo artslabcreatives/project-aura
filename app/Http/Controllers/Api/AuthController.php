@@ -46,6 +46,8 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',
+            'two_factor_code' => 'nullable|string',
+            'two_factor_recovery_code' => 'nullable|string',
         ]);
 
         $user = User::where('email', $request->email)->first();
@@ -54,6 +56,32 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
+        }
+
+        if ($user->hasEnabledTwoFactorAuthentication()) {
+            if ($request->two_factor_code) {
+                if (! (new \PragmaRX\Google2FA\Google2FA)->verifyKey($user->two_factor_secret, $request->two_factor_code)) {
+                    throw ValidationException::withMessages([
+                        'two_factor_code' => ['The provided two-factor authentication code was invalid.'],
+                    ]);
+                }
+            } elseif ($request->two_factor_recovery_code) {
+                $recoveryCodes = $user->two_factor_recovery_codes;
+ 
+                if (! in_array($request->two_factor_recovery_code, $recoveryCodes)) {
+                    throw ValidationException::withMessages([
+                        'two_factor_recovery_code' => ['The provided recovery code was invalid.'],
+                    ]);
+                }
+ 
+                $user->forceFill([
+                    'two_factor_recovery_codes' => array_values(array_diff($recoveryCodes, [$request->two_factor_recovery_code])),
+                ])->save();
+            } else {
+                return response()->json([
+                    'two_factor' => true,
+                ]);
+            }
         }
 
         // Create a new token for stateless auth

@@ -38,6 +38,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				department: response.department_id ? String(response.department_id) : '',
 				avatar: response.avatar,
 				preferences: response.preferences,
+				twoFactorEnabled: !!response.two_factor_confirmed_at,
 			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);

@@ -123,4 +123,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Mattermost magic link authentication
     Route::get('/mattermost/magic-link', [MattermostAuthController::class, 'getMagicLink']);
     Route::get('/mattermost/redirect', [MattermostAuthController::class, 'redirect']);
+
+    // Two-Factor Authentication
+    Route::post('/two-factor/enable', [App\Http\Controllers\Api\TwoFactorController::class, 'enable']);
+    Route::post('/two-factor/confirm', [App\Http\Controllers\Api\TwoFactorController::class, 'confirm']);
+    Route::post('/two-factor/disable', [App\Http\Controllers\Api\TwoFactorController::class, 'disable']);
+    Route::get('/two-factor/recovery-codes', [App\Http\Controllers\Api\TwoFactorController::class, 'recoveryCodes']);
+    Route::post('/two-factor/recovery-codes', [App\Http\Controllers\Api\TwoFactorController::class, 'regenerateRecoveryCodes']);
 });
+
+// 2FA Verification during login
+Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor']);
