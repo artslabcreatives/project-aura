@@ -32,6 +32,7 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'role',
+        'is_active',
         'department_id',
         'status',
         'capacity_hours_per_day',
@@ -67,6 +68,7 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'is_active' => 'boolean',
         'password' => 'hashed',
         'force_password_reset' => 'boolean',
         'preferences' => 'array',

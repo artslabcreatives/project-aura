@@ -58,6 +58,13 @@ class AuthController extends Controller
             ]);
         }
 
+        // Check if user account is deactivated
+        if (!$user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Your account has been deactivated. Please contact an administrator.'],
+            ]);
+        }
+
         if ($user->hasEnabledTwoFactorAuthentication()) {
             if ($request->two_factor_code) {
                 if (! (new \PragmaRX\Google2FA\Google2FA)->verifyKey($user->two_factor_secret, $request->two_factor_code)) {

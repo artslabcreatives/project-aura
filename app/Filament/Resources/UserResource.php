@@ -60,6 +60,14 @@ class UserResource extends Resource
                             ->searchable()
                             ->preload(),
                     ])->columns(2),
+                Forms\Components\Section::make('Account Status')
+                    ->schema([
+                        Forms\Components\Toggle::make('is_active')
+                            ->label('Active')
+                            ->helperText('Deactivated users cannot login to the system')
+                            ->default(true)
+                            ->required(),
+                    ]),
             ]);
     }
 
@@ -88,6 +96,13 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('department.name')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\IconColumn::make('is_active')
+                    ->label('Status')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
                 Tables\Columns\TextColumn::make('assigned_tasks_count')
                     ->counts('assignedTasks')
                     ->label('Tasks'),
@@ -107,6 +122,10 @@ class UserResource extends Resource
                     ]),
                 Tables\Filters\SelectFilter::make('department')
                     ->relationship('department', 'name'),
+                Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Account Status')
+                    ->trueLabel('Active Users')
+                    ->falseLabel('Deactivated Users'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
