@@ -154,7 +154,7 @@ export const teamLeadTourSteps: TourStep[] = [
     {
         target: '[data-tour="dashboard-header"]',
         title: '🎉 Ready to Lead!',
-        content: 'You\'re equipped with the tools to lead your team to success. Explore the features and setup your projects. We\'re here to support you along the way!',
+        content: 'You\'re equipped with the tools to lead your team to success. Explore the features and setup your projects. We\'re here to help if you need us!',
         placement: 'bottom',
         spotlightPadding: 16
     }
@@ -188,7 +188,7 @@ export const adminTourSteps: TourStep[] = [
     },
     // All Projects Navigation
     {
-        target: '[data-tour="projects-list"]', // Reusing the projects list tour target
+        target: '[data-tour="projects-list"]',
         title: '📁 All Projects',
         content: 'Access every project in the system, regardless of department. You can edit, archive, or audit any project from here.',
         placement: 'right',
@@ -218,9 +218,6 @@ export const adminTourSteps: TourStep[] = [
         placement: 'right',
         spotlightPadding: 8
     },
-    // Configuration / Settings (if available in sidebar or menu)
-    // Assuming Configuration is in user menu or sidebar, but for now we'll stick to common elements
-
     // Global Search
     {
         target: '[data-tour="global-search"]',
@@ -242,6 +239,90 @@ export const adminTourSteps: TourStep[] = [
         target: '[data-tour="dashboard-header"]',
         title: '🎉 You have the Control!',
         content: 'You are all set to manage the platform. Remember, great power comes with great responsibility. We\'re here to help if you need us!',
+        placement: 'bottom',
+        spotlightPadding: 16
+    }
+];
+
+// Tour steps for ACCOUNT MANAGER role - Focus on department coordination
+export const accountManagerTourSteps: TourStep[] = [
+    // Welcome step
+    {
+        target: '[data-tour="dashboard-header"]',
+        title: '👋 Welcome back, Account Manager!',
+        content: 'Your dashboard is optimized for client satisfaction and project delivery. Here you can track everything happening within your department accounts.',
+        placement: 'bottom',
+        spotlightPadding: 16
+    },
+    // Dashboard Stats
+    {
+        target: '[data-tour="dashboard-stats"]',
+        title: '📊 Account Health',
+        content: 'Monitor the health of your department\'s projects. Keep an eye on active tasks and critical deadlines to ensure smooth delivery.',
+        placement: 'bottom',
+        spotlightPadding: 12
+    },
+    // Tasks Overview Cards (Timeline)
+    {
+        target: '[data-tour="am-tasks-overview"]',
+        title: '📅 Delivery Timeline',
+        content: 'See upcoming deliverables at a glance. Prioritize work due today and tomorrow to keep your clients happy and your team on track.',
+        placement: 'top',
+        spotlightPadding: 12
+    },
+    // Projects Navigation
+    {
+        target: '[data-tour="projects-list"]',
+        title: '📁 Department Projects',
+        content: 'Access the specific projects created for your department. You can track progress, manage scope, and ensure quality standards.',
+        placement: 'right',
+        spotlightPadding: 12
+    },
+    // Team Members
+    {
+        target: '[data-tour="nav-team"]',
+        title: '👥 Team Visibility',
+        content: 'View your department\'s team members and their current workload. Understanding capacity helps in better project planning.',
+        placement: 'right',
+        spotlightPadding: 8
+    },
+    // Global Tasks
+    {
+        target: '[data-tour="nav-tasks"]',
+        title: '✅ Task Oversight',
+        content: 'Review all tasks within your purview. Use filters to check status updates and identify any blockers your team might be facing.',
+        placement: 'right',
+        spotlightPadding: 8
+    },
+    // Review Needed (Specific to AM often)
+    {
+        target: '[data-tour="nav-review-needed"]',
+        title: '👀 Review Needed',
+        content: 'This is critical! Tasks awaiting your approval appear here. Quick feedback keeps the workflow moving efficiently.',
+        placement: 'right',
+        spotlightPadding: 8
+    },
+    // Create Project
+    {
+        target: '[data-tour="create-project-btn"]',
+        title: '🚀 New Client Project',
+        content: 'Start a new project for your accounts. Configure custom stages that match your specific client delivery workflow.',
+        placement: 'right',
+        spotlightPadding: 8
+    },
+    // Global Search
+    {
+        target: '[data-tour="global-search"]',
+        title: '🔍 Quick Find',
+        content: 'Instantly find any task, project or file. Essential for those quick answers when you\'re on a call.',
+        placement: 'bottom',
+        spotlightPadding: 8
+    },
+    // Final step
+    {
+        target: '[data-tour="dashboard-header"]',
+        title: '🎉 Ready to Deliver!',
+        content: 'You have everything you need to manage your accounts effectively. Dive in and keep those projects moving forward!',
         placement: 'bottom',
         spotlightPadding: 16
     }
