@@ -93,6 +93,7 @@ export function TaskDialog({
 		priority: "medium" as TaskPriority,
 		startDate: "",
 		startTime: "",
+		isAssigneeLocked: false,
 	});
 	const [tags, setTags] = useState<string[]>([]);
 	const [newTag, setNewTag] = useState("");
@@ -178,6 +179,7 @@ export function TaskDialog({
 				priority: editTask.priority,
 				startDate: editTask.startDate ? editTask.startDate.split("T")[0] : "",
 				startTime: editTask.startDate ? editTask.startDate.split("T")[1]?.substring(0, 5) || "" : "",
+				isAssigneeLocked: editTask.isAssigneeLocked || false,
 			});
 			setTags(editTask.tags || []);
 			setAttachments(editTask.attachments || []);
@@ -226,6 +228,7 @@ export function TaskDialog({
 				priority: "medium",
 				startDate: today.toISOString().split('T')[0],
 				startTime: slTimeString,
+				isAssigneeLocked: false,
 			});
 			setTags([]);
 			setAttachments([]);
@@ -299,6 +302,7 @@ export function TaskDialog({
 					tags: tags.length > 0 ? tags : undefined,
 					startDate: startDateTime,
 					attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+					isAssigneeLocked: formData.isAssigneeLocked,
 				});
 
 				toast({
@@ -331,6 +335,7 @@ export function TaskDialog({
 					tags: tags.length > 0 ? tags : undefined,
 					startDate: startDateTime,
 					attachments: attachments.length > 0 ? attachments : undefined,
+					isAssigneeLocked: formData.isAssigneeLocked,
 				},
 				filesToUpload.length > 0 ? filesToUpload : undefined,
 				pendingLinks.length > 0 ? pendingLinks : undefined
@@ -525,6 +530,18 @@ export function TaskDialog({
 									options={memberOptions}
 									placeholder="Select member"
 								/>
+								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+									<div className="flex items-center space-x-2 mt-2">
+										<Checkbox
+											id="isAssigneeLocked"
+											checked={formData.isAssigneeLocked}
+											onCheckedChange={(checked) => setFormData({ ...formData, isAssigneeLocked: checked as boolean })}
+										/>
+										<Label htmlFor="isAssigneeLocked" className="text-xs font-normal text-muted-foreground">
+											Keep Assigning this user
+										</Label>
+									</div>
+								)}
 							</div>
 						</div>
 

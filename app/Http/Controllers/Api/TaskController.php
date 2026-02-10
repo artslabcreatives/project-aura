@@ -134,6 +134,7 @@ class TaskController extends Controller
             'revision_comment' => 'nullable|string',
             'estimated_hours' => 'nullable|numeric|min:0',
             'parent_id' => 'nullable|exists:tasks,id',
+            'is_assignee_locked' => 'sometimes|boolean',
         ]);
 
         // If assignee_id is not provided but assignee_ids is, use the first as primary
@@ -280,6 +281,7 @@ class TaskController extends Controller
             'completed_at' => 'nullable|date',
             'estimated_hours' => 'nullable|numeric|min:0',
             'parent_id' => 'nullable|exists:tasks,id',
+            'is_assignee_locked' => 'sometimes|boolean',
         ]);
 
         $task->fill($validated);
@@ -440,7 +442,8 @@ class TaskController extends Controller
             }
             
             // Reassign if Main Responsible is set
-            if ($nextStage->main_responsible_id) {
+            // Reassign if Main Responsible is set AND task assignment is NOT locked
+            if ($nextStage->main_responsible_id && !$task->is_assignee_locked) {
                 $task->assignee_id = $nextStage->main_responsible_id;
                 // Sync new assignee immediately to pivot table
                 $task->assignedUsers()->sync([$nextStage->main_responsible_id]);
@@ -544,7 +547,7 @@ class TaskController extends Controller
                 
                 // Update assignees based on stage defaults
                 $targetStage = \App\Models\Stage::find($targetStageId);
-                if ($targetStage && $targetStage->main_responsible_id) {
+                if ($targetStage && $targetStage->main_responsible_id && !$task->is_assignee_locked) {
                      $task->assignee_id = $targetStage->main_responsible_id;
                      $task->assignedUsers()->sync([$targetStage->main_responsible_id]);
                 } else {

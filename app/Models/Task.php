@@ -33,6 +33,7 @@ class Task extends Model
         'completed_at',
         'estimated_hours',
         'parent_id',
+        'is_assignee_locked',
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class Task extends Model
         'start_date' => 'datetime',
         'completed_at' => 'datetime',
         'is_in_specific_stage' => 'boolean',
+        'is_assignee_locked' => 'boolean',
     ];
 
 	/**

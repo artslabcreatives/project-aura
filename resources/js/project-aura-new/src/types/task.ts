@@ -65,6 +65,7 @@ export interface Task {
 	assignedUsers?: AssignedUser[]; // Multiple assignees
 	subtasks?: Task[]; // Subtasks
 	parentId?: string | null; // Parent task ID
+	isAssigneeLocked?: boolean; // If true, auto-reassignment is disabled
 }
 
 export interface AssignedUser {
