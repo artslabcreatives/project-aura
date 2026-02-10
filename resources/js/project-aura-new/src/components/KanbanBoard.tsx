@@ -5,7 +5,7 @@ import { Stage } from "@/types/stage";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailsDialog } from "./TaskDetailsDialog";
 import { cn } from "@/lib/utils";
-import { MoreVertical, Pencil, Trash2, Plus, Info, Copy, Check, Search, X } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Plus, Info, Copy, Check, Search, X, List } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,6 +76,8 @@ interface KanbanBoardProps {
   onAddSubtask?: (task: Task) => void;
   onTaskComplete?: (taskId: string, stageId: string, data: { comment?: string; links: string[]; files: File[] }) => void;
   disableBacklogRenaming?: boolean;
+  useSubtasksGrouping?: boolean;
+  allTasks?: Task[];
 }
 
 export function KanbanBoard({
@@ -97,6 +99,8 @@ export function KanbanBoard({
   onAddSubtask,
   onTaskComplete,
   disableBacklogRenaming = false,
+  useSubtasksGrouping = false,
+  allTasks = [],
 }: KanbanBoardProps) {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(
@@ -543,31 +547,147 @@ export function KanbanBoard({
                   {columnSearchQueries[column.id] ? "No matching tasks" : "No tasks"}
                 </div>
               ) : (
-                columnTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onDragStart={() => handleDragStart(task)}
-                    onEdit={() => onTaskEdit(task)}
-                    onDelete={() => onTaskDelete(task.id)}
-                    onView={() => {
-                      setViewTask(task);
-                      setIsViewDialogOpen(true);
-                    }}
-                    onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+                useSubtasksGrouping ? (
+                  Object.values(columnTasks.reduce((acc, task) => {
+                    const parentId = task.parentId || task.id;
+                    if (!acc[parentId]) acc[parentId] = [];
+                    acc[parentId].push(task);
+                    return acc;
+                  }, {} as Record<string, Task[]>)).map((groupTasks) => {
+                    // Check if this group represents a hierarchy (has subtasks)
+                    // A group has a hierarchy if:
+                    // 1. It has more than 1 item (Parent + Subtask(s))
+                    // 2. OR It has 1 item which is a subtask (Parent not in this column)
+                    const parentId = groupTasks[0].parentId || groupTasks[0].id;
+                    const isSubtaskGroup = groupTasks.some(t => t.parentId === parentId);
 
-                    canManage={canManageTasks}
-                    canDrag={canDragTasks}
-                    currentStage={column}
-                    projectId={projectId}
-                    onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
-                    onViewSubtask={(subtask) => {
-                      setViewTask(subtask);
-                      setIsViewDialogOpen(true);
-                    }}
-                    onTaskUpdate={onTaskUpdate}
-                  />
-                ))
+                    if (isSubtaskGroup) {
+                      // Try to find parent task details
+                      const parentTask = allTasks.find(t => t.id === parentId) || tasks.find(t => t.id === parentId);
+                      const parentInColumn = groupTasks.find(t => t.id === parentId);
+                      const subtasks = groupTasks.filter(t => t.parentId === parentId);
+
+                      return (
+                        <div key={`group-${parentId}`} className="border rounded-md p-2 bg-card/40 dark:bg-card/20 space-y-2">
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
+                            <div className="bg-primary/10 p-1 rounded">
+                              <List className="h-3 w-3 text-primary" />
+                            </div>
+                            <span className="text-xs font-semibold text-muted-foreground truncate" title={parentTask?.title}>
+                              {parentTask?.title || "Parent Task"}
+                            </span>
+                          </div>
+
+                          {/* If parent is in this column, render it first */}
+                          {parentInColumn && (
+                            <TaskCard
+                              key={parentInColumn.id}
+                              task={parentInColumn}
+                              onDragStart={() => handleDragStart(parentInColumn)}
+                              onEdit={() => onTaskEdit(parentInColumn)}
+                              onDelete={() => onTaskDelete(parentInColumn.id)}
+                              onView={() => {
+                                setViewTask(parentInColumn);
+                                setIsViewDialogOpen(true);
+                              }}
+                              onReviewTask={onTaskReview ? () => onTaskReview(parentInColumn) : undefined}
+                              canManage={canManageTasks}
+                              canDrag={canDragTasks}
+                              currentStage={column}
+                              projectId={projectId}
+                              onAddSubtask={onAddSubtask ? () => onAddSubtask(parentInColumn) : undefined}
+                              onViewSubtask={(subtask) => {
+                                setViewTask(subtask);
+                                setIsViewDialogOpen(true);
+                              }}
+                              onTaskUpdate={onTaskUpdate}
+                            />
+                          )}
+
+                          {/* Render subtasks */}
+                          <div className="space-y-2 pl-2 border-l-2 border-primary/20">
+                            {subtasks.map(task => (
+                              <TaskCard
+                                key={task.id}
+                                task={task}
+                                onDragStart={() => handleDragStart(task)}
+                                onEdit={() => onTaskEdit(task)}
+                                onDelete={() => onTaskDelete(task.id)}
+                                onView={() => {
+                                  setViewTask(task);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+                                canManage={canManageTasks}
+                                canDrag={canDragTasks}
+                                currentStage={column}
+                                projectId={projectId}
+                                onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+                                onViewSubtask={(subtask) => {
+                                  setViewTask(subtask);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                onTaskUpdate={onTaskUpdate}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      // Normal standalone tasks (or parent without subtasks in this column)
+                      return groupTasks.map(task => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          onDragStart={() => handleDragStart(task)}
+                          onEdit={() => onTaskEdit(task)}
+                          onDelete={() => onTaskDelete(task.id)}
+                          onView={() => {
+                            setViewTask(task);
+                            setIsViewDialogOpen(true);
+                          }}
+                          onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+                          canManage={canManageTasks}
+                          canDrag={canDragTasks}
+                          currentStage={column}
+                          projectId={projectId}
+                          onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+                          onViewSubtask={(subtask) => {
+                            setViewTask(subtask);
+                            setIsViewDialogOpen(true);
+                          }}
+                          onTaskUpdate={onTaskUpdate}
+                        />
+                      ));
+                    }
+                  })
+                ) : (
+                  columnTasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onDragStart={() => handleDragStart(task)}
+                      onEdit={() => onTaskEdit(task)}
+                      onDelete={() => onTaskDelete(task.id)}
+                      onView={() => {
+                        setViewTask(task);
+                        setIsViewDialogOpen(true);
+                      }}
+                      onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+
+                      canManage={canManageTasks}
+                      canDrag={canDragTasks}
+                      currentStage={column}
+                      projectId={projectId}
+                      onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+                      onViewSubtask={(subtask) => {
+                        setViewTask(subtask);
+                        setIsViewDialogOpen(true);
+                      }}
+                      onTaskUpdate={onTaskUpdate}
+                    />
+                  ))
+                )
               )}
             </div>
           </div>

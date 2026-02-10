@@ -531,6 +531,8 @@ export default function UserProjectStageTasks() {
 						projectId={projectId}
 						onTaskComplete={handleTaskCompleteWithDetails}
 						disableBacklogRenaming={true}
+						useSubtasksGrouping={true}
+						allTasks={allTasks}
 					/>
 				) : (
 					<TaskListView
