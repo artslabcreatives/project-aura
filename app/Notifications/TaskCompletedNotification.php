@@ -47,8 +47,8 @@ class TaskCompletedNotification extends Notification
     {
         return [
             'task_id' => $this->task->id,
-            'title' => 'Task Completed/Advanced',
-            'message' => "User {$this->user->name} completed task '{$this->task->title}'. It is now in {$this->stageName}.",
+            'title' => 'Task Completed',
+            'message' => "User {$this->user->name} completed task '{$this->task->title}'.",
             'type' => 'task_completed',
             'link' => "/project/{$this->task->project_id}?task={$this->task->id}",
         ];
