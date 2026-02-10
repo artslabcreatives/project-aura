@@ -768,12 +768,17 @@ export function AppSidebar() {
 			}
 		});
 
-		// Filter out empty trees if desired? User request implies showing everything or just what's relevant.
-		// Let's hide empty trees (no projects inside recursively) to avoid clutter, 
-		// OR show everything. User said "visual need to show", so structure is important.
-		// Let's show everything for now.
+		// Pruning logic to hide empty groups
+		const pruneTree = (groups: TreeGroup[]): TreeGroup[] => {
+			return groups
+				.map(group => {
+					const prunedChildren = pruneTree(group.children);
+					return { ...group, children: prunedChildren };
+				})
+				.filter(group => group.projects.length > 0 || group.children.length > 0);
+		};
 
-		return { rootGroups, ungrouped };
+		return { rootGroups: pruneTree(rootGroups), ungrouped };
 	}, [userDepartmentProjects, projectGroups, currentUser]);
 
 	const renderProjectGroup = (group: TreeGroup) => (
