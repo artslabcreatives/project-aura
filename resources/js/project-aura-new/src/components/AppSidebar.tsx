@@ -559,6 +559,34 @@ export function AppSidebar() {
 		}
 	};
 
+	const handleUpdateGroup = async (groupId: string, name: string) => {
+		try {
+			await projectGroupService.update(groupId, name);
+			const groups = await projectGroupService.getAll();
+			setProjectGroups(groups);
+			toast({ title: "Group updated" });
+		} catch (error) {
+			console.error("Failed to update group:", error);
+			toast({ title: "Error", description: "Failed to update group.", variant: "destructive" });
+		}
+	};
+
+	const handleDeleteGroup = async (groupId: string) => {
+		try {
+			await projectGroupService.delete(groupId);
+			const groups = await projectGroupService.getAll();
+			setProjectGroups(groups);
+			// Also refresh projects as some might have been ungrouped
+			const projectsData = await projectService.getAll();
+			setProjects(projectsData);
+			toast({ title: "Group deleted" });
+		} catch (error: any) {
+			console.error("Failed to delete group:", error);
+			const message = error.response?.data?.message || "Failed to delete group.";
+			toast({ title: "Error", description: message, variant: "destructive" });
+		}
+	};
+
 	const toggleProjectGroupExpanded = (groupId: string) => {
 		setExpandedProjectGroups(prev => {
 			const newSet = new Set(prev);
@@ -1476,6 +1504,8 @@ export function AppSidebar() {
 				project={projectToAssign}
 				availableGroups={projectGroups.filter(g => projectToAssign?.department?.id === g.departmentId)}
 				onAssign={handleAssignGroup}
+				onUpdateGroup={handleUpdateGroup}
+				onDeleteGroup={handleDeleteGroup}
 			/>
 
 			<AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>

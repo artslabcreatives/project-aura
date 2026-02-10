@@ -38,7 +38,7 @@ class ProjectGroup extends Model
 
     public function projects()
     {
-        return $this->hasMany(Project::class, 'group_id');
+        return $this->hasMany(Project::class, 'project_group_id');
     }
 
     public function parent()

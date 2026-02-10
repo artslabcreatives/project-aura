@@ -32,4 +32,18 @@ export const projectGroupService = {
             parentId: data.parent_id ? String(data.parent_id) : null,
         };
     },
+
+    update: async (id: string, name: string): Promise<ProjectGroup> => {
+        const { data } = await api.put(`/project-groups/${id}`, { name });
+        return {
+            id: String(data.id),
+            name: data.name,
+            departmentId: String(data.department_id),
+            parentId: data.parent_id ? String(data.parent_id) : null,
+        };
+    },
+
+    delete: async (id: string): Promise<void> => {
+        await api.delete(`/project-groups/${id}`);
+    },
 };

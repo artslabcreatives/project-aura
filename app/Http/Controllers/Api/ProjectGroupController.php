@@ -79,4 +79,38 @@ class ProjectGroupController extends Controller
 
         return response()->json($projectGroup, 201);
     }
+
+    public function update(Request $request, ProjectGroup $projectGroup)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'department_id' => 'sometimes|exists:departments,id',
+            'parent_id' => 'nullable|exists:project_groups,id',
+        ]);
+
+        $projectGroup->update($validated);
+
+        return response()->json($projectGroup);
+    }
+
+    public function destroy(ProjectGroup $projectGroup)
+    {
+        // Check if there are projects assigned to this group
+        if ($projectGroup->projects()->exists()) {
+            return response()->json([
+                'message' => 'Cannot delete group. There are projects assigned to this group. Please unassign them first.'
+            ], 422);
+        }
+        
+        // Also check if there are sub-groups
+        if ($projectGroup->children()->exists()) {
+            return response()->json([
+                'message' => 'Cannot delete group. It has sub-groups. Please delete or move them first.'
+            ], 422);
+        }
+
+        $projectGroup->delete();
+
+        return response()->noContent();
+    }
 }
