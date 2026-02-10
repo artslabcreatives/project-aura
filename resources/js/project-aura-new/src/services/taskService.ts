@@ -58,6 +58,7 @@ function mapTask(raw: any): Task {
 			details: h.details,
 			user: h.user ? { id: String(h.user.id), name: h.user.name } : undefined,
 			createdAt: h.created_at || new Date().toISOString(),
+			previousDetails: h.previous_details,
 		})) || [],
 		subtasks: raw.subtasks?.map(mapTask) || [],
 		parentId: raw.parent_id ? String(raw.parent_id) : null,
@@ -177,6 +178,7 @@ export const taskService = {
 				details: h.details,
 				user: h.user ? { id: String(h.user.id), name: h.user.name } : undefined,
 				createdAt: h.created_at || new Date().toISOString(),
+				previousDetails: h.previous_details,
 			})),
 			meta: {
 				currentPage: data.current_page,

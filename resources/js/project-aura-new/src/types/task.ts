@@ -24,6 +24,7 @@ export interface TaskHistory {
 	details: string;
 	user?: { id: string; name: string };
 	createdAt: string;
+	previousDetails?: any;
 }
 
 export interface TaskComment {

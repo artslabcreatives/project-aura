@@ -18,7 +18,14 @@ import {
     AlertCircle,
     CheckCircle2,
     ListTodo,
-    History as HistoryIcon
+    History as HistoryIcon,
+    Eye,
+    MessageSquare,
+    Activity,
+    UserPlus,
+    FileIcon,
+    Trash2,
+    Ban
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -598,30 +605,102 @@ export default function TaskDetailsPage() {
                     {historyEntries.length > 0 ? (
                         <div className="space-y-6">
                             <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-                                {historyEntries.map((history) => (
-                                    <div key={history.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                        {/* Icon */}
-                                        <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-300 group-[.is-active]:bg-emerald-500 text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                                            <Clock className="h-5 w-5" />
-                                        </div>
+                                {historyEntries.map((history) => {
+                                    let Icon = Clock;
+                                    let iconColor = "text-slate-500 group-[.is-active]:text-emerald-50";
+                                    let iconBg = "bg-slate-300 group-[.is-active]:bg-emerald-500";
+                                    let detailsContent = <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{history.details}</div>;
 
-                                        {/* Card */}
-                                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-card p-4 rounded border border-slate-200 dark:border-border shadow">
-                                            <div className="flex items-center justify-between space-x-2 mb-1">
-                                                <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                                                    {history.details}
-                                                </div>
-                                                <time className="font-caveat font-medium text-xs text-indigo-500">
-                                                    {format(new Date(history.createdAt), "MMM dd, hh:mm a")}
-                                                </time>
+                                    switch (history.action) {
+                                        case 'viewed':
+                                            Icon = Eye;
+                                            iconBg = "bg-blue-100 dark:bg-blue-900";
+                                            iconColor = "text-blue-600 dark:text-blue-300";
+                                            break;
+                                        case 'comment_added':
+                                            Icon = MessageSquare;
+                                            iconBg = "bg-purple-100 dark:bg-purple-900";
+                                            iconColor = "text-purple-600 dark:text-purple-300";
+                                            if (history.previousDetails?.comment_text) {
+                                                detailsContent = (
+                                                    <div>
+                                                        <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{history.details}</div>
+                                                        <div className="mt-1 text-sm bg-muted/50 p-2 rounded border-l-2 border-primary italic">
+                                                            "{history.previousDetails.comment_text}"
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            break;
+                                        case 'status_changed':
+                                            if (history.previousDetails?.new_status === 'blocked') {
+                                                Icon = Ban;
+                                                iconBg = "bg-red-100 dark:bg-red-900";
+                                                iconColor = "text-red-600 dark:text-red-300";
+                                            } else if (history.previousDetails?.old_status === 'blocked') {
+                                                Icon = CheckCircle2; // Unblocked
+                                                iconBg = "bg-green-100 dark:bg-green-900";
+                                                iconColor = "text-green-600 dark:text-green-300";
+                                            } else {
+                                                Icon = Activity;
+                                                iconBg = "bg-orange-100 dark:bg-orange-900";
+                                                iconColor = "text-orange-600 dark:text-orange-300";
+                                            }
+                                            break;
+                                        case 'stage_changed':
+                                            Icon = Activity;
+                                            iconBg = "bg-orange-100 dark:bg-orange-900";
+                                            iconColor = "text-orange-600 dark:text-orange-300";
+                                            break;
+                                        case 'assigned':
+                                        case 'reassigned':
+                                        case 'unassigned':
+                                            Icon = UserPlus;
+                                            iconBg = "bg-indigo-100 dark:bg-indigo-900";
+                                            iconColor = "text-indigo-600 dark:text-indigo-300";
+                                            break;
+                                        case 'attachment_added':
+                                            Icon = FileIcon;
+                                            break;
+                                        case 'attachment_removed':
+                                            Icon = Trash2;
+                                            iconBg = "bg-red-100 dark:bg-red-900";
+                                            iconColor = "text-red-600 dark:text-red-300";
+                                            break;
+                                        case 'completed':
+                                            Icon = CheckCircle2;
+                                            iconBg = "bg-green-100 dark:bg-green-900";
+                                            iconColor = "text-green-600 dark:text-green-300";
+                                            break;
+                                        default:
+                                            Icon = Clock;
+                                    }
+
+                                    return (
+                                        <div key={history.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                            {/* Icon */}
+                                            <div className={cn("flex items-center justify-center w-10 h-10 rounded-full border border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2", iconBg, iconColor)}>
+                                                <Icon className="h-5 w-5" />
                                             </div>
-                                            <div className="text-slate-500 dark:text-muted-foreground text-xs flex items-center gap-1">
-                                                <User className="h-3 w-3" />
-                                                {history.user?.name || "System"}
+
+                                            {/* Card */}
+                                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-card p-4 rounded border border-slate-200 dark:border-border shadow">
+                                                <div className="flex flex-col space-y-1 mb-1">
+                                                    <div className="flex items-center justify-between">
+                                                        {detailsContent}
+                                                        <time className="font-caveat font-medium text-xs text-indigo-500 whitespace-nowrap ml-2">
+                                                            {format(new Date(history.createdAt), "MMM dd, hh:mm a")}
+                                                        </time>
+                                                    </div>
+                                                </div>
+                                                <div className="text-slate-500 dark:text-muted-foreground text-xs flex items-center gap-1">
+                                                    <User className="h-3 w-3" />
+                                                    {history.user?.name || "System"}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                             {(historyMeta && historyMeta.current_page < historyMeta.last_page) && (
                                 <div className="flex justify-center pt-4">

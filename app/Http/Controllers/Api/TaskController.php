@@ -220,8 +220,9 @@ class TaskController extends Controller
             new OA\Response(response: 404, description: "Task not found")
         ]
     )]
-    public function show(Task $task): JsonResponse
+    public function show(Task $task, \App\Services\TaskHistoryService $historyService): JsonResponse
     {
+        $historyService->trackTaskViewed($task);
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments.user', 'assignedUsers', 'taskHistories.user']));
     }
 

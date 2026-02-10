@@ -309,4 +309,20 @@ class TaskHistoryService
             $this->trackDetailsUpdate($task, $detailChanges, $userId);
         }
     }
+
+    /**
+     * Track task being viewed
+     */
+    public function trackTaskViewed(Task $task, ?int $userId = null): void
+    {
+        // Optional: Debounce or check recent views to avoid spam
+        // For now, we log every view as requested
+        
+        TaskHistory::create([
+            'action' => 'viewed',
+            'details' => 'Task viewed',
+            'task_id' => $task->id,
+            'user_id' => $userId ?? auth()->id(),
+        ]);
+    }
 }
