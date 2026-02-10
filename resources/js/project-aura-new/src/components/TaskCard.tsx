@@ -202,7 +202,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 								e.stopPropagation();
 								const pId = projectId || task.projectId;
 								if (pId) {
-									navigate(`/project/${pId}`);
+									navigate(`/project/${pId}?task=${task.id}`);
 								}
 							}}
 							title="Go to Project Board"

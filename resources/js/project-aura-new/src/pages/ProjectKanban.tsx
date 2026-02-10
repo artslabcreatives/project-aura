@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -49,6 +49,29 @@ export default function ProjectKanban() {
 	const { currentUser } = useUser();
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
+
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	useEffect(() => {
+		const taskIdParam = searchParams.get('task');
+		if (taskIdParam && tasks.length > 0) {
+			// Delay slightly to ensure rendering
+			setTimeout(() => {
+				const taskElement = document.getElementById(`task-${taskIdParam}`);
+				if (taskElement) {
+					taskElement.scrollIntoView({ behavior: "smooth", block: "center" });
+					taskElement.classList.add("ring-2", "ring-primary", "shadow-lg");
+					setTimeout(() => {
+						taskElement.classList.remove("ring-2", "ring-primary", "shadow-lg");
+					}, 3000);
+
+					// Clear param
+					searchParams.delete('task');
+					setSearchParams(searchParams);
+				}
+			}, 1000);
+		}
+	}, [tasks, searchParams]);
 
 	useEffect(() => {
 		const loadData = async () => {
