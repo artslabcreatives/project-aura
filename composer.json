@@ -21,6 +21,7 @@
 		"laravel/slack-notification-channel": "^3.7",
 		"laravel/tinker": "^2.8",
 		"pragmarx/google2fa": "^9.0",
+		"league/flysystem-aws-s3-v3": "^3.0",
 		"spatie/laravel-backup": "^9.3",
 		"typesense/typesense-php": "^5.2",
 		"vluzrmos/slack-api": "^0.5.10"
