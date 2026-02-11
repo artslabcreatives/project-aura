@@ -45,7 +45,7 @@ export function UserProfileMenu() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/configuration')} className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
-                    <span>Configuration</span>
+                    <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
