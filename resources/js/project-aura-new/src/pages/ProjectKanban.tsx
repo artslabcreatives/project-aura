@@ -556,7 +556,26 @@ export default function ProjectKanban() {
 				<div className="flex items-center justify-between">
 					<div>
 						<h1 className="text-2xl font-bold">{project.name}</h1>
-						<p className="text-muted-foreground">{project.description}</p>
+						<div
+							className="text-muted-foreground prose prose-sm dark:prose-invert max-w-none"
+							dangerouslySetInnerHTML={{
+								__html: (() => {
+									const txt = document.createElement("textarea");
+									let val = project.description || '';
+									let lastVal = '';
+									let limit = 0;
+									// Recursively decode until stable or limit reached
+									// We use a limit to prevent infinite loops if something weird happens
+									while (val !== lastVal && limit < 5) {
+										lastVal = val;
+										txt.innerHTML = val;
+										val = txt.value;
+										limit++;
+									}
+									return val;
+								})()
+							}}
+						/>
 					</div>
 					<div className="flex gap-2">
 						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (

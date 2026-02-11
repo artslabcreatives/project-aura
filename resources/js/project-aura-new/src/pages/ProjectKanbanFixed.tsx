@@ -704,7 +704,24 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									</Badge>
 								)}
 							</h1>
-							<p className="text-muted-foreground mt-1">{project.description}</p>
+							<div
+								className="text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none"
+								dangerouslySetInnerHTML={{
+									__html: (() => {
+										const txt = document.createElement("textarea");
+										let val = project.description || '';
+										let lastVal = '';
+										let limit = 0;
+										while (val !== lastVal && limit < 5) {
+											lastVal = val;
+											txt.innerHTML = val;
+											val = txt.value;
+											limit++;
+										}
+										return val;
+									})()
+								}}
+							/>
 						</div>
 						<div className="flex items-center gap-3">
 							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
