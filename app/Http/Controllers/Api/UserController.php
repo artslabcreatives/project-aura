@@ -273,16 +273,23 @@ class UserController extends Controller
         if ($request->hasFile('avatar')) {
             // Delete old avatar if exists
             if ($user->avatar) {
-                // Ensure we don't delete default avatars if any, but Storage::delete handles paths
-                $oldPath = str_replace('/storage/', '', $user->avatar);
-                if (Storage::disk('public')->exists($oldPath)) {
-                    Storage::disk('public')->delete($oldPath);
+                // Handle both S3 and local paths
+                if ($this->isS3Url($user->avatar)) {
+                    // Extract S3 path from URL
+                    $s3Path = $this->extractS3Path($user->avatar);
+                    if ($s3Path && Storage::disk('s3')->exists($s3Path)) {
+                        Storage::disk('s3')->delete($s3Path);
+                    }
+                } else {
+                    $oldPath = str_replace('/storage/', '', $user->avatar);
+                    if (Storage::disk('public')->exists($oldPath)) {
+                        Storage::disk('public')->delete($oldPath);
+                    }
                 }
             }
 
-            $path = $request->file('avatar')->store('avatars', 'public');
-            // Assuming the app is configured to serve public storage via /storage/
-            $url = '/storage/' . $path;
+            $path = $request->file('avatar')->store('avatars', 's3');
+            $url = Storage::disk('s3')->url($path);
             
             $user->update(['avatar' => $url]);
             
@@ -290,5 +297,39 @@ class UserController extends Controller
         }
 
         return response()->json(['message' => 'No file uploaded'], 400);
+    }
+
+    /**
+     * Check if a URL is an S3 URL
+     */
+    private function isS3Url(string $url): bool
+    {
+        $s3Domain = config('filesystems.disks.s3.url');
+        $s3Bucket = config('filesystems.disks.s3.bucket');
+
+        return str_contains($url, 's3.amazonaws.com') ||
+               str_contains($url, '.digitaloceanspaces.com') ||
+               ($s3Domain && str_contains($url, $s3Domain)) ||
+               ($s3Bucket && str_contains($url, $s3Bucket));
+    }
+
+    /**
+     * Extract S3 path from URL
+     */
+    private function extractS3Path(string $url): ?string
+    {
+        $parsed = parse_url($url);
+        $path = $parsed['path'] ?? '';
+        
+        // Remove leading slash
+        $path = ltrim($path, '/');
+        
+        // If the bucket name is in the path, remove it
+        $bucket = config('filesystems.disks.s3.bucket');
+        if ($bucket && str_starts_with($path, $bucket . '/')) {
+            $path = substr($path, strlen($bucket) + 1);
+        }
+        
+        return $path ?: null;
     }
 }

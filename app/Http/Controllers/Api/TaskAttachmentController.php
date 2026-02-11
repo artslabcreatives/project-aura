@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TaskAttachment;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 class TaskAttachmentController extends Controller
@@ -80,8 +81,8 @@ class TaskAttachmentController extends Controller
         // Handle file upload
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $path = $file->store('task-attachments', 'public');
-            $validated['url'] = '/storage/' . $path;
+            $path = $file->store('task-attachments', 's3');
+            $validated['url'] = Storage::disk('s3')->url($path);
             $validated['type'] = 'file';
             if (empty($validated['name'])) {
                 $validated['name'] = $file->getClientOriginalName();

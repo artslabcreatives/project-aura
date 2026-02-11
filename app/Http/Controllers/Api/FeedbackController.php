@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 class FeedbackController extends Controller
@@ -73,15 +74,15 @@ class FeedbackController extends Controller
         ];
 
         if ($request->hasFile('screenshot')) {
-            $path = $request->file('screenshot')->store('feedback-screenshots', 'public');
-            $feedbackData['screenshot_path'] = $path;
-            $feedbackData['images'][] = $path;
+            $path = $request->file('screenshot')->store('feedback-screenshots', 's3');
+            $feedbackData['screenshot_path'] = Storage::disk('s3')->url($path);
+            $feedbackData['images'][] = Storage::disk('s3')->url($path);
         }
 
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $path = $image->store('feedback-screenshots', 'public');
-                $feedbackData['images'][] = $path;
+                $path = $image->store('feedback-screenshots', 's3');
+                $feedbackData['images'][] = Storage::disk('s3')->url($path);
             }
         }
 

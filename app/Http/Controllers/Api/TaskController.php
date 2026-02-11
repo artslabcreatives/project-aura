@@ -684,8 +684,8 @@ class TaskController extends Controller
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
                     // Store file
-                    $path = $file->store('task-attachments', 'public');
-                    $url = \Illuminate\Support\Facades\Storage::url($path);
+                    $path = $file->store('task-attachments', 's3');
+                    $url = \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
                     
                     $task->attachments()->create([
                         'name' => $file->getClientOriginalName(),
