@@ -679,19 +679,19 @@ export function ProjectDialog({
 			return;
 		}
 
-		const stageTitles = stages.map(s => s.title.toLowerCase());
-		const hasDuplicates = stageTitles.some((title, index) => stageTitles.indexOf(title) !== index);
-		if (hasDuplicates) {
-			toast({
-				title: "Validation Error",
-				description: "Stage names must be unique",
-				variant: "destructive",
-			});
-			return;
-		}
+		// Filter out duplicate stages
+		const uniqueStages: Stage[] = [];
+		const seenTitles = new Set<string>();
+		stages.forEach(stage => {
+			const normalizedTitle = stage.title.toLowerCase().trim();
+			if (!seenTitles.has(normalizedTitle)) {
+				seenTitles.add(normalizedTitle);
+				uniqueStages.push(stage);
+			}
+		});
 
 		// Validate that all stages (except Completed and Archive) have a Main Responsible person
-		const stagesMissingResponsible = stages.filter(s => {
+		const stagesMissingResponsible = uniqueStages.filter(s => {
 			const title = s.title.toLowerCase().trim();
 			// Skip validation for Completed and Archive stages
 			if (['completed', 'complete', 'archive'].includes(title)) {
@@ -711,7 +711,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(result.data.name, result.data.description || "", stages, emails, phoneNumbers, department, groupId);
+		onSave(result.data.name, result.data.description || "", uniqueStages, emails, phoneNumbers, department, groupId);
 		onOpenChange(false);
 	};
 
