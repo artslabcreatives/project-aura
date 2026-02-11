@@ -3,7 +3,7 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { taskService } from "@/services/taskService";
 import { useUser } from "@/hooks/use-user";
+import { TaskHistoryDialog } from "./TaskHistoryDialog";
 
 interface TaskCardProps {
 	task: Task;
@@ -52,7 +53,8 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 	const isCompleteStage = currentStage?.title?.toLowerCase() === "complete" || currentStage?.title?.toLowerCase() === "completed" || currentStage?.title?.toLowerCase() === "archive";
 	const isTaskComplete = task.userStatus === "complete" || isCompleteStage;
 	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && !isTaskComplete;
-	const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+	const [showRevisionHistoryDialog, setShowRevisionHistoryDialog] = useState(false);
+	const [showTaskHistoryDialog, setShowTaskHistoryDialog] = useState(false);
 	const [timeLeft, setTimeLeft] = useState<string>("");
 	const [isShareOpen, setIsShareOpen] = useState(false);
 	const { toast } = useToast();
@@ -253,6 +255,20 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							</TooltipProvider>
 						)}
 
+					{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7"
+							onClick={(e) => {
+								e.stopPropagation();
+								setShowTaskHistoryDialog(true);
+							}}
+							title="View Task History"
+						>
+							<ScrollText className="h-3.5 w-3.5" />
+						</Button>
+					)}
 
 					{canManage && (
 						<>
@@ -400,7 +416,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 									className="h-6 w-6 flex-shrink-0"
 									onClick={(e) => {
 										e.stopPropagation();
-										setShowHistoryDialog(true);
+										setShowRevisionHistoryDialog(true);
 									}}
 									title="View revision history"
 								>
@@ -511,7 +527,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			)}
 
 			{/* Revision History Dialog */}
-			<Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+			<Dialog open={showRevisionHistoryDialog} onOpenChange={setShowRevisionHistoryDialog}>
 				<DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>Revision History</DialogTitle>
@@ -558,6 +574,13 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			<TaskHistoryDialog
+				taskId={task.id}
+				open={showTaskHistoryDialog}
+				onOpenChange={setShowTaskHistoryDialog}
+				taskTitle={task.title}
+			/>
 		</Card >
 	);
 }
