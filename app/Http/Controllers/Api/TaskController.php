@@ -604,7 +604,7 @@ class TaskController extends Controller
             'project_stage_id' => 'sometimes|exists:stages,id',
             'comment' => 'nullable|string',
             'links' => 'nullable|array',
-            'links.*' => 'string|url',
+            'links.*' => 'string', // Relaxed validation
             'files' => 'nullable|array',
             'files.*' => 'file|max:10240',
         ]);
