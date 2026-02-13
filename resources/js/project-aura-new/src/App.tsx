@@ -25,9 +25,11 @@ import { userTourSteps } from "@/components/tourSteps";
 const queryClient = new QueryClient();
 
 import { NotificationsPopover } from "@/components/NotificationsPopover";
+import { VideoGuideModal } from "@/components/VideoGuideModal";
+import { api } from "@/lib/api";
 
 import { Bug } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ReportIssueDialog } from "@/components/ReportIssueDialog";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { UserProfileMenu } from "@/components/UserProfileMenu";
@@ -35,7 +37,34 @@ import { UserProfileMenu } from "@/components/UserProfileMenu";
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const { open } = useSidebar();
 	const { currentUser, logout } = useUser();
+	const [isVideoGuideOpen, setIsVideoGuideOpen] = useState(false);
+	const [isWelcomeVideo, setIsWelcomeVideo] = useState(false);
 	const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+	const hasShownWelcomeRef = useRef(false);
+
+	useEffect(() => {
+		if (currentUser && currentUser.hasSeenWelcomeVideo === false && !hasShownWelcomeRef.current) {
+			setIsVideoGuideOpen(true);
+			setIsWelcomeVideo(true);
+			hasShownWelcomeRef.current = true;
+		}
+	}, [currentUser]);
+
+	const handleVideoGuideClose = async () => {
+		setIsVideoGuideOpen(false);
+		if (isWelcomeVideo) {
+			try {
+				await api.post('/user/seen-welcome-video', {});
+				if (currentUser) {
+					// Update local object to prevent immediate re-trigger if state updates
+					currentUser.hasSeenWelcomeVideo = true;
+				}
+			} catch (e) {
+				console.error('Failed to mark welcome video as seen:', e);
+			}
+			setIsWelcomeVideo(false);
+		}
+	};
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -64,17 +93,31 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 					</div>
 					<div className="flex items-center gap-3">
 
-						<div className="flex flex-col items-center mr-2">
+						<div className="flex items-center mr-2 gap-1">
 							<Button
 								variant="ghost"
 								size="icon"
-								onClick={() => setIsReportDialogOpen(true)}
-								title="Report an Issue (Ctrl+Shift+R)"
+								onClick={() => {
+									setIsWelcomeVideo(false);
+									setIsVideoGuideOpen(true);
+								}}
+								title="Help Guide"
 								className="text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
 							>
-								<Bug className="h-5 w-5" />
+								<HelpCircle className="h-5 w-5" />
 							</Button>
-							<span className="text-[10px] text-muted-foreground leading-none hidden md:block">Ctrl+Shift+R</span>
+							<div className="flex flex-col items-center">
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => setIsReportDialogOpen(true)}
+									title="Report an Issue (Ctrl+Shift+R)"
+									className="text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+								>
+									<Bug className="h-5 w-5" />
+								</Button>
+								<span className="text-[10px] text-muted-foreground leading-none hidden md:block">Ctrl+Shift+R</span>
+							</div>
 						</div>
 						<div data-tour="notifications">
 							<NotificationsPopover />
@@ -88,6 +131,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 					{children}
 				</main>
 				<ReportIssueDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
+				{currentUser && (
+					<VideoGuideModal
+						isOpen={isVideoGuideOpen}
+						onClose={handleVideoGuideClose}
+						role={currentUser.role}
+						isWelcome={isWelcomeVideo}
+					/>
+				)}
 			</div>
 		</div>
 	);

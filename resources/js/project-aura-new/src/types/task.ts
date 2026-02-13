@@ -101,4 +101,5 @@ export interface User {
 		reducedMotion?: boolean;
 	};
 	twoFactorEnabled?: boolean;
+	hasSeenWelcomeVideo?: boolean;
 }

@@ -39,6 +39,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				avatar: response.avatar,
 				preferences: response.preferences,
 				twoFactorEnabled: !!response.two_factor_confirmed_at,
+				hasSeenWelcomeVideo: response.has_seen_welcome_video,
 			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);
