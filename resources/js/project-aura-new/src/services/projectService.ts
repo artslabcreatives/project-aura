@@ -63,6 +63,7 @@ function mapProject(raw: any): Project {
 				department_id: c.department_id,
 			}))
 			: undefined,
+		mattermostChannelId: raw.mattermost_channel_id || undefined,
 	};
 }
 

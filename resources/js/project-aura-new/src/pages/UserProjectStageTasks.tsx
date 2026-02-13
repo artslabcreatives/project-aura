@@ -7,7 +7,7 @@ import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
 import { useHistory } from "@/hooks/use-history";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List, MessageSquare, X } from "lucide-react";
 import { UserStageDialog } from "@/components/UserStageDialog";
 import { StageManagement } from "@/components/StageManagement";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,12 @@ import {
 	ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const getDefaultUserTaskStages = (): Stage[] => [
 	{ id: "pending", title: "Pending", color: "bg-status-todo", order: 0, type: "user" },
@@ -51,6 +57,7 @@ export default function UserProjectStageTasks() {
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [loading, setLoading] = useState(true);
+	const [showChat, setShowChat] = useState(false);
 
 	const fetchUserStages = async () => {
 		if (!currentUser) return;
@@ -492,62 +499,109 @@ export default function UserProjectStageTasks() {
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<ToggleGroup
-						type="single"
-						value={view}
-						onValueChange={(value) => {
-							if (value) setView(value as "kanban" | "list");
-						}}
-					>
-						<ToggleGroupItem value="kanban" aria-label="Kanban view">
-							<LayoutGrid className="h-4 w-4" />
-						</ToggleGroupItem>
-						<ToggleGroupItem value="list" aria-label="List view">
-							<List className="h-4 w-4" />
-						</ToggleGroupItem>
-					</ToggleGroup>
-					<Button onClick={() => setIsStageManagementOpen(true)} variant="outline">
-						Manage Stages
-					</Button>
-					<Button onClick={() => { setEditingStage(null); setIsStageDialogOpen(true); }} size="sm">
-						<Plus className="h-4 w-4 mr-2" />
-						Add Stage
-					</Button>
+					{!showChat && (
+						<ToggleGroup
+							type="single"
+							value={view}
+							onValueChange={(value) => {
+								if (value) setView(value as "kanban" | "list");
+							}}
+						>
+							<ToggleGroupItem value="kanban" aria-label="Kanban view">
+								<LayoutGrid className="h-4 w-4" />
+							</ToggleGroupItem>
+							<ToggleGroupItem value="list" aria-label="List view">
+								<List className="h-4 w-4" />
+							</ToggleGroupItem>
+						</ToggleGroup>
+					)}
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<span>
+									<Button
+										onClick={() => setShowChat(!showChat)}
+										variant={showChat ? "default" : "outline"}
+										disabled={!project?.mattermostChannelId}
+									>
+										{showChat ? (
+											<>
+												<X className="h-4 w-4 mr-2" />
+												Close Chat
+											</>
+										) : (
+											<>
+												<MessageSquare className="h-4 w-4 mr-2" />
+												Chat
+											</>
+										)}
+									</Button>
+								</span>
+							</TooltipTrigger>
+							{!project?.mattermostChannelId && (
+								<TooltipContent>
+									<p>Please select or create a Mattermost channel for this project</p>
+								</TooltipContent>
+							)}
+						</Tooltip>
+					</TooltipProvider>
+					{!showChat && (
+						<>
+							<Button onClick={() => setIsStageManagementOpen(true)} variant="outline">
+								Manage Stages
+							</Button>
+							<Button onClick={() => { setEditingStage(null); setIsStageDialogOpen(true); }} size="sm">
+								<Plus className="h-4 w-4 mr-2" />
+								Add Stage
+							</Button>
+						</>
+					)}
 				</div>
 			</div>
 
-			<div className="overflow-x-auto">
-				{view === "kanban" ? (
-					<KanbanBoard
-						tasks={tasks}
-						stages={userStages}
-						onTaskUpdate={handleTaskUpdate}
-						onTaskEdit={handleTaskEdit}
-						onTaskDelete={handleTaskDelete}
-						useProjectStages={false}
-						canManageStages={false}
-						canManageTasks={false}
-						canDragTasks={true}
-						projectId={projectId}
-						onTaskComplete={handleTaskCompleteWithDetails}
-						disableBacklogRenaming={true}
-						useSubtasksGrouping={true}
-						allTasks={allTasks}
+			{showChat ? (
+				<div className="w-full h-[calc(100vh-12rem)] border rounded-lg overflow-hidden">
+					<iframe
+						src={`https://collab.artslabcreatives.com/artslab-creatives/channels/${project?.mattermostChannelId}`}
+						className="w-full h-full"
+						title="Mattermost Chat"
+						allow="microphone; camera"
 					/>
-				) : (
-					<TaskListView
-						tasks={tasksForListView}
-						stages={userStages}
-						onTaskEdit={handleTaskEdit}
-						onTaskDelete={handleTaskDelete}
-						onTaskUpdate={handleTaskUpdate}
-						teamMembers={teamMembers}
-						showAssigneeColumn={false}
-						canManage={false}
-						canUpdateStage={true}
-					/>
-				)}
-			</div>
+				</div>
+			) : (
+				<div className="overflow-x-auto">
+					{view === "kanban" ? (
+						<KanbanBoard
+							tasks={tasks}
+							stages={userStages}
+							onTaskUpdate={handleTaskUpdate}
+							onTaskEdit={handleTaskEdit}
+							onTaskDelete={handleTaskDelete}
+							useProjectStages={false}
+							canManageStages={false}
+							canManageTasks={false}
+							canDragTasks={true}
+							projectId={projectId}
+							onTaskComplete={handleTaskCompleteWithDetails}
+							disableBacklogRenaming={true}
+							useSubtasksGrouping={true}
+							allTasks={allTasks}
+						/>
+					) : (
+						<TaskListView
+							tasks={tasksForListView}
+							stages={userStages}
+							onTaskEdit={handleTaskEdit}
+							onTaskDelete={handleTaskDelete}
+							onTaskUpdate={handleTaskUpdate}
+							teamMembers={teamMembers}
+							showAssigneeColumn={false}
+							canManage={false}
+							canUpdateStage={true}
+						/>
+					)}
+				</div>
+			)}
 
 			<StageManagement
 				open={isStageManagementOpen}
