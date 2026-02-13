@@ -119,7 +119,9 @@ export default function ProjectKanban() {
 				// We use project tasks for allTasks to avoid the massive global fetch. 
 				// This means the "task count" in assignee dropdown will reflect project-load, not global-load, which is acceptable for performance.
 				setAllTasks(projectTasks);
-				setTeamMembers(usersData);
+				// Filter out deactivated users
+				const activeUsers = usersData.filter(user => user.is_active !== false); // Handle undefined as active just in case, or explicitly true
+				setTeamMembers(activeUsers);
 
 			} catch (error) {
 				console.error('Error loading project data:', error);

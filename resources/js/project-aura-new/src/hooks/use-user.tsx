@@ -40,6 +40,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				preferences: response.preferences,
 				twoFactorEnabled: !!response.two_factor_confirmed_at,
 				hasSeenWelcomeVideo: response.has_seen_welcome_video,
+				is_active: response.is_active,
 			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);
@@ -65,6 +66,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				department: u.department_id ? String(u.department_id) : '',
 				avatar: u.avatar,
 				preferences: u.preferences,
+				is_active: u.is_active,
 			}));
 			setTeamMembers(users);
 		} catch (error) {

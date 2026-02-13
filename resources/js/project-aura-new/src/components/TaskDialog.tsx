@@ -449,15 +449,17 @@ export function TaskDialog({
 	};
 
 	// Use member ID as value
-	const memberOptions: SearchableOption[] = teamMembers.map((member) => {
-		const departmentName = getDepartmentName(member.department);
-		const taskCount = getTaskCountForAssignee(member.name);
-		return {
-			value: member.id, // Use ID as value
-			label: `${member.name} (${taskCount})`,
-			group: departmentName,
-		};
-	});
+	const memberOptions: SearchableOption[] = teamMembers
+		.filter(member => member.is_active !== false || formData.assigneeIds.includes(member.id))
+		.map((member) => {
+			const departmentName = getDepartmentName(member.department);
+			const taskCount = getTaskCountForAssignee(member.name);
+			return {
+				value: member.id, // Use ID as value
+				label: `${member.name} (${taskCount})` + (member.is_active === false ? " (Deactivated)" : ""),
+				group: departmentName,
+			};
+		});
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

@@ -54,7 +54,9 @@ export default function Team() {
 					taskService.getAll(),
 				]);
 
-				setTeamMembers(usersData);
+				// Filter out deactivated users where is_active is explicitly false
+				const activeMembers = usersData.filter((user: User) => user.is_active !== false);
+				setTeamMembers(activeMembers);
 				setDepartments(departmentsData);
 				setTasks(tasksData);
 				// Expand all departments by default
