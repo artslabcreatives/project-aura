@@ -581,7 +581,16 @@ export default function TaskDetailsPage() {
                                                     {format(new Date(comment.createdAt), "MMM dd, hh:mm a")}
                                                 </span>
                                             </div>
-                                            <p className="whitespace-pre-wrap text-foreground/90 pl-7">{comment.comment}</p>
+                                            <div className="pl-7 text-foreground/90">
+                                                {/<\/?[a-z][\s\S]*>/i.test(comment.comment) ? (
+                                                    <div
+                                                        className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5"
+                                                        dangerouslySetInnerHTML={{ __html: comment.comment }}
+                                                    />
+                                                ) : (
+                                                    <p className="whitespace-pre-wrap">{comment.comment}</p>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -626,7 +635,14 @@ export default function TaskDetailsPage() {
                                                     <div>
                                                         <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{history.details}</div>
                                                         <div className="mt-1 text-sm bg-muted/50 p-2 rounded border-l-2 border-primary italic">
-                                                            "{history.previousDetails.comment_text}"
+                                                            {/<\/?[a-z][\s\S]*>/i.test(history.previousDetails.comment_text) ? (
+                                                                <div
+                                                                    className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5"
+                                                                    dangerouslySetInnerHTML={{ __html: history.previousDetails.comment_text }}
+                                                                />
+                                                            ) : (
+                                                                `"${history.previousDetails.comment_text}"`
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
