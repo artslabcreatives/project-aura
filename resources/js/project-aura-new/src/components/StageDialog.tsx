@@ -134,14 +134,18 @@ export function StageDialog({
     onOpenChange(false);
   };
 
-  const memberOptions: SearchableOption[] = teamMembers.map(member => {
-    const deptName = departments.find(d => d.id === member.department)?.name || "Other";
-    return {
-      value: member.id,
-      label: member.name,
-      group: deptName
-    };
-  });
+  const memberOptions: SearchableOption[] = teamMembers
+    .filter(member => member.is_active !== false ||
+      [formData.mainResponsibleId, formData.backupResponsibleId1, formData.backupResponsibleId2].includes(member.id)
+    )
+    .map(member => {
+      const deptName = departments.find(d => d.id === member.department)?.name || "Other";
+      return {
+        value: member.id,
+        label: member.name + (member.is_active === false ? " (Deactivated)" : ""),
+        group: deptName
+      };
+    });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

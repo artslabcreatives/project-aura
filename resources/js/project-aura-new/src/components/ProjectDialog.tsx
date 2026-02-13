@@ -118,9 +118,10 @@ interface SortableStageItemProps {
 	isSystem?: boolean;
 	currentUser?: User | null;
 	stageGroups: StageGroup[];
+	allTeamMembers: User[];
 }
 
-function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem, currentUser, stageGroups }: SortableStageItemProps) {
+function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem, currentUser, stageGroups, allTeamMembers }: SortableStageItemProps) {
 	const {
 		attributes,
 		listeners,
@@ -373,37 +374,59 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 						!stage.backupResponsibleId1 ? "grid-cols-1 md:grid-cols-2" :
 							"grid-cols-1 md:grid-cols-3"
 				)}>
-					<div className="flex flex-col gap-1.5 transition-all">
-						<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
-						<SearchableSelect
-							value={stage.mainResponsibleId}
-							onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
-							options={memberOptions.filter(o => o.value !== stage.backupResponsibleId1 && o.value !== stage.backupResponsibleId2)}
-							placeholder="Select main"
-						/>
-					</div>
-					{stage.mainResponsibleId && (
-						<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
-							<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
-							<SearchableSelect
-								value={stage.backupResponsibleId1}
-								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
-								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
-								placeholder="Select backup 1"
-							/>
-						</div>
-					)}
-					{stage.mainResponsibleId && stage.backupResponsibleId1 && (
-						<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
-							<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
-							<SearchableSelect
-								value={stage.backupResponsibleId2}
-								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
-								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
-								placeholder="Select backup 2"
-							/>
-						</div>
-					)}
+					{(() => {
+						const getOptions = (currentValue: string | undefined, excludeValues: (string | undefined)[]) => {
+							let opts = memberOptions;
+							opts = opts.filter(o => !excludeValues.includes(o.value));
+							if (currentValue && !opts.find(o => o.value === currentValue)) {
+								const user = allTeamMembers.find(u => u.id === currentValue);
+								if (user) {
+									opts = [...opts, {
+										value: user.id,
+										label: user.name + (user.is_active === false ? " (Deactivated)" : ""),
+										group: "Deactivated"
+									}];
+								}
+							}
+							return opts;
+						};
+
+						return (
+							<>
+								<div className="flex flex-col gap-1.5 transition-all">
+									<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
+									<SearchableSelect
+										value={stage.mainResponsibleId}
+										onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
+										options={getOptions(stage.mainResponsibleId, [stage.backupResponsibleId1, stage.backupResponsibleId2])}
+										placeholder="Select main"
+									/>
+								</div>
+								{stage.mainResponsibleId && (
+									<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+										<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
+										<SearchableSelect
+											value={stage.backupResponsibleId1}
+											onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
+											options={getOptions(stage.backupResponsibleId1, [stage.mainResponsibleId, stage.backupResponsibleId2])}
+											placeholder="Select backup 1"
+										/>
+									</div>
+								)}
+								{stage.mainResponsibleId && stage.backupResponsibleId1 && (
+									<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+										<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
+										<SearchableSelect
+											value={stage.backupResponsibleId2}
+											onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
+											options={getOptions(stage.backupResponsibleId2, [stage.mainResponsibleId, stage.backupResponsibleId1])}
+											placeholder="Select backup 2"
+										/>
+									</div>
+								)}
+							</>
+						);
+					})()}
 				</div>
 			)}
 		</div>
@@ -679,19 +702,19 @@ export function ProjectDialog({
 			return;
 		}
 
-		const stageTitles = stages.map(s => s.title.toLowerCase());
-		const hasDuplicates = stageTitles.some((title, index) => stageTitles.indexOf(title) !== index);
-		if (hasDuplicates) {
-			toast({
-				title: "Validation Error",
-				description: "Stage names must be unique",
-				variant: "destructive",
-			});
-			return;
-		}
+		// Filter out duplicate stages
+		const uniqueStages: Stage[] = [];
+		const seenTitles = new Set<string>();
+		stages.forEach(stage => {
+			const normalizedTitle = stage.title.toLowerCase().trim();
+			if (!seenTitles.has(normalizedTitle)) {
+				seenTitles.add(normalizedTitle);
+				uniqueStages.push(stage);
+			}
+		});
 
 		// Validate that all stages (except Completed and Archive) have a Main Responsible person
-		const stagesMissingResponsible = stages.filter(s => {
+		const stagesMissingResponsible = uniqueStages.filter(s => {
 			const title = s.title.toLowerCase().trim();
 			// Skip validation for Completed and Archive stages
 			if (['completed', 'complete', 'archive'].includes(title)) {
@@ -711,7 +734,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(result.data.name, result.data.description || "", stages, emails, phoneNumbers, department, groupId);
+		onSave(result.data.name, result.data.description || "", uniqueStages, emails, phoneNumbers, department, groupId);
 		onOpenChange(false);
 	};
 
@@ -741,14 +764,16 @@ export function ProjectDialog({
 		setStages(prev => prev.filter(s => s.id !== id));
 	};
 
-	const memberOptions: SearchableOption[] = teamMembers.map(member => {
-		const deptName = departments.find(d => d.id === member.department)?.name || "Other";
-		return {
-			value: member.id,
-			label: member.name,
-			group: deptName
-		};
-	});
+	const memberOptions: SearchableOption[] = teamMembers
+		.filter(member => member.is_active !== false)
+		.map(member => {
+			const deptName = departments.find(d => d.id === member.department)?.name || "Other";
+			return {
+				value: member.id,
+				label: member.name,
+				group: deptName
+			};
+		});
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -980,6 +1005,7 @@ export function ProjectDialog({
 											isSystem={true}
 											currentUser={currentUser}
 											stageGroups={stageGroups}
+											allTeamMembers={teamMembers}
 										/>
 									))}
 
@@ -1003,6 +1029,7 @@ export function ProjectDialog({
 													isSystem={false}
 													currentUser={currentUser}
 													stageGroups={stageGroups}
+													allTeamMembers={teamMembers}
 												/>
 											))}
 										</SortableContext>
@@ -1032,6 +1059,7 @@ export function ProjectDialog({
 											isSystem={true}
 											currentUser={currentUser}
 											stageGroups={stageGroups}
+											allTeamMembers={teamMembers}
 										/>
 									))}
 								</div>

@@ -12,6 +12,7 @@ export const userService = {
 			role: u.role,
 			department: u.department_id != null ? String(u.department_id) : '',
 			preferences: u.preferences,
+			is_active: u.is_active,
 		}));
 	},
 
@@ -24,12 +25,16 @@ export const userService = {
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
 			preferences: data.preferences,
+			is_active: data.is_active,
 		};
 	},
 
 	getCurrentUser: async (): Promise<User> => {
 		const { data } = await api.get('/users/me');
-		return data;
+		return {
+			...data,
+			is_active: data.is_active,
+		};
 	},
 
 	create: async (user: Omit<User, 'id'>): Promise<User> => {
@@ -49,6 +54,7 @@ export const userService = {
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
 			preferences: data.preferences,
+			is_active: data.is_active,
 		};
 	},
 
@@ -74,6 +80,7 @@ export const userService = {
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
 			preferences: data.preferences,
+			is_active: data.is_active,
 		};
 	},
 

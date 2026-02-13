@@ -119,7 +119,9 @@ export default function ProjectKanban() {
 				// We use project tasks for allTasks to avoid the massive global fetch. 
 				// This means the "task count" in assignee dropdown will reflect project-load, not global-load, which is acceptable for performance.
 				setAllTasks(projectTasks);
-				setTeamMembers(usersData);
+				// Filter out deactivated users
+				const activeUsers = usersData.filter(user => user.is_active !== false); // Handle undefined as active just in case, or explicitly true
+				setTeamMembers(activeUsers);
 
 			} catch (error) {
 				console.error('Error loading project data:', error);
@@ -556,7 +558,26 @@ export default function ProjectKanban() {
 				<div className="flex items-center justify-between">
 					<div>
 						<h1 className="text-2xl font-bold">{project.name}</h1>
-						<p className="text-muted-foreground">{project.description}</p>
+						<div
+							className="text-muted-foreground prose prose-sm dark:prose-invert max-w-none"
+							dangerouslySetInnerHTML={{
+								__html: (() => {
+									const txt = document.createElement("textarea");
+									let val = project.description || '';
+									let lastVal = '';
+									let limit = 0;
+									// Recursively decode until stable or limit reached
+									// We use a limit to prevent infinite loops if something weird happens
+									while (val !== lastVal && limit < 5) {
+										lastVal = val;
+										txt.innerHTML = val;
+										val = txt.value;
+										limit++;
+									}
+									return val;
+								})()
+							}}
+						/>
 					</div>
 					<div className="flex gap-2">
 						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (

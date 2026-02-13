@@ -49,6 +49,7 @@ export function InviteUsersDialog({
 
     // Filter users: exclude already collaborating users and project's own department users
     const availableUsers = allUsers.filter(user => {
+        if (user.is_active === false) return false;
         if (existingCollaboratorIds.has(String(user.id))) return false;
         // Optionally filter out users from the same department
         // If project belongs to department X, we may want to only show users NOT from department X

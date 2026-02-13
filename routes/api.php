@@ -51,6 +51,7 @@ Route::get('users/search/exist', [UserController::class, 'exist']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
+    Route::post('/user/seen-welcome-video', [AuthController::class, 'markWelcomeVideoAsSeen']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('projects', ProjectController::class);

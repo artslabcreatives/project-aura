@@ -470,4 +470,31 @@ class AuthController extends Controller
             'token' => $authToken,
         ]);
     }
+
+    #[OA\Post(
+        path: "/user/seen-welcome-video",
+        summary: "Mark welcome video as seen",
+        security: [["bearerAuth" => []]],
+        tags: ["Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Welcome video marked as seen",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Welcome video marked as seen")
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
+    public function markWelcomeVideoAsSeen(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->has_seen_welcome_video = true;
+        $user->save();
+
+        return response()->json(['message' => 'Welcome video marked as seen']);
+    }
 }

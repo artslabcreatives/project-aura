@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
 import { userService } from "@/services/userService";
+import { TwoFactorSection } from "@/components/profile/TwoFactorSection";
 
 export default function Configuration() {
     const { currentUser, refreshUser } = useUser();
@@ -353,7 +354,7 @@ export default function Configuration() {
                     </div>
 
                     {/* Security Section */}
-                    <div ref={securityRef}>
+                    <div ref={securityRef} className="space-y-6">
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -441,6 +442,7 @@ export default function Configuration() {
                                 </form>
                             </CardContent>
                         </Card>
+                        <TwoFactorSection />
                     </div>
                 </div>
             </div>

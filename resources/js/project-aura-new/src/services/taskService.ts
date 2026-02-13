@@ -152,7 +152,7 @@ export const taskService = {
 		if (data.projectStageId) formData.append('project_stage_id', data.projectStageId);
 		if (data.comment) formData.append('comment', data.comment);
 		if (data.links) {
-			data.links.forEach((link, index) => formData.append(`links[${index}]`, link));
+			data.links.forEach((link) => formData.append('links[]', link));
 		}
 		if (data.files) {
 			data.files.forEach((file) => formData.append('files[]', file));

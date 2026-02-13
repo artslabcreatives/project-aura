@@ -92,11 +92,14 @@ export function TaskListView({
   };
 
   const memberOptions = useMemo<SearchableOption[]>(() => {
-    const options = teamMembers.map((member) => ({
-      value: String(member.id),
-      label: member.name,
-      group: getDepartmentName(member.department),
-    }));
+    // Only include active users in the base options
+    const options = teamMembers
+      .filter(member => member.is_active !== false)
+      .map((member) => ({
+        value: String(member.id),
+        label: member.name,
+        group: getDepartmentName(member.department),
+      }));
 
     // Add Unassigned option
     options.unshift({
@@ -366,7 +369,17 @@ export function TaskListView({
                         }
                         onTaskUpdate(task.id, { assignee: newAssigneeName });
                       }}
-                      options={memberOptions}
+                      options={(() => {
+                        // Check if current assignee is inactive and needs to be added to options
+                        if (currentAssigneeUser && currentAssigneeUser.is_active === false) {
+                          return [...memberOptions, {
+                            value: String(currentAssigneeUser.id),
+                            label: currentAssigneeUser.name + " (Deactivated)",
+                            group: "Deactivated"
+                          }];
+                        }
+                        return memberOptions;
+                      })()}
                       placeholder="Unassigned"
                       disabled={!canManage}
                       className="h-8"
