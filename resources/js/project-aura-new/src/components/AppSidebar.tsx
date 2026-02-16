@@ -199,11 +199,9 @@ export function AppSidebar() {
 							// Base hidden stages
 							const hiddenStages = ['suggested', 'suggested task', 'task', 'archive', 'completed', 'pending'];
 
-							// For account managers, hide review stages from this list (they have a dedicated view)
-							if (currentUser.role === 'account-manager') {
-								if (stage.isReviewStage || title.includes('review')) {
-									return false;
-								}
+							// For users and account managers, hide review stages based on database flag
+							if (stage.isReviewStage) {
+								return false;
 							}
 
 							// User requested to hide specific system stages

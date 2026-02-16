@@ -1,12 +1,10 @@
 import { DashboardStats } from "@/components/DashboardStats";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TaskCard } from "@/components/TaskCard";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
-import { isPast, isToday, isFuture, addDays, isTomorrow, isSameMonth } from "date-fns";
 import { useEffect, useState, useMemo } from "react";
 import { Task, User } from "@/types/task";
 import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
+import { TaskCalendar } from "@/components/TaskCalendar";
 
 import { taskService } from "@/services/taskService";
 import { projectService } from "@/services/projectService";
@@ -29,6 +27,7 @@ export default function TeamLeadView() {
 
 	// Onboarding tour
 	const tourId = `team_lead_dashboard_tour_${currentUser?.id}`;
+	// @ts-ignore
 	const { isOpen: isTourOpen, startTour, endTour, autoStart, hasCompleted } = useOnboardingTour(tourId);
 
 	// Auto-start tour on first visit
@@ -93,63 +92,65 @@ export default function TeamLeadView() {
 		});
 	}, [tasks, projects, teamMembers, currentUser]);
 
-	const today = new Date();
+	// Flatten and filter for Calendar
+	const calendarTasks = useMemo(() => {
+		// Helper to flatten tasks (recursive + unique)
+		const flattenTasks = (taskList: Task[]): Task[] => {
+			const flattened: Task[] = [];
+			const seenIds = new Set<string>();
 
-	const isTaskCompleted = (task: Task) => {
-		if (task.userStatus === 'complete') return true;
+			const recurse = (items: Task[]) => {
+				for (const item of items) {
+					if (!seenIds.has(item.id)) {
+						seenIds.add(item.id);
+						flattened.push(item);
+						if (item.subtasks && item.subtasks.length > 0) {
+							recurse(item.subtasks);
+						}
+					}
+				}
+			};
+			recurse(taskList);
+			return flattened;
+		};
 
-		let stage: any = undefined;
+		const flatTasks = flattenTasks(departmentTasks);
 
-		if (task.projectId && projects.length > 0) {
-			const project = projects.find(p => String(p.id) === String(task.projectId));
-			if (project && task.projectStage) {
-				stage = project.stages.find(s => String(s.id) === String(task.projectStage));
-			}
-		}
+		// Filter for Calendar (Active tasks usually)
+		const forbiddenStageTitles = ['archive', 'completed', 'complete'];
+		const forbiddenStageIds = new Set<string>();
+		projects.forEach((p: Project) => {
+			p.stages.forEach(s => {
+				if (forbiddenStageTitles.includes(s.title.toLowerCase().trim())) {
+					forbiddenStageIds.add(s.id);
+				}
+			});
+		});
 
-		if (!stage && task.projectStage && projects.length > 0) {
-			const project = projects.find(p => p.stages.some(s => String(s.id) === String(task.projectStage)));
-			stage = project?.stages.find(s => String(s.id) === String(task.projectStage));
-		}
+		return flatTasks.filter(task => {
+			if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
+			if (task.userStatus === 'complete') return false;
+			return true;
+		});
+	}, [departmentTasks, projects]);
 
-		if (stage) {
-			const title = stage.title.toLowerCase().trim();
-			return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
-		}
 
-		return false;
+	const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+		setTasks(prev => {
+			// Recursive update
+			const updateInList = (list: Task[]): Task[] => {
+				return list.map(t => {
+					if (t.id === taskId) return { ...t, ...updates };
+					if (t.subtasks) return { ...t, subtasks: updateInList(t.subtasks) };
+					return t;
+				});
+			};
+			return updateInList(prev);
+		});
 	};
 
-	const dueTodayTasks = departmentTasks.filter(
-		(task) => !task.parentId && !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate))
-	);
-
-	const overdueTasks = departmentTasks.filter(
-		(task) =>
-			!task.parentId &&
-			!isTaskCompleted(task) &&
-			task.dueDate &&
-			isPast(new Date(task.dueDate)) &&
-			!isToday(new Date(task.dueDate))
-	);
-
-	const tomorrowTasks = departmentTasks.filter((task) => {
-		return !task.parentId && !isTaskCompleted(task) && task.dueDate && isTomorrow(new Date(task.dueDate));
-	});
-
-	const thisMonthTasks = departmentTasks.filter((task) => {
-		if (!task.dueDate) return false;
-		const dueDate = new Date(task.dueDate);
-		return (
-			!task.parentId &&
-			!isTaskCompleted(task) &&
-			isSameMonth(dueDate, today) &&
-			!isPast(dueDate)
-		);
-	});
-
 	// Get department name
-	const [departments, setDepartments] = useState([]);
+	const [departments, setDepartments] = useState<any[]>([]);
 	useEffect(() => {
 		const loadDepartments = async () => {
 			try {
@@ -194,19 +195,25 @@ export default function TeamLeadView() {
 					))}
 				</div>
 
-				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-					{[1, 2, 3, 4].map(i => (
-						<Card key={i} className="overflow-hidden">
-							<CardHeader>
-								<Skeleton className="h-6 w-32" />
-							</CardHeader>
-							<CardContent className="space-y-3">
-								<Skeleton className="h-24 w-full rounded-lg" />
-								<Skeleton className="h-24 w-full rounded-lg" />
-								<Skeleton className="h-24 w-full rounded-lg" />
-							</CardContent>
-						</Card>
-					))}
+				<div className="mt-8 mb-8">
+					<div className="flex items-center gap-2 mb-4">
+						<div className="h-8 w-1 bg-primary rounded-full"></div>
+						<Skeleton className="h-6 w-48" />
+					</div>
+					<div className="rounded-md border p-4 space-y-4">
+						<div className="flex justify-between items-center mb-4">
+							<Skeleton className="h-8 w-32" />
+							<div className="flex gap-2">
+								<Skeleton className="h-8 w-8" />
+								<Skeleton className="h-8 w-8" />
+							</div>
+						</div>
+						<div className="grid grid-cols-7 gap-4">
+							{[...Array(35)].map((_, i) => (
+								<Skeleton key={i} className="h-24 w-full rounded-md" />
+							))}
+						</div>
+					</div>
 				</div>
 			</div>
 		);
@@ -249,176 +256,26 @@ export default function TeamLeadView() {
 				<DashboardStats tasks={departmentTasks} projects={projects} />
 			</div>
 
-			<div data-tour="team-tasks-overview" className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-				<Card className="hover-lift border-2 border-primary/20 bg-gradient-to-br from-card to-primary/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-primary animate-pulse shadow-lg shadow-primary/50" />
-							<span className="font-semibold">Due Today</span>
-							<span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-								{dueTodayTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{dueTodayTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-3">
-									<svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">All clear for today!</p>
-							</div>
-						) : (
-							dueTodayTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
-
-				<Card className="hover-lift border-2 border-info/20 bg-gradient-to-br from-card to-info/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-info/10 rounded-full blur-3xl group-hover:bg-info/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-info animate-pulse shadow-lg shadow-info/50" />
-							<span className="font-semibold">Tomorrow</span>
-							<span className="ml-auto text-xs bg-info/10 text-info px-2 py-1 rounded-full font-medium">
-								{tomorrowTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{tomorrowTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-info/10 mb-3">
-									<svg className="w-8 h-8 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">No tasks for tomorrow</p>
-							</div>
-						) : (
-							tomorrowTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
-
-				<Card className="hover-lift border-2 border-success/20 bg-gradient-to-br from-card to-success/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-success/10 rounded-full blur-3xl group-hover:bg-success/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-success animate-pulse shadow-lg shadow-success/50" />
-							<span className="font-semibold">This Month</span>
-							<span className="ml-auto text-xs bg-success/10 text-success px-2 py-1 rounded-full font-medium">
-								{thisMonthTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{thisMonthTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 mb-3">
-									<svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">No tasks this month</p>
-							</div>
-						) : (
-							thisMonthTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
-
-				<Card className="hover-lift border-2 border-destructive/20 bg-gradient-to-br from-card to-destructive/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-destructive/10 rounded-full blur-3xl group-hover:bg-destructive/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-status-overdue animate-pulse shadow-lg shadow-destructive/50" />
-							<span className="font-semibold">Overdue</span>
-							<span className="ml-auto text-xs bg-destructive/10 text-destructive px-2 py-1 rounded-full font-medium">
-								{overdueTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{overdueTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary/10 mb-3">
-									<svg className="w-8 h-8 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">No overdue tasks</p>
-							</div>
-						) : (
-							overdueTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
+			<div data-tour="team-calender" className="mt-8 mb-8">
+				<div className="flex items-center gap-2 mb-4">
+					<div className="h-8 w-1 bg-primary rounded-full"></div>
+					<h3 className="text-xl font-bold text-foreground/80">Team Calendar</h3>
+				</div>
+				<TaskCalendar
+					tasks={calendarTasks}
+					onViewTask={(task) => {
+						setViewTask(task);
+						setIsViewDialogOpen(true);
+					}}
+					onTaskUpdate={handleTaskUpdate}
+				/>
 			</div>
 
 			<TaskDetailsDialog
 				task={viewTask}
 				open={isViewDialogOpen}
 				onOpenChange={setIsViewDialogOpen}
+				onTaskUpdate={handleTaskUpdate}
 			/>
 
 			{/* Onboarding Tour */}
