@@ -1,0 +1,17 @@
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete 7e1h9adqwtnp8fuc18wdoufo4e --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete u3nrrqrc9prr5njhkb8z3m149r --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete ta4qxa1zqtgyjj3pmp1a3qxk5o --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete c9u6jds61bfp9edewq5gjkpxcy --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete hcxqbhhdr78cpgwmr9sx9rfx7h --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete oh864yziwpyipdxftiptoymtha --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete m58t1ngoptg4xbhrcae44fqwxo --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete gcpp7n3igp8miri73nt6deodzy --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete 3sacict3fjgsu8t75m37xcx4iy --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete xedpxt1987fbjecc566arnpzir --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete buu9ykkgffnpuq3r8f6aujuwka --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete 11j4xh67ub88tcf544sdra3wny --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete ogukkpkwiigbudxsys7ixb73ne --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete h7tbfuzyetf8feru1jzif6e1bo --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete 6i69wap4iprktboetxprm9k4qe --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete xgmwth1xd7ybpropf6ccn6dr6y --confirm
+docker exec mattermost-colab-prod-mattermost-1 mmctl channel delete pi4i4gks17ff785iwbax7trpxr --confirm
