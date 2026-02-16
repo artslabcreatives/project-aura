@@ -149,6 +149,9 @@ class SlackMigrateMattermost extends Command
             } catch (\Exception $e) {
                 $this->error("  ✗ Error processing user: " . $e->getMessage());
             }
+            
+            // Rate limiting: Wait 150ms between user operations
+            usleep(150000);
         }
         
         $this->line('');
@@ -170,6 +173,9 @@ class SlackMigrateMattermost extends Command
             } else {
                 $this->error("  ✗ Failed to create token: " . $response->body());
             }
+            
+            // Rate limiting: Wait 100ms after token creation
+            usleep(100000);
         } catch (\Exception $e) {
             $this->error("  ✗ Error creating token: " . $e->getMessage());
         }
@@ -293,6 +299,9 @@ class SlackMigrateMattermost extends Command
             } catch (\Exception $e) {
                 $this->line("  ⚠ Error adding user $mattermostUserId: " . $e->getMessage());
             }
+            
+            // Rate limiting: Wait 100ms between adding channel members
+            usleep(100000);
         }
         
         $this->info("  ✓ Added $addedUsers users to channel");
@@ -387,6 +396,9 @@ class SlackMigrateMattermost extends Command
                 $this->error("  ✗ Error posting message: " . $e->getMessage());
                 $skipped++;
             }
+            
+            // Rate limiting: Wait 200ms between message posts (critical to avoid hitting limits)
+            usleep(200000);
         }
         
         $this->line('');
