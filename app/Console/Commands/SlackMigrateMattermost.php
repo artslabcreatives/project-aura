@@ -20,14 +20,14 @@ class SlackMigrateMattermost extends Command
      *
      * @var string
      */
-    protected $signature = 'app:smm';
+    protected $signature = 'app:smm {--test-channel= : Test with a single channel ID} {--skip-users : Skip user migration}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Migrate Slack channels and messages to Mattermost';
 
     protected $mattermostService;
     protected $slackToMattermostUserMap = [];
@@ -46,18 +46,33 @@ class SlackMigrateMattermost extends Command
         $this->mattermostService = app(MattermostService::class);
         $slack = app(SlackApi::class);
 
-        // Step 1: Migrate Users
-        Log::info('=== STEP 1: Migrating Users ===');
-        $this->info('=== STEP 1: Migrating Users ===');
-        $this->migrateUsers($slack);
+        // Step 1: Migrate Users (skip if --skip-users flag is set)
+        if (!$this->option('skip-users')) {
+            Log::info('=== STEP 1: Migrating Users ===');
+            $this->info('=== STEP 1: Migrating Users ===');
+            $this->migrateUsers($slack);
+            
+            $this->line('');
+            $this->line('');
+        } else {
+            Log::info('=== STEP 1: SKIPPED - User migration disabled ===');
+            $this->info('=== STEP 1: SKIPPED - User migration disabled ===');
+            $this->line('');
+            
+            // Build user maps from existing Mattermost users
+            $this->buildUserMapsFromSlack($slack);
+        }
         
-        $this->line('');
-        $this->line('');
-        
-        // Step 2: Migrate All Channels and Messages
-        Log::info('=== STEP 2: Migrating All Channels and Messages ===');
-        $this->info('=== STEP 2: Migrating All Channels and Messages ===');
-        $this->migrateAllChannels($slack);
+        // Step 2: Migrate Channels
+        if ($testChannel = $this->option('test-channel')) {
+            Log::info('=== STEP 2: Migrating Test Channel ===');
+            $this->info('=== STEP 2: Migrating Test Channel ===');
+            $this->migrateChannelAndMessages($slack, $testChannel);
+        } else {
+            Log::info('=== STEP 2: Migrating All Channels and Messages ===');
+            $this->info('=== STEP 2: Migrating All Channels and Messages ===');
+            $this->migrateAllChannels($slack);
+        }
         
         Log::info('=== MIGRATION COMPLETED SUCCESSFULLY ===');
         $this->info('');
@@ -119,8 +134,69 @@ class SlackMigrateMattermost extends Command
             sleep(2);
         }
         
-        Log::info("Channel migration summary: {$successCount} succeeded, {$failCount} failed");
+        Log::info('Channel migration summary: {$successCount} succeeded, {$failCount} failed');
         $this->info("Channel migration summary: {$successCount} succeeded, {$failCount} failed");
+    }
+
+    protected function buildUserMapsFromSlack($slack)
+    {
+        Log::info('Building user maps from Slack...');
+        $this->info('Building user maps from Slack...');
+        
+        $userApi = $slack->load('User');
+        $slackUsers = $userApi->lists();
+        
+        if (!isset($slackUsers->ok) || !$slackUsers->ok || !isset($slackUsers->members)) {
+            Log::error('Failed to fetch Slack users for mapping');
+            $this->error('Failed to fetch Slack users for mapping');
+            return;
+        }
+        
+        $mattermostUrl = config('services.mattermost.url');
+        $mattermostToken = config('services.mattermost.token');
+        
+        foreach ($slackUsers->members as $slackUser) {
+            if (($slackUser->is_bot ?? false) || ($slackUser->deleted ?? false)) {
+                continue;
+            }
+            
+            $slackUserId = $slackUser->id ?? null;
+            $username = $slackUser->name ?? null;
+            
+            if (!$slackUserId || !$username) {
+                continue;
+            }
+            
+            // Store username mapping
+            $this->slackUserIdToUsernameMap[$slackUserId] = $username;
+            
+            // Try to find Mattermost user
+            try {
+                $response = Http::withToken($mattermostToken)
+                    ->get("$mattermostUrl/api/v4/users/username/$username");
+                
+                if ($response->successful()) {
+                    $mattermostUser = $response->json();
+                    $this->slackToMattermostUserMap[$slackUserId] = $mattermostUser['id'];
+                    
+                    // Get or create token
+                    $tokenResponse = Http::withToken($mattermostToken)
+                        ->post("$mattermostUrl/api/v4/users/{$mattermostUser['id']}/tokens", [
+                            'description' => "Slack migration token for $username"
+                        ]);
+                    
+                    if ($tokenResponse->successful()) {
+                        $tokenData = $tokenResponse->json();
+                        $this->slackToMattermostTokenMap[$mattermostUser['id']] = $tokenData['token'];
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning("Could not map user $username: " . $e->getMessage());
+            }
+        }
+        
+        Log::info('Mapped ' . count($this->slackToMattermostUserMap) . ' users from Slack');
+        $this->info('Mapped ' . count($this->slackToMattermostUserMap) . ' users from Slack');
     }
 
     protected function migrateUsers($slack)
@@ -423,11 +499,46 @@ class SlackMigrateMattermost extends Command
         
         $this->line('');
         
-        // Add all migrated users to the channel
-        $this->info('Adding users to channel...');
+        // Get actual channel members from Slack using direct API call
+        $this->info('Fetching channel members from Slack...');
+        
+        $slackToken = config('services.slack.token');
+        $slackChannelMembers = [];
+        
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $slackToken,
+            ])->get('https://slack.com/api/conversations.members', [
+                'channel' => $slackChannelId,
+                'limit' => 1000
+            ]);
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                if ($data['ok'] ?? false) {
+                    $slackChannelMembers = $data['members'] ?? [];
+                } else {
+                    Log::error('Slack API error: ' . ($data['error'] ?? 'Unknown error'));
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch Slack channel members: ' . $e->getMessage());
+        }
+        
+        Log::info("Channel has " . count($slackChannelMembers) . " members in Slack");
+        $this->info("Channel has " . count($slackChannelMembers) . " members in Slack");
+        
+        // Add only actual channel members to the Mattermost channel
+        $this->info('Adding channel members to Mattermost...');
         $addedUsers = 0;
         
-        foreach ($this->slackToMattermostUserMap as $slackUserId => $mattermostUserId) {
+        foreach ($slackChannelMembers as $slackUserId) {
+            $mattermostUserId = $this->slackToMattermostUserMap[$slackUserId] ?? null;
+            
+            if (!$mattermostUserId) {
+                Log::warning("  ⚠ Slack user $slackUserId not mapped to Mattermost");
+                continue;
+            }
             try {
                 $response = Http::withToken($mattermostToken)
                     ->post("$mattermostUrl/api/v4/channels/$mattermostChannelId/members", [
