@@ -31,7 +31,7 @@ export default function AdminView() {
 
   // Auto-start tour on first visit
   useEffect(() => {
-    if (!loading && currentUser) {
+    if (!loading && currentUser && currentUser.hasSeenWelcomeVideo) {
       autoStart();
     }
   }, [loading, currentUser, autoStart]);

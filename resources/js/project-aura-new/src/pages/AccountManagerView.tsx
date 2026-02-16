@@ -38,7 +38,7 @@ export default function AccountManagerView() {
 
     // Auto-start tour on first visit
     useEffect(() => {
-        if (!loading && currentUser) {
+        if (!loading && currentUser && currentUser.hasSeenWelcomeVideo) {
             autoStart();
         }
     }, [loading, currentUser, autoStart]);
