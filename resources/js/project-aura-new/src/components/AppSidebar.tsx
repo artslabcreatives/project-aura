@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -74,6 +74,7 @@ import { Input } from "@/components/ui/input";
 
 const mainMenuItems = [
 	{ title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
+	{ title: "Chat", url: "/mattermost-chat", icon: MessageSquare, roles: ["admin", "team-lead"] },
 	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead"] },
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
 	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },

@@ -150,10 +150,10 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 	const [searchParams] = useSearchParams();
 	const location = useLocation();
 
-	// Check if embedded: either via query param or if path starts with /mattermost/
+	// Check if embedded: either via query param or if path starts with /mattermost/ (not /mattermost-chat)
 	const isEmbedded = searchParams.get('embed') === 'true' ||
 		searchParams.get('embed') === '1' ||
-		location.pathname.startsWith('/mattermost');
+		location.pathname.startsWith('/mattermost/');
 
 	// Debug logging
 	console.log('AppLayout Debug:', {
@@ -227,6 +227,7 @@ import HRDashboard from "./pages/HRDashboard";
 import Profile from "./pages/Profile";
 import Configuration from "./pages/Configuration";
 import { SetPassword } from "./pages/SetPassword";
+import { MattermostChat } from "./pages/MattermostChat";
 
 const Dashboard = () => {
 	const { currentUser } = useUser();
@@ -251,8 +252,11 @@ const App = () => (
 							<Route path="/set-password" element={<SetPassword />} />
 
 							{/* Regular routes */}
-							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-							<Route path="/tasks" element={
+							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />						<Route path="/mattermost-chat" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+									<AppLayout><MattermostChat /></AppLayout>
+								</ProtectedRoute>
+							} />							<Route path="/tasks" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
 									<AppLayout><Tasks /></AppLayout>
 								</ProtectedRoute>

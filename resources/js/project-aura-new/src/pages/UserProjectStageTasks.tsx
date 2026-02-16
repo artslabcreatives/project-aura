@@ -564,7 +564,7 @@ export default function UserProjectStageTasks() {
 					<iframe
 						src={`https://collab.artslabcreatives.com/artslab-creatives/channels/${project?.mattermostChannelId}`}
 						className="w-full h-full"
-						title="Mattermost Chat"
+						title="Chat"
 						allow="microphone; camera"
 					/>
 				</div>
