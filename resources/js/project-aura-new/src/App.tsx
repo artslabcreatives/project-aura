@@ -191,7 +191,7 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 	const location = useLocation();
 
 	// Skip authentication for public routes
-	const publicPaths = ['/set-password'];
+	const publicPaths = ['/set-password', '/reset-password'];
 	const isPublicRoute = publicPaths.some(path => location.pathname.startsWith(path));
 
 	if (isPublicRoute) {
@@ -228,6 +228,7 @@ import Profile from "./pages/Profile";
 import Configuration from "./pages/Configuration";
 import { SetPassword } from "./pages/SetPassword";
 import { MattermostChat } from "./pages/MattermostChat";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
 const Dashboard = () => {
 	const { currentUser } = useUser();
@@ -250,6 +251,7 @@ const App = () => (
 						<Routes>
 							{/* Public route for setting password from invite */}
 							<Route path="/set-password" element={<SetPassword />} />
+							<Route path="/reset-password" element={<ResetPasswordPage />} />
 
 							{/* Regular routes */}
 							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />						<Route path="/mattermost-chat" element={

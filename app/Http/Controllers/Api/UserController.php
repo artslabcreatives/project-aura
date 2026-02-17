@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\MattermostService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -94,13 +95,23 @@ class UserController extends Controller
         ]);
 
         // Auto-generate password if not provided
-        if (empty($validated['password'])) {
-            $validated['password'] = Hash::make(bin2hex(random_bytes(16)));
-        } else {
-            $validated['password'] = Hash::make($validated['password']);
-        }
+        $plaintextPassword = $validated['password'] ?? bin2hex(random_bytes(16)) . '!Aa1';
+        
+        $validated['password'] = Hash::make($plaintextPassword);
         
         $user = User::create($validated);
+        
+        // Sync password with Mattermost
+        try {
+            $mattermostService = app(MattermostService::class);
+            $mattermostService->syncUserPassword($user, $plaintextPassword);
+        } catch (\Exception $e) {
+            \Log::error('Failed to sync user password with Mattermost during creation', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+        
         return response()->json($user->load('department'), 201);
     }
 
@@ -169,8 +180,21 @@ class UserController extends Controller
             'preferences' => 'sometimes|nullable|array',
         ]);
 
+        // Handle password update
         if (isset($validated['password'])) {
-            $validated['password'] = Hash::make($validated['password']);
+            $plaintextPassword = $validated['password'];
+            $validated['password'] = Hash::make($plaintextPassword);
+            
+            // Sync password with Mattermost
+            try {
+                $mattermostService = app(MattermostService::class);
+                $mattermostService->syncUserPassword($user, $plaintextPassword);
+            } catch (\Exception $e) {
+                \Log::error('Failed to sync user password with Mattermost during update', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         $user->update($validated);

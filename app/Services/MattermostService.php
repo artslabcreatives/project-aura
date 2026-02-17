@@ -857,4 +857,99 @@ class MattermostService
     {
         return $user->mattermost_token ?? null;
     }
+
+    /**
+     * Login to Mattermost and get session token
+     */
+    public function loginUser(string $email, string $password): ?array
+    {
+        try {
+            $response = Http::acceptJson()
+                ->post("{$this->baseUrl}/api/v4/users/login", [
+                    'login_id' => $email,
+                    'password' => $password,
+                ]);
+
+            if ($response->successful()) {
+                $userData = $response->json();
+                $token = $response->header('Token');
+                
+                Log::info('Mattermost user login successful', [
+                    'email' => $email,
+                    'user_id' => $userData['id'] ?? null,
+                ]);
+
+                return [
+                    'user' => $userData,
+                    'token' => $token,
+                ];
+            }
+
+            Log::warning('Mattermost login failed', [
+                'email' => $email,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Exception during Mattermost login', [
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Update Mattermost user password
+     */
+    public function updateUserPassword(string $mattermostUserId, string $newPassword): bool
+    {
+        try {
+            $response = $this->makeRequest('PUT', "/api/v4/users/{$mattermostUserId}/password", [
+                'new_password' => $newPassword,
+            ]);
+
+            if ($response->successful()) {
+                Log::info('Mattermost password updated successfully', [
+                    'mattermost_user_id' => $mattermostUserId,
+                ]);
+                return true;
+            }
+
+            Log::error('Failed to update Mattermost password', [
+                'mattermost_user_id' => $mattermostUserId,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Exception updating Mattermost password', [
+                'mattermost_user_id' => $mattermostUserId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Sync user password with Mattermost
+     */
+    public function syncUserPassword(User $user, string $plaintextPassword): bool
+    {
+        // Store encrypted password in our database
+        $user->mattermost_password = $plaintextPassword;
+        $user->save();
+
+        // Update Mattermost password if user exists
+        if ($user->mattermost_user_id) {
+            return $this->updateUserPassword($user->mattermost_user_id, $plaintextPassword);
+        } else {
+            // Sync user to Mattermost with the password
+            $result = $this->syncUser($user, $plaintextPassword);
+            return $result !== null;
+        }
+    }
 }

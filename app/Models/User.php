@@ -31,6 +31,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'mattermost_password',
         'role',
         'is_active',
         'department_id',
@@ -57,6 +58,7 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $hidden = [
         'password',
+        'mattermost_password',
         'remember_token',
         'two_factor_secret',
         'two_factor_recovery_codes',
@@ -71,6 +73,7 @@ class User extends Authenticatable implements FilamentUser
         'email_verified_at' => 'datetime',
         'is_active' => 'boolean',
         'password' => 'hashed',
+        'mattermost_password' => 'encrypted',
         'force_password_reset' => 'boolean',
         'preferences' => 'array',
         'two_factor_confirmed_at' => 'datetime',

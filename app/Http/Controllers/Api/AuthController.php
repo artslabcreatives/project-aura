@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\MattermostService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -89,6 +90,33 @@ class AuthController extends Controller
                     'two_factor' => true,
                 ]);
             }
+        }
+
+        // Login to Mattermost in the background
+        try {
+            $mattermostService = app(MattermostService::class);
+            $mattermostLogin = null;
+            
+            // Try with stored Mattermost password first if it exists
+            if ($user->mattermost_password) {
+                $mattermostLogin = $mattermostService->loginUser($request->email, $user->mattermost_password);
+            }
+            
+            // If no stored password or login failed, passwords are out of sync
+            if (!$mattermostLogin) {
+                // Generate a new random password for Mattermost only
+                $randomPassword = bin2hex(random_bytes(16)) . '!Aa1';
+                $mattermostService->syncUserPassword($user, $randomPassword);
+                
+                \Log::info('Mattermost password reset due to sync issue', [
+                    'user_id' => $user->id,
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to login to Mattermost', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         // Create a new token for stateless auth
@@ -341,6 +369,17 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
         $user->password = Hash::make($request->password);
         $user->save();
+        
+        // Sync password with Mattermost
+        try {
+            $mattermostService = app(MattermostService::class);
+            $mattermostService->syncUserPassword($user, $request->password);
+        } catch (\Exception $e) {
+            \Log::error('Failed to sync password with Mattermost during reset', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // Clear OTP
         \Illuminate\Support\Facades\Cache::forget('password_reset_otp_' . $request->email);
@@ -397,6 +436,17 @@ class AuthController extends Controller
         $user->password = Hash::make($request->new_password);
         $user->force_password_reset = false;
         $user->save();
+        
+        // Sync password with Mattermost
+        try {
+            $mattermostService = app(MattermostService::class);
+            $mattermostService->syncUserPassword($user, $request->new_password);
+        } catch (\Exception $e) {
+            \Log::error('Failed to sync password with Mattermost during change', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json(['message' => 'Password changed successfully']);
     }
@@ -460,6 +510,17 @@ class AuthController extends Controller
         $user->password_reset_token = null;
         $user->password_reset_token_expires_at = null;
         $user->save();
+        
+        // Sync password with Mattermost
+        try {
+            $mattermostService = app(MattermostService::class);
+            $mattermostService->syncUserPassword($user, $request->password);
+        } catch (\Exception $e) {
+            \Log::error('Failed to sync password with Mattermost during set from token', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // Create an auth token so they're logged in immediately
         $authToken = $user->createToken('auth-token')->plainTextToken;
