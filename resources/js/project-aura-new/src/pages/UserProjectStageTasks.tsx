@@ -168,7 +168,7 @@ export default function UserProjectStageTasks() {
 			setChatLoading(true);
 			api.get<{ url: string; expires_at: string }>("/mattermost/plugin/auto-login-url")
 				.then((response) => {
-					setAutoLoginUrl(response.url);
+					setAutoLoginUrl(response.data.url);
 				})
 				.catch((error: any) => {
 					console.error("Failed to get Mattermost auto-login URL:", error);

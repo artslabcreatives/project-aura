@@ -306,8 +306,8 @@ export default function ProjectKanban() {
 		if (!currentUser || !project) return;
 		try {
 			if (editingTask) {
-				await taskService.update(editingTask.id, task as any);
-				setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...task } : t));
+				const updatedTask = await taskService.update(editingTask.id, task as any);
+				setTasks(tasks.map(t => t.id === editingTask.id ? updatedTask : t));
 				addHistoryEntry({
 					action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id,
 					details: { from: editingTask, to: { ...editingTask, ...task } },

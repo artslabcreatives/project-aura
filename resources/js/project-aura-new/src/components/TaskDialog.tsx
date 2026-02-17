@@ -260,6 +260,12 @@ export function TaskDialog({
 				? `${formData.startDate}T${formData.startTime || "00:00"}:00`
 				: undefined);
 
+		// Include any unsaved link inputs
+		const effectivePendingLinks = [...pendingLinks];
+		if (newLinkName && newLinkUrl) {
+			effectivePendingLinks.push({ name: newLinkName, url: newLinkUrl });
+		}
+
 		// Determine primary assignee name and ID
 		let primaryAssigneeName = formData.assignee;
 		let primaryAssigneeId = undefined;
@@ -274,7 +280,7 @@ export function TaskDialog({
 		}
 
 		// For editing existing tasks, upload files immediately
-		if (editTask && (pendingFiles.length > 0 || pendingLinks.length > 0)) {
+		if (editTask && (pendingFiles.length > 0 || effectivePendingLinks.length > 0)) {
 			setIsUploading(true);
 			try {
 				const uploadedAttachments: TaskAttachment[] = [...attachments];
@@ -286,7 +292,7 @@ export function TaskDialog({
 				}
 
 				// Add pending links
-				for (const link of pendingLinks) {
+				for (const link of effectivePendingLinks) {
 					const uploaded = await attachmentService.addLink(editTask.id, link.name, link.url);
 					uploadedAttachments.push(uploaded);
 				}
@@ -307,8 +313,11 @@ export function TaskDialog({
 
 				toast({
 					title: "Files uploaded",
-					description: `${pendingFiles.length + pendingLinks.length} attachment(s) uploaded successfully.`,
+					description: `${pendingFiles.length + effectivePendingLinks.length} attachment(s) uploaded successfully.`,
 				});
+				// Clear inputs
+				setNewLinkName("");
+				setNewLinkUrl("");
 			} catch (error) {
 				console.error('Failed to upload attachments:', error);
 				toast({
@@ -338,8 +347,12 @@ export function TaskDialog({
 					isAssigneeLocked: formData.isAssigneeLocked,
 				},
 				filesToUpload.length > 0 ? filesToUpload : undefined,
-				pendingLinks.length > 0 ? pendingLinks : undefined
+				effectivePendingLinks.length > 0 ? effectivePendingLinks : undefined
 			);
+
+			// Clear inputs
+			setNewLinkName("");
+			setNewLinkUrl("");
 		}
 		onOpenChange(false);
 	};

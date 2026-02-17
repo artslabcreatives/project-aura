@@ -198,7 +198,7 @@ class TaskController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
         }
 
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']), 201);
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers', 'attachments']), 201);
     }
 
     #[OA\Get(
@@ -565,7 +565,7 @@ class TaskController extends Controller
             }
         });
         
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers', 'attachments']));
     }
 
     #[OA\Post(

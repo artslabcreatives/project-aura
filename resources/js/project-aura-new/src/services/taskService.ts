@@ -27,7 +27,7 @@ function mapTask(raw: any): Task {
 			id: String(a.id),
 			name: a.name || a.filename || 'file',
 			url: a.url || a.path || '',
-			type: 'file',
+			type: a.type || 'file',
 			uploadedAt: a.created_at || new Date().toISOString(),
 		})) || [],
 		isInSpecificStage: raw.is_in_specific_stage || false,
