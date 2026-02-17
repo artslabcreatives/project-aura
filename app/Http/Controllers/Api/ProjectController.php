@@ -39,11 +39,25 @@ class ProjectController extends Controller
     )]
     public function index(): JsonResponse
     {
-        $projects = Project::with(['department', 'group', 'stages' => function ($query) {
+        $user = auth()->user();
+        $query = Project::with(['department', 'group', 'stages' => function ($query) {
             $query->where('type', 'project');
         }, 'tasks', 'collaborators' => function ($query) {
             $query->select('users.id', 'users.name', 'users.email', 'users.department_id');
-        }])->get();
+        }]);
+
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                    $taskQuery->where('assignee_id', $user->id);
+                })
+                ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                    $collabQuery->where('users.id', $user->id);
+                });
+            });
+        }
+
+        $projects = $query->get();
         return response()->json($projects);
     }
 

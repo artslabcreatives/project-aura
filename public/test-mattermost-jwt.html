@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mattermost JWT Auto-Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .error-box {
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #f44336;
+        }
+        .success-box {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #4caf50;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Mattermost JWT Auto-Login Test</h1>
+        
+        <div class="info-box">
+            <strong>Status:</strong> <span id="status">Not started</span>
+        </div>
+
+        <div>
+            <button onclick="fetchJWT()" id="fetchBtn">1. Fetch JWT Token</button>
+            <button onclick="testDirectAccess()" id="directBtn" disabled>2. Test Direct Access</button>
+            <button onclick="loadIframe()" id="iframeBtn" disabled>3. Load in Iframe</button>
+        </div>
+
+        <div id="output"></div>
+        <div id="iframe-container"></div>
+    </div>
+
+    <script>
+        let jwtUrl = '';
+        let jwtToken = '';
+        let expiresAt = '';
+
+        async function fetchJWT() {
+            const output = document.getElementById('output');
+            const status = document.getElementById('status');
+            
+            status.textContent = 'Fetching JWT...';
+            output.innerHTML = '<div class="loading">Fetching JWT token from API...</div>';
+
+            try {
+                // Get auth token from localStorage
+                const authToken = localStorage.getItem('auth_token');
+                if (!authToken) {
+                    throw new Error('No authentication token found. Please login first.');
+                }
+
+                const response = await fetch('/api/mattermost/plugin/auto-login-url', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                jwtUrl = data.url;
+                expiresAt = data.expires_at;
+                
+                // Extract token from URL
+                const urlObj = new URL(jwtUrl);
+                jwtToken = urlObj.searchParams.get('token');
+
+                // Decode JWT to show payload
+                const payload = JSON.parse(atob(jwtToken.split('.')[1]));
+
+                output.innerHTML = `
+                    <div class="success-box">
+                        <strong>✓ JWT Token Generated Successfully</strong>
+                    </div>
+                    <div>
+                        <h3>Response:</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                    <div>
+                        <h3>Decoded JWT Payload:</h3>
+                        <pre>${JSON.stringify(payload, null, 2)}</pre>
+                    </div>
+                    <div class="info-box">
+                        <strong>Token expires:</strong> ${new Date(payload.exp * 1000).toLocaleString()}<br>
+                        <strong>Time remaining:</strong> ${payload.exp - Math.floor(Date.now() / 1000)} seconds
+                    </div>
+                `;
+
+                status.textContent = 'JWT received - Ready to test';
+                document.getElementById('directBtn').disabled = false;
+                document.getElementById('iframeBtn').disabled = false;
+
+            } catch (error) {
+                output.innerHTML = `
+                    <div class="error-box">
+                        <strong>✗ Error:</strong> ${error.message}
+                    </div>
+                `;
+                status.textContent = 'Error - ' + error.message;
+            }
+        }
+
+        function testDirectAccess() {
+            if (!jwtUrl) {
+                alert('Please fetch JWT first');
+                return;
+            }
+
+            const output = document.getElementById('output');
+            output.innerHTML += `
+                <div class="info-box">
+                    <strong>Opening in new window...</strong><br>
+                    Check the new window for the auto-login result.<br>
+                    If it works, you should be logged into Mattermost automatically.
+                </div>
+            `;
+
+            window.open(jwtUrl, '_blank');
+        }
+
+        function loadIframe() {
+            if (!jwtUrl) {
+                alert('Please fetch JWT first');
+                return;
+            }
+
+            const container = document.getElementById('iframe-container');
+            const status = document.getElementById('status');
+            
+            status.textContent = 'Loading iframe...';
+            
+            container.innerHTML = `
+                <div class="info-box">
+                    <strong>Loading Mattermost in iframe below...</strong><br>
+                    If configured correctly, you should see the Mattermost chat interface.
+                </div>
+                <iframe 
+                    src="${jwtUrl}" 
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                    onload="handleIframeLoad()"
+                    onerror="handleIframeError()">
+                </iframe>
+            `;
+
+            status.textContent = 'Iframe loaded - Check below';
+        }
+
+        function handleIframeLoad() {
+            console.log('Iframe loaded successfully');
+        }
+
+        function handleIframeError() {
+            console.error('Iframe failed to load');
+            document.getElementById('status').textContent = 'Iframe load error';
+        }
+
+        // Auto-fetch on page load if authenticated
+        window.addEventListener('load', () => {
+            const authToken = localStorage.getItem('auth_token');
+            if (authToken) {
+                document.getElementById('status').innerHTML = 
+                    'Ready - Click "Fetch JWT Token" to begin';
+            } else {
+                document.getElementById('status').innerHTML = 
+                    '<span style="color: red;">Not authenticated - Please login to Aura first</span>';
+                document.getElementById('fetchBtn').disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>

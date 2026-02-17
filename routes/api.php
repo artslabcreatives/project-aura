@@ -124,6 +124,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Mattermost magic link authentication
     Route::get('/mattermost/magic-link', [MattermostAuthController::class, 'getMagicLink']);
     Route::get('/mattermost/redirect', [MattermostAuthController::class, 'redirect']);
+    
+    // Mattermost plugin auto-login with JWT
+    Route::get('/mattermost/plugin/auto-login-url', [MattermostAuthController::class, 'getPluginAutoLoginUrl']);
+    Route::get('/mattermost/plugin/auto-login', [MattermostAuthController::class, 'pluginAutoLogin']);
 
     // Two-Factor Authentication
     Route::post('/two-factor/enable', [App\Http\Controllers\Api\TwoFactorController::class, 'enable']);

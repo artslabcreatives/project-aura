@@ -36,6 +36,8 @@ return [
         'token' => env('MATTERMOST_TOKEN'),
         'team_id' => env('MATTERMOST_TEAM_ID'),
         'api_key' => env('MATTERMOST_API_KEY'),
+        'plugin_id' => env('MATTERMOST_PLUGIN_ID', 'com.artslabcreatives.auraai'),
+        'jwt_secret' => env('MATTERMOST_JWT_SECRET'),
     ],
 
 	'slack' => [

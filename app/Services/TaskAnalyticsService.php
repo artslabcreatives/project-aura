@@ -251,14 +251,13 @@ class TaskAnalyticsService
     private function getBreakdownByStage($query, Carbon $startDate, Carbon $endDate): array
     {
         return (clone $query)
-            ->select('project_stage_id', 'stages.name as stage_name', DB::raw('COUNT(*) as count'))
+            ->select('stages.title as stage_name', DB::raw('COUNT(*) as count'))
             ->join('stages', 'tasks.project_stage_id', '=', 'stages.id')
-            ->groupBy('project_stage_id', 'stages.name')
+            ->groupBy('stages.title')
             ->orderBy('count', 'desc')
             ->get()
             ->map(function ($item) {
                 return [
-                    'stage_id' => $item->project_stage_id,
                     'stage_name' => $item->stage_name,
                     'count' => $item->count,
                 ];

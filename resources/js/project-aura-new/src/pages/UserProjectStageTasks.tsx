@@ -58,6 +58,8 @@ export default function UserProjectStageTasks() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [loading, setLoading] = useState(true);
 	const [showChat, setShowChat] = useState(false);
+	const [autoLoginUrl, setAutoLoginUrl] = useState<string>("");
+	const [chatLoading, setChatLoading] = useState(false);
 
 	const fetchUserStages = async () => {
 		if (!currentUser) return;
@@ -159,6 +161,29 @@ export default function UserProjectStageTasks() {
 		};
 		loadData();
 	}, [projectId, stageId, currentUser]);
+
+	// Fetch auto-login URL when chat is opened
+	useEffect(() => {
+		if (showChat && !autoLoginUrl) {
+			setChatLoading(true);
+			api.get<{ url: string; expires_at: string }>("/mattermost/plugin/auto-login-url")
+				.then((response) => {
+					setAutoLoginUrl(response.url);
+				})
+				.catch((error: any) => {
+					console.error("Failed to get Mattermost auto-login URL:", error);
+					const errorMessage = error?.response?.data?.error || "Failed to load chat. Please try again.";
+					toast({
+						title: "Chat Error",
+						description: errorMessage,
+						variant: "destructive",
+					});
+				})
+				.finally(() => {
+					setChatLoading(false);
+				});
+		}
+	}, [showChat]);
 
 	const updateTasksInStorage = (updatedTask: Task) => {
 		// No localStorage persistence per requirements
@@ -561,12 +586,22 @@ export default function UserProjectStageTasks() {
 
 			{showChat ? (
 				<div className="w-full h-[calc(100vh-12rem)] border rounded-lg overflow-hidden">
-					<iframe
-						src={`https://collab.artslabcreatives.com/artslab-creatives/channels/${project?.mattermostChannelId}`}
-						className="w-full h-full"
-						title="Chat"
-						allow="microphone; camera"
-					/>
+					{chatLoading ? (
+						<div className="flex items-center justify-center h-full">
+							<p className="text-muted-foreground">Loading chat...</p>
+						</div>
+					) : autoLoginUrl ? (
+						<iframe
+							src={autoLoginUrl}
+							className="w-full h-full"
+							title="Chat"
+							allow="microphone; camera"
+						/>
+					) : (
+						<div className="flex items-center justify-center h-full">
+							<p className="text-destructive">Failed to load chat</p>
+						</div>
+					)}
 				</div>
 			) : (
 				<div className="overflow-x-auto">

@@ -952,4 +952,100 @@ class MattermostService
             return $result !== null;
         }
     }
+
+    /**
+     * Generate JWT token for Mattermost plugin auto-login
+     * 
+     * @param User $user
+     * @return string|null
+     */
+    public function generatePluginJWT(User $user): ?string
+    {
+        try {
+            $secret = config('services.mattermost.jwt_secret');
+            
+            if (!$secret) {
+                Log::error('Mattermost JWT secret not configured');
+                return null;
+            }
+
+            $mattermostUserId = $this->getMattermostUserId($user);
+            
+            // If no stored Mattermost ID, try to fetch it from Mattermost by email
+            if (!$mattermostUserId) {
+                $mattermostUser = $this->getUserByEmail($user->email);
+                
+                if ($mattermostUser && isset($mattermostUser['id'])) {
+                    $mattermostUserId = $mattermostUser['id'];
+                    
+                    // Store the ID for future use
+                    $this->storeMattermostUserId($user, $mattermostUserId);
+                    
+                    Log::info('Found and stored Mattermost user ID for JWT', [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'mattermost_user_id' => $mattermostUserId,
+                    ]);
+                } else {
+                    Log::warning('User has no Mattermost account', [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                    ]);
+                    return null;
+                }
+            }
+
+            // Extract just the domain from APP_URL (remove https://)
+            $appUrl = config('app.url');
+            $issuer = parse_url($appUrl, PHP_URL_HOST) ?: $appUrl;
+
+            $payload = [
+                'sub' => $mattermostUserId,
+                'email' => $user->email,
+                'iss' => $issuer,
+                'exp' => time() + 60, // 60 seconds expiration
+            ];
+
+            $jwt = \Firebase\JWT\JWT::encode($payload, $secret, 'HS256');
+
+            Log::info('Generated Mattermost plugin JWT', [
+                'user_id' => $user->id,
+                'mattermost_user_id' => $mattermostUserId,
+                'issuer' => $issuer,
+                'expires_at' => date('Y-m-d H:i:s', $payload['exp']),
+            ]);
+
+            return $jwt;
+        } catch (\Exception $e) {
+            Log::error('Exception generating Mattermost plugin JWT', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Generate Mattermost plugin auto-login URL with JWT
+     * 
+     * @param User $user
+     * @return string|null
+     */
+    public function generatePluginAutoLoginUrl(User $user): ?string
+    {
+        $jwt = $this->generatePluginJWT($user);
+        
+        if (!$jwt) {
+            return null;
+        }
+
+        $pluginId = config('services.mattermost.plugin_id');
+        
+        if (!$pluginId) {
+            Log::error('Mattermost plugin ID not configured');
+            return null;
+        }
+
+        return "{$this->baseUrl}/plugins/{$pluginId}/auto-login?token={$jwt}";
+    }
 }
