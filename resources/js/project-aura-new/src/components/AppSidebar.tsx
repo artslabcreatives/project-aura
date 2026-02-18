@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -78,6 +78,7 @@ const mainMenuItems = [
 	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead"] },
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
 	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },
+	{ title: "Reminders", url: "/reminders", icon: Bell, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 ];
 
 interface GroupedDepartment {

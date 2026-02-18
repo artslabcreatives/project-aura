@@ -130,6 +130,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 				<main className="flex-1 p-6 overflow-y-auto">
 					{children}
 				</main>
+				<ReminderPoller />
 				<ReportIssueDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
 				{currentUser && (
 					<VideoGuideModal
@@ -229,6 +230,8 @@ import Configuration from "./pages/Configuration";
 import { SetPassword } from "./pages/SetPassword";
 import { MattermostChat } from "./pages/MattermostChat";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import Reminders from "./pages/Reminders";
+import { ReminderPoller } from "./components/ReminderPoller";
 
 const Dashboard = () => {
 	const { currentUser } = useUser();
@@ -283,10 +286,11 @@ const App = () => (
 							} />
 							<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
 							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
-
+							<Route path="/reminders" element={<AppLayout><Reminders /></AppLayout>} />
 
 							{/* Mattermost embedded routes (with /mattermost prefix) */}
 							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />
+							<Route path="/mattermost/reminders" element={<AppLayout><Reminders /></AppLayout>} />
 							<Route path="/mattermost/tasks" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
 									<AppLayout><Tasks /></AppLayout>

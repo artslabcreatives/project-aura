@@ -135,6 +135,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/two-factor/disable', [App\Http\Controllers\Api\TwoFactorController::class, 'disable']);
     Route::post('/two-factor/recovery-codes', [App\Http\Controllers\Api\TwoFactorController::class, 'recoveryCodes']);
     Route::post('/two-factor/recovery-codes/regenerate', [App\Http\Controllers\Api\TwoFactorController::class, 'regenerateRecoveryCodes']);
+
+    // Reminders
+    Route::apiResource('reminders', App\Http\Controllers\Api\ReminderController::class);
 });
 
 // 2FA Verification during login

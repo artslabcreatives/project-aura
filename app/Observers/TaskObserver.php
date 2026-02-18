@@ -193,11 +193,30 @@ class TaskObserver
                 if ($isCompleteStage) {
                     // Get Admins and Team Leads
                     // Ideally filter by project department if applicable, but for now sends to all relevant roles
-                    $recipients = User::whereIn('role', ['admin', 'team-lead'])->get();
+                    // Get Admins (they receive everything)
+                    $recipients = User::where('role', 'admin')->get();
                     
+                    // Get Team Leads for the task's department
+                    $task->loadMissing('project');
+                    $departmentId = $task->project?->department_id;
+                    
+                    if ($departmentId) {
+                        $teamLeads = User::where('role', 'team-lead')
+                            ->where('department_id', $departmentId)
+                            ->get();
+                        
+                        // Merge and ensure uniqueness
+                        $recipients = $recipients->merge($teamLeads)->unique('id');
+                    } else {
+                        // If no department, maybe don't notify any team leads? Or notify all?
+                        // Based on user request "only receive team lead department notification", we should be strict.
+                        // However, if a project has no department, maybe no team lead should be notified.
+                        // We'll stick to just admins if no department is found.
+                    }
+
                     foreach ($recipients as $recipient) {
-                        // Don't notify self? Optional.
-                        // if ($recipient->id === $user->id) continue;
+                        // Don't notify self
+                        if ($recipient->id === $user->id && $recipient->role === 'team-lead') continue;
                         
                         $recipient->notify(new TaskCompletedNotification($task, $user, $stageName));
                     }
