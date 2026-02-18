@@ -26,8 +26,8 @@ export interface UpdateReminderData {
 }
 
 export const reminderService = {
-    getAll: async (): Promise<Reminder[]> => {
-        return await api.get<Reminder[]>('/reminders');
+    getAll: async (page = 1): Promise<{ active: Reminder[], completed: { data: Reminder[], current_page: number, last_page: number } }> => {
+        return await api.get<{ active: Reminder[], completed: { data: Reminder[], current_page: number, last_page: number } }>(`/reminders?page=${page}`);
     },
 
     create: async (data: CreateReminderData): Promise<Reminder> => {

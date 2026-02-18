@@ -8,12 +8,15 @@ export function ReminderPoller() {
     const { toast } = useToast();
 
     // Fetch all reminders every 30 seconds
-    const { data: reminders = [] } = useQuery({
+    // Fetch all reminders every 30 seconds
+    const { data } = useQuery({
         queryKey: ['reminders-poll'],
-        queryFn: reminderService.getAll,
+        queryFn: () => reminderService.getAll(1),
         refetchInterval: 30000,
         staleTime: 10000,
     });
+
+    const activeReminders = data?.active || [];
 
     useEffect(() => {
         // Request permission on mount if default
@@ -23,9 +26,9 @@ export function ReminderPoller() {
     }, []);
 
     useEffect(() => {
-        if (!reminders.length) return;
+        if (!activeReminders.length) return;
 
-        reminders.forEach((reminder: any) => {
+        activeReminders.forEach((reminder: any) => {
             // Skip if already read/done
             if (reminder.is_read) return;
 
@@ -71,7 +74,7 @@ export function ReminderPoller() {
                 }
             }
         });
-    }, [reminders, toast]);
+    }, [activeReminders, toast]);
 
     return null;
 }

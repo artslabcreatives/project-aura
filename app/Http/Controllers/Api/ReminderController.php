@@ -14,16 +14,24 @@ class ReminderController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Reminder::where('user_id', $request->user()->id);
-        
-        // Optional filters
-        if ($request->has('active')) {
-             // Only pending/future reminders or those not read/dismissed
-             $query->where('is_read', false);
-        }
+        $user_id = $request->user()->id;
 
-        $reminders = $query->orderBy('reminder_at', 'asc')->get();
-        return response()->json($reminders);
+        // Active reminders: All unread, ordered by soonest first
+        $active = Reminder::where('user_id', $user_id)
+            ->where('is_read', false)
+            ->orderBy('reminder_at', 'asc')
+            ->get();
+
+        // Completed reminders: Read only, ordered by most recent first, paginated 6 per page
+        $completed = Reminder::where('user_id', $user_id)
+            ->where('is_read', true)
+            ->orderBy('reminder_at', 'desc')
+            ->paginate(6);
+
+        return response()->json([
+            'active' => $active,
+            'completed' => $completed
+        ]);
     }
 
     /**

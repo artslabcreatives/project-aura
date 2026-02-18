@@ -55,10 +55,17 @@ const Reminders = () => {
         reminder_at: "",
     });
 
-    const { data: reminders = [], isLoading } = useQuery({
-        queryKey: ["reminders"],
-        queryFn: reminderService.getAll,
+    const [page, setPage] = useState(1);
+
+    const { data, isLoading } = useQuery({
+        queryKey: ["reminders", page],
+        queryFn: () => reminderService.getAll(page),
+        placeholderData: (previousData) => previousData,
     });
+
+    const reminders = data?.active || [];
+    const completedReminders = data?.completed?.data || [];
+    const totalPages = data?.completed?.last_page || 1;
 
     const createMutation = useMutation({
         mutationFn: reminderService.create,
@@ -269,7 +276,7 @@ const Reminders = () => {
                             <div className="col-span-full flex justify-center py-12 text-muted-foreground">
                                 <RefreshCw className="h-6 w-6 animate-spin" />
                             </div>
-                        ) : reminders.filter(r => !r.is_read).length === 0 ? (
+                        ) : reminders.length === 0 ? (
                             <div className="col-span-full text-center py-12 border rounded-lg bg-muted/20 border-dashed">
                                 <Bell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                                 <h3 className="text-lg font-medium">No active reminders</h3>
@@ -279,8 +286,6 @@ const Reminders = () => {
                             </div>
                         ) : (
                             reminders
-                                .filter(r => !r.is_read)
-                                .sort((a, b) => new Date(a.reminder_at).getTime() - new Date(b.reminder_at).getTime()) // ASC (Soonest first)
                                 .map((reminder) => {
                                     const isExpired = isPast(new Date(reminder.reminder_at));
 
@@ -346,16 +351,14 @@ const Reminders = () => {
                 </div>
 
                 {/* Completed Reminders Section */}
-                {reminders.some(r => r.is_read) && (
+                {completedReminders.length > 0 && (
                     <div className="space-y-4 pt-6 border-t">
                         <h2 className="text-xl font-semibold flex items-center gap-2 text-muted-foreground">
                             <Check className="h-5 w-5" />
                             Completed
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
-                            {reminders
-                                .filter(r => r.is_read)
-                                .sort((a, b) => new Date(b.reminder_at).getTime() - new Date(a.reminder_at).getTime()) // DESC (Most recent first)
+                            {completedReminders
                                 .map((reminder) => (
                                     <Card
                                         key={reminder.id}
@@ -393,6 +396,29 @@ const Reminders = () => {
                                 ))
                             }
                         </div>
+                        {totalPages > 1 && (
+                            <div className="flex justify-center gap-2 mt-6">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    Previous
+                                </Button>
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                    Page {page} of {totalPages}
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
