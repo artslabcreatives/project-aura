@@ -32,12 +32,23 @@ import {
 } from "lucide-react";
 import { format, parseISO, isPast } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Reminders = () => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [isDataOpen, setIsDataOpen] = useState(false);
     const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+    const [reminderToDelete, setReminderToDelete] = useState<Reminder | null>(null);
     const [newReminder, setNewReminder] = useState({
         title: "",
         description: "",
@@ -76,6 +87,7 @@ const Reminders = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["reminders"] });
             toast({ title: "Reminder deleted" });
+            setReminderToDelete(null);
         },
     });
 
@@ -109,6 +121,12 @@ const Reminders = () => {
             reminder_at: localDateTime,
         });
         setIsDataOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (reminderToDelete) {
+            deleteMutation.mutate(reminderToDelete.id);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -315,7 +333,7 @@ const Reminders = () => {
                                                     variant="ghost"
                                                     size="icon"
                                                     className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                                                    onClick={() => deleteMutation.mutate(reminder.id)}
+                                                    onClick={() => setReminderToDelete(reminder)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -366,7 +384,7 @@ const Reminders = () => {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                                                onClick={() => deleteMutation.mutate(reminder.id)}
+                                                onClick={() => setReminderToDelete(reminder)}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -378,6 +396,27 @@ const Reminders = () => {
                     </div>
                 )}
             </div>
+
+            <AlertDialog open={!!reminderToDelete} onOpenChange={(open) => !open && setReminderToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the reminder "{reminderToDelete?.title}".
+                            This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmDelete}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };
