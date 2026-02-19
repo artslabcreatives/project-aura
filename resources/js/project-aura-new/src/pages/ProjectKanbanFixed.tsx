@@ -28,6 +28,16 @@ import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
 import { echo } from "@/services/echoService";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -441,16 +451,33 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to save task.', variant: 'destructive' }); }
 	};
 
+	const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
 	const handleTaskEdit = (task: Task) => { setEditingTask(task); setIsTaskDialogOpen(true); };
-	const handleTaskDelete = async (taskId: string) => {
-		if (!currentUser || !project) return;
+
+	const handleTaskDelete = (taskId: string) => {
+		const task = tasks.find(t => t.id === taskId);
+		if (task) {
+			setTaskToDelete(task);
+			setIsDeleteDialogOpen(true);
+		}
+	};
+
+	const confirmDeleteTask = async () => {
+		if (!taskToDelete || !project || !currentUser) return;
 		try {
-			const taskToDelete = tasks.find(t => t.id === taskId);
-			if (taskToDelete) addHistoryEntry({ action: 'DELETE_TASK', entityId: taskId, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { title: taskToDelete.title } });
-			await taskService.delete(taskId);
-			setTasks(tasks.filter(t => t.id !== taskId));
+			addHistoryEntry({ action: 'DELETE_TASK', entityId: taskToDelete.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { title: taskToDelete.title } });
+			await taskService.delete(taskToDelete.id);
+			setTasks(tasks.filter(t => t.id !== taskToDelete.id));
 			toast({ title: 'Task deleted', description: 'Task deleted successfully.' });
-		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to delete task.', variant: 'destructive' }); }
+		} catch (e) {
+			console.error(e);
+			toast({ title: 'Error', description: 'Failed to delete task.', variant: 'destructive' });
+		} finally {
+			setIsDeleteDialogOpen(false);
+			setTaskToDelete(null);
+		}
 	};
 
 	const handleAddStage = () => { setEditingStage(null); setIsStageDialogOpen(true); };
@@ -863,6 +890,21 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				departments={departments}
 				currentUser={currentUser}
 			/>
+
+			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This action cannot be undone. This will permanently delete the task "{taskToDelete?.title}" and remove it from our servers.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={confirmDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

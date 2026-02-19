@@ -26,6 +26,13 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+	AlertDialog,
+	AlertDialogContent,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect, useRef } from "react";
 import { taskService } from "@/services/taskService";
 import { useUser } from "@/hooks/use-user";
@@ -55,12 +62,16 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && !isTaskComplete;
 	const [showRevisionHistoryDialog, setShowRevisionHistoryDialog] = useState(false);
 	const [showTaskHistoryDialog, setShowTaskHistoryDialog] = useState(false);
+	const [showSubtasks, setShowSubtasks] = useState(false);
 	const [timeLeft, setTimeLeft] = useState<string>("");
 	const [isShareOpen, setIsShareOpen] = useState(false);
 	const { toast } = useToast();
 	const { currentUser } = useUser();
 	const navigate = useNavigate();
 	const location = useLocation();
+
+	const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const isProjectView = location.pathname.includes('/project/');
 	const hasStartedRef = useRef(false);
 
@@ -508,6 +519,23 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 									<span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
 										{subtask.assignee.split(' ')[0]}
 									</span>
+									{/* Delete Subtask Button */}
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+										<div className="opacity-0 group-hover/subtask:opacity-100 transition-opacity">
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-5 w-5 hover:bg-destructive/10 hover:text-destructive"
+												onClick={(e) => {
+													e.stopPropagation();
+													setSubtaskToDelete(subtask);
+													setIsDeleteDialogOpen(true);
+												}}
+											>
+												<Trash2 className="h-3 w-3" />
+											</Button>
+										</div>
+									)}
 								</div>
 							))}
 							{(!task.subtasks || task.subtasks.length === 0) && onAddSubtask && (
@@ -574,6 +602,50 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* Subtask Deletion Confirmation Dialog */}
+			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This action cannot be undone. This will permanently delete the subtask "{subtaskToDelete?.title}".
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<div className="flex justify-end space-x-2">
+						<Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+						<Button
+							variant="destructive"
+							onClick={async () => {
+								if (!subtaskToDelete) return;
+								try {
+									await taskService.delete(subtaskToDelete.id);
+									if (onTaskUpdate) {
+										const updatedSubtasks = task.subtasks?.filter(st => st.id !== subtaskToDelete.id) || [];
+										onTaskUpdate(task.id, { subtasks: updatedSubtasks });
+									}
+									toast({
+										title: "Subtask deleted",
+										description: "Subtask has been permanently deleted."
+									});
+								} catch (error) {
+									console.error("Failed to delete subtask", error);
+									toast({
+										title: "Error",
+										description: "Failed to delete subtask.",
+										variant: "destructive"
+									});
+								} finally {
+									setIsDeleteDialogOpen(false);
+									setSubtaskToDelete(null);
+								}
+							}}
+						>
+							Delete
+						</Button>
+					</div>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<TaskHistoryDialog
 				taskId={task.id}

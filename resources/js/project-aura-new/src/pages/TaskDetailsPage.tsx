@@ -27,13 +27,22 @@ import {
     Trash2,
     Ban
 } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUser } from "@/hooks/use-user";
 
 export default function TaskDetailsPage() {
     const { taskId } = useParams<{ taskId: string }>();
     const navigate = useNavigate();
+    const { currentUser } = useUser();
     const [task, setTask] = useState<Task | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -42,6 +51,9 @@ export default function TaskDetailsPage() {
     const [historyPage, setHistoryPage] = useState(1);
     const [historyMeta, setHistoryMeta] = useState<any>(null);
     const [loadingHistory, setLoadingHistory] = useState(false);
+
+    const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const loadHistory = async (page: number) => {
         if (!taskId) return;
@@ -322,7 +334,7 @@ export default function TaskDetailsPage() {
                             <CardContent>
                                 <div className="space-y-2">
                                     {task.subtasks.map((subtask) => (
-                                        <div key={subtask.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                                        <div key={subtask.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
                                             <div className={cn(
                                                 "h-5 w-5 flex items-center justify-center rounded border",
                                                 subtask.userStatus === 'complete'
@@ -340,6 +352,22 @@ export default function TaskDetailsPage() {
                                             <Badge variant="secondary" className="text-xs font-normal">
                                                 {subtask.assignee}
                                             </Badge>
+
+                                            {/* Delete Subtask Button */}
+                                            {(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSubtaskToDelete(subtask);
+                                                        setIsDeleteDialogOpen(true);
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -737,6 +765,39 @@ export default function TaskDetailsPage() {
                     )}
                 </CardContent>
             </Card>
+            {/* Subtask Deletion Confirmation Dialog */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the subtask "{subtaskToDelete?.title}".
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="flex justify-end space-x-2">
+                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={async () => {
+                                if (!subtaskToDelete || !task) return;
+                                try {
+                                    await taskService.delete(subtaskToDelete.id);
+                                    // Update local state
+                                    const updatedSubtasks = task.subtasks?.filter(st => st.id !== subtaskToDelete.id) || [];
+                                    setTask({ ...task, subtasks: updatedSubtasks });
+                                } catch (error) {
+                                    console.error("Failed to delete subtask", error);
+                                } finally {
+                                    setIsDeleteDialogOpen(false);
+                                    setSubtaskToDelete(null);
+                                }
+                            }}
+                        >
+                            Delete
+                        </Button>
+                    </div>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

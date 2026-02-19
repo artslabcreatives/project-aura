@@ -486,17 +486,24 @@ class TaskController extends Controller
     )]
     public function destroy(Task $task): JsonResponse
     {
-        $projectId = $task->project_id; // Capture for event
-        // We need to keep a reference or just use the task object before deletion is finalized in memory? 
-        // Laravel events serialize models. If deleted, it might be tricky. 
-        // Identify the project first.
-        
+        // Permission check for subtasks: Only Admin and Team Lead can delete subtasks
+        if ($task->parent_id) {
+             if (!in_array(auth()->user()->role, ['admin', 'team-lead'])) {
+                 return response()->json(['message' => 'Unauthorized. Only Admins and Team Leads can delete subtasks.'], 403);
+             }
+        }
+
+        $parent = $task->parent; // Capture parent before deletion
+
         $task->delete();
         
-        // Dispatch 'delete' event. We pass the task, hoping serialization works (it usually does for deleted models in recent Laravel)
-        // Or we pass a simple object if needed. But Event typed as Task.
         try {
             TaskUpdated::dispatch($task, 'delete');
+            
+            // If it was a subtask, notify about the parent update too so clients can refresh the subtask list
+            if ($parent) {
+                 TaskUpdated::dispatch($parent, 'update');
+            }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
         }
