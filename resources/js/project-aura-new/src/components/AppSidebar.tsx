@@ -121,8 +121,16 @@ export function AppSidebar() {
 	const [isDuplicating, setIsDuplicating] = useState(false);
 	const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 	const [projectToInvite, setProjectToInvite] = useState<Project | null>(null);
-	const [collaboratedProjects, setCollaboratedProjects] = useState<Project[]>([]);
 	const [invitedProjectsOpen, setInvitedProjectsOpen] = useState(true);
+
+	const collaboratedProjects = useMemo(() => {
+		if (!currentUser) return [];
+		return projects.filter(project =>
+			!project.isArchived &&
+			project.collaborators?.some(c => String(c.id) === String(currentUser.id))
+		);
+	}, [projects, currentUser]);
+
 	const userRole = currentUser?.role;
 
 	const fetchData = async () => {
@@ -213,24 +221,17 @@ export function AppSidebar() {
 					}))
 					.filter(project => project.stages.length > 0);
 
-				// Separately track projects where user is a collaborator (invited from other departments)
-				const collabProjects = projectsData.filter(project =>
-					!project.isArchived &&
-					project.collaborators?.some(c => String(c.id) === String(currentUser.id))
-				);
-
-				setUserAssignedProjects(assignedProjects);
-				setCollaboratedProjects(collabProjects);
-
 				const currentDept = departmentsData.find(d => d.id === currentUser.department);
 				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 				const departmentProjects = projectsData.filter(project => {
 					// Exclude archived projects
 					if (project.isArchived) return false;
-					const isOwnDepartment = project.department?.id === currentUser.department;
+					const isOwnDepartment = String(project.department?.id) === String(currentUser.department);
 					const isDesignProject = isDigitalDept && project.department?.name.toLowerCase() === 'design';
 					return isOwnDepartment || isDesignProject;
 				});
+
+				setUserAssignedProjects(assignedProjects);
 				setUserDepartmentProjects(departmentProjects);
 			}
 		} catch (error) {
@@ -999,118 +1000,139 @@ export function AppSidebar() {
 		userRole && item.roles.includes(userRole)
 	);
 
-	const renderProjectItem = (project: Project) => (
-		<SidebarMenuItem key={project.id}>
-			<div className="relative group/project-item w-full">
-				<SidebarMenuButton asChild>
-					<NavLink
-						to={getProjectUrl(project)}
-						className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent pr-8 ${isProjectActive(project)
-							? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-							: ""
-							}`}
-					>
-						<FolderKanban className="h-4 w-4 shrink-0" />
-						<span className="text-sm flex-1 truncate">{project.name}</span>
-						{(userRole === 'admin' || userRole === 'team-lead') && project.hasPendingTasks && (
-							<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Has Pending Tasks" />
-						)}
-					</NavLink>
-				</SidebarMenuButton>
+	const renderProjectItem = (project: Project, showRole: boolean = false) => {
+		let roleBadge = null;
+		if (showRole && currentUser && project.collaborators) {
+			const collaborator = project.collaborators.find(c => String(c.id) === String(currentUser.id));
+			if (collaborator) {
+				const roleName = collaborator.role?.replace('-', ' ') || 'member';
+				const badgeColor = collaborator.role === 'admin' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+					collaborator.role === 'team-lead' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+						collaborator.role === 'account-manager' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
+							"bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
 
-				{(userRole === 'admin' || userRole === 'team-lead') && (
-					<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-6 w-6 hover:bg-sidebar-accent"
-									title="More Options"
-								>
-									<MoreHorizontal className="h-3 w-3" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="start" side="right" className="w-48">
-								<DropdownMenuItem
-									onClick={(e) => {
-										e.stopPropagation();
-										setProjectToEdit(project);
-										setIsProjectDialogOpen(true);
-									}}
-								>
-									<Pencil className="mr-2 h-4 w-4" />
-									<span>Edit Project</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={(e) => {
-										e.stopPropagation();
-										setProjectToDuplicate(project);
-										setNewProjectName(`${project.name} (Copy)`);
-										setIsDuplicateDialogOpen(true);
-									}}
-								>
-									<Copy className="mr-2 h-4 w-4" />
-									<span>Duplicate Project</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={(e) => {
-										e.stopPropagation();
-										setProjectToAssign(project);
-										setIsAssignGroupOpen(true);
-									}}
-								>
-									<FolderPlus className="mr-2 h-4 w-4" />
-									<span>Assign to Group</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={(e) => {
-										e.stopPropagation();
-										setProjectToInvite(project);
-										setIsInviteDialogOpen(true);
-									}}
-								>
-									<UserPlus className="mr-2 h-4 w-4" />
-									<span>Invite Users</span>
-								</DropdownMenuItem>
-								{!project.isArchived ? (
+				roleBadge = (
+					<span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize shrink-0 ${badgeColor}`}>
+						{roleName}
+					</span>
+				);
+			}
+		}
+
+		return (
+			<SidebarMenuItem key={project.id}>
+				<div className="relative group/project-item w-full">
+					<SidebarMenuButton asChild>
+						<NavLink
+							to={getProjectUrl(project)}
+							className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent pr-8 ${isProjectActive(project)
+								? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+								: ""
+								}`}
+						>
+							<FolderKanban className="h-4 w-4 shrink-0" />
+							<span className="text-sm truncate">{project.name}</span>
+							{roleBadge}
+							{(userRole === 'admin' || userRole === 'team-lead') && project.hasPendingTasks && (
+								<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0 ml-auto" title="Has Pending Tasks" />
+							)}
+						</NavLink>
+					</SidebarMenuButton>
+
+					{(userRole === 'admin' || userRole === 'team-lead') && (
+						<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-6 w-6 hover:bg-sidebar-accent"
+										title="More Options"
+									>
+										<MoreHorizontal className="h-3 w-3" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start" side="right" className="w-48">
 									<DropdownMenuItem
 										onClick={(e) => {
 											e.stopPropagation();
-											handleArchiveProject(project);
+											setProjectToEdit(project);
+											setIsProjectDialogOpen(true);
 										}}
 									>
-										<Archive className="mr-2 h-4 w-4" />
-										<span>Archive Project</span>
+										<Pencil className="mr-2 h-4 w-4" />
+										<span>Edit Project</span>
 									</DropdownMenuItem>
-								) : (
 									<DropdownMenuItem
 										onClick={(e) => {
 											e.stopPropagation();
-											handleUnarchiveProject(project);
+											setProjectToDuplicate(project);
+											setNewProjectName(`${project.name} (Copy)`);
+											setIsDuplicateDialogOpen(true);
 										}}
 									>
-										<RefreshCcw className="mr-2 h-4 w-4" />
-										<span>Restore Project</span>
+										<Copy className="mr-2 h-4 w-4" />
+										<span>Duplicate Project</span>
 									</DropdownMenuItem>
-								)}
-								<DropdownMenuItem
-									className="text-destructive focus:text-destructive"
-									onClick={(e) => {
-										e.stopPropagation();
-										setProjectToDelete(project);
-									}}
-								>
-									<Trash2 className="mr-2 h-4 w-4" />
-									<span>Delete Project</span>
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					</div>
-				)}
-			</div>
-		</SidebarMenuItem>
-	);
+									<DropdownMenuItem
+										onClick={(e) => {
+											e.stopPropagation();
+											setProjectToAssign(project);
+											setIsAssignGroupOpen(true);
+										}}
+									>
+										<FolderPlus className="mr-2 h-4 w-4" />
+										<span>Assign to Group</span>
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										onClick={(e) => {
+											e.stopPropagation();
+											setProjectToInvite(project);
+											setIsInviteDialogOpen(true);
+										}}
+									>
+										<UserPlus className="mr-2 h-4 w-4" />
+										<span>Invite Users</span>
+									</DropdownMenuItem>
+									{!project.isArchived ? (
+										<DropdownMenuItem
+											onClick={(e) => {
+												e.stopPropagation();
+												handleArchiveProject(project);
+											}}
+										>
+											<Archive className="mr-2 h-4 w-4" />
+											<span>Archive Project</span>
+										</DropdownMenuItem>
+									) : (
+										<DropdownMenuItem
+											onClick={(e) => {
+												e.stopPropagation();
+												handleUnarchiveProject(project);
+											}}
+										>
+											<RefreshCcw className="mr-2 h-4 w-4" />
+											<span>Restore Project</span>
+										</DropdownMenuItem>
+									)}
+									<DropdownMenuItem
+										className="text-destructive focus:text-destructive"
+										onClick={(e) => {
+											e.stopPropagation();
+											setProjectToDelete(project);
+										}}
+									>
+										<Trash2 className="mr-2 h-4 w-4" />
+										<span>Delete Project</span>
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</div>
+					)}
+				</div>
+			</SidebarMenuItem>
+		);
+	};
 
 	return (
 		<Sidebar>
@@ -1219,13 +1241,16 @@ export function AppSidebar() {
 					</SidebarGroup>
 				)}
 
-				{/* Invited Projects Section - shows projects user was invited to collaborate on */}
-				{(userRole === "user" || userRole === "account-manager") && collaboratedProjects.length > 0 && (
+				{/* Invited Projects Section - Available for ALL roles */}
+				{collaboratedProjects.length > 0 && (
 					<SidebarGroup>
 						<Collapsible open={invitedProjectsOpen} onOpenChange={setInvitedProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
 								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
-									<SidebarGroupLabel className="hover:bg-transparent">Invited Projects</SidebarGroupLabel>
+									<SidebarGroupLabel className="hover:bg-transparent flex items-center gap-2">
+										<UserPlus className="h-4 w-4" />
+										Invited Projects
+									</SidebarGroupLabel>
 									<ChevronRight
 										className={`h-4 w-4 transition-transform ${invitedProjectsOpen ? "rotate-90" : ""
 											}`}
@@ -1235,7 +1260,6 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{/* Group collaborated projects by department */}
 										{Object.entries(
 											collaboratedProjects.reduce((acc, project) => {
 												const deptName = project.department?.name || 'Other';
@@ -1266,29 +1290,17 @@ export function AppSidebar() {
 															<div className="flex items-center gap-2 flex-1">
 																<Building2 className="h-4 w-4" />
 																<span className="text-sm font-medium">{deptName}</span>
+																<span className="text-xs text-muted-foreground ml-auto mr-2">({deptProjects.length})</span>
 															</div>
 															<ChevronRight
-																className={`h-4 w-4 transition-transform ${expandedDepartments.has(`invited-${deptName}`) ? "rotate-90" : ""
+																className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(`invited-${deptName}`) ? "rotate-90" : ""
 																	}`}
 															/>
 														</SidebarMenuButton>
 													</CollapsibleTrigger>
 													<CollapsibleContent>
-														<SidebarMenuSub>
-															{deptProjects.map(project => (
-																<SidebarMenuSubItem key={project.id}>
-																	<SidebarMenuSubButton asChild>
-																		<NavLink
-																			to={`/project/${project.id}`}
-																			className={`flex items-center gap-2 ${location.pathname === `/project/${project.id}` ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""
-																				}`}
-																		>
-																			<FolderKanban className="h-3 w-3" />
-																			<span className="text-sm">{project.name}</span>
-																		</NavLink>
-																	</SidebarMenuSubButton>
-																</SidebarMenuSubItem>
-															))}
+														<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+															{deptProjects.map(project => renderProjectItem(project, true))}
 														</SidebarMenuSub>
 													</CollapsibleContent>
 												</SidebarMenuItem>
@@ -1451,7 +1463,6 @@ export function AppSidebar() {
 						</Collapsible>
 					</SidebarGroup>
 				)}
-
 
 
 				{(userRole === "user") && userDepartmentProjects.length > 0 && (

@@ -61,6 +61,7 @@ function mapProject(raw: any): Project {
 				name: c.name,
 				email: c.email,
 				department_id: c.department_id,
+				role: c.role,
 			}))
 			: undefined,
 		mattermostChannelId: raw.mattermost_channel_id || undefined,

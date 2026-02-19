@@ -43,7 +43,7 @@ class ProjectController extends Controller
         $query = Project::with(['department', 'group', 'stages' => function ($query) {
             $query->where('type', 'project');
         }, 'tasks', 'collaborators' => function ($query) {
-            $query->select('users.id', 'users.name', 'users.email', 'users.department_id');
+            $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
         }]);
 
         if (in_array($user->role, ['user', 'account_manager'])) {
@@ -168,7 +168,9 @@ class ProjectController extends Controller
     {
         return response()->json($project->load(['department', 'group', 'stages' => function ($query) {
             $query->where('type', 'project');
-        }, 'tasks']));
+        }, 'tasks', 'collaborators' => function ($query) {
+            $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+        }]));
     }
 
     #[OA\Put(

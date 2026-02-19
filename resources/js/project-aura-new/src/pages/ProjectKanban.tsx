@@ -91,12 +91,14 @@ export default function ProjectKanban() {
 				}
 
 				if (currentUser?.role === 'team-lead') {
-					const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
-					const currentDept = departmentsData.find(d => d.id === currentUser.department);
+					const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
+					const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
 					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
 					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					if (!hasMatchingDepartment && !hasSpecialPermission) {
+					const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
+
+					if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) {
 						setProject(null);
 						setIsLoading(false);
 						return;

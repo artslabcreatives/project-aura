@@ -12,6 +12,7 @@ import { Project } from "@/types/project";
 import { User } from "@/types/task";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface InviteUsersDialogProps {
     open: boolean;
@@ -151,22 +152,36 @@ export function InviteUsersDialog({
                     <div className="space-y-2">
                         <Label className="text-sm font-medium">Current Collaborators</Label>
                         <div className="flex flex-wrap gap-2">
-                            {currentCollaborators.map(collaborator => (
-                                <Badge
-                                    key={collaborator.id}
-                                    variant="secondary"
-                                    className="flex items-center gap-1 py-1 px-2"
-                                >
-                                    <span>{collaborator.name}</span>
-                                    <button
-                                        onClick={() => handleRemoveCollaborator(collaborator.id)}
-                                        className="ml-1 hover:text-destructive focus:outline-none"
-                                        disabled={isLoading}
+                            {currentCollaborators.map(collaborator => {
+                                const user = allUsers.find(u => String(u.id) === String(collaborator.id));
+                                return (
+                                    <Badge
+                                        key={collaborator.id}
+                                        variant="secondary"
+                                        className="flex items-center gap-1 py-1 px-2"
                                     >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            ))}
+                                        <span>{collaborator.name}</span>
+                                        {user && (
+                                            <span className={cn(
+                                                "text-[10px] px-1.5 py-0.5 rounded-full ml-1 font-normal capitalize",
+                                                user.role === 'admin' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                                                    user.role === 'team-lead' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                                                        user.role === 'account-manager' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
+                                                            "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                                            )}>
+                                                {user.role?.replace('-', ' ')}
+                                            </span>
+                                        )}
+                                        <button
+                                            onClick={() => handleRemoveCollaborator(collaborator.id)}
+                                            className="ml-1 hover:text-destructive focus:outline-none"
+                                            disabled={isLoading}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -193,7 +208,7 @@ export function InviteUsersDialog({
                             availableUsers.map(user => (
                                 <label
                                     key={user.id}
-                                    className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer"
+                                    className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer group"
                                 >
                                     <Checkbox
                                         checked={selectedUserIds.includes(user.id)}
@@ -205,7 +220,18 @@ export function InviteUsersDialog({
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">{user.name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-medium truncate">{user.name}</p>
+                                            <span className={cn(
+                                                "text-[10px] px-1.5 py-0.5 rounded-full font-normal capitalize",
+                                                user.role === 'admin' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                                                    user.role === 'team-lead' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                                                        user.role === 'account-manager' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
+                                                            "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                                            )}>
+                                                {user.role?.replace('-', ' ')}
+                                            </span>
+                                        </div>
                                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                                     </div>
                                 </label>
