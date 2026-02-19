@@ -413,12 +413,14 @@ export default function ProjectKanban() {
 				const maxOrder = Math.max(...otherStages.map(s => s.order), 1); // Start at least after Pending (1)
 				const newOrder = maxOrder + 1;
 
+				if (!project.id) {
+					throw new Error("Project ID is missing");
+				}
+
 				const newStage = await stageService.create({
 					...stage,
 					order: newOrder,
-					project_id: project.id, // Ensure project_id is sent
-					// @ts-ignore
-					projectId: project.id // Some backends might expect camelCase or snake_case, sending both to be safe or check type definition
+					projectId: project.id
 				} as any);
 
 				// If we have an Archive stage, ensure it stays at the end (though 999 should be enough)

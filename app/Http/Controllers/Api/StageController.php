@@ -116,7 +116,7 @@ class StageController extends Controller
             'color' => 'sometimes|string|max:255',
             'order' => 'sometimes|integer',
             'type' => 'sometimes|in:user,project',
-            'project_id' => 'nullable|exists:projects,id',
+            'project_id' => 'nullable|required_if:type,project|exists:projects,id',
             'main_responsible_id' => 'nullable|exists:users,id',
             'backup_responsible_id_1' => 'nullable|exists:users,id',
             'backup_responsible_id_2' => 'nullable|exists:users,id',

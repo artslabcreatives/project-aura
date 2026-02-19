@@ -8,7 +8,7 @@ function mapToBackend(stage: Partial<Stage> & { projectId?: string | number }): 
 		color: stage.color,
 		order: stage.order,
 		type: stage.type,
-		project_id: stage.projectId ? String(stage.projectId) : undefined,
+		project_id: stage.projectId ? String(stage.projectId) : ((stage as any).project_id ? String((stage as any).project_id) : undefined),
 		main_responsible_id: stage.mainResponsibleId ? parseInt(stage.mainResponsibleId) : null,
 		backup_responsible_id_1: stage.backupResponsibleId1 ? parseInt(stage.backupResponsibleId1) : null,
 		backup_responsible_id_2: stage.backupResponsibleId2 ? parseInt(stage.backupResponsibleId2) : null,
