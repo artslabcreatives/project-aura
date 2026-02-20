@@ -13,6 +13,7 @@ export const userService = {
 			department: u.department_id != null ? String(u.department_id) : '',
 			preferences: u.preferences,
 			is_active: u.is_active,
+			avatar: u.avatar, // Mattermost avatar URL
 		}));
 	},
 
@@ -26,14 +27,18 @@ export const userService = {
 			department: data.department_id != null ? String(data.department_id) : '',
 			preferences: data.preferences,
 			is_active: data.is_active,
+			avatar: data.avatar, // Mattermost avatar URL
 		};
 	},
 
 	getCurrentUser: async (): Promise<User> => {
-		const { data } = await api.get('/users/me');
+		const { data } = await api.get('/user');
 		return {
 			...data,
+			id: String(data.id),
+			department: data.department_id != null ? String(data.department_id) : '',
 			is_active: data.is_active,
+			avatar: data.avatar, // Mattermost avatar URL
 		};
 	},
 
@@ -93,7 +98,14 @@ export const userService = {
 				'Content-Type': 'multipart/form-data',
 			},
 		});
+		// Return the Mattermost avatar URL
 		return data.avatar_url;
+	},
+
+	getAvatarUrl: (userId: string): string => {
+		// Get avatar URL from Mattermost via our API
+		// The backend will proxy the request to Mattermost
+		return `/api/users/${userId}/avatar`;
 	},
 
 	delete: async (id: string): Promise<void> => {

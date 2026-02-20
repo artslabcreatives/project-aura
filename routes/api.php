@@ -46,6 +46,7 @@ Route::post('projects/{project}/suggested-tasks', [ProjectController::class, 'cr
 Route::get('projects/search/email', [ProjectController::class, 'searchByEmail']);
 Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
 Route::get('users/search/exist', [UserController::class, 'exist']);
+Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Public avatar viewing
 
 // Protected API routes (require bearer token)
 Route::middleware('auth:sanctum')->group(function () {
@@ -74,7 +75,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
     Route::apiResource('project-groups', ProjectGroupController::class);
     Route::post('/users/{user}/avatar', [UserController::class, 'uploadAvatar']);
-    Route::apiResource('users', UserController::class);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

@@ -259,7 +259,7 @@ class UserController extends Controller
 
     #[OA\Post(
         path: "/users/{user}/avatar",
-        summary: "Upload user avatar",
+        summary: "Upload user avatar to Mattermost",
         security: [["bearerAuth" => []]],
         requestBody: new OA\RequestBody(
             required: true,
@@ -282,8 +282,8 @@ class UserController extends Controller
             )
         ],
         responses: [
-            new OA\Response(response: 200, description: "Avatar uploaded"),
-            new OA\Response(response: 400, description: "Invalid file"),
+            new OA\Response(response: 200, description: "Avatar uploaded to Mattermost"),
+            new OA\Response(response: 400, description: "Invalid file or Mattermost error"),
             new OA\Response(response: 401, description: "Unauthorized"),
             new OA\Response(response: 404, description: "User not found")
         ]
@@ -294,37 +294,97 @@ class UserController extends Controller
             'avatar' => 'required|image|max:2048', // 2MB max
         ]);
 
-        if ($request->hasFile('avatar')) {
-            // Delete old avatar if exists
-            if ($user->avatar) {
-                // Handle both S3 and local paths
-                if ($this->isS3Url($user->avatar)) {
-                    // Extract S3 path from URL
-                    $s3Path = $this->extractS3Path($user->avatar);
-                    if ($s3Path && Storage::disk('s3')->exists($s3Path)) {
-                        Storage::disk('s3')->delete($s3Path);
-                    }
-                } else {
-                    $oldPath = str_replace('/storage/', '', $user->avatar);
-                    if (Storage::disk('public')->exists($oldPath)) {
-                        Storage::disk('public')->delete($oldPath);
-                    }
-                }
-            }
-
-            $path = $request->file('avatar')->store('avatars', 's3');
-            $url = Storage::disk('s3')->url($path);
-            
-            $user->update(['avatar' => $url]);
-            
-            return response()->json(['avatar_url' => $url]);
+        if (!$request->hasFile('avatar')) {
+            return response()->json(['message' => 'No file uploaded'], 400);
         }
 
-        return response()->json(['message' => 'No file uploaded'], 400);
+        try {
+            $mattermostService = app(MattermostService::class);
+            
+            // Upload to Mattermost
+            $success = $mattermostService->setUserProfileImage($user, $request->file('avatar'));
+            
+            if (!$success) {
+                return response()->json([
+                    'message' => 'Failed to upload avatar to Mattermost'
+                ], 400);
+            }
+
+            // Get the Mattermost image URL
+            $imageUrl = $mattermostService->getUserProfileImageUrl($user);
+            
+            // Update user's avatar field with Mattermost URL
+            $user->update(['avatar' => $imageUrl]);
+            
+            return response()->json([
+                'avatar_url' => $imageUrl,
+                'message' => 'Avatar uploaded successfully to Mattermost'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to upload avatar to Mattermost', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return response()->json([
+                'message' => 'An error occurred while uploading avatar'
+            ], 500);
+        }
+    }
+
+    #[OA\Get(
+        path: "/users/{user}/avatar",
+        summary: "Get user's profile image from Mattermost",
+        security: [["bearerAuth" => []]],
+        tags: ["Users"],
+        parameters: [
+            new OA\Parameter(
+                name: "user",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200, 
+                description: "User's profile image",
+                content: new OA\MediaType(
+                    mediaType: "image/jpeg"
+                )
+            ),
+            new OA\Response(response: 404, description: "User not found or no image")
+        ]
+    )]
+    public function getAvatar(User $user)
+    {
+        try {
+            $mattermostService = app(MattermostService::class);
+            
+            // Get image binary data from Mattermost
+            $imageData = $mattermostService->downloadUserProfileImage($user);
+            
+            if (!$imageData) {
+                return response()->json(['message' => 'Profile image not found'], 404);
+            }
+
+            // Return the image with appropriate headers
+            return response($imageData)
+                ->header('Content-Type', 'image/jpeg')
+                ->header('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        } catch (\Exception $e) {
+            \Log::error('Failed to get avatar from Mattermost', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return response()->json(['message' => 'Failed to retrieve profile image'], 500);
+        }
     }
 
     /**
      * Check if a URL is an S3 URL
+     * @deprecated - Kept for backward compatibility
      */
     private function isS3Url(string $url): bool
     {
@@ -339,6 +399,7 @@ class UserController extends Controller
 
     /**
      * Extract S3 path from URL
+     * @deprecated - Kept for backward compatibility
      */
     private function extractS3Path(string $url): ?string
     {

@@ -713,6 +713,130 @@ class MattermostService
     }
 
     /**
+     * Get user's profile image from Mattermost
+     * Returns the URL to the profile image
+     */
+    public function getUserProfileImageUrl(User $user): ?string
+    {
+        try {
+            $mattermostUserId = $this->getMattermostUserId($user);
+            
+            if (!$mattermostUserId) {
+                Log::warning('No Mattermost user ID found for user', [
+                    'user_id' => $user->id,
+                ]);
+                return null;
+            }
+
+            // Mattermost image endpoint doesn't need authentication for getting images
+            // Just construct the URL
+            return "{$this->baseUrl}/api/v4/users/{$mattermostUserId}/image";
+        } catch (\Exception $e) {
+            Log::error('Exception getting Mattermost profile image URL', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Set user's profile image on Mattermost
+     * 
+     * @param User $user
+     * @param \Illuminate\Http\UploadedFile $file
+     * @return bool
+     */
+    public function setUserProfileImage(User $user, $file): bool
+    {
+        try {
+            $mattermostUserId = $this->getMattermostUserId($user);
+            
+            if (!$mattermostUserId) {
+                Log::error('No Mattermost user ID found for user', [
+                    'user_id' => $user->id,
+                ]);
+                return false;
+            }
+
+            $url = "{$this->baseUrl}/api/v4/users/{$mattermostUserId}/image";
+            
+            // Use user's personal token if available, otherwise use admin token
+            $token = ($user->mattermost_token) ? $user->mattermost_token : $this->token;
+
+            $response = Http::withToken($token)
+                ->attach('image', file_get_contents($file->getRealPath()), $file->getClientOriginalName())
+                ->post($url);
+
+            if ($response->successful()) {
+                Log::info('Successfully uploaded profile image to Mattermost', [
+                    'user_id' => $user->id,
+                    'mattermost_user_id' => $mattermostUserId,
+                ]);
+                return true;
+            }
+
+            Log::error('Failed to upload profile image to Mattermost', [
+                'user_id' => $user->id,
+                'mattermost_user_id' => $mattermostUserId,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Exception uploading profile image to Mattermost', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Download user's profile image from Mattermost
+     * Returns the image content as a binary string
+     * 
+     * @param User $user
+     * @return string|null Binary image content or null on failure
+     */
+    public function downloadUserProfileImage(User $user): ?string
+    {
+        try {
+            $mattermostUserId = $this->getMattermostUserId($user);
+            
+            if (!$mattermostUserId) {
+                Log::warning('No Mattermost user ID found for user', [
+                    'user_id' => $user->id,
+                ]);
+                return null;
+            }
+
+            $url = "{$this->baseUrl}/api/v4/users/{$mattermostUserId}/image";
+            
+            $response = Http::withToken($this->token)->get($url);
+
+            if ($response->successful()) {
+                return $response->body();
+            }
+
+            Log::error('Failed to download profile image from Mattermost', [
+                'user_id' => $user->id,
+                'mattermost_user_id' => $mattermostUserId,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Exception downloading profile image from Mattermost', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
      * Make HTTP request to Mattermost API
      */
     protected function makeRequest(string $method, string $endpoint, array $data = [], ?User $user = null)

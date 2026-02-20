@@ -100,6 +100,22 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Get the user's avatar URL
+     * Returns a proxied URL through our API to avoid CORS issues
+     */
+    public function getAvatarAttribute($value): ?string
+    {
+        // If we have a mattermost_user_id, return our API proxy URL
+        if ($this->mattermost_user_id) {
+            $appUrl = config('app.url');
+            return "{$appUrl}/api/users/{$this->id}/avatar";
+        }
+
+        // Return stored value or null
+        return $value;
+    }
+
+    /**
      * Get the tasks assigned to the user.
      */
     public function assignedTasks(): HasMany
