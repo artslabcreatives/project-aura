@@ -7,7 +7,7 @@ import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
 import { useHistory } from "@/hooks/use-history";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, MessageSquare, X } from "lucide-react";
+import { Plus, LayoutGrid, List, MessageSquare, X, Maximize2 } from "lucide-react";
 import { UserStageDialog } from "@/components/UserStageDialog";
 import { StageManagement } from "@/components/StageManagement";
 import { useToast } from "@/hooks/use-toast";
@@ -60,6 +60,7 @@ export default function UserProjectStageTasks() {
 	const [showChat, setShowChat] = useState(false);
 	const [autoLoginUrl, setAutoLoginUrl] = useState<string>("");
 	const [chatLoading, setChatLoading] = useState(false);
+	const [isChatFullscreen, setIsChatFullscreen] = useState(false);
 
 	const fetchUserStages = async () => {
 		if (!currentUser) return;
@@ -561,6 +562,16 @@ export default function UserProjectStageTasks() {
 							)}
 						</Tooltip>
 					</TooltipProvider>
+					{showChat && !isChatFullscreen && (
+						<Button
+							variant="outline"
+							size="icon"
+							onClick={() => setIsChatFullscreen(true)}
+						>
+							<Maximize2 className="h-4 w-4" />
+							<span className="sr-only">Open fullscreen</span>
+						</Button>
+					)}
 					{!showChat && (
 						<>
 							<Button onClick={() => setIsStageManagementOpen(true)} variant="outline">
@@ -576,24 +587,62 @@ export default function UserProjectStageTasks() {
 			</div>
 
 			{showChat ? (
-				<div className="w-full h-[calc(100vh-12rem)] border rounded-lg overflow-hidden">
-					{chatLoading ? (
-						<div className="flex items-center justify-center h-full">
-							<p className="text-muted-foreground">Loading chat...</p>
+				isChatFullscreen ? (
+					<div className="fixed inset-0 z-50 bg-background flex flex-col">
+						<div className="flex items-center justify-between px-4 py-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+							<div className="flex items-center gap-2">
+								<MessageSquare className="h-4 w-4" />
+								<span className="text-sm font-medium">Chat - {project?.name}</span>
+							</div>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-8 w-8"
+								onClick={() => setIsChatFullscreen(false)}
+							>
+								<X className="h-4 w-4" />
+								<span className="sr-only">Exit fullscreen</span>
+							</Button>
 						</div>
-					) : autoLoginUrl ? (
-						<iframe
-							src={autoLoginUrl}
-							className="w-full h-full"
-							title="Chat"
-							allow="microphone; camera"
-						/>
-					) : (
-						<div className="flex items-center justify-center h-full">
-							<p className="text-destructive">Failed to load chat</p>
+						<div className="flex-1 overflow-hidden">
+							{chatLoading ? (
+								<div className="flex items-center justify-center h-full">
+									<p className="text-muted-foreground">Loading chat...</p>
+								</div>
+							) : autoLoginUrl ? (
+								<iframe
+									src={autoLoginUrl}
+									className="w-full h-full"
+									title="Chat"
+									allow="microphone; camera"
+								/>
+							) : (
+								<div className="flex items-center justify-center h-full">
+									<p className="text-destructive">Failed to load chat</p>
+								</div>
+							)}
 						</div>
-					)}
-				</div>
+					</div>
+				) : (
+					<div className="w-full h-[calc(100vh-12rem)] border rounded-lg overflow-hidden">
+						{chatLoading ? (
+							<div className="flex items-center justify-center h-full">
+								<p className="text-muted-foreground">Loading chat...</p>
+							</div>
+						) : autoLoginUrl ? (
+							<iframe
+								src={autoLoginUrl}
+								className="w-full h-full"
+								title="Chat"
+								allow="microphone; camera"
+							/>
+						) : (
+							<div className="flex items-center justify-center h-full">
+								<p className="text-destructive">Failed to load chat</p>
+							</div>
+						)}
+					</div>
+				)
 			) : (
 				<div className="overflow-x-auto">
 					{view === "kanban" ? (
