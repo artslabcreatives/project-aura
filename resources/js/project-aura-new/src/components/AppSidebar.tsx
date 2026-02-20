@@ -74,7 +74,7 @@ import { Input } from "@/components/ui/input";
 
 const mainMenuItems = [
 	{ title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
-	{ title: "Chat", url: "/mattermost-chat", icon: MessageSquare, roles: ["admin", "team-lead"] },
+	{ title: "Chat", url: "/mattermost-chat", icon: MessageSquare, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead"] },
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
 	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },

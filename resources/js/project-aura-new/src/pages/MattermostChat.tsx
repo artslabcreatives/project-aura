@@ -1,35 +1,27 @@
 import { useEffect, useState } from "react";
 import { MessageSquare } from "lucide-react";
-import { api } from "@/lib/api";
+import { useUser } from "@/hooks/use-user";
 
 export function MattermostChat() {
+	const { currentUser } = useUser();
 	const [autoLoginUrl, setAutoLoginUrl] = useState<string>("");
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string>("");
 	const [iframeError, setIframeError] = useState(false);
 
 	useEffect(() => {
 		document.title = "Chat - Aura";
 
-		// Fetch auto-login URL with JWT
-		async function fetchAutoLoginUrl() {
-			try {
-				const response = await api.get<{ url: string; expires_at: string }>(
-					"/mattermost/plugin/auto-login-url"
-				);
-				console.log("Auto-login URL received:", response.url);
-				setAutoLoginUrl(response.url);
-			} catch (err: any) {
-				console.error("Failed to get Mattermost auto-login URL:", err);
-				const errorMessage = err?.response?.data?.error || "Failed to load chat. Please try again.";
-				setError(errorMessage);
-			} finally {
-				setLoading(false);
-			}
+		// Build the email_login URL directly - NO API CALLS, NO BEARER TOKENS
+		if (currentUser?.email) {
+			const email = encodeURIComponent(currentUser.email);
+			const redirectTo = encodeURIComponent('/artslab-creatives/channels/town-square');
+			const url = `https://collab.artslabcreatives.com/email_login?email=${email}&redirect_to=${redirectTo}`;
+			console.log('MattermostChat: Building URL for', email);
+			console.log('MattermostChat: URL =', url);
+			setAutoLoginUrl(url);
+		} else {
+			console.log('MattermostChat: No currentUser or email', currentUser);
 		}
-
-		fetchAutoLoginUrl();
-	}, []);
+	}, [currentUser]);
 
 	const handleIframeError = () => {
 		console.error("Iframe failed to load");
@@ -44,27 +36,13 @@ export function MattermostChat() {
 			</div>
 
 			<div className="flex-1 border rounded-lg overflow-hidden">
-				{loading ? (
+				{!autoLoginUrl ? (
 					<div className="flex items-center justify-center h-full">
 						<p className="text-muted-foreground">Loading chat...</p>
 					</div>
-				) : error ? (
-					<div className="flex items-center justify-center h-full">
-						<p className="text-destructive">{error}</p>
-					</div>
 				) : iframeError ? (
-					<div className="flex flex-col items-center justify-center h-full gap-4 p-8">
-						<p className="text-destructive font-semibold">Failed to load Mattermost chat</p>
-						<div className="text-sm text-muted-foreground text-center max-w-md">
-							<p className="mb-2">The Mattermost plugin may not be configured correctly.</p>
-							<p className="mb-2">Please ensure the plugin JWT secret is set to:</p>
-							<code className="block bg-muted p-2 rounded text-xs break-all">
-								laEVti3sFsCAVdMwQLfaTiEmGwWuqI3fKnexEMERPVE=
-							</code>
-							<p className="mt-4 text-xs">
-								Configure this in: System Console → Plugins → Aura AI → Settings
-							</p>
-						</div>
+					<div className="flex items-center justify-center h-full">
+						<p className="text-destructive">Failed to load Mattermost chat</p>
 					</div>
 				) : (
 					<iframe

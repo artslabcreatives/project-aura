@@ -75,7 +75,7 @@ class MattermostAuthController extends Controller
     }
 
     /**
-     * Generate JWT and redirect to Mattermost plugin auto-login
+     * Generate email login and redirect to Mattermost plugin auto-login
      */
     public function pluginAutoLogin(Request $request): RedirectResponse
     {
@@ -85,11 +85,14 @@ class MattermostAuthController extends Controller
             return redirect()->route('login')->with('error', 'Please login first');
         }
 
-        // Generate auto-login URL with JWT
-        $autoLoginUrl = $this->mattermostService->generatePluginAutoLoginUrl($user);
+        // Get optional channel parameter
+        $channelName = $request->query('channel', 'general');
+
+        // Generate auto-login URL with email login
+        $autoLoginUrl = $this->mattermostService->generatePluginAutoLoginUrl($user, $channelName);
 
         if (!$autoLoginUrl) {
-            return back()->with('error', 'Failed to generate Mattermost plugin login link. Please try again.');
+            return back()->with('error', 'Failed to generate Mattermost login link. Please try again.');
         }
 
         // Redirect to Mattermost plugin auto-login endpoint
@@ -97,7 +100,7 @@ class MattermostAuthController extends Controller
     }
 
     /**
-     * API endpoint to get plugin auto-login URL with JWT
+     * API endpoint to get plugin auto-login URL with email login
      */
     public function getPluginAutoLoginUrl(Request $request)
     {
@@ -114,23 +117,14 @@ class MattermostAuthController extends Controller
             ], 500);
         }
 
-        if (!config('services.mattermost.jwt_secret')) {
-            return response()->json([
-                'error' => 'Mattermost JWT secret not configured. Please contact your administrator.'
-            ], 500);
-        }
+        // Get optional channel parameter (project channel name or 'general')
+        $channelName = $request->query('channel', 'general');
 
-        if (!config('services.mattermost.plugin_id')) {
-            return response()->json([
-                'error' => 'Mattermost plugin ID not configured. Please contact your administrator.'
-            ], 500);
-        }
-
-        $autoLoginUrl = $this->mattermostService->generatePluginAutoLoginUrl($user);
+        $autoLoginUrl = $this->mattermostService->generatePluginAutoLoginUrl($user, $channelName);
 
         if (!$autoLoginUrl) {
             return response()->json([
-                'error' => 'Unable to generate login URL. You may not have a Mattermost account yet. Please contact your administrator.'
+                'error' => 'Unable to generate login URL. Please contact your administrator.'
             ], 500);
         }
 

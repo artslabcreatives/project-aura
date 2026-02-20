@@ -231,6 +231,7 @@ import { SetPassword } from "./pages/SetPassword";
 import { MattermostChat } from "./pages/MattermostChat";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import Reminders from "./pages/Reminders";
+import { PublicMattermostChat } from "./pages/PublicMattermostChat";
 import { ReminderPoller } from "./components/ReminderPoller";
 
 const Dashboard = () => {
@@ -250,18 +251,18 @@ const App = () => (
 				<Toaster />
 				<Sonner />
 				<BrowserRouter>
-					<AuthWrapper>
-						<Routes>
+				<AuthWrapper>
+					<Routes>
+						{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
+						<Route path="/chat" element={<PublicMattermostChat />} />
+						
 							{/* Public route for setting password from invite */}
 							<Route path="/set-password" element={<SetPassword />} />
 							<Route path="/reset-password" element={<ResetPasswordPage />} />
 
 							{/* Regular routes */}
-							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />						<Route path="/mattermost-chat" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
-									<AppLayout><MattermostChat /></AppLayout>
-								</ProtectedRoute>
-							} />							<Route path="/tasks" element={
+						<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />						<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
+						<Route path="/tasks" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
 									<AppLayout><Tasks /></AppLayout>
 								</ProtectedRoute>

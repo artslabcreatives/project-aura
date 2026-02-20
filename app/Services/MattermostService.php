@@ -1026,26 +1026,23 @@ class MattermostService
     }
 
     /**
-     * Generate Mattermost plugin auto-login URL with JWT
+     * Generate Mattermost plugin auto-login URL with email login
      * 
      * @param User $user
+     * @param string|null $channelName - Optional channel name to redirect to (e.g. 'general', 'town-square', or project channel)
      * @return string|null
      */
-    public function generatePluginAutoLoginUrl(User $user): ?string
+    public function generatePluginAutoLoginUrl(User $user, ?string $channelName = null): ?string
     {
-        $jwt = $this->generatePluginJWT($user);
+        $email = urlencode($user->email);
         
-        if (!$jwt) {
-            return null;
+        // Default to general channel if no channel specified
+        if (!$channelName) {
+            $channelName = 'general';
         }
-
-        $pluginId = config('services.mattermost.plugin_id');
         
-        if (!$pluginId) {
-            Log::error('Mattermost plugin ID not configured');
-            return null;
-        }
-
-        return "{$this->baseUrl}/plugins/{$pluginId}/auto-login?token={$jwt}";
+        $redirectTo = urlencode("/artslab-creatives/channels/{$channelName}");
+        
+        return "{$this->baseUrl}/email_login?email={$email}&redirect_to={$redirectTo}";
     }
 }

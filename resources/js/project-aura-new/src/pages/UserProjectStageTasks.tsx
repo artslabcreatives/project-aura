@@ -162,28 +162,19 @@ export default function UserProjectStageTasks() {
 		loadData();
 	}, [projectId, stageId, currentUser]);
 
-	// Fetch auto-login URL when chat is opened
+	// Build email_login URL directly when chat is opened - NO API CALLS
 	useEffect(() => {
-		if (showChat && !autoLoginUrl) {
+		if (showChat && !autoLoginUrl && currentUser?.email) {
 			setChatLoading(true);
-			api.get<{ url: string; expires_at: string }>("/mattermost/plugin/auto-login-url")
-				.then((response) => {
-					setAutoLoginUrl(response.data.url);
-				})
-				.catch((error: any) => {
-					console.error("Failed to get Mattermost auto-login URL:", error);
-					const errorMessage = error?.response?.data?.error || "Failed to load chat. Please try again.";
-					toast({
-						title: "Chat Error",
-						description: errorMessage,
-						variant: "destructive",
-					});
-				})
-				.finally(() => {
-					setChatLoading(false);
-				});
+			const email = encodeURIComponent(currentUser.email);
+			const redirectTo = encodeURIComponent('/artslab-creatives/channels/town-square');
+			const url = `https://collab.artslabcreatives.com/email_login?email=${email}&redirect_to=${redirectTo}`;
+			console.log('Kanban Chat: Building URL for', email);
+			console.log('Kanban Chat: URL =', url);
+			setAutoLoginUrl(url);
+			setChatLoading(false);
 		}
-	}, [showChat]);
+	}, [showChat, currentUser]);
 
 	const updateTasksInStorage = (updatedTask: Task) => {
 		// No localStorage persistence per requirements
