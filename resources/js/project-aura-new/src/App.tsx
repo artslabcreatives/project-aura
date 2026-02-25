@@ -80,16 +80,21 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
 	return (
 		<div className="min-h-screen flex w-full bg-background">
+			{/* Search pinned to viewport center - must be outside header to avoid backdrop-filter containing block */}
+			<div
+				data-tour="global-search"
+				className="fixed top-0 h-11 flex items-center z-50"
+				style={{ left: '50vw', transform: 'translateX(-50%)' }}
+			>
+				<GlobalSearch />
+			</div>
 			<div data-tour="sidebar">
 				<AppSidebar />
 			</div>
 			<div className="flex-1 flex flex-col min-w-0">
-				<header className={`sticky top-0 z-40 h-16 border-b border-border/50 flex items-center justify-between px-6 bg-card/80 backdrop-blur-md shadow-sm transition-[padding] duration-200 ${open ? 'pr-12' : ''}`}>
+				<header className={`sticky top-0 z-40 h-11 border-b border-border/50 dark:border-[#242c40] flex items-center justify-between bg-card/80 backdrop-blur-md shadow-sm transition-[padding] duration-200 ${open ? 'pr-4' : ''}`}>
 					<div className="flex items-center gap-4">
 						<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
-						<div data-tour="global-search">
-							<GlobalSearch />
-						</div>
 					</div>
 					<div className="flex items-center gap-3">
 
@@ -116,7 +121,6 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 								>
 									<Bug className="h-5 w-5" />
 								</Button>
-								<span className="text-[10px] text-muted-foreground leading-none hidden md:block">Ctrl+Shift+R</span>
 							</div>
 						</div>
 						<div data-tour="notifications">
@@ -251,18 +255,18 @@ const App = () => (
 				<Toaster />
 				<Sonner />
 				<BrowserRouter>
-				<AuthWrapper>
-					<Routes>
-						{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
-						<Route path="/chat" element={<PublicMattermostChat />} />
-						
+					<AuthWrapper>
+						<Routes>
+							{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
+							<Route path="/chat" element={<PublicMattermostChat />} />
+
 							{/* Public route for setting password from invite */}
 							<Route path="/set-password" element={<SetPassword />} />
 							<Route path="/reset-password" element={<ResetPasswordPage />} />
 
 							{/* Regular routes */}
-						<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />						<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
-						<Route path="/tasks" element={
+							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />						<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
+							<Route path="/tasks" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
 									<AppLayout><Tasks /></AppLayout>
 								</ProtectedRoute>
