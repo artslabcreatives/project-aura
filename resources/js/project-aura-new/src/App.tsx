@@ -45,11 +45,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
 	useEffect(() => {
 		if (currentUser) {
-			const key = `mattermost_chat_preloaded_${currentUser.id}`;
-			if (!localStorage.getItem(key)) {
-				setShowMattermostPreload(true);
-				localStorage.setItem(key, '1');
-			}
+			setShowMattermostPreload(true);
 		}
 	}, [currentUser?.id]);
 
