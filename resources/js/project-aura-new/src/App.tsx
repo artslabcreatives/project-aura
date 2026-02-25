@@ -41,6 +41,17 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const [isWelcomeVideo, setIsWelcomeVideo] = useState(false);
 	const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 	const hasShownWelcomeRef = useRef(false);
+	const [showMattermostPreload, setShowMattermostPreload] = useState(false);
+
+	useEffect(() => {
+		if (currentUser) {
+			const key = `mattermost_chat_preloaded_${currentUser.id}`;
+			if (!localStorage.getItem(key)) {
+				setShowMattermostPreload(true);
+				localStorage.setItem(key, '1');
+			}
+		}
+	}, [currentUser?.id]);
 
 	useEffect(() => {
 		if (currentUser && currentUser.hasSeenWelcomeVideo === false && !hasShownWelcomeRef.current) {
@@ -145,6 +156,15 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 					/>
 				)}
 			</div>
+			{showMattermostPreload && (
+				<iframe
+					src="/mattermost-chat"
+					title="mattermost-preload"
+					style={{ position: 'fixed', width: 0, height: 0, border: 'none', opacity: 0, pointerEvents: 'none' }}
+					tabIndex={-1}
+					aria-hidden="true"
+				/>
+			)}
 		</div>
 	);
 };
