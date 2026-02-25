@@ -322,7 +322,7 @@ class UserController extends Controller
                 'message' => 'Avatar uploaded successfully to Mattermost'
             ]);
         } catch (\Exception $e) {
-            \Log::error('Failed to upload avatar to Mattermost', [
+            \Log::error('Failed to upload avatar to Mattermost 500', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);

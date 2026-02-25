@@ -33,7 +33,6 @@ export function UserProfileMenu() {
                         <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
                         <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
                     </Avatar>
-                    <span className="text-sm font-medium hidden md:block">{currentUser.name}</span>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
