@@ -138,6 +138,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Reminders
     Route::apiResource('reminders', App\Http\Controllers\Api\ReminderController::class);
+
+    // Clients
+    Route::apiResource('clients', App\Http\Controllers\Api\ClientController::class);
+    Route::post('clients/{client}/contacts', [App\Http\Controllers\Api\ClientController::class, 'storeContact']);
+    Route::put('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'updateContact']);
+    Route::delete('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'destroyContact']);
 });
 
 // 2FA Verification during login

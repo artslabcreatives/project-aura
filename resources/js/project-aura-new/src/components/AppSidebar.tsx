@@ -79,6 +79,7 @@ const mainMenuItems = [
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
 	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },
 	{ title: "Reminders", url: "/reminders", icon: Bell, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
+	{ title: "Clients", url: "/clients", icon: Building2, roles: ["admin", "hr"] },
 ];
 
 interface GroupedDepartment {

@@ -251,6 +251,8 @@ import { SetPassword } from "./pages/SetPassword";
 import { MattermostChat } from "./pages/MattermostChat";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import Reminders from "./pages/Reminders";
+import Clients from "./pages/Clients";
+import ClientProfile from "./pages/ClientProfile";
 import { PublicMattermostChat } from "./pages/PublicMattermostChat";
 import { ReminderPoller } from "./components/ReminderPoller";
 
@@ -308,6 +310,16 @@ const App = () => (
 							<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
 							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
 							<Route path="/reminders" element={<AppLayout><Reminders /></AppLayout>} />
+							<Route path="/clients" element={
+								<ProtectedRoute allowedRoles={['admin', 'hr']}>
+									<AppLayout><Clients /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/clients/:id" element={
+								<ProtectedRoute allowedRoles={['admin', 'hr']}>
+									<AppLayout><ClientProfile /></AppLayout>
+								</ProtectedRoute>
+							} />
 
 							{/* Mattermost embedded routes (with /mattermost prefix) */}
 							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />
