@@ -4,11 +4,12 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Building2, ExternalLink, Mail, Phone, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Building2, ExternalLink, Mail, Phone, MoreHorizontal, Pencil, Trash2, Loader2, History } from "lucide-react";
 import { Client } from "@/types/client";
 import { clientService } from "@/services/clientService";
 import { useToast } from "@/hooks/use-toast";
 import { ClientDialog } from "@/components/ClientDialog";
+import { ClientHistoryDialog } from "@/components/ClientHistoryDialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -32,6 +33,7 @@ export default function Clients() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
+    const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
     const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
     const { toast } = useToast();
@@ -113,10 +115,16 @@ export default function Clients() {
                         Manage client database and contacts
                     </p>
                 </div>
-                <Button onClick={() => setIsClientDialogOpen(true)} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    New Client
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)} className="gap-2">
+                        <History className="h-4 w-4" />
+                        View Logs
+                    </Button>
+                    <Button onClick={() => setIsClientDialogOpen(true)} className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        New Client
+                    </Button>
+                </div>
             </div>
 
             <div className="flex items-center gap-2 max-w-sm relative">
@@ -243,6 +251,11 @@ export default function Clients() {
                 }}
                 onSave={handleSaveClient}
                 editClient={editingClient}
+            />
+
+            <ClientHistoryDialog
+                open={isHistoryDialogOpen}
+                onOpenChange={setIsHistoryDialogOpen}
             />
 
             <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>

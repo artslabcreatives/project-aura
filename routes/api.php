@@ -140,6 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('reminders', App\Http\Controllers\Api\ReminderController::class);
 
     // Clients
+    Route::get('clients/history', [App\Http\Controllers\Api\ClientHistoryController::class, 'index']);
     Route::apiResource('clients', App\Http\Controllers\Api\ClientController::class);
     Route::post('clients/{client}/contacts', [App\Http\Controllers\Api\ClientController::class, 'storeContact']);
     Route::put('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'updateContact']);

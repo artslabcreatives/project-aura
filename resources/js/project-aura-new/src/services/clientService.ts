@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Client, ClientContact } from '@/types/client';
+import { Client, ClientContact, ClientHistory } from '@/types/client';
 
 export const clientService = {
     getAll: async (search?: string): Promise<Client[]> => {
@@ -40,5 +40,10 @@ export const clientService = {
 
     deleteContact: async (clientId: string | number, contactId: string | number): Promise<void> => {
         await api.delete(`/clients/${clientId}/contacts/${contactId}`);
+    },
+
+    getHistory: async (): Promise<ClientHistory[]> => {
+        const { data } = await api.get('/clients/history');
+        return data;
     },
 };

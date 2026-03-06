@@ -24,3 +24,18 @@ export interface Client {
     created_at?: string;
     updated_at?: string;
 }
+
+export interface ClientHistory {
+    id: number;
+    user_id: number;
+    client_id?: number;
+    action: string;
+    target_name?: string;
+    details?: any;
+    created_at: string;
+    user?: {
+        id: number;
+        name: string;
+    };
+}
+

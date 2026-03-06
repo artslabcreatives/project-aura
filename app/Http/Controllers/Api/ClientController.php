@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Models\ClientHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
@@ -17,6 +18,20 @@ class ClientController extends Controller
     protected function checkPermission()
     {
         abort_if(!in_array(auth()->user()->role, ['admin', 'hr']), 403, 'Unauthorized. Only Admin and HR can manage clients.');
+    }
+
+    /**
+     * Record an action in the client history.
+     */
+    protected function recordHistory($clientId, $action, $targetName, $details = null)
+    {
+        ClientHistory::create([
+            'user_id' => auth()->id(),
+            'client_id' => $clientId,
+            'action' => $action,
+            'target_name' => $targetName,
+            'details' => $details,
+        ]);
     }
 
     #[OA\Get(
@@ -66,6 +81,8 @@ class ClientController extends Controller
 
         $client = Client::create($validated);
 
+        $this->recordHistory($client->id, 'created_client', $client->company_name);
+
         return response()->json($client, 201);
     }
 
@@ -91,6 +108,8 @@ class ClientController extends Controller
 
         $client->update($validated);
 
+        $this->recordHistory($client->id, 'updated_client', $client->company_name);
+
         return response()->json($client);
     }
 
@@ -98,7 +117,12 @@ class ClientController extends Controller
     {
         $this->checkPermission();
         
+        $companyName = $client->company_name;
+        $clientId = $client->id;
+        
         $client->delete();
+
+        $this->recordHistory($clientId, 'deleted_client', $companyName);
 
         return response()->noContent();
     }
@@ -124,6 +148,8 @@ class ClientController extends Controller
 
         $contact = $client->contacts()->create($validated);
 
+        $this->recordHistory($client->id, 'added_contact', $contact->name, ['company' => $client->company_name]);
+
         return response()->json($contact, 201);
     }
 
@@ -148,6 +174,8 @@ class ClientController extends Controller
 
         $contact->update($validated);
 
+        $this->recordHistory($client->id, 'updated_contact', $contact->name, ['company' => $client->company_name]);
+
         return response()->json($contact);
     }
 
@@ -162,7 +190,10 @@ class ClientController extends Controller
             return response()->json(['message' => 'Contact does not belong to this client.'], 404);
         }
 
+        $contactName = $contact->name;
         $contact->delete();
+
+        $this->recordHistory($client->id, 'deleted_contact', $contactName, ['company' => $client->company_name]);
 
         return response()->noContent();
     }
