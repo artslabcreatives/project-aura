@@ -1000,7 +1000,7 @@ export function AppSidebar() {
 		userRole && item.roles.includes(userRole)
 	);
 
-	const renderProjectItem = (project: Project, showRole: boolean = false) => {
+	const renderProjectItem = (project: Project, showRole: boolean = false, showGroup: boolean = false) => {
 		let roleBadge = null;
 		if (showRole && currentUser && project.collaborators) {
 			const collaborator = project.collaborators.find(c => String(c.id) === String(currentUser.id));
@@ -1031,7 +1031,9 @@ export function AppSidebar() {
 								}`}
 						>
 							<FolderKanban className="h-4 w-4 shrink-0" />
-							<span className="text-sm truncate">{project.name}</span>
+							<span className="text-sm truncate">
+								{showGroup && project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
+							</span>
 							{roleBadge}
 							{(userRole === 'admin' || userRole === 'team-lead') && project.hasPendingTasks && (
 								<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0 ml-auto" title="Has Pending Tasks" />
@@ -1202,7 +1204,9 @@ export function AppSidebar() {
 														<SidebarMenuButton className="w-full">
 															<div className="flex items-center gap-2 flex-1">
 																<FolderKanban className="h-4 w-4" />
-																<span className="text-sm">{project.name}</span>
+																<span className="text-sm">
+																	{project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
+																</span>
 															</div>
 															<ChevronRight
 																className={`h-4 w-4 transition-transform ${expandedProjects.has(String(project.id)) ? "rotate-90" : ""
@@ -1300,7 +1304,7 @@ export function AppSidebar() {
 													</CollapsibleTrigger>
 													<CollapsibleContent>
 														<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
-															{deptProjects.map(project => renderProjectItem(project, true))}
+															{deptProjects.map(project => renderProjectItem(project, true, true))}
 														</SidebarMenuSub>
 													</CollapsibleContent>
 												</SidebarMenuItem>
