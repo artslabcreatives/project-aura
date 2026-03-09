@@ -11,12 +11,21 @@ import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Glo
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 export default function ProjectOverview() {
     const { projectId } = useParams<{ projectId: string }>();
     const [project, setProject] = useState<Project | null>(null);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
     const navigate = useNavigate();
@@ -110,6 +119,36 @@ export default function ProjectOverview() {
         return title;
     };
 
+    const handleStatusChange = async (newStatus: string) => {
+        if (!project) return;
+        setIsUpdatingStatus(true);
+        try {
+            const updatedProject = await projectService.update(String(project.id), {
+                ...project, // Send existing data
+                status: newStatus,
+                group: project.group, // handle the mapping logic in service if needed
+                department: project.department
+            });
+            setProject(updatedProject);
+            toast({
+                title: "Status Updated",
+                description: `Project status changed to ${newStatus}.`,
+            });
+        } catch (error) {
+            console.error("Failed to update status:", error);
+            toast({
+                title: "Error",
+                description: "Failed to update project status. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const canChangeStatus = currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager';
+
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             {/* Header Section */}
@@ -117,9 +156,28 @@ export default function ProjectOverview() {
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <h1 className="text-4xl font-bold tracking-tight">{project.name}</h1>
-                        <Badge className={`${statusColors[project.status || 'active']} hover:${statusColors[project.status || 'active']} text-white capitalize px-3 py-1`}>
-                            {project.status || 'active'}
-                        </Badge>
+                        {canChangeStatus ? (
+                            <Select
+                                value={project.status || 'active'}
+                                onValueChange={handleStatusChange}
+                                disabled={isUpdatingStatus}
+                            >
+                                <SelectTrigger className={`w-[130px] h-8 text-xs font-semibold capitalize border-none text-white focus:ring-0 ${statusColors[project.status || 'active']}`}>
+                                    {isUpdatingStatus ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Active</SelectItem>
+                                    <SelectItem value="on-hold">On-Hold</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <Badge className={`${statusColors[project.status || 'active']} hover:${statusColors[project.status || 'active']} text-white capitalize px-3 py-1`}>
+                                {project.status || 'active'}
+                            </Badge>
+                        )}
                     </div>
                     <p className="text-muted-foreground text-lg">
                         {project.department?.name} • {project.group?.name || 'No Group'}
