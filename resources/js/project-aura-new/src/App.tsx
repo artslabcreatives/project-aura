@@ -12,6 +12,7 @@ import Tasks from "./pages/Tasks";
 import Team from "./pages/Team";
 import NotFound from "./pages/NotFound";
 import ProjectKanbanFixed from "./pages/ProjectKanbanFixed";
+import ProjectOverview from "./pages/ProjectOverview";
 import UserProjectStageTasks from "./pages/UserProjectStageTasks";
 import FilteredTasksPage from "./pages/FilteredTasksPage";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -296,6 +297,7 @@ const App = () => (
 							} />
 							<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
 							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
+							<Route path="/project/:projectId/overview" element={<AppLayout><ProjectOverview /></AppLayout>} />
 							<Route path="/team" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
 									<AppLayout><Team /></AppLayout>

@@ -25,6 +25,9 @@ class Project extends Model
         'project_group_id',
         'is_archived',
         'mattermost_channel_id',
+        'client_id',
+        'estimated_hours',
+        'status',
     ];
 
     protected $casts = [
@@ -58,6 +61,14 @@ class Project extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get the client that owns the project.
+     */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 
     /**

@@ -272,7 +272,11 @@ export function AppSidebar() {
 		stages: Stage[],
 		emails: string[],
 		phoneNumbers: string[],
-		department?: Department
+		department?: Department,
+		groupId?: string,
+		clientId?: string,
+		estimatedHours?: number,
+		status?: string
 	) => {
 		if (!currentUser) return;
 		try {
@@ -284,6 +288,9 @@ export function AppSidebar() {
 				emails,
 				phoneNumbers,
 				department,
+				client_id: clientId ? parseInt(clientId) : undefined,
+				estimated_hours: estimatedHours,
+				status,
 			});
 
 			// Fetch fresh project details to get any auto-created system stages
@@ -384,7 +391,11 @@ export function AppSidebar() {
 		stages: Stage[],
 		emails: string[],
 		phoneNumbers: string[],
-		department?: Department
+		department?: Department,
+		groupId?: string,
+		clientId?: string,
+		estimatedHours?: number,
+		status?: string
 	) => {
 		if (!currentUser || !projectToEdit) return;
 		try {
@@ -394,6 +405,9 @@ export function AppSidebar() {
 				emails,
 				phoneNumbers,
 				department,
+				client_id: clientId ? parseInt(clientId) : null,
+				estimated_hours: estimatedHours,
+				status,
 			});
 
 			// Create any newly added stages (id not numeric)
@@ -428,6 +442,13 @@ export function AppSidebar() {
 					linked_review_stage_id: stage.linkedReviewStageId,
 					approved_target_stage_id: stage.approvedTargetStageId,
 				});
+			}
+
+			// Delete removed stages
+			const currentStageIds = new Set(existingStages.map(s => String(s.id)));
+			const toDelete = projectToEdit.stages?.filter(os => !currentStageIds.has(String(os.id))) || [];
+			for (const stage of toDelete) {
+				await api.delete(`/stages/${stage.id}`);
 			}
 
 			const projectsData = await projectService.getAll();
@@ -1509,6 +1530,9 @@ export function AppSidebar() {
 				editProject={projectToEdit || undefined}
 				departments={departments}
 				currentUser={currentUser}
+				clientId={projectToEdit?.clientId}
+				estimatedHours={projectToEdit?.estimatedHours}
+				status={projectToEdit?.status}
 			/>
 
 			<AssignGroupDialog

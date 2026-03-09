@@ -40,7 +40,7 @@ class ProjectController extends Controller
     public function index(): JsonResponse
     {
         $user = auth()->user();
-        $query = Project::with(['department', 'group', 'stages' => function ($query) {
+        $query = Project::with(['department', 'group', 'client', 'stages' => function ($query) {
             $query->where('type', 'project');
         }, 'tasks', 'collaborators' => function ($query) {
             $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
@@ -75,7 +75,10 @@ class ProjectController extends Controller
                     new OA\Property(property: "department_id", type: "integer", example: 1),
                     new OA\Property(property: "emails", type: "array", items: new OA\Items(type: "string", format: "email")),
                     new OA\Property(property: "phone_numbers", type: "array", items: new OA\Items(type: "string")),
-                    new OA\Property(property: "project_group_id", type: "integer", example: 1)
+                    new OA\Property(property: "project_group_id", type: "integer", example: 1),
+                    new OA\Property(property: "client_id", type: "integer", example: 1, nullable: true),
+                    new OA\Property(property: "estimated_hours", type: "integer", example: 160, nullable: true),
+                    new OA\Property(property: "status", type: "string", example: "active", enum: ["active", "on-hold", "completed", "cancelled"], nullable: true)
                 ]
             )
         ),
@@ -91,6 +94,7 @@ class ProjectController extends Controller
                         new OA\Property(property: "description", type: "string"),
                         new OA\Property(property: "department", type: "object"),
                         new OA\Property(property: "group", type: "object"),
+                        new OA\Property(property: "client", type: "object"),
                         new OA\Property(property: "stages", type: "array", items: new OA\Items(type: "object"))
                     ]
                 )
@@ -110,6 +114,9 @@ class ProjectController extends Controller
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'string',
             'project_group_id' => 'nullable|exists:project_groups,id',
+            'client_id' => 'nullable|exists:clients,id',
+            'estimated_hours' => 'nullable|integer',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
         ]);
 
         $project = Project::create($validated);
@@ -125,7 +132,7 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
         }
 
-        return response()->json($project->load(['department', 'group', 'stages' => function ($query) {
+        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
             $query->where('type', 'project');
         }]), 201);
     }
@@ -155,6 +162,7 @@ class ProjectController extends Controller
                         new OA\Property(property: "description", type: "string"),
                         new OA\Property(property: "department", type: "object"),
                         new OA\Property(property: "group", type: "object"),
+                        new OA\Property(property: "client", type: "object"),
                         new OA\Property(property: "stages", type: "array", items: new OA\Items(type: "object")),
                         new OA\Property(property: "tasks", type: "array", items: new OA\Items(type: "object"))
                     ]
@@ -166,7 +174,7 @@ class ProjectController extends Controller
     )]
     public function show(Project $project): JsonResponse
     {
-        return response()->json($project->load(['department', 'group', 'stages' => function ($query) {
+        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
             $query->where('type', 'project');
         }, 'tasks', 'collaborators' => function ($query) {
             $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
@@ -217,6 +225,9 @@ class ProjectController extends Controller
             'phone_numbers.*' => 'string',
             'project_group_id' => 'nullable|exists:project_groups,id',
             'is_archived' => 'nullable|boolean',
+            'client_id' => 'nullable|exists:clients,id',
+            'estimated_hours' => 'nullable|integer',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
         ]);
 
         $wasArchived = $project->is_archived;
@@ -238,7 +249,7 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to broadcast project update: ' . $e->getMessage());
         }
 
-        return response()->json($project->load(['department', 'group', 'stages' => function ($query) {
+        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
             $query->where('type', 'project');
         }]));
     }

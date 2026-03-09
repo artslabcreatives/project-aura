@@ -10,6 +10,8 @@ export interface ClientContact {
     updated_at?: string;
 }
 
+import { Project } from "./project";
+
 export interface Client {
     id: number;
     company_name: string;
@@ -21,6 +23,7 @@ export interface Client {
     notes?: string;
     contacts?: ClientContact[];
     contacts_count?: number;
+    projects?: Project[];
     created_at?: string;
     updated_at?: string;
 }

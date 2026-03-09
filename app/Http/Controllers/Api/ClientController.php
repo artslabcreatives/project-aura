@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\ClientHistory;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
@@ -49,7 +50,10 @@ class ClientController extends Controller
     {
         $this->checkPermission();
 
-        $query = Client::withCount('contacts');
+        $query = Client::withCount(['contacts', 'projects'])
+            ->with(['projects' => function ($query) {
+                $query->with(['department']); // Include department for project badge
+            }]);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -86,10 +90,12 @@ class ClientController extends Controller
         return response()->json($client, 201);
     }
 
-    public function show(Client $client)
+    public function show(Client $client): JsonResponse
     {
         $this->checkPermission();
-        return response()->json($client->load('contacts'));
+        return response()->json($client->load(['contacts', 'projects' => function ($query) {
+            $query->with(['department']);
+        }]));
     }
 
     public function update(Request $request, Client $client)

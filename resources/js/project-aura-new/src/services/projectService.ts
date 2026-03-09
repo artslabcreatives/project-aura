@@ -65,6 +65,10 @@ function mapProject(raw: any): Project {
 			}))
 			: undefined,
 		mattermostChannelId: raw.mattermost_channel_id || undefined,
+		clientId: raw.client_id,
+		estimatedHours: raw.estimated_hours,
+		status: raw.status,
+		client: raw.client,
 	};
 }
 
@@ -86,7 +90,7 @@ export const projectService = {
 		return projects.find(p => p.name === name) || null;
 	},
 
-	create: async (project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> => {
+	create: async (project: any): Promise<Project> => {
 		// Backend expects department_id not nested object
 		const payload: any = {
 			name: project.name,
@@ -95,12 +99,15 @@ export const projectService = {
 			emails: project.emails,
 			phone_numbers: project.phoneNumbers,
 			project_group_id: project.group ? parseInt(project.group.id, 10) : null,
+			client_id: project.client_id,
+			estimated_hours: project.estimated_hours,
+			status: project.status,
 		};
 		const { data } = await api.post('/projects', payload);
 		return mapProject(data);
 	},
 
-	update: async (id: string, updates: Partial<Project>): Promise<Project> => {
+	update: async (id: string, updates: any): Promise<Project> => {
 		const payload: any = {
 			name: updates.name,
 			description: updates.description,
@@ -109,6 +116,9 @@ export const projectService = {
 			phone_numbers: updates.phoneNumbers,
 			project_group_id: updates.group === null ? null : (updates.group ? parseInt(updates.group.id, 10) : undefined),
 			is_archived: updates.isArchived,
+			client_id: updates.client_id,
+			estimated_hours: updates.estimated_hours,
+			status: updates.status,
 		};
 		const { data } = await api.put(`/projects/${id}`, payload);
 		return mapProject(data);

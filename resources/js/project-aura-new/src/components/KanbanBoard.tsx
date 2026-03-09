@@ -362,7 +362,9 @@ export function KanbanBoard({
                 <div className={cn("h-2 w-2 rounded-full", column.color)} />
                 {!columnSearchOpen[column.id] && (
                   <span>
-                    {(column.title === 'Pending' && !disableBacklogRenaming)
+                    {(column.title.toLowerCase().trim() === 'pending' &&
+                      !disableBacklogRenaming &&
+                      ['admin', 'team-lead', 'account-manager'].includes(currentUser?.role || ''))
                       ? 'Backlog'
                       : column.title}
                   </span>

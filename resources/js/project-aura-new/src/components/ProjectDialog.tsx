@@ -40,6 +40,8 @@ import { Project } from "@/types/project";
 import { ProjectGroup } from "@/types/project-group";
 import { projectGroupService } from "@/services/projectGroupService";
 import { stageGroupService, StageGroup } from "@/services/stageGroupService";
+import { clientService } from "@/services/clientService";
+import { Client as ClientType } from "@/types/client";
 import { SearchableSelect, SearchableOption } from "./ui/searchable-select";
 import {
 	DndContext,
@@ -99,7 +101,10 @@ interface ProjectDialogProps {
 		emails: string[],
 		phoneNumbers: string[],
 		department?: Department,
-		groupId?: string
+		groupId?: string,
+		clientId?: string,
+		estimatedHours?: number,
+		status?: string
 	) => void;
 	existingProjects: string[];
 	teamMembers: User[];
@@ -444,10 +449,14 @@ export function ProjectDialog({
 	currentUser,
 }: ProjectDialogProps) {
 	const { toast } = useToast();
-	const [formData, setFormData] = useState<ProjectFormData>({
+	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string }>({
 		name: "",
 		description: "",
+		clientId: "",
+		estimatedHours: 0,
+		status: "active",
 	});
+	const [clients, setClients] = useState<ClientType[]>([]);
 	const [stages, setStages] = useState<Stage[]>([]);
 	const [emails, setEmails] = useState<string[]>([]);
 	const [phoneNumbers, setPhoneNumbers] = useState<string[]>([]);
@@ -514,17 +523,24 @@ export function ProjectDialog({
 				.then(groups => setStageGroups(groups))
 				.catch(err => console.error("Failed to load stage groups", err));
 
+			clientService.getAll()
+				.then(data => setClients(data))
+				.catch(err => console.error("Failed to load clients", err));
+
 			// Populate form if editing
 			if (editProject) {
+				setDepartment(editProject.department);
+				setGroupId(editProject.group?.id ? String(editProject.group.id) : "");
 				setFormData({
 					name: editProject.name,
 					description: editProject.description || "",
+					clientId: editProject.clientId ? String(editProject.clientId) : "",
+					estimatedHours: editProject.estimatedHours || 0,
+					status: editProject.status || "active",
 				});
 				setStages(editProject.stages || []);
 				setEmails(editProject.emails || []);
 				setPhoneNumbers(editProject.phoneNumbers || []);
-				setDepartment(editProject.department);
-				setGroupId(editProject.group?.id ? String(editProject.group.id) : "");
 			} else {
 				// For new project, auto-select department for team-lead
 				if (currentUser?.role === "team-lead" || currentUser?.role === "account-manager") {
@@ -533,23 +549,21 @@ export function ProjectDialog({
 					);
 					setDepartment(userDepartment);
 				}
-				if (stages.length === 0) {
-					setStages([
-						{ id: 'system-suggested', title: 'Suggested Task', color: 'bg-slate-200', order: 0, type: 'project', isReviewStage: false, stageGroupId: 1 },
-						{ id: 'system-pending', title: 'Pending', color: 'bg-orange-500', order: 1, type: 'project', isReviewStage: false, stageGroupId: 1 },
-						{ id: 'system-completed', title: 'Completed', color: 'bg-green-500', order: 998, type: 'project', isReviewStage: false, stageGroupId: 3 },
-						{ id: 'system-archive', title: 'Archive', color: 'bg-slate-500', order: 999, type: 'project', isReviewStage: false, stageGroupId: 3 },
-					]);
-				}
+				setStages([
+					{ id: 'system-suggested', title: 'Suggested Task', color: 'bg-slate-200', order: 0, type: 'project', isReviewStage: false, stageGroupId: 1 },
+					{ id: 'system-pending', title: 'Pending', color: 'bg-orange-500', order: 1, type: 'project', isReviewStage: false, stageGroupId: 1 },
+					{ id: 'system-completed', title: 'Completed', color: 'bg-green-500', order: 998, type: 'project', isReviewStage: false, stageGroupId: 3 },
+					{ id: 'system-archive', title: 'Archive', color: 'bg-slate-500', order: 999, type: 'project', isReviewStage: false, stageGroupId: 3 },
+				]);
+				setEmails([]);
+				setPhoneNumbers([]);
 			}
 		} else {
-			setFormData({ name: "", description: "" });
+			setGroupId("");
+			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active" });
 			setStages([]);
-			setErrors({});
 			setEmails([]);
 			setPhoneNumbers([]);
-			setDepartment(undefined);
-			setGroupId("");
 		}
 	}, [open, editProject, currentUser, departments]);
 
@@ -734,7 +748,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(result.data.name, result.data.description || "", uniqueStages, emails, phoneNumbers, department, groupId);
+		onSave(result.data.name, result.data.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status);
 		onOpenChange(false);
 	};
 
@@ -838,6 +852,55 @@ export function ProjectDialog({
 								onValuesChange={setPhoneNumbers}
 								placeholder="Select numbers..."
 							/>
+						</div>
+
+						<div className="grid gap-2">
+							<Label htmlFor="client">Client (Optional)</Label>
+							<SearchableSelect
+								value={formData.clientId}
+								onValueChange={(value) =>
+									setFormData({ ...formData, clientId: value })
+								}
+								options={clients.map(client => ({
+									value: String(client.id),
+									label: client.company_name,
+								}))}
+								placeholder="Select a client"
+							/>
+						</div>
+
+						<div className="grid grid-cols-2 gap-4">
+							<div className="grid gap-2">
+								<Label htmlFor="estimatedHours">Estimated Hours</Label>
+								<Input
+									id="estimatedHours"
+									type="number"
+									value={formData.estimatedHours}
+									onChange={(e) =>
+										setFormData({ ...formData, estimatedHours: parseInt(e.target.value) || 0 })
+									}
+									placeholder="Estimated hours"
+								/>
+							</div>
+							<div className="grid gap-2">
+								<Label htmlFor="status">Status</Label>
+								<Select
+									value={formData.status}
+									onValueChange={(value) =>
+										setFormData({ ...formData, status: value })
+									}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select status" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="active">Active</SelectItem>
+										<SelectItem value="on-hold">On Hold</SelectItem>
+										<SelectItem value="completed">Completed</SelectItem>
+										<SelectItem value="cancelled">Cancelled</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
 						</div>
 
 						<div className="grid grid-cols-2 gap-4">
