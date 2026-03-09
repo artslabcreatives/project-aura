@@ -103,9 +103,8 @@ export default function ProjectOverview() {
     };
 
     const getDisplayName = (title: string) => {
-        if (!currentUser) return title;
-        const isAdmin = ['admin', 'team-lead', 'account-manager'].includes(currentUser.role);
-        if (isAdmin && title.toLowerCase().trim() === 'pending') {
+        if (!title) return title;
+        if (title.toLowerCase().trim() === 'pending') {
             return 'Backlog';
         }
         return title;

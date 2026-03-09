@@ -158,7 +158,7 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 				{isSystem && <div className="w-4" />} {/* Spacer */}
 
 				<Input
-					value={stage.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') ? "Backlog" : stage.title}
+					value={stage.title === "Pending" ? "Backlog" : stage.title}
 					onChange={(e) => updateStage(stage.id, "title", e.target.value)}
 					placeholder="Stage name"
 					className="flex-1"
@@ -1046,7 +1046,7 @@ export function ProjectDialog({
 							</div>
 
 							<div className="text-xs text-muted-foreground bg-muted p-2 rounded-md">
-								Note: <strong>Suggested, {(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') ? "Backlog" : "Pending"}, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
+								Note: <strong>Suggested, Backlog, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
 							</div>
 
 							{stages.length === 0 && !editProject ? (
