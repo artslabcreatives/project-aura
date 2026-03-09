@@ -174,7 +174,13 @@ export default function ProjectOverview() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => navigate(-1)}
+                            onClick={() => {
+                                if (window.history.length > 2) {
+                                    navigate(-1);
+                                } else {
+                                    navigate('/');
+                                }
+                            }}
                             className="h-9 w-9"
                         >
                             <ArrowLeft className="h-5 w-5" />
