@@ -7,8 +7,9 @@ import { Task } from "@/types/task";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe } from "lucide-react";
+import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 import {
@@ -156,6 +157,14 @@ export default function ProjectOverview() {
             <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate(-1)}
+                            className="h-9 w-9"
+                        >
+                            <ArrowLeft className="h-5 w-5" />
+                        </Button>
                         <h1 className="text-4xl font-bold tracking-tight">{project.name}</h1>
                         {canChangeStatus ? (
                             <Select
@@ -185,12 +194,6 @@ export default function ProjectOverview() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium hover:bg-secondary/80 transition-colors border"
-                    >
-                        Go Back
-                    </button>
                     <button
                         onClick={() => navigate(`/project/${projectId}`)}
                         className="px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors"
