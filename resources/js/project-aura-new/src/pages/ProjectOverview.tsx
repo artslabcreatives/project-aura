@@ -147,6 +147,7 @@ export default function ProjectOverview() {
     };
 
     const canChangeStatus = currentUser?.role === 'admin' || currentUser?.role === 'hr';
+    const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
 
 
     return (
@@ -243,19 +244,21 @@ export default function ProjectOverview() {
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-md bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-pink-500" />
-                            Client
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold truncate">
-                            {project.client?.company_name || 'Internal Project'}
-                        </div>
-                    </CardContent>
-                </Card>
+                {canSeeClientInfo && (
+                    <Card className="border-none shadow-md bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-pink-500" />
+                                Client
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-xl font-bold truncate">
+                                {project.client?.company_name || 'Internal Project'}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -296,66 +299,68 @@ export default function ProjectOverview() {
 
                 {/* Right Column: Client Details & Contacts */}
                 <div className="space-y-8">
-                    {project.client ? (
-                        <Card className="border-primary/20 bg-primary/5">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Building2 className="h-5 w-5" />
-                                    Client Information
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</label>
-                                    <p className="font-medium text-lg">{project.client.company_name}</p>
-                                </div>
-
-                                {project.client.industry && (
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Industry</label>
-                                        <p className="text-sm">{project.client.industry}</p>
+                    {canSeeClientInfo ? (
+                        project.client ? (
+                            <Card className="border-primary/20 bg-primary/5">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Building2 className="h-5 w-5" />
+                                        Client Information
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</label>
+                                        <p className="font-medium text-lg">{project.client.company_name}</p>
                                     </div>
-                                )}
 
-                                <div className="pt-4 space-y-3">
-                                    {project.client.website && (
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Globe className="h-4 w-4 text-muted-foreground" />
-                                            <a href={project.client.website} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                                                {project.client.website}
-                                            </a>
+                                    {project.client.industry && (
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Industry</label>
+                                            <p className="text-sm">{project.client.industry}</p>
                                         </div>
                                     )}
-                                    {project.client.email && (
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Mail className="h-4 w-4 text-muted-foreground" />
-                                            <span>{project.client.email}</span>
-                                        </div>
-                                    )}
-                                    {project.client.phone && (
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Phone className="h-4 w-4 text-muted-foreground" />
-                                            <span>{project.client.phone}</span>
-                                        </div>
-                                    )}
-                                </div>
 
-                                <button
-                                    onClick={() => navigate(`/clients/${project.client?.id}`)}
-                                    className="w-full mt-4 text-sm font-medium text-primary hover:text-primary/80"
-                                >
-                                    View Full Client Profile →
-                                </button>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <Card className="border-dashed">
-                            <CardContent className="py-10 text-center space-y-2">
-                                <Building2 className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
-                                <p className="text-muted-foreground">No client associated with this project.</p>
-                            </CardContent>
-                        </Card>
-                    )}
+                                    <div className="pt-4 space-y-3">
+                                        {project.client.website && (
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Globe className="h-4 w-4 text-muted-foreground" />
+                                                <a href={project.client.website} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                                    {project.client.website}
+                                                </a>
+                                            </div>
+                                        )}
+                                        {project.client.email && (
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                                <span>{project.client.email}</span>
+                                            </div>
+                                        )}
+                                        {project.client.phone && (
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Phone className="h-4 w-4 text-muted-foreground" />
+                                                <span>{project.client.phone}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => navigate(`/clients/${project.client?.id}`)}
+                                        className="w-full mt-4 text-sm font-medium text-primary hover:text-primary/80"
+                                    >
+                                        View Full Client Profile →
+                                    </button>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="border-dashed">
+                                <CardContent className="py-10 text-center space-y-2">
+                                    <Building2 className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
+                                    <p className="text-muted-foreground">No client associated with this project.</p>
+                                </CardContent>
+                            </Card>
+                        )
+                    ) : null}
                 </div>
             </div>
 
