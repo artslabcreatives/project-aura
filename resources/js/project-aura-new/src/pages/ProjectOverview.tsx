@@ -127,6 +127,12 @@ export default function ProjectOverview() {
                 </div>
                 <div className="flex gap-2">
                     <button
+                        onClick={() => navigate(-1)}
+                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium hover:bg-secondary/80 transition-colors border"
+                    >
+                        Go Back
+                    </button>
+                    <button
                         onClick={() => navigate(`/project/${projectId}`)}
                         className="px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors"
                     >
