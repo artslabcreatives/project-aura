@@ -448,6 +448,7 @@ export function ProjectDialog({
 	departments,
 	currentUser,
 }: ProjectDialogProps) {
+	const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
 	const { toast } = useToast();
 	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string }>({
 		name: "",
@@ -523,9 +524,11 @@ export function ProjectDialog({
 				.then(groups => setStageGroups(groups))
 				.catch(err => console.error("Failed to load stage groups", err));
 
-			clientService.getAll()
-				.then(data => setClients(data))
-				.catch(err => console.error("Failed to load clients", err));
+			if (canSeeClientInfo) {
+				clientService.getAll()
+					.then(data => setClients(data))
+					.catch(err => console.error("Failed to load clients", err));
+			}
 
 			// Populate form if editing
 			if (editProject) {
@@ -854,20 +857,22 @@ export function ProjectDialog({
 							/>
 						</div>
 
-						<div className="grid gap-2">
-							<Label htmlFor="client">Client (Optional)</Label>
-							<SearchableSelect
-								value={formData.clientId}
-								onValueChange={(value) =>
-									setFormData({ ...formData, clientId: value })
-								}
-								options={clients.map(client => ({
-									value: String(client.id),
-									label: client.company_name,
-								}))}
-								placeholder="Select a client"
-							/>
-						</div>
+						{canSeeClientInfo && (
+							<div className="grid gap-2">
+								<Label htmlFor="client">Client (Optional)</Label>
+								<SearchableSelect
+									value={formData.clientId}
+									onValueChange={(value) =>
+										setFormData({ ...formData, clientId: value })
+									}
+									options={clients.map(client => ({
+										value: String(client.id),
+										label: client.company_name,
+									}))}
+									placeholder="Select a client"
+								/>
+							</div>
+						)}
 
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
