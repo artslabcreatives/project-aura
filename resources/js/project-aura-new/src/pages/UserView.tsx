@@ -104,6 +104,8 @@ export default function UserView() {
 					// Calendar/List should show only "Active" tasks (excluding system stages/completed/pending if desires)
 					const activeTasks = allAssignedTasks.filter((task: Task) => {
 						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
+						// Also hide if user manually marked it as complete
+						if (task.userStatus === 'complete') return false;
 						return true;
 					});
 

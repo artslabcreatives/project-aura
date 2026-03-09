@@ -460,7 +460,12 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							)}
 						</div>
 						<div className="space-y-1">
-							{task.subtasks?.map(subtask => (
+							{task.subtasks?.filter(st => {
+								// Only Admin and Team Lead can see completed subtasks
+								const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+								if (isAdminOrTL) return true;
+								return st.userStatus !== 'complete';
+							}).map(subtask => (
 								<div
 									key={subtask.id}
 									className="flex items-center gap-2 text-xs p-1 hover:bg-muted/50 rounded group/subtask cursor-pointer"

@@ -333,7 +333,12 @@ export default function TaskDetailsPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-2">
-                                    {task.subtasks.map((subtask) => (
+                                    {task.subtasks.filter(st => {
+                                        // Only Admin and Team Lead can see completed subtasks
+                                        const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+                                        if (isAdminOrTL) return true;
+                                        return st.userStatus !== 'complete';
+                                    }).map((subtask) => (
                                         <div key={subtask.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
                                             <div className={cn(
                                                 "h-5 w-5 flex items-center justify-center rounded border",
