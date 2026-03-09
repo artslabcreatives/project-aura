@@ -146,7 +146,7 @@ export default function ProjectOverview() {
         }
     };
 
-    const canChangeStatus = currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager';
+    const canChangeStatus = currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'hr';
 
 
     return (
