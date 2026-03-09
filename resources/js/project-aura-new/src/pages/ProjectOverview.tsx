@@ -101,8 +101,22 @@ export default function ProjectOverview() {
         );
     }
 
-    const completedTasks = tasks.filter(t => t.userStatus === 'complete').length;
-    const totalTasks = tasks.length;
+    const completedStageId = project?.stages.find(s => s.title.toLowerCase().trim() === 'completed')?.id;
+    const suggestedStageIds = project?.stages
+        .filter(s => {
+            const title = s.title.toLowerCase().trim();
+            return title === 'suggested' || title === 'suggested task';
+        })
+        .map(s => s.id);
+    const archiveStageId = project?.stages.find(s => s.title.toLowerCase().trim() === 'archive')?.id;
+
+    const filteredTasks = tasks.filter(t => {
+        if (!t.projectStage) return true;
+        return !suggestedStageIds.includes(t.projectStage) && t.projectStage !== archiveStageId;
+    });
+
+    const completedTasks = tasks.filter(t => t.projectStage === completedStageId).length;
+    const totalTasks = filteredTasks.length;
     const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     const statusColors = {
