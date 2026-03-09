@@ -298,40 +298,41 @@ export default function ProjectOverview() {
                             </CardContent>
                         </Card>
                     )}
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base font-semibold">Project Links</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-xs text-muted-foreground">Emails</label>
-                                <div className="flex flex-wrap gap-1">
-                                    {project.emails && project.emails.length > 0 ? (
-                                        project.emails.map(email => (
-                                            <Badge key={email} variant="outline" className="font-normal">{email}</Badge>
-                                        ))
-                                    ) : (
-                                        <span className="text-sm text-muted-foreground">None</span>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs text-muted-foreground">WhatsApp Group Numbers</label>
-                                <div className="flex flex-wrap gap-1">
-                                    {project.phoneNumbers && project.phoneNumbers.length > 0 ? (
-                                        project.phoneNumbers.map(phone => (
-                                            <Badge key={phone} variant="outline" className="font-normal">{phone}</Badge>
-                                        ))
-                                    ) : (
-                                        <span className="text-sm text-muted-foreground">None</span>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
+
+            {/* Full Width: Project Links */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base font-semibold">Project Links</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Emails</label>
+                        <div className="flex flex-wrap gap-1">
+                            {project.emails && project.emails.length > 0 ? (
+                                project.emails.map(email => (
+                                    <Badge key={email} variant="outline" className="font-normal">{email}</Badge>
+                                ))
+                            ) : (
+                                <span className="text-sm text-muted-foreground">None</span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">WhatsApp Group Numbers</label>
+                        <div className="flex flex-wrap gap-1">
+                            {project.phoneNumbers && project.phoneNumbers.length > 0 ? (
+                                project.phoneNumbers.map(phone => (
+                                    <Badge key={phone} variant="outline" className="font-normal">{phone}</Badge>
+                                ))
+                            ) : (
+                                <span className="text-sm text-muted-foreground">None</span>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
