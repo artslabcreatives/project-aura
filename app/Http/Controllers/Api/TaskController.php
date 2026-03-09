@@ -299,28 +299,37 @@ class TaskController extends Controller
             // Better to keep existing logic: if assignee_id passed, use it, else keep it.
         }
 
-        if ($statusChanged && $newStatus === 'complete' && $task->assignedUsers()->count() > 1) {
-             // Find the pivot entry for this user
-             $userId = $request->user()->id;
-             $pivot = $task->assignedUsers()->where('users.id', $userId)->first();
-             if ($pivot) {
-                 // Update pivot status
-                 $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
-             }
-             
-             // Check if ALL are complete
-             $allComplete = !$task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
-             
-             if (!$allComplete) {
-                 // If not all complete, REVERT the main task status change (keep it as it was)
-                 unset($task->user_status); 
-             } else {
-                 // All complete - attempt stage advancement
-                 $this->performStageAdvancement($task);
-             }
-        } elseif ($statusChanged && $newStatus === 'complete') {
-             // Single user completion - attempt stage advancement
-             $this->performStageAdvancement($task);
+        $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
+
+        if ($statusChanged && $newStatus === 'complete') {
+            $isMultiAssignee = $task->assignedUsers()->count() > 1;
+            
+            if ($isMultiAssignee && !$isAdminOrTL) {
+                // Regular user in multi-assignee task
+                $userId = $request->user()->id;
+                $pivot = $task->assignedUsers()->where('users.id', $userId)->first();
+                if ($pivot) {
+                    $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
+                }
+                
+                $allComplete = !$task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
+                if (!$allComplete) {
+                    // Revert status to original if not all complete
+                    $task->user_status = $task->getOriginal('user_status') ?? 'pending';
+                } else {
+                    $this->handleTaskCompletion($task);
+                }
+            } else {
+                // Single assignee OR Admin/Lead forcing completion
+                if ($isMultiAssignee && $isAdminOrTL) {
+                    // Mark everyone as complete
+                    $task->assignedUsers()->newPivotStatement()
+                        ->where('task_id', $task->id)
+                        ->update(['status' => 'complete']);
+                }
+                
+                $this->handleTaskCompletion($task);
+            }
         }
 
         $task->save();
@@ -410,6 +419,44 @@ class TaskController extends Controller
         }
 
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
+    }
+
+    /**
+     * Handle task completion logic
+     */
+    private function handleTaskCompletion(Task $task)
+    {
+        // For subtasks, we move directly to the final stage AND force 'complete' status
+        // Subtasks are often used as checklists and shouldn't revert to 'pending'
+        if ($task->parent_id) {
+            $finalStage = \App\Models\Stage::where('project_id', $task->project_id)
+                ->where(function($q) {
+                    $q->where('title', 'like', '%Complete%')
+                      ->orWhere('title', 'like', '%Done%')
+                      ->orWhere('title', 'like', '%Archive%')
+                      ->orWhere('title', 'like', '%Finish%');
+                })
+                ->orderBy('order', 'desc')
+                ->first();
+            
+            if (!$finalStage) {
+                // Fallback to the very last stage by order
+                $finalStage = \App\Models\Stage::where('project_id', $task->project_id)
+                    ->orderBy('order', 'desc')
+                    ->first();
+            }
+
+            if ($finalStage) {
+                $task->project_stage_id = $finalStage->id;
+            }
+            
+            $task->user_status = 'complete';
+            $task->completed_at = now();
+            return;
+        }
+
+        // Parent tasks follow the normal advancement pipeline
+        $this->performStageAdvancement($task);
     }
 
     /**
@@ -625,22 +672,31 @@ class TaskController extends Controller
             $multiAssignee = $task->assignedUsers()->count() > 1;
             
             if ($hasPivot && isset($validated['user_status']) && $validated['user_status'] === 'complete') {
-                $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
+                $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
                 
-                // Check if all others are complete
-                if ($multiAssignee) {
-                    $pendingOthers = $task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
-                    if ($pendingOthers) {
-                        $shouldCompleteMainTask = false;
+                if ($isAdminOrTL) {
+                    // Admin forces completion for all
+                    $task->assignedUsers()->newPivotStatement()
+                        ->where('task_id', $task->id)
+                        ->update(['status' => 'complete']);
+                    $shouldCompleteMainTask = true;
+                } else {
+                    $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
+                    
+                    // Check if all others are complete
+                    if ($multiAssignee) {
+                        $pendingOthers = $task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
+                        if ($pendingOthers) {
+                            $shouldCompleteMainTask = false;
+                        }
                     }
                 }
             }
 
             // Update Task Status if allowed
-            $updates = [];
             if ($shouldCompleteMainTask) {
-                // Apply stage advancement logic
-                $this->performStageAdvancement($task);
+                // Apply completion logic
+                $this->handleTaskCompletion($task);
                 $task->save();
                 
                 // Also apply other updates if provided (like stage override from request? usually null if just completing)

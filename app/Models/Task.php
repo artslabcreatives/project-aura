@@ -30,7 +30,6 @@ class Task extends Model
         'previous_stage_id',
         'original_assignee_id',
         'completed_at',
-        'completed_at',
         'estimated_hours',
         'parent_id',
         'is_assignee_locked',

@@ -483,6 +483,9 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 										)}
 										onClick={async (e) => {
 											e.stopPropagation();
+											const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+											if (!isAdminOrTL) return;
+
 											// Toggle status
 											const newStatus: UserStatus = subtask.userStatus === 'complete' ? 'pending' : 'complete';
 											try {

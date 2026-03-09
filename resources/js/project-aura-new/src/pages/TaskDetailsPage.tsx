@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Task, TaskHistory } from "@/types/task";
+import { Task, TaskHistory, UserStatus } from "@/types/task";
+import { useToast } from "@/hooks/use-toast";
 import { taskService } from "@/services/taskService";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ export default function TaskDetailsPage() {
     const { taskId } = useParams<{ taskId: string }>();
     const navigate = useNavigate();
     const { currentUser } = useUser();
+    const { toast } = useToast();
     const [task, setTask] = useState<Task | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -340,12 +342,42 @@ export default function TaskDetailsPage() {
                                         return st.userStatus !== 'complete';
                                     }).map((subtask) => (
                                         <div key={subtask.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
-                                            <div className={cn(
-                                                "h-5 w-5 flex items-center justify-center rounded border",
-                                                subtask.userStatus === 'complete'
-                                                    ? "bg-primary border-primary text-primary-foreground"
-                                                    : "border-muted-foreground/30"
-                                            )}>
+                                            <div
+                                                className={cn(
+                                                    "h-5 w-5 flex items-center justify-center rounded border cursor-pointer transition-colors hover:border-primary",
+                                                    subtask.userStatus === 'complete'
+                                                        ? "bg-primary border-primary text-primary-foreground"
+                                                        : "border-muted-foreground/30"
+                                                )}
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+                                                    if (!isAdminOrTL) return;
+
+                                                    const newStatus = (subtask.userStatus === 'complete' ? 'pending' : 'complete') as UserStatus;
+                                                    try {
+                                                        await taskService.update(subtask.id, { userStatus: newStatus });
+                                                        // Refresh task data to update UI
+                                                        if (task) {
+                                                            const updatedSubtasks = task.subtasks.map(st =>
+                                                                st.id === subtask.id ? { ...st, userStatus: newStatus } : st
+                                                            );
+                                                            setTask({ ...task, subtasks: updatedSubtasks });
+                                                        }
+                                                        toast({
+                                                            title: newStatus === 'complete' ? "Subtask Completed" : "Subtask Reopened",
+                                                            description: "The subtask status has been updated."
+                                                        });
+                                                    } catch (error) {
+                                                        console.error("Failed to toggle subtask", error);
+                                                        toast({
+                                                            title: "Error",
+                                                            description: "Failed to update subtask status.",
+                                                            variant: "destructive"
+                                                        });
+                                                    }
+                                                }}
+                                            >
                                                 {subtask.userStatus === 'complete' && <CheckCircle2 className="h-3.5 w-3.5" />}
                                             </div>
                                             <span className={cn(
