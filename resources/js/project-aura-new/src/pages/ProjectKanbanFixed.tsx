@@ -760,7 +760,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 										View History
 									</Button>
-									{!project.isArchived && (
+									{!project.isArchived && project.status !== 'on-hold' && (
 										<>
 											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
 												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
@@ -800,30 +800,30 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							<KanbanBoard
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskUpdate={!project.isArchived ? handleTaskUpdate : undefined}
-								onTaskEdit={!project.isArchived ? handleTaskEdit : undefined}
-								onTaskDelete={!project.isArchived ? handleTaskDelete : undefined}
+								onTaskUpdate={(!project.isArchived && project.status !== 'on-hold') ? handleTaskUpdate : undefined}
+								onTaskEdit={(!project.isArchived && project.status !== 'on-hold') ? handleTaskEdit : undefined}
+								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
 								useProjectStages
-								canManageTasks={currentUser?.role !== 'user' && !project.isArchived}
-								canDragTasks={currentUser?.role !== 'user' && currentUser?.role !== 'account-manager' && !project.isArchived}
+								canManageTasks={currentUser?.role !== 'user' && !project.isArchived && project.status !== 'on-hold'}
+								canDragTasks={currentUser?.role !== 'user' && currentUser?.role !== 'account-manager' && !project.isArchived && project.status !== 'on-hold'}
 								disableColumnScroll={true}
 								disableBacklogRenaming={false}
-								onTaskReview={!project.isArchived ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
-								onAddTaskToStage={!project.isArchived ? handleAddTaskToStage : undefined}
+								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								onAddTaskToStage={(!project.isArchived && project.status !== 'on-hold') ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}
-								onAddSubtask={!project.isArchived ? handleAddSubtask : undefined}
+								onAddSubtask={(!project.isArchived && project.status !== 'on-hold') ? handleAddSubtask : undefined}
 							/>
 						) : (
 							<TaskListView
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskEdit={!project.isArchived ? handleTaskEdit : undefined}
-								onTaskDelete={!project.isArchived ? handleTaskDelete : undefined}
-								onTaskUpdate={!project.isArchived ? handleTaskUpdate : undefined}
+								onTaskEdit={(!project.isArchived && project.status !== 'on-hold') ? handleTaskEdit : undefined}
+								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
+								onTaskUpdate={(!project.isArchived && project.status !== 'on-hold') ? handleTaskUpdate : undefined}
 								teamMembers={teamMembers}
-								canManage={currentUser?.role !== 'user' && !project.isArchived}
-								onTaskReview={!project.isArchived ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
-								showReviewButton={(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && !project.isArchived}
+								canManage={currentUser?.role !== 'user' && !project.isArchived && project.status !== 'on-hold'}
+								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								showReviewButton={(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && !project.isArchived && project.status !== 'on-hold'}
 							/>
 						)}
 					</div>

@@ -133,6 +133,12 @@ export default function UserProjectStageTasks() {
 
 				const tasksData = await taskService.getAll({ projectId: projectId });
 				setAllTasks(tasksData);
+
+				if (proj?.status === 'on-hold') {
+					setTasks([]);
+					return;
+				}
+
 				const filtered = tasksData.filter(t => {
 					const isAssigned =
 						t.assignee === (currentUser?.name || "") ||
@@ -574,10 +580,10 @@ export default function UserProjectStageTasks() {
 					)}
 					{!showChat && (
 						<>
-							<Button onClick={() => setIsStageManagementOpen(true)} variant="outline">
+							<Button onClick={() => setIsStageManagementOpen(true)} variant="outline" disabled={project?.status === 'on-hold'}>
 								Manage Stages
 							</Button>
-							<Button onClick={() => { setEditingStage(null); setIsStageDialogOpen(true); }} size="sm">
+							<Button onClick={() => { setEditingStage(null); setIsStageDialogOpen(true); }} size="sm" disabled={project?.status === 'on-hold'}>
 								<Plus className="h-4 w-4 mr-2" />
 								Add Stage
 							</Button>

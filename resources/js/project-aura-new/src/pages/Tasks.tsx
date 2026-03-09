@@ -348,15 +348,16 @@ export default function Tasks() {
 	};
 
 	const allCategorizedTasks = useMemo(() => {
-		// Build set of archived project IDs
-		const archivedProjectIds = new Set(
-			allProjects.filter(p => p.isArchived).map(p => p.id)
+		// Build set of archived or on-hold project IDs
+		const excludedProjectIds = new Set(
+			allProjects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
 		);
 
-		// First filter out tasks from archived projects
+		// First filter out tasks from excluded projects
 		let tasksToProcess = allTasks.filter(task =>
-			!task.projectId || !archivedProjectIds.has(task.projectId)
+			!task.projectId || !excludedProjectIds.has(task.projectId)
 		);
+
 
 		if (currentUser?.role === "team-lead") {
 			const departmentMembers = teamMembers

@@ -36,14 +36,14 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
 
   const allTasksRaw = flattenTasks(tasks);
 
-  // Filter out tasks from archived projects (matches FilteredTasksPage) and exclude subtasks
+  // Filter out tasks from archived or on-hold projects (matches FilteredTasksPage) and exclude subtasks
   const allTasks = allTasksRaw.filter(task => {
     if (task.parentId) return false; // Exclude subtasks
     if (!projects) return true;
-    const archivedProjectIds = new Set(
-      projects.filter(p => p.isArchived).map(p => p.id)
+    const excludedProjectIds = new Set(
+      projects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
     );
-    if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
+    if (task.projectId && excludedProjectIds.has(task.projectId)) return false;
     return true;
   });
 

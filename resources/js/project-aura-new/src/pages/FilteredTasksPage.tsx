@@ -95,10 +95,10 @@ export default function FilteredTasksPage() {
         return allFlatTasks.filter(task => {
             if (task.parentId) return false; // Exclude subtasks
 
-            const archivedProjectIds = new Set(
-                projects.filter(p => p.isArchived).map(p => p.id)
+            const excludedProjectIds = new Set(
+                projects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
             );
-            if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
+            if (task.projectId && excludedProjectIds.has(task.projectId)) return false;
 
             // Apply role-based filtering first
             if (currentUser) {
