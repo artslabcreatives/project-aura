@@ -754,7 +754,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 						<div className="flex items-center gap-3">
 							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 								<>
-									<Button variant="outline" onClick={() => navigate(`/project/${projectId}/overview`)}>
+									<Button variant="outline" onClick={() => navigate(`/project/${project.id}/overview`)}>
 										Project Overview
 									</Button>
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
