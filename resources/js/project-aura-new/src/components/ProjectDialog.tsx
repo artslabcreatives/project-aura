@@ -105,7 +105,7 @@ interface ProjectDialogProps {
 		clientId?: string,
 		estimatedHours?: number,
 		status?: string
-	) => void;
+	) => Promise<void> | void;
 	existingProjects: string[];
 	teamMembers: User[];
 	editProject?: Project;

@@ -1530,9 +1530,6 @@ export function AppSidebar() {
 				editProject={projectToEdit || undefined}
 				departments={departments}
 				currentUser={currentUser}
-				clientId={projectToEdit?.clientId}
-				estimatedHours={projectToEdit?.estimatedHours}
-				status={projectToEdit?.status}
 			/>
 
 			<AssignGroupDialog
