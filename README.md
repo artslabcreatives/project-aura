@@ -7,6 +7,25 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Aura Project Management System
+
+A comprehensive project management system built with Laravel, featuring real-time updates, task management, and team collaboration tools.
+
+### 📚 API Documentation
+
+Interactive API documentation is available via Swagger UI:
+
+**Access:** `/api/documentation`
+
+For detailed information about adding annotations to controllers, see:
+- `SWAGGER_INSTALLATION.md` - Quick start guide
+- `SWAGGER_GUIDE.md` - Comprehensive annotation examples
+
+**Regenerate documentation:**
+```bash
+php artisan l5-swagger:generate
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

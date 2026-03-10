@@ -7,12 +7,53 @@ use App\Models\Task;
 use App\Events\TaskUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use OpenApi\Attributes as OA;
 
 class TaskController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    #[OA\Get(
+        path: "/tasks",
+        summary: "List all tasks",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "project_id",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "integer")
+            ),
+            new OA\Parameter(
+                name: "assignee_id",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "integer")
+            ),
+            new OA\Parameter(
+                name: "user_status",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "string", enum: ["pending", "in-progress", "complete"])
+            ),
+            new OA\Parameter(
+                name: "priority",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "string", enum: ["low", "medium", "high"])
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "List of tasks",
+                content: new OA\JsonContent(
+                    type: "array",
+                    items: new OA\Items(type: "object")
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
@@ -42,9 +83,37 @@ class TaskController extends Controller
         return response()->json($tasks);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    #[OA\Post(
+        path: "/tasks",
+        summary: "Create a new task",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["title", "project_id"],
+                properties: [
+                    new OA\Property(property: "title", type: "string", example: "Design homepage"),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "project_id", type: "integer", example: 1),
+                    new OA\Property(property: "assignee_id", type: "integer", nullable: true),
+                    new OA\Property(property: "assignee_ids", type: "array", items: new OA\Items(type: "integer")),
+                    new OA\Property(property: "due_date", type: "string", format: "date", nullable: true),
+                    new OA\Property(property: "user_status", type: "string", enum: ["pending", "in-progress", "complete"], example: "pending"),
+                    new OA\Property(property: "project_stage_id", type: "integer", nullable: true),
+                    new OA\Property(property: "priority", type: "string", enum: ["low", "medium", "high"], example: "medium"),
+                    new OA\Property(property: "tags", type: "array", items: new OA\Items(type: "string")),
+                    new OA\Property(property: "estimated_hours", type: "number", nullable: true),
+                    new OA\Property(property: "parent_id", type: "integer", nullable: true)
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        responses: [
+            new OA\Response(response: 201, description: "Task created"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -55,7 +124,7 @@ class TaskController extends Controller
             'assignee_ids' => 'nullable|array',
             'assignee_ids.*' => 'exists:users,id',
             'due_date' => 'nullable|date',
-            'user_status' => 'sometimes|in:pending,in-progress,complete',
+            'user_status' => 'sometimes|string|max:255',
             'project_stage_id' => 'nullable|exists:stages,id',
             'start_stage_id' => 'nullable|exists:stages,id',
             'priority' => 'sometimes|in:low,medium,high',
@@ -65,6 +134,7 @@ class TaskController extends Controller
             'revision_comment' => 'nullable|string',
             'estimated_hours' => 'nullable|numeric|min:0',
             'parent_id' => 'nullable|exists:tasks,id',
+            'is_assignee_locked' => 'sometimes|boolean',
         ]);
 
         // If assignee_id is not provided but assignee_ids is, use the first as primary
@@ -103,10 +173,21 @@ class TaskController extends Controller
             }
         }
 
+        // Notify assignees
+        $notifiedUserIds = [];
+        // Primary assignee
         if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
             $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+            $notifiedUserIds[] = $task->assignee_id;
         }
-        // Notify other assignees? (Skipping for brevity, can iterate assignedUsers)
+        
+        // Multi-assignees
+        foreach ($task->assignedUsers as $user) {
+            if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedUserIds)) {
+                $user->notify(new \App\Notifications\TaskAssignedNotification($task));
+                $notifiedUserIds[] = $user->id;
+            }
+        }
 
         // Notify other assignees? (Skipping for brevity, can iterate assignedUsers)
 
@@ -117,20 +198,67 @@ class TaskController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
         }
 
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']), 201);
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers', 'attachments']), 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Task $task): JsonResponse
+    #[OA\Get(
+        path: "/tasks/{id}",
+        summary: "Get task by ID",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task details"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
+    public function show(Task $task, \App\Services\TaskHistoryService $historyService): JsonResponse
     {
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments', 'assignedUsers']));
+        $historyService->trackTaskViewed($task);
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments.user', 'assignedUsers', 'taskHistories.user']));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+    #[OA\Put(
+        path: "/tasks/{id}",
+        summary: "Update task",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "title", type: "string"),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "assignee_id", type: "integer", nullable: true),
+                    new OA\Property(property: "assignee_ids", type: "array", items: new OA\Items(type: "integer")),
+                    new OA\Property(property: "due_date", type: "string", format: "date", nullable: true),
+                    new OA\Property(property: "user_status", type: "string", enum: ["pending", "in-progress", "complete"]),
+                    new OA\Property(property: "project_stage_id", type: "integer", nullable: true),
+                    new OA\Property(property: "priority", type: "string", enum: ["low", "medium", "high"])
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task updated"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function update(Request $request, Task $task): JsonResponse
     {
         $validated = $request->validate([
@@ -141,7 +269,7 @@ class TaskController extends Controller
             'assignee_ids' => 'nullable|array',
             'assignee_ids.*' => 'exists:users,id',
             'due_date' => 'nullable|date',
-            'user_status' => 'sometimes|in:pending,in-progress,complete',
+            'user_status' => 'sometimes|string|max:255',
             'project_stage_id' => 'nullable|exists:stages,id',
             'start_stage_id' => 'nullable|exists:stages,id',
             'priority' => 'sometimes|in:low,medium,high',
@@ -154,6 +282,7 @@ class TaskController extends Controller
             'completed_at' => 'nullable|date',
             'estimated_hours' => 'nullable|numeric|min:0',
             'parent_id' => 'nullable|exists:tasks,id',
+            'is_assignee_locked' => 'sometimes|boolean',
         ]);
 
         $task->fill($validated);
@@ -162,51 +291,86 @@ class TaskController extends Controller
         $assigneeChanged = $task->isDirty('assignee_id');
         $newStatus = $task->user_status;
 
+        $syncChanges = [];
         // Handle multi-assignee sync
         if (isset($validated['assignee_ids'])) {
-            $task->assignedUsers()->sync($validated['assignee_ids']);
+            $syncChanges = $task->assignedUsers()->sync($validated['assignee_ids']);
             // Update primary assignee_id if not explicitly set but array changed? 
             // Better to keep existing logic: if assignee_id passed, use it, else keep it.
         }
 
-        if ($statusChanged && $newStatus === 'complete' && $task->assignedUsers()->count() > 1) {
-             // Find the pivot entry for this user
-             $userId = $request->user()->id;
-             $pivot = $task->assignedUsers()->where('users.id', $userId)->first();
-             if ($pivot) {
-                 // Update pivot status
-                 $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
-             }
-             
-             // Check if ALL are complete
-             $allComplete = !$task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
-             
-             if (!$allComplete) {
-                 // If not all complete, REVERT the main task status change (keep it as it was)
-                 unset($task->user_status); 
-             } else {
-                 // All complete - attempt stage advancement
-                 $this->performStageAdvancement($task);
-             }
-        } elseif ($statusChanged && $newStatus === 'complete') {
-             // Single user completion - attempt stage advancement
-             $this->performStageAdvancement($task);
+        $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
+
+        if ($statusChanged && $newStatus === 'complete') {
+            $isMultiAssignee = $task->assignedUsers()->count() > 1;
+            
+            if ($isMultiAssignee && !$isAdminOrTL) {
+                // Regular user in multi-assignee task
+                $userId = $request->user()->id;
+                $pivot = $task->assignedUsers()->where('users.id', $userId)->first();
+                if ($pivot) {
+                    $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
+                }
+                
+                $allComplete = !$task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
+                if (!$allComplete) {
+                    // Revert status to original if not all complete
+                    $task->user_status = $task->getOriginal('user_status') ?? 'pending';
+                } else {
+                    $this->handleTaskCompletion($task);
+                }
+            } else {
+                // Single assignee OR Admin/Lead forcing completion
+                if ($isMultiAssignee && $isAdminOrTL) {
+                    // Mark everyone as complete
+                    $task->assignedUsers()->newPivotStatement()
+                        ->where('task_id', $task->id)
+                        ->update(['status' => 'complete']);
+                }
+                
+                $this->handleTaskCompletion($task);
+            }
         }
 
         $task->save();
 
         // Notify new assignee
+        // Notify new assignee
+        $notifiedUserIds = [];
+
         if ($assigneeChanged && $task->assignee_id && $task->assignee_id !== $request->user()->id) {
              $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+             $notifiedUserIds[] = $task->assignee_id;
+        }
+
+        // Notify newly attached multi-assignees
+        if (isset($syncChanges['attached'])) {
+            $newlyAssignedIds = $syncChanges['attached'];
+            if (!empty($newlyAssignedIds)) {
+                $newlyAssignedUsers = \App\Models\User::whereIn('id', $newlyAssignedIds)->get();
+                foreach ($newlyAssignedUsers as $user) {
+                    if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedUserIds)) {
+                        $user->notify(new \App\Notifications\TaskAssignedNotification($task));
+                        $notifiedUserIds[] = $user->id;
+                    }
+                }
+            }
         }
 
         // Notify if status updated (only if main task updated)
         if ($task->wasChanged('user_status')) {
+             $notifiedStatusUserIds = [];
              if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
                  $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
+                 $notifiedStatusUserIds[] = $task->assignee_id;
              }
-             $admins = \App\Models\User::where('role', 'admin')->get();
-             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
+             
+             foreach ($task->assignedUsers as $user) {
+                 if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedStatusUserIds)) {
+                     $user->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
+                     $notifiedStatusUserIds[] = $user->id;
+                 }
+             }
         }
 
         // -----------------------------------------------------
@@ -258,6 +422,44 @@ class TaskController extends Controller
     }
 
     /**
+     * Handle task completion logic
+     */
+    private function handleTaskCompletion(Task $task)
+    {
+        // For subtasks, we move directly to the final stage AND force 'complete' status
+        // Subtasks are often used as checklists and shouldn't revert to 'pending'
+        if ($task->parent_id) {
+            $finalStage = \App\Models\Stage::where('project_id', $task->project_id)
+                ->where(function($q) {
+                    $q->where('title', 'like', '%Complete%')
+                      ->orWhere('title', 'like', '%Done%')
+                      ->orWhere('title', 'like', '%Archive%')
+                      ->orWhere('title', 'like', '%Finish%');
+                })
+                ->orderBy('order', 'desc')
+                ->first();
+            
+            if (!$finalStage) {
+                // Fallback to the very last stage by order
+                $finalStage = \App\Models\Stage::where('project_id', $task->project_id)
+                    ->orderBy('order', 'desc')
+                    ->first();
+            }
+
+            if ($finalStage) {
+                $task->project_stage_id = $finalStage->id;
+            }
+            
+            $task->user_status = 'complete';
+            $task->completed_at = now();
+            return;
+        }
+
+        // Parent tasks follow the normal advancement pipeline
+        $this->performStageAdvancement($task);
+    }
+
+    /**
      * Helper to advance task stage on completion
      */
     private function performStageAdvancement(Task $task)
@@ -288,7 +490,8 @@ class TaskController extends Controller
             }
             
             // Reassign if Main Responsible is set
-            if ($nextStage->main_responsible_id) {
+            // Reassign if Main Responsible is set AND task assignment is NOT locked
+            if ($nextStage->main_responsible_id && !$task->is_assignee_locked) {
                 $task->assignee_id = $nextStage->main_responsible_id;
                 // Sync new assignee immediately to pivot table
                 $task->assignedUsers()->sync([$nextStage->main_responsible_id]);
@@ -309,22 +512,45 @@ class TaskController extends Controller
         }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    #[OA\Delete(
+        path: "/tasks/{id}",
+        summary: "Delete task",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 204, description: "Task deleted"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function destroy(Task $task): JsonResponse
     {
-        $projectId = $task->project_id; // Capture for event
-        // We need to keep a reference or just use the task object before deletion is finalized in memory? 
-        // Laravel events serialize models. If deleted, it might be tricky. 
-        // Identify the project first.
-        
+        // Permission check for subtasks: Only Admin and Team Lead can delete subtasks
+        if ($task->parent_id) {
+             if (!in_array(auth()->user()->role, ['admin', 'team-lead'])) {
+                 return response()->json(['message' => 'Unauthorized. Only Admins and Team Leads can delete subtasks.'], 403);
+             }
+        }
+
+        $parent = $task->parent; // Capture parent before deletion
+
         $task->delete();
         
-        // Dispatch 'delete' event. We pass the task, hoping serialization works (it usually does for deleted models in recent Laravel)
-        // Or we pass a simple object if needed. But Event typed as Task.
         try {
             TaskUpdated::dispatch($task, 'delete');
+            
+            // If it was a subtask, notify about the parent update too so clients can refresh the subtask list
+            if ($parent) {
+                 TaskUpdated::dispatch($parent, 'update');
+            }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
         }
@@ -332,9 +558,25 @@ class TaskController extends Controller
         return response()->json(null, 204);
     }
 
-    /**
-     * Start the task (move to designated stage).
-     */
+    #[OA\Post(
+        path: "/tasks/{id}/start",
+        summary: "Start a task (move to designated stage)",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task started"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function start(Request $request, Task $task): JsonResponse
     {
         \Illuminate\Support\Facades\DB::transaction(function () use ($task) {
@@ -360,7 +602,7 @@ class TaskController extends Controller
                 
                 // Update assignees based on stage defaults
                 $targetStage = \App\Models\Stage::find($targetStageId);
-                if ($targetStage && $targetStage->main_responsible_id) {
+                if ($targetStage && $targetStage->main_responsible_id && !$task->is_assignee_locked) {
                      $task->assignee_id = $targetStage->main_responsible_id;
                      $task->assignedUsers()->sync([$targetStage->main_responsible_id]);
                 } else {
@@ -377,12 +619,38 @@ class TaskController extends Controller
             }
         });
         
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers', 'attachments']));
     }
 
-    /**
-     * Complete the task with optional comments and resources.
-     */
+    #[OA\Post(
+        path: "/tasks/{id}/complete",
+        summary: "Complete a task with optional comments.user and attachments",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "user_status", type: "string", enum: ["complete"], example: "complete"),
+                    new OA\Property(property: "comment", type: "string", nullable: true),
+                    new OA\Property(property: "links", type: "array", items: new OA\Items(type: "string", format: "url")),
+                    new OA\Property(property: "files", type: "array", items: new OA\Items(type: "string", format: "binary"))
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task completed"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
     public function complete(Request $request, Task $task): JsonResponse
     {
         $validated = $request->validate([
@@ -390,7 +658,7 @@ class TaskController extends Controller
             'project_stage_id' => 'sometimes|exists:stages,id',
             'comment' => 'nullable|string',
             'links' => 'nullable|array',
-            'links.*' => 'string|url',
+            'links.*' => 'string', // Relaxed validation
             'files' => 'nullable|array',
             'files.*' => 'file|max:10240',
         ]);
@@ -404,22 +672,31 @@ class TaskController extends Controller
             $multiAssignee = $task->assignedUsers()->count() > 1;
             
             if ($hasPivot && isset($validated['user_status']) && $validated['user_status'] === 'complete') {
-                $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
+                $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
                 
-                // Check if all others are complete
-                if ($multiAssignee) {
-                    $pendingOthers = $task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
-                    if ($pendingOthers) {
-                        $shouldCompleteMainTask = false;
+                if ($isAdminOrTL) {
+                    // Admin forces completion for all
+                    $task->assignedUsers()->newPivotStatement()
+                        ->where('task_id', $task->id)
+                        ->update(['status' => 'complete']);
+                    $shouldCompleteMainTask = true;
+                } else {
+                    $task->assignedUsers()->updateExistingPivot($userId, ['status' => 'complete']);
+                    
+                    // Check if all others are complete
+                    if ($multiAssignee) {
+                        $pendingOthers = $task->assignedUsers()->wherePivot('status', '!=', 'complete')->exists();
+                        if ($pendingOthers) {
+                            $shouldCompleteMainTask = false;
+                        }
                     }
                 }
             }
 
             // Update Task Status if allowed
-            $updates = [];
             if ($shouldCompleteMainTask) {
-                // Apply stage advancement logic
-                $this->performStageAdvancement($task);
+                // Apply completion logic
+                $this->handleTaskCompletion($task);
                 $task->save();
                 
                 // Also apply other updates if provided (like stage override from request? usually null if just completing)
@@ -470,8 +747,8 @@ class TaskController extends Controller
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
                     // Store file
-                    $path = $file->store('task-attachments', 'public');
-                    $url = \Illuminate\Support\Facades\Storage::url($path);
+                    $path = $file->store('task-attachments', 's3');
+                    $url = \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
                     
                     $task->attachments()->create([
                         'name' => $file->getClientOriginalName(),
@@ -482,6 +759,6 @@ class TaskController extends Controller
             }
         });
 
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments', 'assignedUsers']));
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments.user', 'assignedUsers']));
     }
 }

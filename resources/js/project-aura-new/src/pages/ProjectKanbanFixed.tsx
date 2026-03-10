@@ -3,9 +3,10 @@ import { api } from "@/services/api";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { Task, User, UserStatus } from "@/types/task";
+import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Plus, LayoutGrid, List } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
@@ -27,8 +28,19 @@ import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
 import { echo } from "@/services/echoService";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-import { Loading } from "@/components/Loading";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -66,7 +78,58 @@ export default function ProjectKanbanFixed() {
 		fetchProject();
 	}, [projectId]);
 
-	if (loading) return <Loading />;
+	if (loading) {
+		return (
+			<div className="flex flex-col h-full bg-background">
+				{/* Header Skeleton */}
+				<div className="flex-shrink-0 border-b bg-background z-10 px-6 py-5">
+					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-4 w-96" />
+						</div>
+						<div className="flex items-center gap-3">
+							<Skeleton className="h-9 w-24" />
+							<Skeleton className="h-9 w-32" />
+							<Skeleton className="h-9 w-28" />
+						</div>
+					</div>
+					<div className="flex justify-start">
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				{/* Board Skeleton */}
+				<div className="flex-1 overflow-hidden">
+					<div className="h-full overflow-auto p-6 pb-10 bg-muted/5">
+						<div className="flex h-full gap-6">
+							{[1, 2, 3, 4].map((i) => (
+								<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+									<Skeleton className="h-12 w-full rounded-lg" />
+									<div className="space-y-4">
+										{[1, 2, 3].map((j) => (
+											<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+												<div className="flex justify-between">
+													<Skeleton className="h-4 w-20" />
+													<Skeleton className="h-4 w-4 rounded-full" />
+												</div>
+												<Skeleton className="h-4 w-full" />
+												<Skeleton className="h-4 w-3/4" />
+												<div className="flex items-center justify-between pt-2">
+													<Skeleton className="h-6 w-6 rounded-full" />
+													<Skeleton className="h-5 w-16" />
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	return <ProjectBoardContent key={project.id} project={project} />;
@@ -113,24 +176,37 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			if (!numericProjectId) return;
 			if (!isBackground) setIsLoading(true);
 			try {
-				const currentProject = await projectService.getById(String(numericProjectId));
+				// Optimization: Fetch independent initial data in parallel
+				const [currentProject, departmentsData] = await Promise.all([
+					projectService.getById(String(numericProjectId)),
+					departmentService.getAll()
+				]);
+
 				if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
-				const departmentsData = await departmentService.getAll();
+
 				if (currentUser?.role === 'team-lead') {
-					const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
-					const currentDept = departmentsData.find(d => d.id === currentUser.department);
+					const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
+					const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
 					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
 					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					if (!hasMatchingDepartment && !hasSpecialPermission) { setProject(null); if (!isBackground) setIsLoading(false); return; }
+					const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
+					if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 				}
 				setProject(currentProject);
-				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
+				setDepartments(departmentsData);
+
+				// Optimization: Fetch tasks and users in parallel
+				// Removed global taskService.getAll()
+				const [tasksData, usersData] = await Promise.all([
+					taskService.getAll({ projectId: String(currentProject.id) }),
+					userService.getAll()
+				]);
+
 				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
 				setTasks(projectTasks);
-				setAllTasks(await taskService.getAll());
-				setTeamMembers(await userService.getAll());
-				setDepartments(departmentsData);
+				setAllTasks(projectTasks); // Optimization: Use project tasks instead of full global fetch
+				setTeamMembers(usersData);
 
 				// Deep link handling
 				const taskIdParam = searchParams.get('task');
@@ -187,24 +263,36 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			console.log(`Subscribing to project.${numericProjectId}`);
 			const channel = echo.private(`project.${numericProjectId}`);
 			channel.listen('TaskUpdated', (e: any) => {
-				console.log('Kanban Real-time update received:', e);
-				// Check if event has task data or just ID
-				if (e.task) {
-					// Update specific task in state if we can map it.
-					console.log('Task data present, reloading data...');
+				console.log('Kanban Real-time task update received:', e);
+				loadData(true);
+			});
+
+			channel.listen('ProjectUpdated', (e: any) => {
+				console.log('Kanban Real-time project update received:', e);
+				if (e.project) {
+					// We can either update state directly or reload. Reload is safer for side-effects.
 					loadData(true);
-				} else if (e.action === 'delete') {
-					console.log('Delete action, reloading data...');
-					loadData(true);
+					// Also update the project state immediately if simple property change
+					setProject(prev => ({ ...prev, ...e.project }));
 				} else {
-					console.log('Unknown action, reloading data...');
 					loadData(true);
 				}
 			});
 
+			// Listen for local project state changes (from sidebar actions)
+			const handleLocalProjectStateChange = (e: Event) => {
+				const customEvent = e as CustomEvent;
+				if (customEvent.detail && String(customEvent.detail.projectId) === String(numericProjectId)) {
+					console.log('Kanban Local project state change received:', customEvent.detail);
+					setProject(prev => ({ ...prev, isArchived: customEvent.detail.isArchived }));
+				}
+			};
+			window.addEventListener('project-state-changed', handleLocalProjectStateChange);
+
 			return () => {
 				console.log(`Unsubscribing from project.${numericProjectId}`);
 				echo.leave(`project.${numericProjectId}`);
+				window.removeEventListener('project-state-changed', handleLocalProjectStateChange);
 			};
 		}
 	}, [numericProjectId, currentUser]);
@@ -364,26 +452,61 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to save task.', variant: 'destructive' }); }
 	};
 
+	const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
 	const handleTaskEdit = (task: Task) => { setEditingTask(task); setIsTaskDialogOpen(true); };
-	const handleTaskDelete = async (taskId: string) => {
-		if (!currentUser || !project) return;
+
+	const handleTaskDelete = (taskId: string) => {
+		const task = tasks.find(t => t.id === taskId);
+		if (task) {
+			setTaskToDelete(task);
+			setIsDeleteDialogOpen(true);
+		}
+	};
+
+	const confirmDeleteTask = async () => {
+		if (!taskToDelete || !project || !currentUser) return;
 		try {
-			const taskToDelete = tasks.find(t => t.id === taskId);
-			if (taskToDelete) addHistoryEntry({ action: 'DELETE_TASK', entityId: taskId, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { title: taskToDelete.title } });
-			await taskService.delete(taskId);
-			setTasks(tasks.filter(t => t.id !== taskId));
+			addHistoryEntry({ action: 'DELETE_TASK', entityId: taskToDelete.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { title: taskToDelete.title } });
+			await taskService.delete(taskToDelete.id);
+			setTasks(tasks.filter(t => t.id !== taskToDelete.id));
 			toast({ title: 'Task deleted', description: 'Task deleted successfully.' });
-		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to delete task.', variant: 'destructive' }); }
+		} catch (e) {
+			console.error(e);
+			toast({ title: 'Error', description: 'Failed to delete task.', variant: 'destructive' });
+		} finally {
+			setIsDeleteDialogOpen(false);
+			setTaskToDelete(null);
+		}
 	};
 
 	const handleAddStage = () => { setEditingStage(null); setIsStageDialogOpen(true); };
 	const handleEditStage = (stage: Stage) => { setEditingStage(stage); setIsStageDialogOpen(true); };
-	const handleDeleteStage = (stageId: string) => {
+	const handleDeleteStage = async (stageId: string) => {
 		if (!project || !currentUser) return;
 		const stageToDelete = project.stages.find(s => s.id === stageId);
-		if (stageToDelete) addHistoryEntry({ action: 'DELETE_STAGE', entityId: stageId, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: stageToDelete.title } });
-		const updatedStages = project.stages.filter(s => s.id !== stageId);
-		updateProjectInStorage({ ...project, stages: updatedStages });
+
+		try {
+			await stageService.delete(stageId);
+			if (stageToDelete) {
+				addHistoryEntry({
+					action: 'DELETE_STAGE',
+					entityId: stageId,
+					entityType: 'stage',
+					projectId: String(project.id),
+					userId: currentUser.id,
+					details: { title: stageToDelete.title }
+				});
+			}
+			const updatedStages = project.stages.filter(s => s.id !== stageId);
+			setProject({ ...project, stages: updatedStages });
+			toast({ title: 'Stage deleted', description: 'Stage deleted successfully.' });
+		} catch (error: any) {
+			console.error('Error deleting stage:', error);
+			const msg = error.response?.data?.message || error.message || 'Failed to delete stage.';
+			toast({ title: 'Error', description: msg, variant: 'destructive' });
+		}
 	};
 	const handleSaveStage = async (stage: Omit<Stage, 'order'>) => {
 		if (!project || !currentUser) return;
@@ -464,15 +587,81 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		setIsReviewTaskDialogOpen(false); setReviewTask(null);
 	};
 
-	if (isLoading) return <Loading />;
+	if (isLoading) {
+		return (
+			<div className="flex flex-col h-full bg-background">
+				{/* Header Skeleton */}
+				<div className="flex-shrink-0 border-b bg-background z-10 px-6 py-5">
+					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-4 w-96" />
+						</div>
+						<div className="flex items-center gap-3">
+							<Skeleton className="h-9 w-24" />
+							<Skeleton className="h-9 w-32" />
+							<Skeleton className="h-9 w-28" />
+						</div>
+					</div>
+					<div className="flex justify-start">
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				{/* Board Skeleton */}
+				<div className="flex-1 overflow-hidden">
+					<div className="h-full overflow-auto p-6 pb-10 bg-muted/5">
+						<div className="flex h-full gap-6">
+							{[1, 2, 3, 4].map((i) => (
+								<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+									<Skeleton className="h-12 w-full rounded-lg" />
+									<div className="space-y-4">
+										{[1, 2, 3].map((j) => (
+											<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+												<div className="flex justify-between">
+													<Skeleton className="h-4 w-20" />
+													<Skeleton className="h-4 w-4 rounded-full" />
+												</div>
+												<Skeleton className="h-4 w-full" />
+												<Skeleton className="h-4 w-3/4" />
+												<div className="flex items-center justify-between pt-2">
+													<Skeleton className="h-6 w-6 rounded-full" />
+													<Skeleton className="h-5 w-16" />
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
-	const handleSaveSubtask = async (subtaskData: { title: string; description: string; assignee: string; dueDate: string; userStatus: UserStatus }) => {
+	const handleSaveSubtask = async (subtaskData: {
+		title: string;
+		description: string;
+		assignee: string;
+		assigneeId?: string;
+		dueDate: string;
+		userStatus: UserStatus;
+		priority: TaskPriority;
+		startDate?: string;
+		tags?: string[];
+		pendingFiles?: File[];
+		pendingLinks?: { name: string; url: string }[];
+	}) => {
 		if (!project || !parentTaskForSubtask || !currentUser) return;
 		try {
-			const assigneeId = subtaskData.assignee ? teamMembers.find(m => m.name === subtaskData.assignee)?.id : undefined;
+			// Use provided ID or find by name if not provided
+			const assigneeId = subtaskData.assigneeId
+				? subtaskData.assigneeId
+				: (subtaskData.assignee ? teamMembers.find(m => m.name === subtaskData.assignee)?.id : undefined);
 
-			await taskService.create({
+			const newTask = await taskService.create({
 				title: subtaskData.title,
 				description: subtaskData.description,
 				projectId: project.id,
@@ -480,9 +669,22 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				dueDate: subtaskData.dueDate,
 				userStatus: subtaskData.userStatus,
 				projectStageId: parentTaskForSubtask.projectStage ? parseInt(parentTaskForSubtask.projectStage) : undefined,
-				priority: 'medium', // Default
+				priority: subtaskData.priority,
 				parentId: parentTaskForSubtask.id,
+				startDate: subtaskData.startDate,
+				tags: subtaskData.tags,
 			} as any);
+
+			// Handle Attachments
+			if (subtaskData.pendingFiles && subtaskData.pendingFiles.length > 0) {
+				await attachmentService.uploadFiles(newTask.id, subtaskData.pendingFiles);
+			}
+
+			if (subtaskData.pendingLinks && subtaskData.pendingLinks.length > 0) {
+				for (const link of subtaskData.pendingLinks) {
+					await attachmentService.addLink(newTask.id, link.name, link.url);
+				}
+			}
 
 			toast({ title: "Subtask added", description: "Subtask created successfully." });
 
@@ -522,21 +724,54 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				<div className="w-full">
 					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
 						<div>
-							<h1 className="text-3xl font-bold">{project.name}</h1>
-							<p className="text-muted-foreground mt-1">{project.description}</p>
+							<h1 className="text-3xl font-bold flex items-center gap-3">
+								{project.name}
+								{project.isArchived && (
+									<Badge variant="secondary" className="text-xs font-normal">
+										Archived
+									</Badge>
+								)}
+							</h1>
+							<div
+								className="text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none"
+								dangerouslySetInnerHTML={{
+									__html: (() => {
+										const txt = document.createElement("textarea");
+										let val = project.description || '';
+										let lastVal = '';
+										let limit = 0;
+										while (val !== lastVal && limit < 5) {
+											lastVal = val;
+											txt.innerHTML = val;
+											val = txt.value;
+											limit++;
+										}
+										return val;
+									})()
+								}}
+							/>
 						</div>
 						<div className="flex items-center gap-3">
-							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 								<>
+									<Button variant="outline" onClick={() => navigate(`/project/${project.id}/overview`)}>
+										Project Overview
+									</Button>
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 										View History
 									</Button>
-									<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
-										Manage Stages
-									</Button>
-									<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
-										<Plus className="mr-2 h-4 w-4" /> Add Task
-									</Button>
+									{!project.isArchived && project.status !== 'on-hold' && (
+										<>
+											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
+													Manage Stages
+												</Button>
+											)}
+											<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
+												<Plus className="mr-2 h-4 w-4" /> Add Task
+											</Button>
+										</>
+									)}
 								</>
 							)}
 						</div>
@@ -565,29 +800,30 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							<KanbanBoard
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskUpdate={handleTaskUpdate}
-								onTaskEdit={handleTaskEdit}
-								onTaskDelete={handleTaskDelete}
+								onTaskUpdate={(!project.isArchived && project.status !== 'on-hold') ? handleTaskUpdate : undefined}
+								onTaskEdit={(!project.isArchived && project.status !== 'on-hold') ? handleTaskEdit : undefined}
+								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
 								useProjectStages
-								canManageTasks={currentUser?.role !== 'user'}
-								canDragTasks={currentUser?.role !== 'user'}
+								canManageTasks={currentUser?.role !== 'user' && !project.isArchived && project.status !== 'on-hold'}
+								canDragTasks={currentUser?.role !== 'user' && currentUser?.role !== 'account-manager' && !project.isArchived && project.status !== 'on-hold'}
 								disableColumnScroll={true}
-								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-								onAddTaskToStage={handleAddTaskToStage}
+								disableBacklogRenaming={false}
+								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								onAddTaskToStage={(!project.isArchived && project.status !== 'on-hold') ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}
-								onAddSubtask={handleAddSubtask}
+								onAddSubtask={(!project.isArchived && project.status !== 'on-hold') ? handleAddSubtask : undefined}
 							/>
 						) : (
 							<TaskListView
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskEdit={handleTaskEdit}
-								onTaskDelete={handleTaskDelete}
-								onTaskUpdate={handleTaskUpdate}
+								onTaskEdit={(!project.isArchived && project.status !== 'on-hold') ? handleTaskEdit : undefined}
+								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
+								onTaskUpdate={(!project.isArchived && project.status !== 'on-hold') ? handleTaskUpdate : undefined}
 								teamMembers={teamMembers}
-								canManage={currentUser?.role !== 'user'}
-								onTaskReview={(task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-								showReviewButton={currentUser?.role === 'admin' || currentUser?.role === 'team-lead'}
+								canManage={currentUser?.role !== 'user' && !project.isArchived && project.status !== 'on-hold'}
+								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								showReviewButton={(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && !project.isArchived && project.status !== 'on-hold'}
 							/>
 						)}
 					</div>
@@ -616,6 +852,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				availableStatuses={sortedStages}
 				useProjectStages
 				availableProjects={[project.name]}
+				allProjects={[project]}
 				teamMembers={teamMembers}
 				departments={departments}
 				allTasks={allTasks}
@@ -654,9 +891,25 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				onOpenChange={setIsAddSubtaskDialogOpen}
 				onSave={handleSaveSubtask}
 				teamMembers={teamMembers}
+				parentTaskTitle={parentTaskForSubtask?.title || "Task"}
 				departments={departments}
-				parentTaskTitle={parentTaskForSubtask?.title || ''}
+				currentUser={currentUser}
 			/>
+
+			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This action cannot be undone. This will permanently delete the task "{taskToDelete?.title}" and remove it from our servers.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={confirmDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

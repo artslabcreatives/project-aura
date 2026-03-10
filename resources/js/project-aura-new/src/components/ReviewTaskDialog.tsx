@@ -8,10 +8,10 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Task } from "@/types/task";
 import { Stage } from "@/types/stage";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, User, Clock, AlertCircle, History } from "lucide-react";
 import { format, isValid } from "date-fns";
@@ -295,13 +295,11 @@ export function ReviewTaskDialog({
 								<Label htmlFor="approve-comment" className="text-sm font-medium">
 									Comment (Optional)
 								</Label>
-								<Textarea
+								<RichTextEditor
 									id="approve-comment"
 									value={comment}
-									onChange={(e) => setComment(e.target.value)}
+									onChange={(value) => setComment(value)}
 									placeholder="Add any notes about this approval..."
-									rows={3}
-									className="resize-none"
 								/>
 							</div>
 						</div>
@@ -332,14 +330,11 @@ export function ReviewTaskDialog({
 								<Label htmlFor="revision-comment" className="text-sm font-medium">
 									Revision Comment *
 								</Label>
-								<Textarea
+								<RichTextEditor
 									id="revision-comment"
 									value={comment}
-									onChange={(e) => setComment(e.target.value)}
+									onChange={(value) => setComment(value)}
 									placeholder="Explain what needs to be revised..."
-									rows={4}
-									required
-									className="resize-none"
 								/>
 								<p className="text-xs text-muted-foreground">
 									The task will be sent back to {task.assignee || "the assignee"} with your comments.

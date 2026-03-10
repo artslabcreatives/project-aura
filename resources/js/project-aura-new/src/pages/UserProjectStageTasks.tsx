@@ -5,8 +5,9 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { Stage } from "@/types/stage";
 import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
+import { useHistory } from "@/hooks/use-history";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List, MessageSquare, X, Maximize2 } from "lucide-react";
 import { UserStageDialog } from "@/components/UserStageDialog";
 import { StageManagement } from "@/components/StageManagement";
 import { useToast } from "@/hooks/use-toast";
@@ -18,10 +19,18 @@ import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
+import { api } from "@/services/api";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@/components/ui/toggle-group";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const getDefaultUserTaskStages = (): Stage[] => [
 	{ id: "pending", title: "Pending", color: "bg-status-todo", order: 0, type: "user" },
@@ -47,11 +56,41 @@ export default function UserProjectStageTasks() {
 	const [departments, setDepartments] = useState<Department[]>([]);
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const [searchParams, setSearchParams] = useSearchParams();
+	const [loading, setLoading] = useState(true);
+	const [showChat, setShowChat] = useState(false);
+	const [autoLoginUrl, setAutoLoginUrl] = useState<string>("");
+	const [chatLoading, setChatLoading] = useState(false);
+	const [isChatFullscreen, setIsChatFullscreen] = useState(false);
+
+	const fetchUserStages = async () => {
+		if (!currentUser) return;
+		try {
+			const { data } = await api.get('/stages', { params: { type: 'user', project_id: numericProjectId, context_stage_id: stageId } });
+			const customStages: Stage[] = data.map((s: any) => ({
+				id: String(s.id),
+				title: s.title,
+				color: s.color,
+				order: s.order,
+				type: 'user',
+				isReviewStage: s.is_review_stage
+			}));
+
+			const defaultStages = getDefaultUserTaskStages();
+			const pending = defaultStages.find(s => s.id === 'pending')!;
+			const complete = defaultStages.find(s => s.id === 'complete')!;
+
+			customStages.sort((a, b) => a.order - b.order);
+
+			setUserStages([pending, ...customStages, complete]);
+		} catch (e) {
+			console.error("Failed to load user stages", e);
+			setUserStages(getDefaultUserTaskStages());
+		}
+	};
 
 	useEffect(() => {
-		// Use default user stages only (no localStorage)
-		setUserStages(getDefaultUserTaskStages());
-	}, []);
+		fetchUserStages();
+	}, [currentUser, numericProjectId, stageId]);
 
 	useEffect(() => {
 		const taskIdParam = searchParams.get('task');
@@ -76,6 +115,7 @@ export default function UserProjectStageTasks() {
 
 	useEffect(() => {
 		const loadData = async () => {
+			setLoading(true);
 			try {
 				const [usersData, departmentsData] = await Promise.all([
 					userService.getAll(),
@@ -93,6 +133,12 @@ export default function UserProjectStageTasks() {
 
 				const tasksData = await taskService.getAll({ projectId: projectId });
 				setAllTasks(tasksData);
+
+				if (proj?.status === 'on-hold') {
+					setTasks([]);
+					return;
+				}
+
 				const filtered = tasksData.filter(t => {
 					const isAssigned =
 						t.assignee === (currentUser?.name || "") ||
@@ -116,17 +162,64 @@ export default function UserProjectStageTasks() {
 					description: "Failed to load data. Please refresh.",
 					variant: "destructive",
 				});
+			} finally {
+				setLoading(false);
 			}
 		};
 		loadData();
 	}, [projectId, stageId, currentUser]);
+
+	// Build email_login URL directly when chat is opened - NO API CALLS
+	useEffect(() => {
+		if (showChat && !autoLoginUrl && currentUser?.email) {
+			setChatLoading(true);
+			const email = encodeURIComponent(currentUser.email);
+			const redirectTo = encodeURIComponent('/artslab-creatives/channels/town-square');
+			const url = `https://collab.artslabcreatives.com/email_login?email=${email}&redirect_to=${redirectTo}`;
+			console.log('Kanban Chat: Building URL for', email);
+			console.log('Kanban Chat: URL =', url);
+			setAutoLoginUrl(url);
+			setChatLoading(false);
+		}
+	}, [showChat, currentUser]);
 
 	const updateTasksInStorage = (updatedTask: Task) => {
 		// No localStorage persistence per requirements
 		// This function is now a no-op
 	};
 
+	const { history, addHistoryEntry } = useHistory(projectId ? String(projectId) : undefined);
+
+	// ... existing handleTaskUpdate ...
 	const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+		const taskToUpdate = tasks.find(t => t.id === taskId);
+
+		// Record history for user actions
+		if (taskToUpdate && projectId && currentUser) {
+			// Check for "Started" (Pending -> anything else not complete)
+			if (updates.userStatus && taskToUpdate.userStatus === 'pending' && updates.userStatus !== 'pending' && updates.userStatus !== 'complete') {
+				addHistoryEntry({
+					action: 'USER_START_TASK',
+					entityId: taskId,
+					entityType: 'task',
+					projectId: projectId,
+					userId: currentUser.id,
+					details: { title: taskToUpdate.title },
+				});
+			}
+			// Check for "Completed"
+			if (updates.userStatus === 'complete' && taskToUpdate.userStatus !== 'complete') {
+				addHistoryEntry({
+					action: 'USER_COMPLETE_TASK',
+					entityId: taskId,
+					entityType: 'task',
+					projectId: projectId,
+					userId: currentUser.id,
+					details: { title: taskToUpdate.title },
+				});
+			}
+		}
+
 		// Update local state immediately for responsive UI
 		setTasks(prevTasks =>
 			prevTasks.map(task =>
@@ -134,7 +227,6 @@ export default function UserProjectStageTasks() {
 			)
 		);
 
-		// If task is completed, remove it from view after 10 seconds
 		// If task is completed, remove it from view after 10 seconds
 		if (updates.userStatus === "complete") {
 			console.log(`Task ${taskId} marked as complete, scheduling removal in 10s`);
@@ -179,7 +271,7 @@ export default function UserProjectStageTasks() {
 
 	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (editingTask) {
-			await taskService.update(editingTask.id, taskData);
+			await taskService.update(editingTask.id, taskData as any);
 			const updatedTask = { ...editingTask, ...taskData };
 			setTasks((prev) => prev.map((task) => (task.id === editingTask.id ? updatedTask : task)));
 			toast({
@@ -206,43 +298,49 @@ export default function UserProjectStageTasks() {
 		});
 	};
 
-	const handleSaveStage = (newStage: Stage) => {
+	const handleSaveStage = async (newStage: Stage) => {
 		if (!currentUser) return;
 
-		const updatedStages = [...userStages];
+		try {
+			if (editingStage) {
+				// Update existing stage
+				await api.put(`/stages/${editingStage.id}`, {
+					title: newStage.title,
+					color: newStage.color,
+					order: editingStage.order,
+				});
+				toast({
+					title: "Stage updated",
+					description: `"${newStage.title}" has been updated.`,
+				});
+			} else {
+				// Create new stage
+				// Get current custom stages to determine order
+				const customStages = userStages.filter(s => s.id !== 'pending' && s.id !== 'complete');
+				const maxOrder = customStages.length > 0 ? Math.max(...customStages.map(s => s.order)) : 0;
 
-		if (editingStage) {
-			// Update existing stage
-			const index = updatedStages.findIndex(s => s.id === editingStage.id);
-			if (index !== -1) {
-				updatedStages[index] = { ...newStage, order: updatedStages[index].order };
+				await api.post('/stages', {
+					title: newStage.title,
+					color: newStage.color,
+					order: maxOrder + 1,
+					type: 'user',
+					is_review_stage: false,
+					project_id: numericProjectId,
+					context_stage_id: stageId
+				});
+				toast({
+					title: "Stage created",
+					description: `"${newStage.title}" has been added to your workflow.`,
+				});
 			}
-
-			setUserStages(updatedStages);
-			toast({
-				title: "Stage updated",
-				description: `"${newStage.title}" has been updated.`,
-			});
 			setEditingStage(null);
-		} else {
-			// Insert new stage before "Complete"
-			const completeIndex = updatedStages.findIndex(s => s.id === "complete");
-
-			const newOrder = completeIndex > 0 ? completeIndex : updatedStages.length - 1;
-			newStage.order = newOrder;
-
-			updatedStages.splice(completeIndex, 0, newStage);
-
-			// Re-order all stages
-			const reorderedStages = updatedStages.map((stage, index) => ({
-				...stage,
-				order: index,
-			}));
-
-			setUserStages(reorderedStages);
+			fetchUserStages();
+		} catch (error) {
+			console.error("Failed to save stage:", error);
 			toast({
-				title: "Stage created",
-				description: `"${newStage.title}" has been added to your workflow.`,
+				title: "Error",
+				description: "Failed to save stage.",
+				variant: "destructive",
 			});
 		}
 	};
@@ -252,7 +350,7 @@ export default function UserProjectStageTasks() {
 		setIsStageDialogOpen(true);
 	};
 
-	const handleDeleteStage = (stageIdToDelete: string) => {
+	const handleDeleteStage = async (stageIdToDelete: string) => {
 		if (!currentUser) return;
 
 		const stageToDelete = userStages.find(s => s.id === stageIdToDelete);
@@ -269,19 +367,21 @@ export default function UserProjectStageTasks() {
 			return;
 		}
 
-		const updatedStages = userStages.filter(s => s.id !== stageIdToDelete);
-
-		// Re-order remaining stages
-		const reorderedStages = updatedStages.map((stage, index) => ({
-			...stage,
-			order: index,
-		}));
-
-		setUserStages(reorderedStages);
-		toast({
-			title: "Stage deleted",
-			description: `"${stageToDelete.title}" has been removed.`,
-		});
+		try {
+			await api.delete(`/stages/${stageIdToDelete}`);
+			toast({
+				title: "Stage deleted",
+				description: `"${stageToDelete.title}" has been removed.`,
+			});
+			fetchUserStages();
+		} catch (error) {
+			console.error("Failed to delete stage:", error);
+			toast({
+				title: "Error",
+				description: "Failed to delete stage.",
+				variant: "destructive",
+			});
+		}
 	};
 
 	const handleDialogClose = (open: boolean) => {
@@ -302,6 +402,19 @@ export default function UserProjectStageTasks() {
 		try {
 			// Optimistic update
 			setTasks(prev => prev.map(t => t.id === taskId ? { ...t, userStatus: 'complete' } : t));
+
+			// Record history
+			const task = tasks.find(t => t.id === taskId);
+			if (task && projectId && currentUser) {
+				addHistoryEntry({
+					action: 'USER_COMPLETE_TASK',
+					entityId: taskId,
+					entityType: 'task',
+					projectId: projectId,
+					userId: currentUser.id,
+					details: { title: task.title },
+				});
+			}
 
 			// Backend call
 			await taskService.complete(taskId, {
@@ -334,13 +447,67 @@ export default function UserProjectStageTasks() {
 				description: "Failed to complete task.",
 				variant: "destructive",
 			});
-			// Re-fetch to revert on error
-			// loadData(); // Requires pulling loadData out or generic error handling
 		}
 	};
 
+	if (loading) {
+		return (
+			<div className="space-y-4">
+				<div className="flex items-center justify-between">
+					<div className="space-y-2">
+						<Skeleton className="h-8 w-64" />
+						<Skeleton className="h-4 w-96" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="h-9 w-24" />
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				<div className="flex gap-4 overflow-hidden">
+					<div className="flex-shrink-0 w-80 flex flex-col gap-4">
+						<Skeleton className="h-12 w-full rounded-lg" />
+						<div className="space-y-4">
+							{[1, 2, 3].map((i) => (
+								<div key={i} className="p-4 rounded-lg border bg-card space-y-3">
+									<div className="flex justify-between">
+										<Skeleton className="h-4 w-20" />
+										<Skeleton className="h-4 w-4 rounded-full" />
+									</div>
+									<Skeleton className="h-4 w-full" />
+									<div className="flex items-center justify-between pt-2">
+										<Skeleton className="h-6 w-6 rounded-full" />
+										<Skeleton className="h-5 w-16" />
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+					<div className="flex-shrink-0 w-80 flex flex-col gap-4">
+						<Skeleton className="h-12 w-full rounded-lg" />
+						<div className="space-y-4">
+							{[1].map((i) => (
+								<div key={i} className="p-4 rounded-lg border bg-card space-y-3">
+									<div className="flex justify-between">
+										<Skeleton className="h-4 w-20" />
+										<Skeleton className="h-4 w-4 rounded-full" />
+									</div>
+									<Skeleton className="h-4 w-full" />
+									<div className="flex items-center justify-between pt-2">
+										<Skeleton className="h-6 w-6 rounded-full" />
+										<Skeleton className="h-5 w-16" />
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	if (!project || !stage) {
-		return <div>Loading or project/stage not found...</div>;
+		return <div>Project or Stage not found.</div>;
 	}
 
 	return (
@@ -355,59 +522,167 @@ export default function UserProjectStageTasks() {
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<ToggleGroup
-						type="single"
-						value={view}
-						onValueChange={(value) => {
-							if (value) setView(value as "kanban" | "list");
-						}}
-					>
-						<ToggleGroupItem value="kanban" aria-label="Kanban view">
-							<LayoutGrid className="h-4 w-4" />
-						</ToggleGroupItem>
-						<ToggleGroupItem value="list" aria-label="List view">
-							<List className="h-4 w-4" />
-						</ToggleGroupItem>
-					</ToggleGroup>
-					<Button onClick={() => setIsStageManagementOpen(true)} variant="outline">
-						Manage Stages
-					</Button>
-					<Button onClick={() => { setEditingStage(null); setIsStageDialogOpen(true); }} size="sm">
-						<Plus className="h-4 w-4 mr-2" />
-						Add Stage
-					</Button>
+					{!showChat && (
+						<ToggleGroup
+							type="single"
+							value={view}
+							onValueChange={(value) => {
+								if (value) setView(value as "kanban" | "list");
+							}}
+						>
+							<ToggleGroupItem value="kanban" aria-label="Kanban view">
+								<LayoutGrid className="h-4 w-4" />
+							</ToggleGroupItem>
+							<ToggleGroupItem value="list" aria-label="List view">
+								<List className="h-4 w-4" />
+							</ToggleGroupItem>
+						</ToggleGroup>
+					)}
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<span>
+									<Button
+										onClick={() => setShowChat(!showChat)}
+										variant={showChat ? "default" : "outline"}
+										disabled={!project?.mattermostChannelId}
+									>
+										{showChat ? (
+											<>
+												<X className="h-4 w-4 mr-2" />
+												Close Chat
+											</>
+										) : (
+											<>
+												<MessageSquare className="h-4 w-4 mr-2" />
+												Chat
+											</>
+										)}
+									</Button>
+								</span>
+							</TooltipTrigger>
+							{!project?.mattermostChannelId && (
+								<TooltipContent>
+									<p>Please select or create a Mattermost channel for this project</p>
+								</TooltipContent>
+							)}
+						</Tooltip>
+					</TooltipProvider>
+					{showChat && !isChatFullscreen && (
+						<Button
+							variant="outline"
+							size="icon"
+							onClick={() => setIsChatFullscreen(true)}
+						>
+							<Maximize2 className="h-4 w-4" />
+							<span className="sr-only">Open fullscreen</span>
+						</Button>
+					)}
+					{!showChat && (
+						<>
+							<Button onClick={() => setIsStageManagementOpen(true)} variant="outline" disabled={project?.status === 'on-hold'}>
+								Manage Stages
+							</Button>
+							<Button onClick={() => { setEditingStage(null); setIsStageDialogOpen(true); }} size="sm" disabled={project?.status === 'on-hold'}>
+								<Plus className="h-4 w-4 mr-2" />
+								Add Stage
+							</Button>
+						</>
+					)}
 				</div>
 			</div>
 
-			<div className="overflow-x-auto">
-				{view === "kanban" ? (
-					<KanbanBoard
-						tasks={tasks}
-						stages={userStages}
-						onTaskUpdate={handleTaskUpdate}
-						onTaskEdit={handleTaskEdit}
-						onTaskDelete={handleTaskDelete}
-						useProjectStages={false}
-						canManageStages={false}
-						canManageTasks={false}
-						canDragTasks={true}
-						projectId={projectId}
-						onTaskComplete={handleTaskCompleteWithDetails}
-					/>
+			{showChat ? (
+				isChatFullscreen ? (
+					<div className="fixed inset-0 z-50 bg-background flex flex-col">
+						<div className="flex items-center justify-between px-4 py-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+							<div className="flex items-center gap-2">
+								<MessageSquare className="h-4 w-4" />
+								<span className="text-sm font-medium">Chat - {project?.name}</span>
+							</div>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-8 w-8"
+								onClick={() => setIsChatFullscreen(false)}
+							>
+								<X className="h-4 w-4" />
+								<span className="sr-only">Exit fullscreen</span>
+							</Button>
+						</div>
+						<div className="flex-1 overflow-hidden">
+							{chatLoading ? (
+								<div className="flex items-center justify-center h-full">
+									<p className="text-muted-foreground">Loading chat...</p>
+								</div>
+							) : autoLoginUrl ? (
+								<iframe
+									src={autoLoginUrl}
+									className="w-full h-full"
+									title="Chat"
+									allow="microphone; camera"
+								/>
+							) : (
+								<div className="flex items-center justify-center h-full">
+									<p className="text-destructive">Failed to load chat</p>
+								</div>
+							)}
+						</div>
+					</div>
 				) : (
-					<TaskListView
-						tasks={tasksForListView}
-						stages={userStages}
-						onTaskEdit={handleTaskEdit}
-						onTaskDelete={handleTaskDelete}
-						onTaskUpdate={handleTaskUpdate}
-						teamMembers={teamMembers}
-						showAssigneeColumn={false}
-						canManage={false}
-						canUpdateStage={true}
-					/>
-				)}
-			</div>
+					<div className="w-full h-[calc(100vh-12rem)] border rounded-lg overflow-hidden">
+						{chatLoading ? (
+							<div className="flex items-center justify-center h-full">
+								<p className="text-muted-foreground">Loading chat...</p>
+							</div>
+						) : autoLoginUrl ? (
+							<iframe
+								src={autoLoginUrl}
+								className="w-full h-full"
+								title="Chat"
+								allow="microphone; camera"
+							/>
+						) : (
+							<div className="flex items-center justify-center h-full">
+								<p className="text-destructive">Failed to load chat</p>
+							</div>
+						)}
+					</div>
+				)
+			) : (
+				<div className="overflow-x-auto">
+					{view === "kanban" ? (
+						<KanbanBoard
+							tasks={tasks}
+							stages={userStages}
+							onTaskUpdate={handleTaskUpdate}
+							onTaskEdit={handleTaskEdit}
+							onTaskDelete={handleTaskDelete}
+							useProjectStages={false}
+							canManageStages={false}
+							canManageTasks={false}
+							canDragTasks={true}
+							projectId={projectId}
+							onTaskComplete={handleTaskCompleteWithDetails}
+							disableBacklogRenaming={true}
+							useSubtasksGrouping={true}
+							allTasks={allTasks}
+						/>
+					) : (
+						<TaskListView
+							tasks={tasksForListView}
+							stages={userStages}
+							onTaskEdit={handleTaskEdit}
+							onTaskDelete={handleTaskDelete}
+							onTaskUpdate={handleTaskUpdate}
+							teamMembers={teamMembers}
+							showAssigneeColumn={false}
+							canManage={false}
+							canUpdateStage={true}
+						/>
+					)}
+				</div>
+			)}
 
 			<StageManagement
 				open={isStageManagementOpen}
@@ -449,6 +724,7 @@ export default function UserProjectStageTasks() {
 				allTasks={allTasks}
 				currentUser={currentUser}
 				fixedDepartmentId={project.department?.id}
+				disableBacklogRenaming={true}
 			/>
 		</div>
 	);

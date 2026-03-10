@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Scout\Searchable;
 
 class Task extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = [
         'title',
@@ -28,9 +30,9 @@ class Task extends Model
         'previous_stage_id',
         'original_assignee_id',
         'completed_at',
-        'completed_at',
         'estimated_hours',
         'parent_id',
+        'is_assignee_locked',
     ];
 
     protected $casts = [
@@ -39,7 +41,25 @@ class Task extends Model
         'start_date' => 'datetime',
         'completed_at' => 'datetime',
         'is_in_specific_stage' => 'boolean',
+        'is_assignee_locked' => 'boolean',
     ];
+
+	/**
+	 * Get the indexable data array for the model.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toSearchableArray()
+	{
+		return array_merge($this->toArray(),[
+			'id' => (string) $this->id,
+			'title' => $this->title,
+			'description' => $this->description,
+			'priority' => $this->priority,
+			'tags' => $this->tags,
+			'created_at' => $this->created_at->timestamp,
+		]);
+	}
 
     /**
      * Get the project that owns the task.
@@ -133,6 +153,14 @@ class Task extends Model
     public function assignees(): HasMany
     {
         return $this->hasMany(TaskAssignee::class);
+    }
+
+    /**
+     * Get the history entries for the task.
+     */
+    public function taskHistories(): HasMany
+    {
+        return $this->hasMany(TaskHistory::class)->orderBy('created_at', 'desc');
     }
 
     /**

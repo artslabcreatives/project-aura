@@ -13,7 +13,9 @@ export type HistoryAction =
   // Project actions
   | 'CREATE_PROJECT'
   | 'UPDATE_PROJECT'
-  | 'DELETE_PROJECT';
+  | 'DELETE_PROJECT'
+  | 'USER_START_TASK'
+  | 'USER_COMPLETE_TASK';
 
 export type EntityType = 'task' | 'stage' | 'project';
 
@@ -26,4 +28,9 @@ export interface HistoryEntry {
   entityType: EntityType;
   projectId: string;
   details: Record<string, unknown>;
+  user?: {
+    id: string;
+    name: string;
+    role?: string;
+  };
 }

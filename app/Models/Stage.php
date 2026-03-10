@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Scout\Searchable;
 
 class Stage extends Model
 {
     use HasFactory;
+	use Searchable;
 
     protected $fillable = [
         'title',
@@ -23,11 +25,29 @@ class Stage extends Model
         'is_review_stage',
         'linked_review_stage_id',
         'approved_target_stage_id',
+        'stage_group_id',
+        'user_id',
+        'context_stage_id',
     ];
 
     protected $casts = [
         'is_review_stage' => 'boolean',
     ];
+
+	/**
+	 * Get the indexable data array for the model.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toSearchableArray()
+	{
+		return array_merge($this->toArray(),[
+			'id' => (string) $this->id,
+			'title' => $this->title,
+			'type' => $this->type,
+			'created_at' => $this->created_at->timestamp,
+		]);
+	}
 
     /**
      * Get the project that owns the stage.
@@ -35,6 +55,14 @@ class Stage extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    /**
+     * Get the stage group this stage belongs to.
+     */
+    public function stageGroup(): BelongsTo
+    {
+        return $this->belongsTo(StageGroup::class);
     }
 
     /**

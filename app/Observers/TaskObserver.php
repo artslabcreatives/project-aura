@@ -3,11 +3,32 @@
 namespace App\Observers;
 
 use App\Models\Task;
+use App\Models\TaskHistory;
 use App\Models\Stage;
+use App\Models\User;
+use App\Notifications\TaskCompletedNotification;
+use App\Notifications\TaskReviewNeededNotification;
+use App\Notifications\TaskStageChangedNotification;
+use App\Services\TaskHistoryService;
 use Illuminate\Support\Facades\Log;
 
 class TaskObserver
 {
+    protected TaskHistoryService $historyService;
+
+    public function __construct(TaskHistoryService $historyService)
+    {
+        $this->historyService = $historyService;
+    }
+
+    /**
+     * Handle the Task "created" event.
+     */
+    public function created(Task $task): void
+    {
+        $this->historyService->trackTaskCreated($task);
+    }
+
     /**
      * Handle the Task "updating" event.
      * This runs before the update is saved to the database.
@@ -36,6 +57,11 @@ class TaskObserver
 
         // Check if user_status is being changed to 'complete'
         if ($task->isDirty('user_status') && $task->user_status === 'complete') {
+            
+            // Set completed_at timestamp if not already set
+            if (!$task->completed_at) {
+                $task->completed_at = now();
+            }
             
             // If this is a subtask, DO NOT move it to another stage.
             // Subtasks stay in the parent's stage.
@@ -96,7 +122,6 @@ class TaskObserver
                 // Update the project_stage_id if we found a target stage
                 if ($targetStageId) {
                     $task->project_stage_id = $targetStageId;
-                    $task->completed_at = now();
                 }
             }
         }
@@ -107,6 +132,9 @@ class TaskObserver
      */
     public function updated(Task $task): void
     {
+        // Track all changes using the history service
+        $this->historyService->trackChanges($task);
+
         // Log for debugging purposes
         Log::debug("Task {$task->id} updated", [
             'status' => $task->user_status,
@@ -127,5 +155,151 @@ class TaskObserver
                 }
             }
         }
+
+        // Send notification if stage changed or completed
+        // We check if project_stage_id was changed in this update cycle
+        // Note: 'updating' runs before DB update, 'updated' runs after.
+        // But 'getChanges()' in 'updated' should show what changed.
+        if ($task->wasChanged('project_stage_id')) {
+            $previousStageId = $task->getOriginal('project_stage_id');
+            $previousStage = $previousStageId ? Stage::find($previousStageId) : null;
+            $newStage = Stage::find($task->project_stage_id);
+            $stageName = $newStage ? $newStage->title : 'Unknown Stage';
+            
+            // Current user who performed the action (if available in request/auth)
+            // Since this is an observer, Auth::user() usually works if the action was triggered by an HTTP request
+            $user = auth()->user();
+            if (!$user && $task->assignee_id) {
+                // Fallback if no auth user (e.g. queue job), though for now we assume interactive
+                $user = User::find($task->assignee_id); 
+            }
+            
+            if ($user) {
+                // Check if the new stage is a review stage and notify the responsible user
+                if ($newStage && $newStage->is_review_stage && $newStage->mainResponsible) {
+                    $responsibleUser = $newStage->mainResponsible;
+                    
+                    // Avoid double notification if the responsible user is the one who moved the task (optional but good UX)
+                    if ($responsibleUser->id !== $user->id) {
+                        $responsibleUser->notify(new TaskReviewNeededNotification($task, $user, $stageName));
+                        Log::info("Sent review needed notification for task {$task->id} to user {$responsibleUser->id}");
+                    }
+                }
+
+                // Check if the new stage is "Complete" or "Completed"
+                // Only notify Admins and Team Leads if the task is moving to the completed stage
+                $isCompleteStage = $newStage && in_array(strtolower(trim($newStage->title)), ['complete', 'completed']);
+
+                if ($isCompleteStage) {
+                    // Get Admins and Team Leads
+                    // Ideally filter by project department if applicable, but for now sends to all relevant roles
+                    // Get Admins (they receive everything)
+                    $recipients = User::where('role', 'admin')->get();
+                    
+                    // Get Team Leads for the task's department
+                    $task->loadMissing('project');
+                    $departmentId = $task->project?->department_id;
+                    
+                    if ($departmentId) {
+                        $teamLeads = User::where('role', 'team-lead')
+                            ->where('department_id', $departmentId)
+                            ->get();
+                        
+                        // Merge and ensure uniqueness
+                        $recipients = $recipients->merge($teamLeads)->unique('id');
+                    } else {
+                        // If no department, maybe don't notify any team leads? Or notify all?
+                        // Based on user request "only receive team lead department notification", we should be strict.
+                        // However, if a project has no department, maybe no team lead should be notified.
+                        // We'll stick to just admins if no department is found.
+                    }
+
+                    foreach ($recipients as $recipient) {
+                        // Don't notify self
+                        if ($recipient->id === $user->id && $recipient->role === 'team-lead') continue;
+                        
+                        $recipient->notify(new TaskCompletedNotification($task, $user, $stageName));
+                    }
+                    
+                    Log::info("Sent task movement notifications for task {$task->id} to " . $recipients->count() . " users.");
+
+                    if (in_array($user->role, ['admin', 'team-lead'])) {
+                        $task->loadMissing('project');
+                        $departmentId = $task->project?->department_id;
+
+                        if ($departmentId) {
+                            $departmentTeamLeads = User::where('role', 'team-lead')
+                                ->where('department_id', $departmentId)
+                                ->get();
+
+                            foreach ($departmentTeamLeads as $departmentLead) {
+                                if ($departmentLead->id === $user->id) {
+                                    continue;
+                                }
+
+                                $departmentLead->notify(new TaskStageChangedNotification(
+                                    $task,
+                                    $previousStage?->title ?? 'Unknown Stage',
+                                    $newStage?->title ?? 'Unknown Stage',
+                                    $user->name
+                                ));
+                            }
+
+                            if ($departmentTeamLeads->isNotEmpty()) {
+                                Log::info(
+                                    "Sent stage change notifications for task {$task->id} to {$departmentTeamLeads->count()} team leads in department {$departmentId}."
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    // Generic Stage Change (Not Complete, Not Review - or even if Review/Complete but we want to notify assignee)
+                    // Notify the assignee if they are not the one who moved it.
+                    // If assignee changed, they get TaskAssignedNotification (handled in Controller usually, potentially here too?)
+                    // If assignee did NOT change, but stage did, and someone else moved it.
+                    
+                    if ($task->assignee_id && $task->assignee_id !== $user->id) {
+                         $task->assignee->notify(new TaskStageChangedNotification(
+                            $task,
+                            $previousStage?->title ?? 'Unknown Stage',
+                            $newStage?->title ?? 'Unknown Stage',
+                            $user->name
+                        ));
+                        Log::info("Sent stage change notification for task {$task->id} to assignee {$task->assignee_id}");
+                    }
+                    
+                    // Also notify other assigned users
+                    foreach ($task->assignedUsers as $assignedUser) {
+                        if ($assignedUser->id !== $user->id && $assignedUser->id !== $task->assignee_id) {
+                             $assignedUser->notify(new TaskStageChangedNotification(
+                                $task,
+                                $previousStage?->title ?? 'Unknown Stage',
+                                $newStage?->title ?? 'Unknown Stage',
+                                $user->name
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Handle the Task "deleted" event.
+     */
+    public function deleted(Task $task): void
+    {
+        // If soft deletes are enabled, this could be considered archiving
+        if (method_exists($task, 'isForceDeleting') && !$task->isForceDeleting()) {
+            $this->historyService->trackTaskArchived($task);
+        }
+    }
+
+    /**
+     * Handle the Task "restored" event.
+     */
+    public function restored(Task $task): void
+    {
+        $this->historyService->trackTaskRestored($task);
     }
 }

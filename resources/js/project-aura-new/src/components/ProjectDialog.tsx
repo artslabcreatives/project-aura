@@ -11,12 +11,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useToast } from "@/hooks/use-toast";
 import { Stage } from "@/types/stage";
-import { Plus, Trash2, GripVertical, Check, X } from "lucide-react";
+import { Plus, Trash2, GripVertical, Check, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/task";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
 	Select,
 	SelectContent,
@@ -33,6 +39,9 @@ import { Department } from "@/types/department";
 import { Project } from "@/types/project";
 import { ProjectGroup } from "@/types/project-group";
 import { projectGroupService } from "@/services/projectGroupService";
+import { stageGroupService, StageGroup } from "@/services/stageGroupService";
+import { clientService } from "@/services/clientService";
+import { Client as ClientType } from "@/types/client";
 import { SearchableSelect, SearchableOption } from "./ui/searchable-select";
 import {
 	DndContext,
@@ -92,8 +101,11 @@ interface ProjectDialogProps {
 		emails: string[],
 		phoneNumbers: string[],
 		department?: Department,
-		groupId?: string
-	) => void;
+		groupId?: string,
+		clientId?: string,
+		estimatedHours?: number,
+		status?: string
+	) => Promise<void> | void;
 	existingProjects: string[];
 	teamMembers: User[];
 	editProject?: Project;
@@ -109,9 +121,12 @@ interface SortableStageItemProps {
 	stages: Stage[];
 	memberOptions: SearchableOption[];
 	isSystem?: boolean;
+	currentUser?: User | null;
+	stageGroups: StageGroup[];
+	allTeamMembers: User[];
 }
 
-function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem }: SortableStageItemProps) {
+function SortableStageItem({ stage, updateStage, removeStage, stages, memberOptions, isSystem, currentUser, stageGroups, allTeamMembers }: SortableStageItemProps) {
 	const {
 		attributes,
 		listeners,
@@ -143,7 +158,7 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 				{isSystem && <div className="w-4" />} {/* Spacer */}
 
 				<Input
-					value={stage.title}
+					value={stage.title === "Pending" ? "Backlog" : stage.title}
 					onChange={(e) => updateStage(stage.id, "title", e.target.value)}
 					placeholder="Stage name"
 					className="flex-1"
@@ -155,33 +170,69 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 					onValueChange={(value) => updateStage(stage.id, "color", value)}
 					disabled={isSystem}
 				>
-					<SelectTrigger className="w-[140px]">
+					<SelectTrigger className="w-[60px] px-2 flex justify-center">
 						<SelectValue>
-							<div className="flex items-center gap-2">
+							<div className="flex items-center justify-center w-full">
 								<div
-									className="h-3 w-3 rounded-full border border-slate-200"
+									className="h-4 w-4 rounded-full border border-slate-200 shadow-sm"
 									style={{ backgroundColor: colorOptions.find(c => c.value === stage.color)?.hex }}
 								/>
-								<span className="text-sm">
-									{colorOptions.find(c => c.value === stage.color)?.label}
-								</span>
 							</div>
 						</SelectValue>
 					</SelectTrigger>
-					<SelectContent>
+					<SelectContent align="end" className="min-w-[50px]">
 						{colorOptions.map((option) => (
-							<SelectItem key={option.value} value={option.value}>
-								<div className="flex items-center gap-2">
+							<SelectItem key={option.value} value={option.value} className="justify-center px-2 cursor-pointer">
+								<div className="flex items-center justify-center w-full">
 									<div
-										className="h-3 w-3 rounded-full border border-slate-200"
+										className="h-4 w-4 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-110"
 										style={{ backgroundColor: option.hex }}
+										title={option.label}
 									/>
-									<span>{option.label}</span>
 								</div>
 							</SelectItem>
 						))}
 					</SelectContent>
 				</Select>
+				{/* Info tooltip for Suggested Task stage */}
+				{isSystem && stage.title.toLowerCase().includes('suggested') && (
+					<TooltipProvider>
+						<Tooltip delayDuration={0}>
+							<TooltipTrigger asChild>
+								<div className="cursor-help">
+									<Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+								</div>
+							</TooltipTrigger>
+							<TooltipContent side="right" className="max-w-[300px] p-3">
+								<div className="space-y-3">
+									<p className="font-semibold text-sm">Client Requests</p>
+									<p className="text-xs text-muted-foreground">
+										This stage shows tasks suggested via WhatsApp and Email clients.
+									</p>
+									<div className="flex items-center gap-2 bg-muted/50 rounded px-2 py-1.5">
+										<span className="text-xs font-mono">+94 78 538 4672</span>
+										<button
+											type="button"
+											className="p-1 hover:bg-muted rounded transition-colors"
+											onClick={() => {
+												navigator.clipboard.writeText('+94785384672');
+											}}
+											title="Copy number"
+										>
+											<svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" />
+												<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" />
+											</svg>
+										</button>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										Add this number to the WhatsApp group to receive suggestions.
+									</p>
+								</div>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				)}
 				{!isSystem && (
 					<Button
 						type="button"
@@ -193,24 +244,81 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 						<Trash2 className="h-4 w-4" />
 					</Button>
 				)}
-				{isSystem && <div className="w-9" />} {/* Spacer for delete button */}
+				{isSystem && !stage.title.toLowerCase().includes('suggested') && <div className="w-9" />} {/* Spacer for delete button */}
 			</div>
 
-			{['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) ? null : (
+			{!isSystem && (
 				<>
-					<div className="flex items-center gap-2 ml-6">
-						<Checkbox
-							id={`review-stage-${stage.id}`}
-							checked={stage.isReviewStage}
-							onCheckedChange={(checked) => updateStage(stage.id, "isReviewStage", checked === true)}
-							disabled={isSystem}
-						/>
-						<Label
-							htmlFor={`review-stage-${stage.id}`}
-							className="text-xs font-normal cursor-pointer"
-						>
-							Mark as Review Stage
-						</Label>
+					<div className="flex flex-wrap items-center justify-between gap-4 mt-4 ml-6 mr-2">
+						<div className="flex items-center gap-2">
+							<Checkbox
+								id={`review-stage-${stage.id}`}
+								checked={stage.isReviewStage}
+								onCheckedChange={(checked) => updateStage(stage.id, "isReviewStage", checked === true)}
+								disabled={isSystem}
+							/>
+							<Label
+								htmlFor={`review-stage-${stage.id}`}
+								className="text-xs font-normal cursor-pointer select-none"
+							>
+								Mark as Review Stage
+							</Label>
+						</div>
+
+						{stageGroups.length > 0 && (
+							<div className="flex items-center gap-2">
+								<TooltipProvider>
+									<Tooltip delayDuration={300}>
+										<TooltipTrigger asChild>
+											<Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+										</TooltipTrigger>
+										<TooltipContent className="max-w-[300px] p-3">
+											<div className="space-y-2">
+												<p className="font-semibold text-xs">Stage Group (Click to change)</p>
+												<p className="text-xs text-muted-foreground">
+													Click the button to cycle through stage types:
+												</p>
+												<ul className="text-xs space-y-1 list-disc pl-3">
+													<li><span className="font-medium text-red-500">Pending</span>: Not started</li>
+													<li><span className="font-medium text-orange-500">Active</span>: In progress</li>
+													<li><span className="font-medium text-green-500">Completed</span>: Finished</li>
+												</ul>
+											</div>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+
+								{(() => {
+									const currentGroup = stageGroups.find(g => g.id === stage.stageGroupId) || stageGroups[1]; // Default to active if missing
+									if (!currentGroup) return null;
+
+									let colorClass = "bg-orange-500";
+									if (currentGroup.id === 1) colorClass = "bg-red-500";
+									else if (currentGroup.id === 2) colorClass = "bg-orange-500";
+									else if (currentGroup.id === 3) colorClass = "bg-green-500";
+
+									return (
+										<div
+											className="flex items-center gap-2 cursor-pointer group select-none bg-muted/30 hover:bg-muted/60 pl-1.5 pr-3 py-1.5 rounded-full border border-transparent hover:border-border transition-all"
+											onClick={() => {
+												// Cycle: 1 (Pending) -> 2 (Active) -> 3 (Completed) -> 1
+												const nextId = currentGroup.id === 1 ? 2 : currentGroup.id === 2 ? 3 : 1;
+												updateStage(stage.id, 'stageGroupId', nextId);
+											}}
+										>
+											<div className={cn(
+												"h-4 w-4 rounded-full border border-primary flex items-center justify-center p-0.5",
+											)}>
+												<div className={cn("h-full w-full rounded-full transition-colors", colorClass)} />
+											</div>
+											<span className="text-xs font-medium uppercase tracking-wide text-foreground">
+												{currentGroup.name}
+											</span>
+										</div>
+									);
+								})()}
+							</div>
+						)}
 					</div>
 
 					{/* Stage Transition Configuration */}
@@ -262,37 +370,69 @@ function SortableStageItem({ stage, updateStage, removeStage, stages, memberOpti
 							</div>
 						)}
 					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
-							<SearchableSelect
-								value={stage.mainResponsibleId}
-								onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
-								options={memberOptions.filter(o => o.value !== stage.backupResponsibleId1 && o.value !== stage.backupResponsibleId2)}
-								placeholder="Select main"
-							/>
-						</div>
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
-							<SearchableSelect
-								value={stage.backupResponsibleId1}
-								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
-								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId2)}
-								placeholder="Select backup 1"
-							/>
-						</div>
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
-							<SearchableSelect
-								value={stage.backupResponsibleId2}
-								onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
-								options={memberOptions.filter(o => o.value !== stage.mainResponsibleId && o.value !== stage.backupResponsibleId1)}
-								placeholder="Select backup 2"
-							/>
-						</div>
-					</div>
 				</>
+			)}
+
+			{!['completed', 'complete', 'archive'].includes(stage.title.toLowerCase().trim()) && (
+				<div className={cn("grid gap-2 mt-2 transition-all duration-300 ease-in-out",
+					!stage.mainResponsibleId ? "grid-cols-1" :
+						!stage.backupResponsibleId1 ? "grid-cols-1 md:grid-cols-2" :
+							"grid-cols-1 md:grid-cols-3"
+				)}>
+					{(() => {
+						const getOptions = (currentValue: string | undefined, excludeValues: (string | undefined)[]) => {
+							let opts = memberOptions;
+							opts = opts.filter(o => !excludeValues.includes(o.value));
+							if (currentValue && !opts.find(o => o.value === currentValue)) {
+								const user = allTeamMembers.find(u => u.id === currentValue);
+								if (user) {
+									opts = [...opts, {
+										value: user.id,
+										label: user.name + (user.is_active === false ? " (Deactivated)" : ""),
+										group: "Deactivated"
+									}];
+								}
+							}
+							return opts;
+						};
+
+						return (
+							<>
+								<div className="flex flex-col gap-1.5 transition-all">
+									<Label htmlFor={`main-responsible-${stage.id}`} className="text-xs">Main Responsible</Label>
+									<SearchableSelect
+										value={stage.mainResponsibleId}
+										onValueChange={(value) => updateStage(stage.id, "mainResponsibleId", value)}
+										options={getOptions(stage.mainResponsibleId, [stage.backupResponsibleId1, stage.backupResponsibleId2])}
+										placeholder="Select main"
+									/>
+								</div>
+								{stage.mainResponsibleId && (
+									<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+										<Label htmlFor={`backup1-responsible-${stage.id}`} className="text-xs">Backup Responsible 1</Label>
+										<SearchableSelect
+											value={stage.backupResponsibleId1}
+											onValueChange={(value) => updateStage(stage.id, "backupResponsibleId1", value)}
+											options={getOptions(stage.backupResponsibleId1, [stage.mainResponsibleId, stage.backupResponsibleId2])}
+											placeholder="Select backup 1"
+										/>
+									</div>
+								)}
+								{stage.mainResponsibleId && stage.backupResponsibleId1 && (
+									<div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+										<Label htmlFor={`backup2-responsible-${stage.id}`} className="text-xs">Backup Responsible 2</Label>
+										<SearchableSelect
+											value={stage.backupResponsibleId2}
+											onValueChange={(value) => updateStage(stage.id, "backupResponsibleId2", value)}
+											options={getOptions(stage.backupResponsibleId2, [stage.mainResponsibleId, stage.backupResponsibleId1])}
+											placeholder="Select backup 2"
+										/>
+									</div>
+								)}
+							</>
+						);
+					})()}
+				</div>
 			)}
 		</div>
 	);
@@ -308,17 +448,23 @@ export function ProjectDialog({
 	departments,
 	currentUser,
 }: ProjectDialogProps) {
+	const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
 	const { toast } = useToast();
-	const [formData, setFormData] = useState<ProjectFormData>({
+	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string }>({
 		name: "",
 		description: "",
+		clientId: "",
+		estimatedHours: 0,
+		status: "active",
 	});
+	const [clients, setClients] = useState<ClientType[]>([]);
 	const [stages, setStages] = useState<Stage[]>([]);
 	const [emails, setEmails] = useState<string[]>([]);
 	const [phoneNumbers, setPhoneNumbers] = useState<string[]>([]);
 	const [department, setDepartment] = useState<Department | undefined>();
 	const [groupId, setGroupId] = useState<string>("");
 	const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
+	const [stageGroups, setStageGroups] = useState<StageGroup[]>([]);
 	const [phoneNumbersOptions, setPhoneNumbersOptions] = useState<{ value: string, label: string }[]>([]);
 	const [errors, setErrors] = useState<
 		Partial<Record<keyof ProjectFormData, string>>
@@ -374,42 +520,53 @@ export function ProjectDialog({
 					console.error('Error fetching phone numbers:', error);
 				});
 
+			stageGroupService.getAll()
+				.then(groups => setStageGroups(groups))
+				.catch(err => console.error("Failed to load stage groups", err));
+
+			if (canSeeClientInfo) {
+				clientService.getAll()
+					.then(data => setClients(data))
+					.catch(err => console.error("Failed to load clients", err));
+			}
+
 			// Populate form if editing
 			if (editProject) {
+				setDepartment(editProject.department);
+				setGroupId(editProject.group?.id ? String(editProject.group.id) : "");
 				setFormData({
 					name: editProject.name,
 					description: editProject.description || "",
+					clientId: editProject.clientId ? String(editProject.clientId) : "",
+					estimatedHours: editProject.estimatedHours || 0,
+					status: editProject.status || "active",
 				});
 				setStages(editProject.stages || []);
 				setEmails(editProject.emails || []);
 				setPhoneNumbers(editProject.phoneNumbers || []);
-				setDepartment(editProject.department);
-				setGroupId(editProject.group?.id ? String(editProject.group.id) : "");
 			} else {
 				// For new project, auto-select department for team-lead
-				if (currentUser?.role === "team-lead") {
+				if (currentUser?.role === "team-lead" || currentUser?.role === "account-manager") {
 					const userDepartment = departments.find(
 						dept => dept.id === currentUser.department
 					);
 					setDepartment(userDepartment);
 				}
-				if (stages.length === 0) {
-					setStages([
-						{ id: 'system-suggested', title: 'Suggested Task', color: 'bg-slate-200', order: 0, type: 'project', isReviewStage: false },
-						{ id: 'system-pending', title: 'Pending', color: 'bg-orange-500', order: 1, type: 'project', isReviewStage: false },
-						{ id: 'system-completed', title: 'Completed', color: 'bg-green-500', order: 998, type: 'project', isReviewStage: false },
-						{ id: 'system-archive', title: 'Archive', color: 'bg-slate-500', order: 999, type: 'project', isReviewStage: false },
-					]);
-				}
+				setStages([
+					{ id: 'system-suggested', title: 'Suggested Task', color: 'bg-slate-200', order: 0, type: 'project', isReviewStage: false, stageGroupId: 1 },
+					{ id: 'system-pending', title: 'Pending', color: 'bg-orange-500', order: 1, type: 'project', isReviewStage: false, stageGroupId: 1 },
+					{ id: 'system-completed', title: 'Completed', color: 'bg-green-500', order: 998, type: 'project', isReviewStage: false, stageGroupId: 3 },
+					{ id: 'system-archive', title: 'Archive', color: 'bg-slate-500', order: 999, type: 'project', isReviewStage: false, stageGroupId: 3 },
+				]);
+				setEmails([]);
+				setPhoneNumbers([]);
 			}
 		} else {
-			setFormData({ name: "", description: "" });
+			setGroupId("");
+			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active" });
 			setStages([]);
-			setErrors({});
 			setEmails([]);
 			setPhoneNumbers([]);
-			setDepartment(undefined);
-			setGroupId("");
 		}
 	}, [open, editProject, currentUser, departments]);
 
@@ -446,15 +603,18 @@ export function ProjectDialog({
 
 	const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 	const [newGroupName, setNewGroupName] = useState("");
+	const [newGroupParentId, setNewGroupParentId] = useState<string>("none");
 
 	const handleCreateGroup = async () => {
 		if (!newGroupName.trim() || !department) return;
 
 		try {
-			const newGroup = await projectGroupService.create(newGroupName, String(department.id));
+			const parentId = newGroupParentId === "none" ? null : newGroupParentId;
+			const newGroup = await projectGroupService.create(newGroupName, String(department.id), parentId);
 			setProjectGroups([...projectGroups, newGroup]);
 			setGroupId(newGroup.id);
 			setNewGroupName("");
+			setNewGroupParentId("none");
 			setIsCreatingGroup(false);
 			toast({
 				title: "Group created",
@@ -469,6 +629,36 @@ export function ProjectDialog({
 			});
 		}
 	};
+
+	// Helper to visualize hierarchy in dropdown
+	const hierarchicalGroupOptions = useMemo(() => {
+		const buildOptions = (parentId: string | null = null, depth = 0): JSX.Element[] => {
+			const children = projectGroups.filter(g => g.parentId == parentId); // Abstract equality checks null/undefined
+			if (children.length === 0) return [];
+
+			let options: JSX.Element[] = [];
+			children.forEach(child => {
+				options.push(
+					<SelectItem key={child.id} value={child.id}>
+						{Array(depth).fill("\u00A0\u00A0").join("") + (depth > 0 ? "└ " : "") + child.name}
+					</SelectItem>
+				);
+				options = [...options, ...buildOptions(child.id, depth + 1)];
+			});
+			return options;
+		};
+		const roots = projectGroups.filter(g => !g.parentId);
+		let options: JSX.Element[] = [];
+		roots.forEach(root => {
+			options.push(
+				<SelectItem key={root.id} value={root.id}>
+					{root.name}
+				</SelectItem>
+			);
+			options = [...options, ...buildOptions(root.id, 1)];
+		});
+		return options;
+	}, [projectGroups]);
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;
@@ -529,19 +719,19 @@ export function ProjectDialog({
 			return;
 		}
 
-		const stageTitles = stages.map(s => s.title.toLowerCase());
-		const hasDuplicates = stageTitles.some((title, index) => stageTitles.indexOf(title) !== index);
-		if (hasDuplicates) {
-			toast({
-				title: "Validation Error",
-				description: "Stage names must be unique",
-				variant: "destructive",
-			});
-			return;
-		}
+		// Filter out duplicate stages
+		const uniqueStages: Stage[] = [];
+		const seenTitles = new Set<string>();
+		stages.forEach(stage => {
+			const normalizedTitle = stage.title.toLowerCase().trim();
+			if (!seenTitles.has(normalizedTitle)) {
+				seenTitles.add(normalizedTitle);
+				uniqueStages.push(stage);
+			}
+		});
 
 		// Validate that all stages (except Completed and Archive) have a Main Responsible person
-		const stagesMissingResponsible = stages.filter(s => {
+		const stagesMissingResponsible = uniqueStages.filter(s => {
 			const title = s.title.toLowerCase().trim();
 			// Skip validation for Completed and Archive stages
 			if (['completed', 'complete', 'archive'].includes(title)) {
@@ -561,7 +751,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(result.data.name, result.data.description || "", stages, emails, phoneNumbers, department, groupId);
+		onSave(result.data.name, result.data.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status);
 		onOpenChange(false);
 	};
 
@@ -577,6 +767,7 @@ export function ProjectDialog({
 
 			backupResponsibleId2: undefined,
 			isReviewStage: false,
+			stageGroupId: 2, // Default to Active/Orange group
 		};
 		// Add to middle
 		setStages([...topStages, ...middleStages, newStage, ...bottomStages]);
@@ -590,14 +781,16 @@ export function ProjectDialog({
 		setStages(prev => prev.filter(s => s.id !== id));
 	};
 
-	const memberOptions: SearchableOption[] = teamMembers.map(member => {
-		const deptName = departments.find(d => d.id === member.department)?.name || "Other";
-		return {
-			value: member.id,
-			label: member.name,
-			group: deptName
-		};
-	});
+	const memberOptions: SearchableOption[] = teamMembers
+		.filter(member => member.is_active !== false)
+		.map(member => {
+			const deptName = departments.find(d => d.id === member.department)?.name || "Other";
+			return {
+				value: member.id,
+				label: member.name,
+				group: deptName
+			};
+		});
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -633,15 +826,13 @@ export function ProjectDialog({
 
 						<div className="grid gap-2">
 							<Label htmlFor="description">Description (Optional)</Label>
-							<Textarea
+							<RichTextEditor
 								id="description"
-								value={formData.description}
-								onChange={(e) =>
-									setFormData({ ...formData, description: e.target.value })
+								value={formData.description || ""}
+								onChange={(value) =>
+									setFormData({ ...formData, description: value })
 								}
 								placeholder="Enter project description"
-								rows={3}
-								maxLength={200}
 							/>
 						</div>
 
@@ -666,6 +857,57 @@ export function ProjectDialog({
 							/>
 						</div>
 
+						{canSeeClientInfo && (
+							<div className="grid gap-2">
+								<Label htmlFor="client">Client (Optional)</Label>
+								<SearchableSelect
+									value={formData.clientId}
+									onValueChange={(value) =>
+										setFormData({ ...formData, clientId: value })
+									}
+									options={clients.map(client => ({
+										value: String(client.id),
+										label: client.company_name,
+									}))}
+									placeholder="Select a client"
+								/>
+							</div>
+						)}
+
+						<div className="grid grid-cols-2 gap-4">
+							<div className="grid gap-2">
+								<Label htmlFor="estimatedHours">Estimated Hours</Label>
+								<Input
+									id="estimatedHours"
+									type="number"
+									value={formData.estimatedHours}
+									onChange={(e) =>
+										setFormData({ ...formData, estimatedHours: parseInt(e.target.value) || 0 })
+									}
+									placeholder="Estimated hours"
+								/>
+							</div>
+							<div className="grid gap-2">
+								<Label htmlFor="status">Status</Label>
+								<Select
+									value={formData.status}
+									onValueChange={(value) =>
+										setFormData({ ...formData, status: value })
+									}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select status" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="active">Active</SelectItem>
+										<SelectItem value="on-hold">On Hold</SelectItem>
+										<SelectItem value="completed">Completed</SelectItem>
+										<SelectItem value="cancelled">Cancelled</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
 								<Label htmlFor="department">Department</Label>
@@ -685,13 +927,13 @@ export function ProjectDialog({
 											setGroupId(""); // Reset group when dept changes
 										}
 									}}
-									disabled={currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
+									disabled={(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Select a department" />
 									</SelectTrigger>
 									<SelectContent>
-										{currentUser?.role === "team-lead" && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() === "digital" ? (
+										{(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() === "digital" ? (
 											departments
 												.filter(dept => dept.name.toLowerCase() === "digital" || dept.name.toLowerCase() === "design")
 												.map((dept) => (
@@ -727,34 +969,49 @@ export function ProjectDialog({
 								</div>
 
 								{isCreatingGroup ? (
-									<div className="flex items-center gap-2">
+									<div className="flex flex-col gap-2 p-2 border rounded-md">
 										<Input
 											value={newGroupName}
 											onChange={(e) => setNewGroupName(e.target.value)}
 											placeholder="Group Name"
-											className="h-9"
+											className="h-8 text-sm"
 											autoFocus
 										/>
-										<Button
-											type="button"
-											size="sm"
-											className="h-9 w-9 px-0"
-											onClick={handleCreateGroup}
+										<Select
+											value={newGroupParentId}
+											onValueChange={setNewGroupParentId}
 										>
-											<Check className="h-4 w-4" />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											className="h-9 w-9 px-0"
-											onClick={() => {
-												setIsCreatingGroup(false);
-												setNewGroupName("");
-											}}
-										>
-											<X className="h-4 w-4" />
-										</Button>
+											<SelectTrigger className="h-8 text-xs">
+												<SelectValue placeholder="Parent Group (Optional)" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="none">No Parent (Root)</SelectItem>
+												{hierarchicalGroupOptions}
+											</SelectContent>
+										</Select>
+										<div className="flex justify-end gap-1 mt-1">
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												className="h-7 px-2 text-xs"
+												onClick={() => {
+													setIsCreatingGroup(false);
+													setNewGroupName("");
+													setNewGroupParentId("none");
+												}}
+											>
+												Cancel
+											</Button>
+											<Button
+												type="button"
+												size="sm"
+												className="h-7 px-2 text-xs"
+												onClick={handleCreateGroup}
+											>
+												Create
+											</Button>
+										</div>
 									</div>
 								) : (
 									<Select
@@ -769,11 +1026,7 @@ export function ProjectDialog({
 											<SelectItem value="unassign_group" className="text-muted-foreground italic">
 												None
 											</SelectItem>
-											{projectGroups.map((group) => (
-												<SelectItem key={group.id} value={group.id}>
-													{group.name}
-												</SelectItem>
-											))}
+											{hierarchicalGroupOptions}
 										</SelectContent>
 									</Select>
 								)}
@@ -798,7 +1051,7 @@ export function ProjectDialog({
 							</div>
 
 							<div className="text-xs text-muted-foreground bg-muted p-2 rounded-md">
-								Note: <strong>Suggested, Pending, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
+								Note: <strong>Suggested, Backlog, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
 							</div>
 
 							{stages.length === 0 && !editProject ? (
@@ -818,6 +1071,9 @@ export function ProjectDialog({
 											stages={stages}
 											memberOptions={memberOptions}
 											isSystem={true}
+											currentUser={currentUser}
+											stageGroups={stageGroups}
+											allTeamMembers={teamMembers}
 										/>
 									))}
 
@@ -839,6 +1095,9 @@ export function ProjectDialog({
 													stages={stages}
 													memberOptions={memberOptions}
 													isSystem={false}
+													currentUser={currentUser}
+													stageGroups={stageGroups}
+													allTeamMembers={teamMembers}
 												/>
 											))}
 										</SortableContext>
@@ -866,6 +1125,9 @@ export function ProjectDialog({
 											stages={stages}
 											memberOptions={memberOptions}
 											isSystem={true}
+											currentUser={currentUser}
+											stageGroups={stageGroups}
+											allTeamMembers={teamMembers}
 										/>
 									))}
 								</div>

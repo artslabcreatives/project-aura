@@ -36,6 +36,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				email: response.email,
 				role: response.role,
 				department: response.department_id ? String(response.department_id) : '',
+				avatar: response.avatar,
+				preferences: response.preferences,
+				twoFactorEnabled: !!response.two_factor_confirmed_at,
+				hasSeenWelcomeVideo: response.has_seen_welcome_video,
+				is_active: response.is_active,
 			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);
@@ -59,6 +64,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				email: u.email,
 				role: u.role,
 				department: u.department_id ? String(u.department_id) : '',
+				avatar: u.avatar,
+				preferences: u.preferences,
+				is_active: u.is_active,
 			}));
 			setTeamMembers(users);
 		} catch (error) {
@@ -111,6 +119,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
 		initAuth();
 	}, []);
+
+	useEffect(() => {
+		const checkToken = () => {
+			const token = getToken();
+
+			// Skip token check for public routes
+			const publicPaths = ['/set-password', '/reset-password'];
+			const isPublicRoute = publicPaths.some(path => window.location.pathname.startsWith(path));
+			if (isPublicRoute) {
+				return; // Don't check token for public routes
+			}
+
+			if (!token) {
+				// If we think we are logged in, OR if we are on a non-root path (trying to access protected content)
+				if (isAuthenticated || window.location.pathname !== '/') {
+					console.warn('Token missing during periodic check. Redirecting to login.');
+					// Clear strict local state just in case
+					removeToken();
+					setCurrentUser(null);
+					setIsAuthenticated(false);
+					setTeamMembers([]);
+					// Force redirect to login page
+					window.location.href = '/';
+				}
+			}
+		};
+
+		// Check every 5 seconds
+		const interval = setInterval(checkToken, 5000);
+		return () => clearInterval(interval);
+	}, [isAuthenticated]);
 
 	return (
 		<UserContext.Provider value={{ currentUser, teamMembers, isLoading, isAuthenticated, logout, refreshUser }}>

@@ -4,9 +4,35 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class TagController extends Controller
 {
+    #[OA\Get(
+        path: "/tags",
+        summary: "List all tags",
+        security: [["bearerAuth" => []]],
+        tags: ["Tags"],
+        parameters: [
+            new OA\Parameter(
+                name: "department_id",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "List of tags",
+                content: new OA\JsonContent(
+                    type: "array",
+                    items: new OA\Items(type: "object")
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function index(Request $request)
     {
         $query = \App\Models\Tag::query();
@@ -18,6 +44,28 @@ class TagController extends Controller
         return response()->json($query->get());
     }
 
+    #[OA\Post(
+        path: "/tags",
+        summary: "Create a new tag",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["name", "department_id"],
+                properties: [
+                    new OA\Property(property: "name", type: "string", example: "Urgent"),
+                    new OA\Property(property: "department_id", type: "integer", example: 1)
+                ]
+            )
+        ),
+        tags: ["Tags"],
+        responses: [
+            new OA\Response(response: 201, description: "Tag created"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function store(Request $request)
     {
         $request->validate([

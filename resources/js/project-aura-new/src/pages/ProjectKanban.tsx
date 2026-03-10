@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
@@ -24,7 +24,8 @@ import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { SuggestedTaskCard } from "@/components/SuggestedTaskCard";
-import { Loading } from "@/components/Loading";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProjectKanban() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -44,47 +45,86 @@ export default function ProjectKanban() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
-	const { history, addHistoryEntry } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
+	const { history, addHistoryEntry, loading: historyLoading } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
 	const { currentUser } = useUser();
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
+
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	useEffect(() => {
+		const taskIdParam = searchParams.get('task');
+		if (taskIdParam && tasks.length > 0) {
+			// Delay slightly to ensure rendering
+			setTimeout(() => {
+				const taskElement = document.getElementById(`task-${taskIdParam}`);
+				if (taskElement) {
+					taskElement.scrollIntoView({ behavior: "smooth", block: "center" });
+					taskElement.classList.add("ring-2", "ring-primary", "shadow-lg");
+					setTimeout(() => {
+						taskElement.classList.remove("ring-2", "ring-primary", "shadow-lg");
+					}, 3000);
+
+					// Clear param
+					searchParams.delete('task');
+					setSearchParams(searchParams);
+				}
+			}, 1000);
+		}
+	}, [tasks, searchParams]);
 
 	useEffect(() => {
 		const loadData = async () => {
 			if (!numericProjectId) return;
 			setIsLoading(true);
 			try {
-				const currentProject = await projectService.getById(String(numericProjectId));
+				// Optimization: Fetch independent initial data in parallel
+				const [currentProject, departmentsData] = await Promise.all([
+					projectService.getById(String(numericProjectId)),
+					departmentService.getAll()
+				]);
+
 				if (!currentProject) {
 					setProject(null);
 					setIsLoading(false);
 					return;
 				}
-				const departmentsData = await departmentService.getAll();
+
 				if (currentUser?.role === 'team-lead') {
-					const hasMatchingDepartment = currentProject.department?.id === currentUser.department;
-					const currentDept = departmentsData.find(d => d.id === currentUser.department);
+					const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
+					const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
 					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
 					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					if (!hasMatchingDepartment && !hasSpecialPermission) {
+					const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
+
+					if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) {
 						setProject(null);
 						setIsLoading(false);
 						return;
 					}
 				}
 				setProject(currentProject);
-				const tasksData = await taskService.getAll({ projectId: String(currentProject.id) });
-				setTasks(tasksData.filter(t => t.projectId === currentProject.id));
-
-				const suggestedTasksData = await projectService.getSuggestedTasks(String(currentProject.id));
-				setSuggestedTasks(suggestedTasksData);
-
-				const allTasksData = await taskService.getAll();
-				setAllTasks(allTasksData);
-				const usersData = await userService.getAll();
-				setTeamMembers(usersData);
 				setDepartments(departmentsData);
+
+				// Optimization: Fetch remaining data in parallel
+				// REMOVED: const allTasksData = await taskService.getAll(); <- This was fetching ALL tasks in system, causing slowness.
+				const [tasksData, suggestedTasksData, usersData] = await Promise.all([
+					taskService.getAll({ projectId: String(currentProject.id) }),
+					projectService.getSuggestedTasks(String(currentProject.id)),
+					userService.getAll()
+				]);
+
+				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+				setTasks(projectTasks);
+				setSuggestedTasks(suggestedTasksData);
+				// We use project tasks for allTasks to avoid the massive global fetch. 
+				// This means the "task count" in assignee dropdown will reflect project-load, not global-load, which is acceptable for performance.
+				setAllTasks(projectTasks);
+				// Filter out deactivated users
+				const activeUsers = usersData.filter(user => user.is_active !== false); // Handle undefined as active just in case, or explicitly true
+				setTeamMembers(activeUsers);
+
 			} catch (error) {
 				console.error('Error loading project data:', error);
 				toast({
@@ -215,7 +255,7 @@ export default function ProjectKanban() {
 				}
 			}
 
-			await taskService.update(taskId, backendUpdates);
+			await taskService.update(taskId, backendUpdates as any);
 
 			// For local state, we keep using the name
 			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
@@ -244,7 +284,7 @@ export default function ProjectKanban() {
 				tags: ["AI Suggestion"],
 			};
 
-			const newTask = await taskService.create(newTaskData);
+			const newTask = await taskService.create(newTaskData as any);
 			setTasks([...tasks, newTask]);
 			setSuggestedTasks(suggestedTasks.filter(t => t.id !== suggestedTaskId));
 
@@ -268,15 +308,15 @@ export default function ProjectKanban() {
 		if (!currentUser || !project) return;
 		try {
 			if (editingTask) {
-				await taskService.update(editingTask.id, task);
-				setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...task } : t));
+				const updatedTask = await taskService.update(editingTask.id, task as any);
+				setTasks(tasks.map(t => t.id === editingTask.id ? updatedTask : t));
 				addHistoryEntry({
 					action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id,
 					details: { from: editingTask, to: { ...editingTask, ...task } },
 				});
 				toast({ title: "Task updated", description: "Task updated successfully." });
 			} else {
-				const newTask = await taskService.create({ ...task, projectId: project.id });
+				const newTask = await taskService.create({ ...task, projectId: project.id } as any);
 
 				// Upload pending files after task creation
 				if (pendingFiles && pendingFiles.length > 0) {
@@ -340,14 +380,22 @@ export default function ProjectKanban() {
 
 	const handleAddStage = () => { setEditingStage(null); setIsStageDialogOpen(true); };
 	const handleEditStage = (stage: Stage) => { setEditingStage(stage); setIsStageDialogOpen(true); };
-	const handleDeleteStage = (stageId: string) => {
+	const handleDeleteStage = async (stageId: string) => {
 		if (!project || !currentUser) return;
 		const stageToDelete = project.stages.find(s => s.id === stageId);
-		if (stageToDelete) {
-			addHistoryEntry({ action: 'DELETE_STAGE', entityId: stageId, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: stageToDelete.title } });
+		try {
+			await stageService.delete(stageId);
+			if (stageToDelete) {
+				addHistoryEntry({ action: 'DELETE_STAGE', entityId: stageId, entityType: 'stage', projectId: String(project.id), userId: currentUser.id, details: { title: stageToDelete.title } });
+			}
+			const updatedStages = project.stages.filter(s => s.id !== stageId);
+			setProject({ ...project, stages: updatedStages });
+			toast({ title: "Stage deleted", description: "Stage deleted successfully." });
+		} catch (error: any) {
+			console.error("Error deleting stage:", error);
+			const msg = error.response?.data?.message || error.message || "Failed to delete stage.";
+			toast({ title: "Error", description: msg, variant: "destructive" });
 		}
-		const updatedStages = project.stages.filter(s => s.id !== stageId);
-		updateProjectInStorage({ ...project, stages: updatedStages });
 	};
 
 	const handleSaveStage = async (stage: Omit<Stage, "order">) => {
@@ -367,12 +415,14 @@ export default function ProjectKanban() {
 				const maxOrder = Math.max(...otherStages.map(s => s.order), 1); // Start at least after Pending (1)
 				const newOrder = maxOrder + 1;
 
+				if (!project.id) {
+					throw new Error("Project ID is missing");
+				}
+
 				const newStage = await stageService.create({
 					...stage,
 					order: newOrder,
-					project_id: project.id, // Ensure project_id is sent
-					// @ts-ignore
-					projectId: project.id // Some backends might expect camelCase or snake_case, sending both to be safe or check type definition
+					projectId: project.id
 				} as any);
 
 				// If we have an Archive stage, ensure it stays at the end (though 999 should be enough)
@@ -460,7 +510,50 @@ export default function ProjectKanban() {
 		setReviewTask(null);
 	};
 
-	if (isLoading) return <Loading />;
+	if (isLoading) {
+		return (
+			<div className="flex flex-col h-screen overflow-hidden">
+				<div className="flex-shrink-0 border-b p-4 space-y-4">
+					<div className="flex items-center justify-between">
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-4 w-96" />
+						</div>
+						<div className="flex gap-2">
+							<Skeleton className="h-9 w-24" />
+							<Skeleton className="h-9 w-32" />
+							<Skeleton className="h-9 w-24" />
+						</div>
+					</div>
+				</div>
+				<div className="flex-1 overflow-auto p-4">
+					<div className="flex gap-4">
+						{[1, 2, 3, 4].map((i) => (
+							<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+								<Skeleton className="h-12 w-full rounded-lg" />
+								<div className="space-y-4">
+									{[1, 2, 3].map((j) => (
+										<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+											<div className="flex justify-between">
+												<Skeleton className="h-4 w-20" />
+												<Skeleton className="h-4 w-4 rounded-full" />
+											</div>
+											<Skeleton className="h-4 w-full" />
+											<Skeleton className="h-4 w-3/4" />
+											<div className="flex items-center justify-between pt-2">
+												<Skeleton className="h-6 w-6 rounded-full" />
+												<Skeleton className="h-5 w-16" />
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		);
+	}
 	if (!project) return <div className="flex items-center justify-center h-screen">Project not found</div>;
 
 	return (
@@ -469,13 +562,34 @@ export default function ProjectKanban() {
 				<div className="flex items-center justify-between">
 					<div>
 						<h1 className="text-2xl font-bold">{project.name}</h1>
-						<p className="text-muted-foreground">{project.description}</p>
+						<div
+							className="text-muted-foreground prose prose-sm dark:prose-invert max-w-none"
+							dangerouslySetInnerHTML={{
+								__html: (() => {
+									const txt = document.createElement("textarea");
+									let val = project.description || '';
+									let lastVal = '';
+									let limit = 0;
+									// Recursively decode until stable or limit reached
+									// We use a limit to prevent infinite loops if something weird happens
+									while (val !== lastVal && limit < 5) {
+										lastVal = val;
+										txt.innerHTML = val;
+										val = txt.value;
+										limit++;
+									}
+									return val;
+								})()
+							}}
+						/>
 					</div>
 					<div className="flex gap-2">
-						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 							<>
 								<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>View History</Button>
-								<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>Manage Stages</Button>
+								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+									<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>Manage Stages</Button>
+								)}
 								<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
 									<Plus className="mr-2 h-4 w-4" /> Add Task
 								</Button>
@@ -532,6 +646,7 @@ export default function ProjectKanban() {
 						canManageTasks={currentUser?.role !== 'user'}
 						canDragTasks={currentUser?.role !== 'user'}
 						onTaskReview={task => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
+						disableBacklogRenaming={currentUser?.role === 'user'}
 					/>
 				) : (
 					<TaskListView
@@ -559,8 +674,8 @@ export default function ProjectKanban() {
 					/>
 				)}
 			</div>
-			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} stages={project.stages} />
-			<TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} onSave={handleSaveTask} editTask={editingTask} availableStatuses={project.stages} useProjectStages availableProjects={[project.name]} teamMembers={teamMembers} departments={departments} allTasks={allTasks} />
+			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} stages={project.stages} loading={historyLoading} />
+			<TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} onSave={handleSaveTask} editTask={editingTask} availableStatuses={project.stages} useProjectStages availableProjects={[project.name]} allProjects={[project]} teamMembers={teamMembers} departments={departments} allTasks={allTasks} />
 			<StageManagement open={isStageManagementOpen} onOpenChange={setIsStageManagementOpen} stages={project.stages} onAddStage={handleAddStage} onEditStage={handleEditStage} onDeleteStage={handleDeleteStage} />
 			<StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} onSave={handleSaveStage} existingStages={project.stages} editStage={editingStage} teamMembers={teamMembers} />
 			<ReviewTaskDialog open={isReviewTaskDialogOpen} onOpenChange={setIsReviewTaskDialogOpen} task={reviewTask} stages={project.stages} onApprove={handleApproveTask} onRequestRevision={handleRequestRevision} />

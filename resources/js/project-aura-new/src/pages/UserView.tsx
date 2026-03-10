@@ -2,31 +2,73 @@ import { DashboardStats } from "@/components/DashboardStats";
 import { Task } from "@/types/task";
 import { Project } from "@/types/project";
 import { projectService } from "@/services/projectService";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TaskCard } from "@/components/TaskCard";
 import { TaskCalendar } from "@/components/TaskCalendar";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
-import { isPast, isToday, isFuture, addDays, isTomorrow, isSameMonth } from "date-fns";
 import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/use-user";
+import { taskService } from "@/services/taskService";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { HelpCircle, Sparkles } from "lucide-react";
+import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
+import { userTourSteps } from "@/components/tourSteps";
 
 export default function UserView() {
 	const { currentUser } = useUser();
+	const [statsTasks, setStatsTasks] = useState<Task[]>([]);
 	const [tasks, setTasks] = useState<Task[]>([]);
+	const [projects, setProjects] = useState<Project[]>([]);
 	const [viewTask, setViewTask] = useState<Task | null>(null);
 	const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+	const [loading, setLoading] = useState(true);
+
+	// Onboarding tour
+	const tourId = `user_dashboard_tour_${currentUser?.id}`;
+	const { isOpen: isTourOpen, startTour, endTour, autoStart, hasCompleted } = useOnboardingTour(tourId);
+
+	// Auto-start tour on first visit
+	useEffect(() => {
+		if (!loading && currentUser && currentUser.hasSeenWelcomeVideo) {
+			autoStart();
+		}
+	}, [loading, currentUser, autoStart]);
 
 	useEffect(() => {
 		const loadTasks = async () => {
 			if (currentUser) {
+				setLoading(true);
 				try {
 					const [tasksData, projectsData] = await Promise.all([
-						(await import("@/services/taskService")).taskService.getAll(),
+						taskService.getAll(),
 						projectService.getAll()
 					]);
+					setProjects(projectsData);
 
-					// Filter out system stages
-					const forbiddenStageTitles = ['pending', 'suggested', 'suggested task', 'archive', 'completed', 'complete'];
+					// Helper to flatten tasks (recursive + unique)
+					const flattenTasks = (taskList: Task[]): Task[] => {
+						const flattened: Task[] = [];
+						const seenIds = new Set<string>();
+
+						const recurse = (items: Task[]) => {
+							for (const item of items) {
+								if (!seenIds.has(item.id)) {
+									seenIds.add(item.id);
+									flattened.push(item);
+									if (item.subtasks && item.subtasks.length > 0) {
+										recurse(item.subtasks);
+									}
+								}
+							}
+						};
+						recurse(taskList);
+						return flattened;
+					};
+
+					const allFlatTasks = flattenTasks(tasksData);
+
+					// Filter out system stages for Active Tasks (Calendar)
+					// Removed 'pending' so assigned pending tasks show in calendar
+					const forbiddenStageTitles = ['suggested', 'suggested task', 'archive', 'completed', 'complete'];
 					const forbiddenStageIds = new Set<string>();
 					projectsData.forEach((p: Project) => {
 						p.stages.forEach(s => {
@@ -36,7 +78,16 @@ export default function UserView() {
 						});
 					});
 
-					const userTasks = tasksData.filter((task: Task) => {
+					// Build set of archived project IDs
+					const archivedProjectIds = new Set(
+						projectsData.filter((p: Project) => p.isArchived).map((p: Project) => p.id)
+					);
+
+					// Base Filter: Assigned to User & Not Archived Project
+					const allAssignedTasks = allFlatTasks.filter((task: Task) => {
+						// Exclude tasks from archived projects
+						if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
+
 						// Must be assigned to user
 						const isAssigned =
 							task.assignee === currentUser.name ||
@@ -44,252 +95,164 @@ export default function UserView() {
 
 						if (!isAssigned) return false;
 
-						// Must not be in a forbidden stage
-						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
-
 						return true;
 					});
 
-					setTasks(userTasks);
+					// Stats should show ALL assigned tasks (including pending/completed)
+					setStatsTasks(allAssignedTasks);
+
+					// Calendar/List should show only "Active" tasks (excluding system stages/completed/pending if desires)
+					const activeTasks = allAssignedTasks.filter((task: Task) => {
+						if (task.projectStage && forbiddenStageIds.has(task.projectStage)) return false;
+						// Also hide if user manually marked it as complete
+						if (task.userStatus === 'complete') return false;
+						return true;
+					});
+
+					setTasks(activeTasks);
 				} catch {
 					setTasks([]);
+					setStatsTasks([]);
+					setProjects([]);
+				} finally {
+					setLoading(false);
 				}
 			}
 		};
 		loadTasks();
 	}, [currentUser]);
 
-	const today = new Date();
+	const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+		// Update helper
+		const updateTaskInList = (list: Task[]) => {
+			return list.map(t => {
+				if (t.id === taskId) return { ...t, ...updates };
+				if (t.subtasks) {
+					return { ...t, subtasks: updateTaskInList(t.subtasks) };
+				}
+				return t;
+			});
+		};
 
-	const dueTodayTasks = tasks.filter(
-		(task) => task.userStatus !== "complete" && isToday(new Date(task.dueDate))
-	);
+		setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+		setStatsTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+	};
 
-	const overdueTasks = tasks.filter(
-		(task) =>
-			task.userStatus !== "complete" &&
-			isPast(new Date(task.dueDate)) &&
-			!isToday(new Date(task.dueDate))
-	);
-
-	const tomorrowTasks = tasks.filter(
-		(task) => task.userStatus !== "complete" && isTomorrow(new Date(task.dueDate))
-	);
-
-	const thisMonthTasks = tasks.filter((task) => {
-		const dueDate = new Date(task.dueDate);
+	if (loading) {
 		return (
-			task.userStatus !== "complete" &&
-			isSameMonth(dueDate, today) &&
-			!isPast(dueDate)
-		);
-	});
-
-	return (
-		<div className="space-y-8 fade-in">
-			{/* Hero Header with Gradient */}
-			<div className="relative overflow-hidden rounded-2xl p-8 bg-gradient-to-br from-accent via-accent-light to-primary shadow-xl">
-				<div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
-				<div className="relative z-10">
+			<div className="space-y-8 fade-in">
+				{/* Hero Header Skeleton */}
+				<div className="relative overflow-hidden rounded-2xl p-8 bg-background border shadow-sm">
 					<div className="flex items-center gap-3 mb-2">
-						<div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-							<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-							</svg>
+						<Skeleton className="h-12 w-12 rounded-xl" />
+						<div className="space-y-2">
+							<Skeleton className="h-8 w-64" />
+							<Skeleton className="h-6 w-48" />
 						</div>
-						<div>
-							<h1 className="text-4xl font-bold text-white tracking-tight">My Dashboard</h1>
-							<p className="text-white/90 mt-1 text-lg">
-								Welcome back, {currentUser?.name}! 👋
-							</p>
+					</div>
+				</div>
+
+				{/* Stats Skeleton */}
+				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+					{[1, 2, 3, 4].map(i => (
+						<div key={i} className="p-6 rounded-xl border bg-card">
+							<Skeleton className="h-4 w-24 mb-2" />
+							<Skeleton className="h-8 w-16" />
+						</div>
+					))}
+				</div>
+
+				<div className="mt-8 mb-8">
+					<div className="flex items-center gap-2 mb-4">
+						<div className="h-8 w-1 bg-primary rounded-full"></div>
+						<Skeleton className="h-6 w-48" />
+					</div>
+					<div className="rounded-md border p-4 space-y-4">
+						<div className="flex justify-between items-center mb-4">
+							<Skeleton className="h-8 w-32" />
+							<div className="flex gap-2">
+								<Skeleton className="h-8 w-8" />
+								<Skeleton className="h-8 w-8" />
+							</div>
+						</div>
+						<div className="grid grid-cols-7 gap-4">
+							{[...Array(35)].map((_, i) => (
+								<Skeleton key={i} className="h-24 w-full rounded-md" />
+							))}
 						</div>
 					</div>
 				</div>
 			</div>
+		);
+	}
 
-			<DashboardStats tasks={tasks} />
+	return (
+		<div className="space-y-8 fade-in">
+			{/* Hero Header with Gradient */}
+			<div data-tour="dashboard-header" className="relative overflow-hidden rounded-2xl p-8 bg-gradient-to-br from-accent via-accent-light to-primary shadow-xl">
+				<div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
+				<div className="relative z-10">
+					<div className="flex items-start justify-between gap-4">
+						<div className="flex items-center gap-3 mb-2">
+							<div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+								<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+								</svg>
+							</div>
+							<div>
+								<h1 className="text-4xl font-bold text-white tracking-tight">My Dashboard</h1>
+								<p className="text-white/90 mt-1 text-lg">
+									Welcome back, {currentUser?.name}! 👋
+								</p>
+							</div>
+						</div>
+						{/* Take a Tour Button */}
+						<Button
+							onClick={startTour}
+							variant="secondary"
+							className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm shadow-lg"
+						>
+							<Sparkles className="h-4 w-4 mr-2" />
+							{hasCompleted() ? 'Restart Tour' : 'Take a Tour'}
+						</Button>
+					</div>
+				</div>
+			</div>
 
-			<div className="mt-8 mb-8">
+			<div data-tour="dashboard-stats">
+				<DashboardStats tasks={statsTasks} projects={projects} />
+			</div>
+
+			<div data-tour="task-calendar" className="mt-8 mb-8">
 				<div className="flex items-center gap-2 mb-4">
 					<div className="h-8 w-1 bg-primary rounded-full"></div>
 					<h3 className="text-xl font-bold text-foreground/80">Task Calendar</h3>
 				</div>
-				<TaskCalendar tasks={tasks} />
+				<TaskCalendar
+					tasks={tasks}
+					onViewTask={(task) => {
+						setViewTask(task);
+						setIsViewDialogOpen(true);
+					}}
+					onTaskUpdate={handleTaskUpdate}
+				/>
 			</div>
-
-			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-				<Card className="hover-lift border-2 border-primary/20 bg-gradient-to-br from-card to-primary/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-primary animate-pulse shadow-lg shadow-primary/50" />
-							<span className="font-semibold">Due Today</span>
-							<span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-								{dueTodayTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{dueTodayTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-3">
-									<svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">All clear for today!</p>
-							</div>
-						) : (
-							dueTodayTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
-
-				<Card className="hover-lift border-2 border-info/20 bg-gradient-to-br from-card to-info/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-info/10 rounded-full blur-3xl group-hover:bg-info/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-info animate-pulse shadow-lg shadow-info/50" />
-							<span className="font-semibold">Tomorrow</span>
-							<span className="ml-auto text-xs bg-info/10 text-info px-2 py-1 rounded-full font-medium">
-								{tomorrowTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{tomorrowTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-info/10 mb-3">
-									<svg className="w-8 h-8 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">No tasks for tomorrow</p>
-							</div>
-						) : (
-							tomorrowTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
-
-				<Card className="hover-lift border-2 border-success/20 bg-gradient-to-br from-card to-success/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-success/10 rounded-full blur-3xl group-hover:bg-success/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-success animate-pulse shadow-lg shadow-success/50" />
-							<span className="font-semibold">This Month</span>
-							<span className="ml-auto text-xs bg-success/10 text-success px-2 py-1 rounded-full font-medium">
-								{thisMonthTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{thisMonthTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 mb-3">
-									<svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">No tasks this month</p>
-							</div>
-						) : (
-							thisMonthTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
-
-				<Card className="hover-lift border-2 border-destructive/20 bg-gradient-to-br from-card to-destructive/5 overflow-hidden group">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-destructive/10 rounded-full blur-3xl group-hover:bg-destructive/20 transition-all duration-500"></div>
-					<CardHeader className="relative">
-						<CardTitle className="text-base flex items-center gap-2">
-							<div className="h-3 w-3 rounded-full bg-status-overdue animate-pulse shadow-lg shadow-destructive/50" />
-							<span className="font-semibold">Overdue</span>
-							<span className="ml-auto text-xs bg-destructive/10 text-destructive px-2 py-1 rounded-full font-medium">
-								{overdueTasks.length}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 relative">
-						{overdueTasks.length === 0 ? (
-							<div className="text-center py-8">
-								<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary/10 mb-3">
-									<svg className="w-8 h-8 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-								</div>
-								<p className="text-sm text-muted-foreground font-medium">No overdue tasks</p>
-							</div>
-						) : (
-							overdueTasks.slice(0, 3).map((task, index) => (
-								<div key={task.id} className="slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-									<TaskCard
-										task={task}
-										onDragStart={() => { }}
-										onEdit={() => { }}
-										onDelete={() => { }}
-										onView={() => {
-											setViewTask(task);
-											setIsViewDialogOpen(true);
-										}}
-										canManage={false}
-									/>
-								</div>
-							))
-						)}
-					</CardContent>
-				</Card>
-			</div>
-
-
 
 			<TaskDetailsDialog
 				task={viewTask}
 				open={isViewDialogOpen}
 				onOpenChange={setIsViewDialogOpen}
+				onTaskUpdate={handleTaskUpdate}
 			/>
-		</div >
+
+			{/* Onboarding Tour */}
+			<OnboardingTour
+				tourId={tourId}
+				steps={userTourSteps}
+				isOpen={isTourOpen}
+				onComplete={endTour}
+				onSkip={endTour}
+			/>
+		</div>
 	);
 }

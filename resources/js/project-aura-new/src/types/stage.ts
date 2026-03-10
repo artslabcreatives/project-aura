@@ -12,6 +12,7 @@ export interface Stage {
   isReviewStage?: boolean; // Whether this is a review stage
   linkedReviewStageId?: string; // ID of the review stage this stage links to (for non-review stages)
   approvedTargetStageId?: string; // ID of the stage to move to after approval (for review stages)
+  stageGroupId?: number; // Backend Stage Group ID (1=Pending, 2=Active, 3=Completed)
 }
 
 // User-level stages (always present, task lifecycle)

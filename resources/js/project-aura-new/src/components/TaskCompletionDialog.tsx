@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Plus, X, Upload, Link as LinkIcon, FileText } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 interface TaskCompletionDialogProps {
     open: boolean;
@@ -105,12 +105,11 @@ export function TaskCompletionDialog({
                 <div className="grid gap-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="comment">Closing Comment</Label>
-                        <Textarea
+                        <RichTextEditor
                             id="comment"
                             placeholder="Add a summary or closing note..."
                             value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            className="min-h-[100px]"
+                            onChange={(value) => setComment(value)}
                         />
                     </div>
 

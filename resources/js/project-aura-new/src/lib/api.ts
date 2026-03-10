@@ -44,8 +44,23 @@ class ApiClient {
 				if (response.status === 401) {
 					// Clear invalid token
 					removeToken();
+					window.location.href = '/';
 				}
-				throw Error(`API Error: ${response.statusText}`);
+
+				// Try to parse error response body
+				let errorData;
+				try {
+					errorData = await response.json();
+				} catch {
+					errorData = { error: response.statusText };
+				}
+
+				const error: any = new Error(errorData.error || `API Error: ${response.statusText}`);
+				error.response = {
+					status: response.status,
+					data: errorData,
+				};
+				throw error;
 			}
 
 			// Handle 204 No Content

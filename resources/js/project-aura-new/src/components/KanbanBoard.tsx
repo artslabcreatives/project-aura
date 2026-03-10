@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Task, UserStatus } from "@/types/task";
+import { useUser } from "@/hooks/use-user";
 import { Stage } from "@/types/stage";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailsDialog } from "./TaskDetailsDialog";
 import { cn } from "@/lib/utils";
-import { MoreVertical, Pencil, Trash2, Plus, Info, Copy, Check, Search, X } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Plus, Info, Copy, Check, Search, X, List } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,8 +21,41 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import { TaskCompletionDialog } from "./TaskCompletionDialog";
+import {
+  isToday,
+  isThisWeek,
+  isThisMonth,
+  subMonths,
+  isAfter,
+  isWithinInterval,
+  parseISO,
+  startOfDay,
+  endOfDay,
+  format
+} from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Filter, Calendar as CalendarIcon } from "lucide-react";
+import { DateRange } from "react-day-picker";
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -41,6 +75,9 @@ interface KanbanBoardProps {
   projectId?: string;
   onAddSubtask?: (task: Task) => void;
   onTaskComplete?: (taskId: string, stageId: string, data: { comment?: string; links: string[]; files: File[] }) => void;
+  disableBacklogRenaming?: boolean;
+  useSubtasksGrouping?: boolean;
+  allTasks?: Task[];
 }
 
 export function KanbanBoard({
@@ -61,6 +98,9 @@ export function KanbanBoard({
   projectId,
   onAddSubtask,
   onTaskComplete,
+  disableBacklogRenaming = false,
+  useSubtasksGrouping = false,
+  allTasks = [],
 }: KanbanBoardProps) {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(
@@ -73,6 +113,21 @@ export function KanbanBoard({
   const [pendingComplete, setPendingComplete] = useState<{ taskId: string; stageId: string } | null>(null);
   const [columnSearchQueries, setColumnSearchQueries] = useState<Record<string, string>>({});
   const [columnSearchOpen, setColumnSearchOpen] = useState<Record<string, boolean>>({});
+  const [columnDateFilters, setColumnDateFilters] = useState<Record<string, string>>({});
+  const [columnCustomDateRanges, setColumnCustomDateRanges] = useState<Record<string, DateRange | undefined>>({});
+  const { currentUser } = useUser();
+  const [stageToDelete, setStageToDelete] = useState<string | null>(null);
+
+  const boardRef = useRef<HTMLDivElement>(null);
+  const scrollIntervalRef = useRef<number | null>(null);
+  const mouseCoords = useRef<{ x: number, y: number } | null>(null);
+
+  const confirmDeleteStage = () => {
+    if (stageToDelete && onStageDelete) {
+      onStageDelete(stageToDelete);
+    }
+    setStageToDelete(null);
+  };
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -91,6 +146,67 @@ export function KanbanBoard({
     e.preventDefault();
     setDraggedOverColumn(columnId);
   };
+
+  // Track global mouse position for auto-scrolling
+  useEffect(() => {
+    if (!draggedTask) return;
+
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      mouseCoords.current = { x: e.clientX, y: e.clientY };
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    return () => window.removeEventListener('dragover', handleWindowDragOver);
+  }, [draggedTask]);
+
+  // Scroll loop
+  useEffect(() => {
+    if (!draggedTask) {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const scrollContainer = boardRef.current?.parentElement;
+    if (!scrollContainer) return;
+
+    const checkAndScroll = () => {
+      if (!mouseCoords.current) return;
+
+      const x = mouseCoords.current.x;
+      const viewportWidth = window.innerWidth;
+
+      // Settings
+      const threshold = 180; // Detect within 180px of edge
+      const baseSpeed = 8;
+      const maxSpeed = 35;
+
+      // Right Edge
+      if (x > viewportWidth - threshold) {
+        const intensity = Math.min(1, (x - (viewportWidth - threshold)) / threshold);
+        const speed = baseSpeed + (intensity * (maxSpeed - baseSpeed));
+        scrollContainer.scrollLeft += speed;
+      }
+      // Left Edge
+      else if (x < threshold) {
+        const intensity = Math.min(1, (threshold - x) / threshold);
+        const speed = baseSpeed + (intensity * (maxSpeed - baseSpeed));
+        scrollContainer.scrollLeft -= speed;
+      }
+    };
+
+    scrollIntervalRef.current = window.setInterval(checkAndScroll, 16);
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+    };
+  }, [draggedTask]);
+
 
   const handleDragLeave = () => {
     setDraggedOverColumn(null);
@@ -153,6 +269,34 @@ export function KanbanBoard({
       }
     });
 
+    const stage = stages.find(s => s.id === stageId);
+    const isCompletedStage = stage && (stage.title.toLowerCase().includes('completed') || stage.title.toLowerCase().includes('complete') || stage.title.toLowerCase().includes('archive'));
+    const dateFilter = columnDateFilters[stageId] || (isCompletedStage ? "week" : "all");
+
+    if (dateFilter && dateFilter !== "all") {
+      filtered = filtered.filter((task) => {
+        const dateStr = task.completedAt || task.createdAt;
+        if (!dateStr) return false;
+        const date = parseISO(dateStr);
+
+        if (dateFilter === "today") return isToday(date);
+        if (dateFilter === "week") return isThisWeek(date, { weekStartsOn: 1 });
+        if (dateFilter === "month") return isThisMonth(date);
+        if (dateFilter === "2months") {
+          const twoMonthsAgo = subMonths(new Date(), 2);
+          return isAfter(date, twoMonthsAgo);
+        }
+        if (dateFilter === "custom") {
+          const range = columnCustomDateRanges[stageId];
+          if (!range?.from) return true;
+          const start = startOfDay(range.from);
+          const end = range.to ? endOfDay(range.to) : endOfDay(range.from);
+          return isWithinInterval(date, { start, end });
+        }
+        return true;
+      });
+    }
+
     const searchQuery = columnSearchQueries[stageId];
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
@@ -166,10 +310,24 @@ export function KanbanBoard({
   };
 
   // Filter out Specific Stage if it has no tasks
-  const visibleStages = stages;
+  const visibleStages = stages.filter(stage => {
+    // Hide Suggested Task stage if it has no tasks
+    if (stage.title.toLowerCase().includes("suggested")) {
+      const hasTasks = tasks.some(task => {
+        if (useProjectStages) {
+          return task.projectStage === stage.id;
+        } else {
+          return task.userStatus === stage.id;
+        }
+      });
+      return hasTasks;
+    }
+    return true;
+  });
 
   return (
     <div
+      ref={boardRef}
       className={cn("grid gap-4", !disableColumnScroll && "h-full")}
       style={{
         gridTemplateColumns: `repeat(${visibleStages.length}, minmax(350px, 1fr))`,
@@ -203,7 +361,11 @@ export function KanbanBoard({
               <div className="flex items-center gap-2">
                 <div className={cn("h-2 w-2 rounded-full", column.color)} />
                 {!columnSearchOpen[column.id] && (
-                  <span>{column.title}</span>
+                  <span>
+                    {(column.title.toLowerCase().trim() === 'pending' && !disableBacklogRenaming)
+                      ? 'Backlog'
+                      : column.title}
+                  </span>
                 )}
                 {!columnSearchOpen[column.id] && (
                   <Badge variant="secondary" className="ml-2 text-xs font-normal">
@@ -294,6 +456,46 @@ export function KanbanBoard({
                   </div>
                 )}
 
+                {(column.title.toLowerCase().includes('completed') || column.title.toLowerCase().includes('complete') || column.title.toLowerCase().includes('archive')) && (
+                  <div className="flex items-center">
+                    <Select value={columnDateFilters[column.id] || "week"} onValueChange={(val) => setColumnDateFilters(prev => ({ ...prev, [column.id]: val }))}>
+                      <SelectTrigger className="h-6 w-6 p-0 border-none bg-transparent hover:bg-accent focus:ring-0 [&>svg]:hidden flex items-center justify-center hover:[&_svg]:text-white">
+                        <div className="flex items-center justify-center w-full h-full">
+                          <Filter className="h-4 w-4 text-muted-foreground transition-colors" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="week">This Week</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="2months">This 2 Months</SelectItem>
+                        <SelectItem value="custom">Custom Time Period</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {columnDateFilters[column.id] === 'custom' && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+                            <CalendarIcon className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={columnCustomDateRanges[column.id]?.from}
+                            selected={columnCustomDateRanges[column.id]}
+                            onSelect={(range) => setColumnCustomDateRanges(prev => ({ ...prev, [column.id]: range }))}
+                            numberOfMonths={2}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                )}
+
                 {canManageTasks && onAddTaskToStage &&
                   column.title.toLowerCase() !== "archive" &&
                   column.title !== "Suggested Task" && (
@@ -327,7 +529,7 @@ export function KanbanBoard({
                           Edit Stage
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => onStageDelete(column.id)}
+                          onClick={() => setStageToDelete(column.id)}
                           className="text-destructive"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
@@ -345,31 +547,147 @@ export function KanbanBoard({
                   {columnSearchQueries[column.id] ? "No matching tasks" : "No tasks"}
                 </div>
               ) : (
-                columnTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onDragStart={() => handleDragStart(task)}
-                    onEdit={() => onTaskEdit(task)}
-                    onDelete={() => onTaskDelete(task.id)}
-                    onView={() => {
-                      setViewTask(task);
-                      setIsViewDialogOpen(true);
-                    }}
-                    onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+                useSubtasksGrouping ? (
+                  Object.values(columnTasks.reduce((acc, task) => {
+                    const parentId = task.parentId || task.id;
+                    if (!acc[parentId]) acc[parentId] = [];
+                    acc[parentId].push(task);
+                    return acc;
+                  }, {} as Record<string, Task[]>)).map((groupTasks) => {
+                    // Check if this group represents a hierarchy (has subtasks)
+                    // A group has a hierarchy if:
+                    // 1. It has more than 1 item (Parent + Subtask(s))
+                    // 2. OR It has 1 item which is a subtask (Parent not in this column)
+                    const parentId = groupTasks[0].parentId || groupTasks[0].id;
+                    const isSubtaskGroup = groupTasks.some(t => t.parentId === parentId);
 
-                    canManage={canManageTasks}
-                    canDrag={canDragTasks}
-                    currentStage={column}
-                    projectId={projectId}
-                    onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
-                    onViewSubtask={(subtask) => {
-                      setViewTask(subtask);
-                      setIsViewDialogOpen(true);
-                    }}
-                    onTaskUpdate={onTaskUpdate}
-                  />
-                ))
+                    if (isSubtaskGroup) {
+                      // Try to find parent task details
+                      const parentTask = allTasks.find(t => t.id === parentId) || tasks.find(t => t.id === parentId);
+                      const parentInColumn = groupTasks.find(t => t.id === parentId);
+                      const subtasks = groupTasks.filter(t => t.parentId === parentId);
+
+                      return (
+                        <div key={`group-${parentId}`} className="border rounded-md p-2 bg-card/40 dark:bg-card/20 space-y-2">
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
+                            <div className="bg-primary/10 p-1 rounded">
+                              <List className="h-3 w-3 text-primary" />
+                            </div>
+                            <span className="text-xs font-semibold text-muted-foreground truncate" title={parentTask?.title}>
+                              {parentTask?.title || "Parent Task"}
+                            </span>
+                          </div>
+
+                          {/* If parent is in this column, render it first */}
+                          {parentInColumn && (
+                            <TaskCard
+                              key={parentInColumn.id}
+                              task={parentInColumn}
+                              onDragStart={() => handleDragStart(parentInColumn)}
+                              onEdit={() => onTaskEdit(parentInColumn)}
+                              onDelete={() => onTaskDelete(parentInColumn.id)}
+                              onView={() => {
+                                setViewTask(parentInColumn);
+                                setIsViewDialogOpen(true);
+                              }}
+                              onReviewTask={onTaskReview ? () => onTaskReview(parentInColumn) : undefined}
+                              canManage={canManageTasks}
+                              canDrag={canDragTasks}
+                              currentStage={column}
+                              projectId={projectId}
+                              onAddSubtask={onAddSubtask ? () => onAddSubtask(parentInColumn) : undefined}
+                              onViewSubtask={(subtask) => {
+                                setViewTask(subtask);
+                                setIsViewDialogOpen(true);
+                              }}
+                              onTaskUpdate={onTaskUpdate}
+                            />
+                          )}
+
+                          {/* Render subtasks */}
+                          <div className="space-y-2 pl-2 border-l-2 border-primary/20">
+                            {subtasks.map(task => (
+                              <TaskCard
+                                key={task.id}
+                                task={task}
+                                onDragStart={() => handleDragStart(task)}
+                                onEdit={() => onTaskEdit(task)}
+                                onDelete={() => onTaskDelete(task.id)}
+                                onView={() => {
+                                  setViewTask(task);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+                                canManage={canManageTasks}
+                                canDrag={canDragTasks}
+                                currentStage={column}
+                                projectId={projectId}
+                                onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+                                onViewSubtask={(subtask) => {
+                                  setViewTask(subtask);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                onTaskUpdate={onTaskUpdate}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      // Normal standalone tasks (or parent without subtasks in this column)
+                      return groupTasks.map(task => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          onDragStart={() => handleDragStart(task)}
+                          onEdit={() => onTaskEdit(task)}
+                          onDelete={() => onTaskDelete(task.id)}
+                          onView={() => {
+                            setViewTask(task);
+                            setIsViewDialogOpen(true);
+                          }}
+                          onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+                          canManage={canManageTasks}
+                          canDrag={canDragTasks}
+                          currentStage={column}
+                          projectId={projectId}
+                          onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+                          onViewSubtask={(subtask) => {
+                            setViewTask(subtask);
+                            setIsViewDialogOpen(true);
+                          }}
+                          onTaskUpdate={onTaskUpdate}
+                        />
+                      ));
+                    }
+                  })
+                ) : (
+                  columnTasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onDragStart={() => handleDragStart(task)}
+                      onEdit={() => onTaskEdit(task)}
+                      onDelete={() => onTaskDelete(task.id)}
+                      onView={() => {
+                        setViewTask(task);
+                        setIsViewDialogOpen(true);
+                      }}
+                      onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+
+                      canManage={canManageTasks}
+                      canDrag={canDragTasks}
+                      currentStage={column}
+                      projectId={projectId}
+                      onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+                      onViewSubtask={(subtask) => {
+                        setViewTask(subtask);
+                        setIsViewDialogOpen(true);
+                      }}
+                      onTaskUpdate={onTaskUpdate}
+                    />
+                  ))
+                )
               )}
             </div>
           </div>
@@ -380,6 +698,10 @@ export function KanbanBoard({
         task={viewTask}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
+        onEdit={canManageTasks && viewTask ? () => {
+          setIsViewDialogOpen(false);
+          onTaskEdit(viewTask);
+        } : undefined}
       />
 
       <TaskCompletionDialog
@@ -388,6 +710,26 @@ export function KanbanBoard({
         onConfirm={handleConfirmation}
         taskTitle={pendingComplete ? tasks.find(t => t.id === pendingComplete.taskId)?.title : undefined}
       />
+
+      <AlertDialog open={!!stageToDelete} onOpenChange={(open) => !open && setStageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Stage</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this stage? Tasks in this stage will need to be moved to another stage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteStage}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

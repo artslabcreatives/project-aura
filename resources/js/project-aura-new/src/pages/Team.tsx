@@ -28,6 +28,7 @@ import {
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
 import { taskService } from "@/services/taskService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Team() {
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -39,11 +40,13 @@ export default function Team() {
 	const [userToDelete, setUserToDelete] = useState<User | null>(null);
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 	const { toast } = useToast();
+	const [loading, setLoading] = useState(true);
 	const { currentUser } = useUser();
 
 	// Load data from API on mount
 	useEffect(() => {
 		const loadData = async () => {
+			setLoading(true);
 			try {
 				const [usersData, departmentsData, tasksData] = await Promise.all([
 					userService.getAll(),
@@ -51,7 +54,9 @@ export default function Team() {
 					taskService.getAll(),
 				]);
 
-				setTeamMembers(usersData);
+				// Filter out deactivated users where is_active is explicitly false
+				const activeMembers = usersData.filter((user: User) => user.is_active !== false);
+				setTeamMembers(activeMembers);
 				setDepartments(departmentsData);
 				setTasks(tasksData);
 				// Expand all departments by default
@@ -63,6 +68,8 @@ export default function Team() {
 					description: "Failed to load team data. Please try again.",
 					variant: "destructive",
 				});
+			} finally {
+				setLoading(false);
 			}
 		};
 
@@ -211,19 +218,64 @@ export default function Team() {
 		});
 	}, [filteredTeamMembers, getDepartmentName]);
 
+	if (loading) {
+		return (
+			<div className="space-y-6">
+				<div className="flex items-center justify-between">
+					<div className="space-y-2">
+						<Skeleton className="h-8 w-32" />
+						<Skeleton className="h-4 w-64" />
+					</div>
+					<Skeleton className="h-10 w-40" />
+				</div>
+
+				{[1, 2].map((group) => (
+					<div key={group} className="space-y-4">
+						<div className="flex items-center gap-3">
+							<div className="flex items-center gap-2">
+								<Skeleton className="h-6 w-32" />
+								<Skeleton className="h-5 w-20 rounded-full" />
+							</div>
+							<div className="h-px bg-border flex-1" />
+							<Skeleton className="h-5 w-5" />
+						</div>
+
+						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+							{[1, 2, 3].map((member) => (
+								<div key={member} className="rounded-lg border bg-card text-card-foreground shadow-sm">
+									<div className="p-6 flex flex-row items-center gap-4">
+										<Skeleton className="h-12 w-12 rounded-full" />
+										<div className="flex-1 space-y-2">
+											<Skeleton className="h-5 w-32" />
+											<Skeleton className="h-4 w-48" />
+										</div>
+									</div>
+									<div className="p-6 pt-0 flex items-center justify-between">
+										<Skeleton className="h-5 w-24 rounded-full" />
+										<Skeleton className="h-4 w-16" />
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				))}
+			</div>
+		);
+	}
+
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Team</h1>
 					<p className="text-muted-foreground mt-1">
-						{currentUser?.role === "team-lead"
+						{(currentUser?.role === "team-lead" || currentUser?.role === "account-manager")
 							? `Manage ${getDepartmentName(currentUser.department)} team members`
 							: "View team members and their task progress"
 						}
 					</p>
 				</div>
-				{(currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
+				{(currentUser?.role === "admin" || currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && (
 					<Button onClick={() => setIsTeamDialogOpen(true)} className="gap-2">
 						<Plus className="h-4 w-4" />
 						Add Team Member
@@ -272,7 +324,7 @@ export default function Team() {
 													</p>
 												</div>
 												{(currentUser?.role === "admin" ||
-													(currentUser?.role === "team-lead" && member.department === currentUser.department)) && (
+													((currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && member.department === currentUser.department)) && (
 														<div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
 															<Button
 																variant="ghost"

@@ -3,14 +3,24 @@
 namespace App\Observers;
 
 use App\Models\Project;
+use App\Services\MattermostService;
 
 class ProjectObserver
 {
+    protected MattermostService $mattermostService;
+
+    public function __construct(MattermostService $mattermostService)
+    {
+        $this->mattermostService = $mattermostService;
+    }
+
     /**
      * Handle the Project "created" event.
      */
     public function created(Project $project): void
     {
+        // Create Mattermost channel for the project
+        $this->mattermostService->createChannelForProject($project);
         // Create default stages
         $project->stages()->create([
             'title' => 'Suggested Task',
@@ -68,7 +78,8 @@ class ProjectObserver
      */
     public function deleted(Project $project): void
     {
-        //
+        // Archive Mattermost channel when project is deleted
+        $this->mattermostService->archiveChannelForProject($project);
     }
 
     /**

@@ -12,6 +12,11 @@ function mapHistoryEntry(raw: any): HistoryEntry {
 		entityType: raw.entity_type,
 		projectId: String(raw.project_id),
 		details: raw.details || {},
+		user: raw.user ? {
+			id: String(raw.user.id),
+			name: raw.user.name,
+			role: raw.user.role,
+		} : undefined,
 	};
 }
 

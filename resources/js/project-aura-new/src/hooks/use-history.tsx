@@ -7,9 +7,11 @@ const HISTORY_STORAGE_KEY = 'taskflow_history';
 
 export const useHistory = (projectId?: string) => {
 	const [history, setHistory] = useState<HistoryEntry[]>([]);
+	const [loading, setLoading] = useState(false);
 
 	useEffect(() => {
 		const loadHistory = async () => {
+			setLoading(true);
 			try {
 				// Try to load from API
 				const entries = projectId
@@ -17,21 +19,9 @@ export const useHistory = (projectId?: string) => {
 					: await historyService.getAll();
 				setHistory(entries);
 			} catch (error) {
-				console.error('Failed to load history from API, falling back to localStorage', error);
-				// Fallback to localStorage if API fails
-				try {
-					const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
-					if (storedHistory) {
-						const allHistory: HistoryEntry[] = JSON.parse(storedHistory);
-						if (projectId) {
-							setHistory(allHistory.filter(entry => entry.projectId === projectId));
-						} else {
-							setHistory(allHistory);
-						}
-					}
-				} catch (localError) {
-					console.error('Failed to load history from localStorage', localError);
-				}
+				console.error('Failed to load history from API', error);
+			} finally {
+				setLoading(false);
 			}
 		};
 
@@ -43,47 +33,18 @@ export const useHistory = (projectId?: string) => {
 			// Save to API
 			const newEntry = await historyService.create(entry);
 
-			// Update local state
-			if (projectId && entry.projectId === projectId) {
-				setHistory(prev => [...prev, newEntry]);
-			} else if (!projectId) {
-				setHistory(prev => [...prev, newEntry]);
-			}
-
-			// Also save to localStorage as backup
-			try {
-				const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
-				const allHistory: HistoryEntry[] = storedHistory ? JSON.parse(storedHistory) : [];
-				const updatedHistory = [...allHistory, newEntry];
-				localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updatedHistory));
-			} catch (localError) {
-				console.error('Failed to save history to localStorage', localError);
+			// Update local state (prepend to show as latest)
+			if ((projectId && entry.projectId === projectId) || !projectId) {
+				setHistory(prev => [newEntry, ...prev]);
 			}
 		} catch (error) {
-			console.error('Failed to save history to API, saving to localStorage only', error);
-			// Fallback to localStorage only
-			try {
-				const newEntry: HistoryEntry = {
-					...entry,
-					id: `hist-${Date.now()}`,
-					timestamp: new Date().toISOString(),
-				};
-				const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
-				const allHistory: HistoryEntry[] = storedHistory ? JSON.parse(storedHistory) : [];
-				const updatedHistory = [...allHistory, newEntry];
-
-				localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updatedHistory));
-
-				if (projectId && entry.projectId === projectId) {
-					setHistory(prev => [...prev, newEntry]);
-				} else if (!projectId) {
-					setHistory(prev => [...prev, newEntry]);
-				}
-			} catch (localError) {
-				console.error('Failed to save history to localStorage', localError);
-			}
+			console.error('Failed to save history to API', error);
 		}
 	}, [projectId]);
 
-	return { history, addHistoryEntry };
+	return {
+		history,
+		addHistoryEntry,
+		loading
+	};
 };

@@ -79,7 +79,23 @@ export function SearchableSelect({
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-0" align="start">
-                <Command>
+                <Command
+                    filter={(value, search) => {
+                        if (!search) return 1;
+                        const v = value.toLowerCase();
+                        const s = search.toLowerCase();
+                        // Exact match
+                        if (v === s) return 1;
+                        // Starts with
+                        if (v.startsWith(s)) return 0.9;
+                        // Word boundary
+                        if (v.includes(" " + s)) return 0.8;
+                        // Contains
+                        if (v.includes(s)) return 0.7;
+                        // No loose fuzzy matching - strict contains only
+                        return 0;
+                    }}
+                >
                     <CommandInput placeholder="Search..." />
                     <CommandList>
                         <CommandEmpty>No results found.</CommandEmpty>

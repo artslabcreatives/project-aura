@@ -20,15 +20,17 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { MultiSearchableSelect } from "@/components/ui/multi-select";
+
 import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
 import { Project } from "@/types/project";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Link as LinkIcon, Upload, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { attachmentService } from "@/services/attachmentService";
 import { tagService, Tag } from "@/services/tagService";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 // Represents a file that is pending upload (not yet saved to server)
 interface PendingFile {
@@ -53,6 +55,7 @@ interface TaskDialogProps {
 	isStageLocked?: boolean;
 	currentUser?: User;
 	fixedDepartmentId?: string;
+	disableBacklogRenaming?: boolean;
 }
 
 export function TaskDialog({
@@ -71,6 +74,7 @@ export function TaskDialog({
 	isStageLocked = false,
 	currentUser,
 	fixedDepartmentId,
+	disableBacklogRenaming = false,
 }: TaskDialogProps) {
 	const { toast } = useToast();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,9 +93,12 @@ export function TaskDialog({
 		priority: "medium" as TaskPriority,
 		startDate: "",
 		startTime: "",
+		isAssigneeLocked: false,
 	});
 	const [tags, setTags] = useState<string[]>([]);
 	const [newTag, setNewTag] = useState("");
+	const [noStartDate, setNoStartDate] = useState(false);
+	const [noEndDate, setNoEndDate] = useState(false);
 	// Saved attachments (from server/existing task)
 	const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
 	// Pending files to upload (not yet saved to server)
@@ -117,7 +124,7 @@ export function TaskDialog({
 			if (fixedDepartmentId) {
 				setTagDepartmentId(fixedDepartmentId);
 			} else if (currentUser) {
-				if (currentUser.role === 'team-lead') {
+				if (currentUser.role === 'team-lead' || currentUser.role === 'account-manager') {
 					setTagDepartmentId(currentUser.department);
 				} else if (currentUser.role === 'admin') {
 					// Admin defaults to their department but can change it. 
@@ -172,11 +179,14 @@ export function TaskDialog({
 				priority: editTask.priority,
 				startDate: editTask.startDate ? editTask.startDate.split("T")[0] : "",
 				startTime: editTask.startDate ? editTask.startDate.split("T")[1]?.substring(0, 5) || "" : "",
+				isAssigneeLocked: editTask.isAssigneeLocked || false,
 			});
 			setTags(editTask.tags || []);
 			setAttachments(editTask.attachments || []);
 			setPendingFiles([]);
 			setPendingLinks([]);
+			setNoStartDate(!editTask.startDate);
+			setNoEndDate(!editTask.dueDate);
 		} else {
 			// Get specific stage ID if provided, otherwise default to "Pending" stage
 			let defaultStage = "";
@@ -218,6 +228,7 @@ export function TaskDialog({
 				priority: "medium",
 				startDate: today.toISOString().split('T')[0],
 				startTime: slTimeString,
+				isAssigneeLocked: false,
 			});
 			setTags([]);
 			setAttachments([]);
@@ -226,6 +237,8 @@ export function TaskDialog({
 			setNewTag("");
 			setNewLinkName("");
 			setNewLinkUrl("");
+			setNoStartDate(false);
+			setNoEndDate(false);
 		}
 	}, [editTask, open, availableStatuses, useProjectStages, projects, initialStageId, teamMembers]);
 
@@ -233,14 +246,25 @@ export function TaskDialog({
 		e.preventDefault();
 
 		// Store as-is without timezone conversion
-		const dueDateTime = formData.dueDate
-			? `${formData.dueDate}T${formData.dueTime || "00:00"}:00`
-			: new Date().toISOString();
+		// Store as-is without timezone conversion
+		const dueDateTime = noEndDate
+			? null
+			: (formData.dueDate
+				? `${formData.dueDate}T${formData.dueTime || "00:00"}:00`
+				: new Date().toISOString());
 
 		// Combine date and time for start
-		const startDateTime = formData.startDate
-			? `${formData.startDate}T${formData.startTime || "00:00"}:00`
-			: undefined;
+		const startDateTime = noStartDate
+			? null
+			: (formData.startDate
+				? `${formData.startDate}T${formData.startTime || "00:00"}:00`
+				: undefined);
+
+		// Include any unsaved link inputs
+		const effectivePendingLinks = [...pendingLinks];
+		if (newLinkName && newLinkUrl) {
+			effectivePendingLinks.push({ name: newLinkName, url: newLinkUrl });
+		}
 
 		// Determine primary assignee name and ID
 		let primaryAssigneeName = formData.assignee;
@@ -256,7 +280,7 @@ export function TaskDialog({
 		}
 
 		// For editing existing tasks, upload files immediately
-		if (editTask && (pendingFiles.length > 0 || pendingLinks.length > 0)) {
+		if (editTask && (pendingFiles.length > 0 || effectivePendingLinks.length > 0)) {
 			setIsUploading(true);
 			try {
 				const uploadedAttachments: TaskAttachment[] = [...attachments];
@@ -268,7 +292,7 @@ export function TaskDialog({
 				}
 
 				// Add pending links
-				for (const link of pendingLinks) {
+				for (const link of effectivePendingLinks) {
 					const uploaded = await attachmentService.addLink(editTask.id, link.name, link.url);
 					uploadedAttachments.push(uploaded);
 				}
@@ -284,12 +308,16 @@ export function TaskDialog({
 					tags: tags.length > 0 ? tags : undefined,
 					startDate: startDateTime,
 					attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+					isAssigneeLocked: formData.isAssigneeLocked,
 				});
 
 				toast({
 					title: "Files uploaded",
-					description: `${pendingFiles.length + pendingLinks.length} attachment(s) uploaded successfully.`,
+					description: `${pendingFiles.length + effectivePendingLinks.length} attachment(s) uploaded successfully.`,
 				});
+				// Clear inputs
+				setNewLinkName("");
+				setNewLinkUrl("");
 			} catch (error) {
 				console.error('Failed to upload attachments:', error);
 				toast({
@@ -316,10 +344,15 @@ export function TaskDialog({
 					tags: tags.length > 0 ? tags : undefined,
 					startDate: startDateTime,
 					attachments: attachments.length > 0 ? attachments : undefined,
+					isAssigneeLocked: formData.isAssigneeLocked,
 				},
 				filesToUpload.length > 0 ? filesToUpload : undefined,
-				pendingLinks.length > 0 ? pendingLinks : undefined
+				effectivePendingLinks.length > 0 ? effectivePendingLinks : undefined
 			);
+
+			// Clear inputs
+			setNewLinkName("");
+			setNewLinkUrl("");
 		}
 		onOpenChange(false);
 	};
@@ -429,19 +462,21 @@ export function TaskDialog({
 	};
 
 	// Use member ID as value
-	const memberOptions: SearchableOption[] = teamMembers.map((member) => {
-		const departmentName = getDepartmentName(member.department);
-		const taskCount = getTaskCountForAssignee(member.name);
-		return {
-			value: member.id, // Use ID as value
-			label: `${member.name} (${taskCount})`,
-			group: departmentName,
-		};
-	});
+	const memberOptions: SearchableOption[] = teamMembers
+		.filter(member => member.is_active !== false || formData.assigneeIds.includes(member.id))
+		.map((member) => {
+			const departmentName = getDepartmentName(member.department);
+			const taskCount = getTaskCountForAssignee(member.name);
+			return {
+				value: member.id, // Use ID as value
+				label: `${member.name} (${taskCount})` + (member.is_active === false ? " (Deactivated)" : ""),
+				group: departmentName,
+			};
+		});
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+			<DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
 						<DialogTitle>
@@ -470,52 +505,58 @@ export function TaskDialog({
 
 						<div className="grid gap-2">
 							<Label htmlFor="description">Description</Label>
-							<Textarea
+							<RichTextEditor
 								id="description"
 								value={formData.description}
-								onChange={(e) =>
-									setFormData({ ...formData, description: e.target.value })
+								onChange={(value) =>
+									setFormData({ ...formData, description: value })
 								}
 								placeholder="Enter task description"
-								rows={3}
 							/>
 						</div>
 
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
 								<Label htmlFor="project">Project *</Label>
-								<Select
+								<SearchableSelect
 									value={formData.project}
 									onValueChange={(value) =>
 										setFormData({ ...formData, project: value })
 									}
-									required
+									options={[
+										...(allProjects || []).map(project => ({
+											value: project.name,
+											label: project.name,
+											group: project.department ? project.department.name : "Uncategorized"
+										}))
+									]}
+									placeholder="Select project"
 									disabled={projects.length === 1}
-								>
-									<SelectTrigger id="project">
-										<SelectValue placeholder="Select project" />
-									</SelectTrigger>
-									<SelectContent>
-										{projects.map((project) => (
-											<SelectItem key={project} value={project}>
-												{project}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								/>
 							</div>
 
 							<div className="grid gap-2">
 								<Label htmlFor="assignee">Assign To *</Label>
-								<MultiSearchableSelect
-									values={formData.assigneeIds}
-									onValuesChange={(values) =>
-										setFormData({ ...formData, assigneeIds: values })
+								<SearchableSelect
+									value={formData.assigneeIds[0]}
+									onValueChange={(value) =>
+										setFormData({ ...formData, assigneeIds: value ? [value] : [] })
 									}
 									options={memberOptions}
-									placeholder="Select members"
+									placeholder="Select member"
 								/>
-								<p className="text-xs text-muted-foreground">Select one or more assignees. First selected will be primary.</p>
+								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+									<div className="flex items-center space-x-2 mt-2">
+										<Checkbox
+											id="isAssigneeLocked"
+											checked={formData.isAssigneeLocked}
+											onCheckedChange={(checked) => setFormData({ ...formData, isAssigneeLocked: checked as boolean })}
+										/>
+										<Label htmlFor="isAssigneeLocked" className="text-xs font-normal text-muted-foreground">
+											Keep Assigning this user
+										</Label>
+									</div>
+								)}
 							</div>
 						</div>
 
@@ -583,7 +624,9 @@ export function TaskDialog({
 											})
 											.map((status) => (
 												<SelectItem key={status.id} value={status.id}>
-													{status.title}
+													{status.title === "Pending" && !disableBacklogRenaming
+														? "Backlog"
+														: status.title}
 												</SelectItem>
 											))}
 									</SelectContent>
@@ -687,11 +730,24 @@ export function TaskDialog({
 
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
-								<Label htmlFor="startDate">Start Date</Label>
+								<div className="flex items-center justify-between">
+									<Label htmlFor="startDate">Start Date</Label>
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="noStartDate"
+												checked={noStartDate}
+												onCheckedChange={(checked) => setNoStartDate(checked as boolean)}
+											/>
+											<Label htmlFor="noStartDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+										</div>
+									)}
+								</div>
 								<Input
 									id="startDate"
 									type="date"
 									value={formData.startDate}
+									disabled={noStartDate}
 									onChange={(e) =>
 										setFormData({ ...formData, startDate: e.target.value })
 									}
@@ -703,6 +759,7 @@ export function TaskDialog({
 									id="startTime"
 									type="time"
 									value={formData.startTime}
+									disabled={noStartDate}
 									onChange={(e) =>
 										setFormData({ ...formData, startTime: e.target.value })
 									}
@@ -712,15 +769,28 @@ export function TaskDialog({
 
 						<div className="grid grid-cols-2 gap-4">
 							<div className="grid gap-2">
-								<Label htmlFor="dueDate">End Date *</Label>
+								<div className="flex items-center justify-between">
+									<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="noEndDate"
+												checked={noEndDate}
+												onCheckedChange={(checked) => setNoEndDate(checked as boolean)}
+											/>
+											<Label htmlFor="noEndDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+										</div>
+									)}
+								</div>
 								<Input
 									id="dueDate"
 									type="date"
 									value={formData.dueDate}
+									disabled={noEndDate}
 									onChange={(e) =>
 										setFormData({ ...formData, dueDate: e.target.value })
 									}
-									required
+									required={!noEndDate}
 								/>
 							</div>
 							<div className="grid gap-2">
@@ -729,6 +799,7 @@ export function TaskDialog({
 									id="dueTime"
 									type="time"
 									value={formData.dueTime}
+									disabled={noEndDate}
 									onChange={(e) =>
 										setFormData({ ...formData, dueTime: e.target.value })
 									}

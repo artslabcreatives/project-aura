@@ -56,8 +56,8 @@ export function TeamDialog({
         role: editUser.role,
       });
     } else {
-      // For new team member, auto-select department for team-lead
-      if (currentUser?.role === "team-lead") {
+      // For new team member, auto-select department for team-lead/account-manager
+      if (currentUser?.role === "team-lead" || currentUser?.role === "account-manager") {
         setFormData({
           name: "",
           email: "",
@@ -77,7 +77,7 @@ export function TeamDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-	console.log('Form Data on Submit:', formData);
+    console.log('Form Data on Submit:', formData);
     onSave({
       ...formData,
     });
@@ -123,7 +123,7 @@ export function TeamDialog({
                   value={formData.department}
                   onValueChange={(value) => setFormData({ ...formData, department: value })}
                   required
-                  disabled={currentUser?.role === "team-lead"}
+                  disabled={currentUser?.role === "team-lead" || currentUser?.role === "account-manager"}
                 >
                   <SelectTrigger id="department">
                     <SelectValue placeholder="Select department" />
@@ -142,7 +142,7 @@ export function TeamDialog({
                   </Button>
                 )}
               </div>
-              {currentUser?.role === "team-lead" && (
+              {(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && (
                 <p className="text-xs text-muted-foreground">
                   Team members will be added to your department
                 </p>
@@ -163,12 +163,13 @@ export function TeamDialog({
                   {currentUser?.role === "admin" && (
                     <>
                       <SelectItem value="team-lead">Team Lead</SelectItem>
+                      <SelectItem value="account-manager">Account Manager</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                     </>
                   )}
                 </SelectContent>
               </Select>
-              {currentUser?.role === "team-lead" && (
+              {(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && (
                 <p className="text-xs text-muted-foreground">
                   Only users can be added by team leads
                 </p>

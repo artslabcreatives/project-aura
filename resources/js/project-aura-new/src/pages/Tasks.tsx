@@ -18,6 +18,7 @@ import { taskService } from "@/services/taskService";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ✅ API payload type that avoids conflicts with Task.startStageId (string)
 type TaskApiPayload = Omit<
@@ -54,11 +55,14 @@ export default function Tasks() {
 	const [selectedStatus, setSelectedStatus] = useState("all");
 	const [selectedAssignee, setSelectedAssignee] = useState("all");
 	const [selectedTag, setSelectedTag] = useState("all");
+	const [selectedDateFilter, setSelectedDateFilter] = useState("this-week");
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const loadData = async () => {
+			setLoading(true);
 			try {
 				const projectsData = await projectService.getAll();
 				setAllProjects(projectsData);
@@ -78,6 +82,8 @@ export default function Tasks() {
 					description: "Failed to load data. Please try again.",
 					variant: "destructive",
 				});
+			} finally {
+				setLoading(false);
 			}
 		};
 
@@ -342,7 +348,16 @@ export default function Tasks() {
 	};
 
 	const allCategorizedTasks = useMemo(() => {
-		let tasksToProcess = allTasks;
+		// Build set of archived or on-hold project IDs
+		const excludedProjectIds = new Set(
+			allProjects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
+		);
+
+		// First filter out tasks from excluded projects
+		let tasksToProcess = allTasks.filter(task =>
+			!task.projectId || !excludedProjectIds.has(task.projectId)
+		);
+
 
 		if (currentUser?.role === "team-lead") {
 			const departmentMembers = teamMembers
@@ -363,7 +378,7 @@ export default function Tasks() {
 				}
 			}
 
-			tasksToProcess = allTasks.filter((task) => {
+			tasksToProcess = tasksToProcess.filter((task) => {
 				const isAssignedToDepartment = allAllowedMembers.includes(task.assignee);
 
 				const taskProject =
@@ -375,6 +390,24 @@ export default function Tasks() {
 					isDigitalDept && taskProject?.department?.name.toLowerCase() === "design";
 
 				return isAssignedToDepartment || isProjectInDepartment || isDesignProject;
+			});
+		} else if (currentUser?.role === "account-manager") {
+			// Account Manager: Strict Department Only
+			const departmentMembers = teamMembers
+				.filter((member) => member.department === currentUser.department)
+				.map((member) => member.name);
+
+			tasksToProcess = tasksToProcess.filter((task) => {
+				// 1. Task is assigned to someone in the department
+				const isAssignedToDepartment = departmentMembers.includes(task.assignee);
+
+				// 2. Task belongs to a project in the department
+				const taskProject =
+					allProjects.find((p) => p.id === (task.projectId ?? -1)) ||
+					allProjects.find((p) => p.name === task.project);
+				const isProjectInDepartment = taskProject?.department?.id === currentUser.department;
+
+				return isAssignedToDepartment || isProjectInDepartment;
 			});
 		}
 
@@ -427,8 +460,39 @@ export default function Tasks() {
 			tasksToFilter = tasksToFilter.filter((task) => task.fixedStageId === selectedStatus);
 		}
 
+		if (selectedDateFilter !== "all") {
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+
+			tasksToFilter = tasksToFilter.filter((task) => {
+				if (!task.dueDate) return false;
+				const dueDate = new Date(task.dueDate);
+				dueDate.setHours(0, 0, 0, 0);
+
+				if (selectedDateFilter === "today") {
+					return dueDate.getTime() === today.getTime();
+				} else if (selectedDateFilter === "tomorrow") {
+					const tomorrow = new Date(today);
+					tomorrow.setDate(tomorrow.getDate() + 1);
+					return dueDate.getTime() === tomorrow.getTime();
+				} else if (selectedDateFilter === "this-week") {
+					const startOfWeek = new Date(today);
+					startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+					const endOfWeek = new Date(startOfWeek);
+					endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+					return dueDate >= startOfWeek && dueDate <= endOfWeek;
+				} else if (selectedDateFilter === "this-month") {
+					return (
+						dueDate.getMonth() === today.getMonth() &&
+						dueDate.getFullYear() === today.getFullYear()
+					);
+				}
+				return true;
+			});
+		}
+
 		return tasksToFilter;
-	}, [allCategorizedTasks, selectedProject, selectedAssignee, selectedTag, searchQuery, selectedStatus]);
+	}, [allCategorizedTasks, selectedProject, selectedAssignee, selectedTag, searchQuery, selectedStatus, selectedDateFilter]);
 
 	const tasksForKanban = useMemo(() => {
 		return filteredTasks.map((task) => ({
@@ -443,6 +507,56 @@ export default function Tasks() {
 			projectStage: task.fixedStageId,
 		}));
 	}, [filteredTasks]);
+
+	if (loading) {
+		return (
+			<div className="space-y-6 h-full flex flex-col">
+				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+					<div className="space-y-2">
+						<Skeleton className="h-8 w-48" />
+						<Skeleton className="h-4 w-64" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="h-9 w-24" />
+						<Skeleton className="h-9 w-32" />
+					</div>
+				</div>
+
+				<div className="flex flex-wrap gap-4 py-4">
+					<Skeleton className="h-10 w-64" />
+					<Skeleton className="h-10 w-32" />
+					<Skeleton className="h-10 w-32" />
+					<Skeleton className="h-10 w-32" />
+				</div>
+
+				<div className="flex-1 overflow-hidden">
+					<div className="flex h-full gap-6 overflow-auto pb-4">
+						{[1, 2, 3].map((i) => (
+							<div key={i} className="flex-shrink-0 w-80 flex flex-col gap-4">
+								<Skeleton className="h-12 w-full rounded-lg" />
+								<div className="space-y-4">
+									{[1, 2, 3].map((j) => (
+										<div key={j} className="p-4 rounded-lg border bg-card space-y-3">
+											<div className="flex justify-between">
+												<Skeleton className="h-4 w-20" />
+												<Skeleton className="h-4 w-4 rounded-full" />
+											</div>
+											<Skeleton className="h-4 w-full" />
+											<Skeleton className="h-4 w-3/4" />
+											<div className="flex items-center justify-between pt-2">
+												<Skeleton className="h-6 w-6 rounded-full" />
+												<Skeleton className="h-5 w-16" />
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6 h-full flex flex-col">
@@ -496,11 +610,19 @@ export default function Tasks() {
 				onAssigneeChange={setSelectedAssignee}
 				selectedTag={selectedTag}
 				onTagChange={setSelectedTag}
-				availableProjects={allProjects}
+				availableProjects={allProjects.filter(p => !p.isArchived).filter(p => {
+					if (currentUser?.role === 'admin') return true;
+					if (currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') {
+						return p.department?.id === currentUser.department;
+					}
+					return true;
+				})}
 				availableStatuses={fixedKanbanStages}
 				teamMembers={teamMembers}
 				departments={departments}
 				allTasks={allTasks}
+				selectedDateFilter={selectedDateFilter}
+				onDateFilterChange={setSelectedDateFilter}
 			/>
 
 			<div className="flex-1 overflow-auto">
@@ -514,6 +636,7 @@ export default function Tasks() {
 						onTaskDelete={handleTaskDelete}
 						canManageTasks={currentUser?.role !== "user"}
 						canDragTasks={false}
+						disableBacklogRenaming={true}
 					/>
 				) : (
 					<TaskListView
@@ -523,6 +646,7 @@ export default function Tasks() {
 						onTaskDelete={handleTaskDelete}
 						onTaskUpdate={handleTaskUpdate}
 						teamMembers={teamMembers}
+						departments={departments}
 						canManage={currentUser?.role !== "user"}
 						showProjectColumn={true}
 					/>
@@ -537,8 +661,8 @@ export default function Tasks() {
 				}}
 				onSave={handleTaskSave}
 				editTask={editingTask}
-				availableProjects={allProjects.map((p) => p.name)}
-				allProjects={allProjects}
+				availableProjects={allProjects.filter((p) => !p.isArchived).map((p) => p.name)}
+				allProjects={allProjects.filter((p) => !p.isArchived)}
 				availableStatuses={userStages}
 				useProjectStages={false}
 				teamMembers={teamMembers}

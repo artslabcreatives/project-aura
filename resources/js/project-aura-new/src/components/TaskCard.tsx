@@ -1,12 +1,13 @@
-import { Task } from "@/types/task";
+import { Task, UserStatus } from "@/types/task";
 import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
 	Tooltip,
 	TooltipContent,
@@ -20,9 +21,22 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+	AlertDialog,
+	AlertDialogContent,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect, useRef } from "react";
 import { taskService } from "@/services/taskService";
 import { useUser } from "@/hooks/use-user";
+import { TaskHistoryDialog } from "./TaskHistoryDialog";
 
 interface TaskCardProps {
 	task: Task;
@@ -43,15 +57,26 @@ interface TaskCardProps {
 export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId, onAddSubtask, onViewSubtask, onTaskUpdate }: TaskCardProps) {
 	const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 	const isValidDueDate = dueDate && isValid(dueDate);
-	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
-	const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+	const isCompleteStage = currentStage?.title?.toLowerCase() === "complete" || currentStage?.title?.toLowerCase() === "completed" || currentStage?.title?.toLowerCase() === "archive";
+	const isTaskComplete = task.userStatus === "complete" || isCompleteStage;
+	const isOverdue = isValidDueDate && isPast(dueDate) && !isToday(dueDate) && !isTaskComplete;
+	const [showRevisionHistoryDialog, setShowRevisionHistoryDialog] = useState(false);
+	const [showTaskHistoryDialog, setShowTaskHistoryDialog] = useState(false);
+	const [showSubtasks, setShowSubtasks] = useState(false);
 	const [timeLeft, setTimeLeft] = useState<string>("");
+	const [isShareOpen, setIsShareOpen] = useState(false);
 	const { toast } = useToast();
 	const { currentUser } = useUser();
+	const navigate = useNavigate();
+	const location = useLocation();
+
+	const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const isProjectView = location.pathname.includes('/project/');
 	const hasStartedRef = useRef(false);
 
 	useEffect(() => {
-		if (currentStage?.title !== "Pending" || !task.startDate) {
+		if (currentStage?.title !== "Pending" || !task.startDate || !projectId) {
 			setTimeLeft("");
 			return;
 		}
@@ -115,10 +140,9 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 		calculateTimeLeft();
 		const timer = setInterval(calculateTimeLeft, 1000);
 		return () => clearInterval(timer);
-	}, [task.startDate, currentStage, task.id, toast, onView]);
+	}, [task.startDate, currentStage, task.id, toast, onView, projectId]);
 
-	const handleShare = (e: React.MouseEvent) => {
-		e.stopPropagation();
+	const handleCopyLink = () => {
 		const pId = projectId || task.projectId;
 		if (!pId) {
 			toast({ title: "Error", description: "Project ID not available", variant: "destructive" });
@@ -127,6 +151,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 		const url = `${window.location.protocol}//${window.location.host}/project/${pId}?task=${task.id}`;
 		navigator.clipboard.writeText(url);
 		toast({ title: "Link copied", description: "Task link copied to clipboard" });
+		setIsShareOpen(false);
 	};
 
 	const priorityColors = {
@@ -147,35 +172,78 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				isOverdue && "border-destructive/50 bg-destructive/5"
 			)}
 		>
-			<CardHeader className="p-4 pb-2">
-				<div className="flex items-start justify-between gap-2">
-					<h4 className="font-semibold text-sm leading-tight flex-1">
-						{task.title}
-					</h4>
-					<div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-7 w-7"
-							onClick={handleShare}
-							title="Share task"
-						>
-							<Share2 className="h-3.5 w-3.5" />
-						</Button>
+			<CardHeader className="p-4 pb-2 relative">
+				<h4 className="font-semibold text-sm leading-tight w-full pr-2">
+					{task.title}
+				</h4>
+				<div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-card/90 backdrop-blur-[2px] rounded-md border shadow-sm p-0.5">
+					<Popover open={isShareOpen} onOpenChange={setIsShareOpen}>
+						<PopoverTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7"
+								onClick={(e) => e.stopPropagation()}
+								title="Share task"
+							>
+								<Share2 className="h-3.5 w-3.5" />
+							</Button>
+						</PopoverTrigger>
+						<PopoverContent className="w-56 p-1" align="end" onClick={(e) => e.stopPropagation()}>
+							<div className="flex flex-col">
+								<Button variant="ghost" className="justify-start h-9 text-xs font-normal" onClick={handleCopyLink}>
+									<Link className="h-3.5 w-3.5 mr-2" />
+									Copy link to Clipboard
+								</Button>
+								<Button variant="ghost" className="justify-start h-9 text-xs font-normal">
+									<Users className="h-3.5 w-3.5 mr-2" />
+									Internal Share
+								</Button>
+								<Button variant="ghost" className="justify-start h-9 text-xs font-normal">
+									<Globe className="h-3.5 w-3.5 mr-2" />
+									External Share
+								</Button>
+							</div>
+						</PopoverContent>
+					</Popover>
+					{!isProjectView && (
 						<Button
 							variant="ghost"
 							size="icon"
 							className="h-7 w-7"
 							onClick={(e) => {
 								e.stopPropagation();
-								onView();
+								const pId = projectId || task.projectId;
+								if (pId) {
+									navigate(`/project/${pId}?task=${task.id}`);
+								}
 							}}
-							title="View details"
+							title="Go to Project Board"
 						>
-							<Eye className="h-3.5 w-3.5" />
+							<ExternalLink className="h-3.5 w-3.5" />
 						</Button>
-						{/* Show Review Task button if in review stage */}
-						{currentStage?.isReviewStage && onReviewTask && (
+					)}
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7"
+						onClick={(e) => {
+							e.stopPropagation();
+							onView();
+						}}
+						title="View details"
+					>
+						<Eye className="h-3.5 w-3.5" />
+					</Button>
+					{/* Show Review Task button if in review stage */}
+					{currentStage?.isReviewStage && onReviewTask && (
+						currentUser?.role === 'admin' ||
+						currentUser?.role === 'team-lead' ||
+						(currentUser?.role === 'account-manager' && (
+							task.assignee === currentUser?.name ||
+							(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser?.id)))
+						))
+					) && (
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -198,21 +266,36 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							</TooltipProvider>
 						)}
 
+					{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7"
+							onClick={(e) => {
+								e.stopPropagation();
+								setShowTaskHistoryDialog(true);
+							}}
+							title="View Task History"
+						>
+							<ScrollText className="h-3.5 w-3.5" />
+						</Button>
+					)}
 
-						{canManage && (
-							<>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7"
-									onClick={(e) => {
-										e.stopPropagation();
-										onEdit();
-									}}
-									title="Edit task"
-								>
-									<Edit className="h-3.5 w-3.5" />
-								</Button>
+					{canManage && (
+						<>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7"
+								onClick={(e) => {
+									e.stopPropagation();
+									onEdit();
+								}}
+								title="Edit task"
+							>
+								<Edit className="h-3.5 w-3.5" />
+							</Button>
+							{currentUser?.role !== 'account-manager' && (
 								<Button
 									variant="ghost"
 									size="icon"
@@ -225,19 +308,19 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 								>
 									<Trash2 className="h-3.5 w-3.5" />
 								</Button>
-							</>
-						)}
-					</div>
+							)}
+						</>
+					)}
 				</div>
 				{task.description && (
 					<p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-						{task.description}
+						{task.description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()}
 					</p>
 				)}
 			</CardHeader>
 
 			<CardContent className="p-4 pt-2 space-y-2">
-				{timeLeft && currentStage?.title === "Pending" && (currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
+				{timeLeft && projectId && currentStage?.title === "Pending" && (currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
 					<div className="flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 p-1.5 rounded-md border border-blue-100 mb-2">
 						<Clock className="h-3.5 w-3.5" />
 						<span>Starts in: {timeLeft}</span>
@@ -275,14 +358,31 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				) : (
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
 						<User className="h-3 w-3" />
-						<span>{task.assignee}</span>
+						<span>
+							{(task.assignedUsers && task.assignedUsers.length === 1)
+								? task.assignedUsers[0].name
+								: task.assignee}
+						</span>
 					</div>
 				)}
 
 				<div className="flex items-center gap-2">
-					<Badge variant="outline" className="text-xs">
-						{task.project}
-					</Badge>
+					{!isProjectView && (
+						<Badge
+							variant="outline"
+							className={cn("text-xs cursor-pointer hover:bg-muted hover:text-primary transition-colors")}
+							onClick={(e) => {
+								e.stopPropagation();
+								const pId = projectId || task.projectId;
+								if (pId) {
+									navigate(`/project/${pId}`);
+								}
+							}}
+							title="Go to Project"
+						>
+							{task.project}
+						</Badge>
+					)}
 					<Badge
 						variant="outline"
 						className={cn("text-xs capitalize", priorityColors[task.priority])}
@@ -327,7 +427,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 									className="h-6 w-6 flex-shrink-0"
 									onClick={(e) => {
 										e.stopPropagation();
-										setShowHistoryDialog(true);
+										setShowRevisionHistoryDialog(true);
 									}}
 									title="View revision history"
 								>
@@ -360,25 +460,66 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 							)}
 						</div>
 						<div className="space-y-1">
-							{task.subtasks?.map(subtask => (
+							{task.subtasks?.filter(st => {
+								// Only Admin and Team Lead can see completed subtasks
+								const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+								if (isAdminOrTL) return true;
+								return st.userStatus !== 'complete';
+							}).map(subtask => (
 								<div
 									key={subtask.id}
-									className="flex items-center gap-2 text-xs p-1 hover:bg-muted/50 rounded group/subtask"
+									className="flex items-center gap-2 text-xs p-1 hover:bg-muted/50 rounded group/subtask cursor-pointer"
 									onClick={(e) => {
 										e.stopPropagation();
 										if (onViewSubtask) onViewSubtask(subtask);
 									}}
 								>
-									<div className={cn(
-										"h-3 w-3 border rounded-sm flex items-center justify-center transition-colors",
-										subtask.userStatus === 'complete'
-											? "bg-primary border-primary text-primary-foreground"
-											: "border-muted-foreground/50"
-									)}>
-										{subtask.userStatus === 'complete' && <CheckSquare className="h-2 w-2" />}
+									<div
+										className={cn(
+											"h-4 w-4 border rounded-full flex items-center justify-center transition-colors cursor-pointer hover:border-primary",
+											subtask.userStatus === 'complete'
+												? "bg-primary border-primary text-primary-foreground"
+												: "border-muted-foreground/50"
+										)}
+										onClick={async (e) => {
+											e.stopPropagation();
+											const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+											if (!isAdminOrTL) return;
+
+											// Toggle status
+											const newStatus: UserStatus = subtask.userStatus === 'complete' ? 'pending' : 'complete';
+											try {
+
+												// Call API
+												await taskService.update(subtask.id, { userStatus: newStatus });
+
+												// Notify parent to refresh/update state
+												if (onTaskUpdate) {
+													// Construct updated subtasks array
+													const updatedSubtasks = task.subtasks?.map(st =>
+														st.id === subtask.id ? { ...st, userStatus: newStatus } : st
+													) || [];
+
+													onTaskUpdate(task.id, { subtasks: updatedSubtasks });
+												}
+												toast({
+													title: newStatus === 'complete' ? "Subtask Completed" : "Subtask Reopened",
+													description: "Task updated successfully."
+												});
+											} catch (error) {
+												console.error("Failed to toggle subtask", error);
+												toast({
+													title: "Error",
+													description: "Failed to update subtask.",
+													variant: "destructive"
+												});
+											}
+										}}
+									>
+										{subtask.userStatus === 'complete' && <Check className="h-2.5 w-2.5" />}
 									</div>
 									<span className={cn(
-										"flex-1 truncate",
+										"flex-1 truncate select-none",
 										subtask.userStatus === 'complete' && "line-through text-muted-foreground"
 									)}>
 										{subtask.title}
@@ -386,6 +527,23 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 									<span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
 										{subtask.assignee.split(' ')[0]}
 									</span>
+									{/* Delete Subtask Button */}
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+										<div className="opacity-0 group-hover/subtask:opacity-100 transition-opacity">
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-5 w-5 hover:bg-destructive/10 hover:text-destructive"
+												onClick={(e) => {
+													e.stopPropagation();
+													setSubtaskToDelete(subtask);
+													setIsDeleteDialogOpen(true);
+												}}
+											>
+												<Trash2 className="h-3 w-3" />
+											</Button>
+										</div>
+									)}
 								</div>
 							))}
 							{(!task.subtasks || task.subtasks.length === 0) && onAddSubtask && (
@@ -405,7 +563,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			)}
 
 			{/* Revision History Dialog */}
-			<Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+			<Dialog open={showRevisionHistoryDialog} onOpenChange={setShowRevisionHistoryDialog}>
 				<DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>Revision History</DialogTitle>
@@ -452,6 +610,57 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* Subtask Deletion Confirmation Dialog */}
+			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This action cannot be undone. This will permanently delete the subtask "{subtaskToDelete?.title}".
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<div className="flex justify-end space-x-2">
+						<Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+						<Button
+							variant="destructive"
+							onClick={async () => {
+								if (!subtaskToDelete) return;
+								try {
+									await taskService.delete(subtaskToDelete.id);
+									if (onTaskUpdate) {
+										const updatedSubtasks = task.subtasks?.filter(st => st.id !== subtaskToDelete.id) || [];
+										onTaskUpdate(task.id, { subtasks: updatedSubtasks });
+									}
+									toast({
+										title: "Subtask deleted",
+										description: "Subtask has been permanently deleted."
+									});
+								} catch (error) {
+									console.error("Failed to delete subtask", error);
+									toast({
+										title: "Error",
+										description: "Failed to delete subtask.",
+										variant: "destructive"
+									});
+								} finally {
+									setIsDeleteDialogOpen(false);
+									setSubtaskToDelete(null);
+								}
+							}}
+						>
+							Delete
+						</Button>
+					</div>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			<TaskHistoryDialog
+				taskId={task.id}
+				open={showTaskHistoryDialog}
+				onOpenChange={setShowTaskHistoryDialog}
+				taskTitle={task.title}
+			/>
 		</Card >
 	);
 }

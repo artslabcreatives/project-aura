@@ -7,6 +7,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -30,10 +31,24 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'mattermost_password',
         'role',
+        'is_active',
         'department_id',
         'status',
         'capacity_hours_per_day',
+        'mattermost_user_id',
+        'mattermost_token',
+        'slack_id',
+        'force_password_reset',
+        'password_reset_token',
+        'password_reset_token_expires_at',
+        'preferences',
+        'avatar',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
+        'has_seen_welcome_video',
     ];
 
     /**
@@ -43,7 +58,10 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $hidden = [
         'password',
+        'mattermost_password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -53,8 +71,25 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'is_active' => 'boolean',
         'password' => 'hashed',
+        'mattermost_password' => 'encrypted',
+        'force_password_reset' => 'boolean',
+        'preferences' => 'array',
+        'two_factor_confirmed_at' => 'datetime',
+        'two_factor_recovery_codes' => 'encrypted:array',
+        'two_factor_secret' => 'encrypted',
+        'has_seen_welcome_video' => 'boolean',
     ];
+
+    /**
+     * Check if the user has enabled two-factor authentication.
+     */
+    public function hasEnabledTwoFactorAuthentication(): bool
+    {
+        return ! is_null($this->two_factor_secret) &&
+               ! is_null($this->two_factor_confirmed_at);
+    }
 
     /**
      * Get the department that the user belongs to.
@@ -62,6 +97,22 @@ class User extends Authenticatable implements FilamentUser
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get the user's avatar URL
+     * Returns a proxied URL through our API to avoid CORS issues
+     */
+    public function getAvatarAttribute($value): ?string
+    {
+        // If we have a mattermost_user_id, return our API proxy URL
+        if ($this->mattermost_user_id) {
+            $appUrl = config('app.url');
+            return "{$appUrl}/api/users/{$this->id}/avatar";
+        }
+
+        // Return stored value or null
+        return $value;
     }
 
     /**
@@ -86,5 +137,15 @@ class User extends Authenticatable implements FilamentUser
     public function revisionHistories(): HasMany
     {
         return $this->hasMany(RevisionHistory::class, 'requested_by_id');
+    }
+
+    /**
+     * Get the projects the user collaborates on (from other departments).
+     */
+    public function collaboratedProjects(): BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'project_collaborators')
+            ->withPivot('invited_by')
+            ->withTimestamps();
     }
 }

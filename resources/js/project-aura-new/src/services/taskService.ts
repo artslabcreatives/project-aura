@@ -27,7 +27,7 @@ function mapTask(raw: any): Task {
 			id: String(a.id),
 			name: a.name || a.filename || 'file',
 			url: a.url || a.path || '',
-			type: 'file',
+			type: a.type || 'file',
 			uploadedAt: a.created_at || new Date().toISOString(),
 		})) || [],
 		isInSpecificStage: raw.is_in_specific_stage || false,
@@ -35,12 +35,30 @@ function mapTask(raw: any): Task {
 		previousStage: raw.previous_stage_id ? String(raw.previous_stage_id) : undefined,
 		originalAssignee: raw.original_assignee ? raw.original_assignee.name : undefined,
 		completedAt: raw.completed_at || undefined,
+		comments: raw.comments?.map((c: any) => ({
+			id: String(c.id),
+			comment: c.comment,
+			userId: String(c.user_id),
+			createdAt: c.created_at || new Date().toISOString(),
+			user: c.user ? {
+				id: String(c.user.id),
+				name: c.user.name,
+			} : undefined
+		})) || [],
 		revisionHistory: raw.revision_histories?.map((r: any) => ({
 			id: String(r.id),
 			comment: r.comment,
 			requestedBy: r.requested_by || '',
 			requestedAt: r.requested_at || r.created_at || new Date().toISOString(),
 			resolvedAt: r.resolved_at || undefined,
+		})) || [],
+		taskHistory: raw.task_histories?.map((h: any) => ({
+			id: String(h.id),
+			action: h.action,
+			details: h.details,
+			user: h.user ? { id: String(h.user.id), name: h.user.name } : undefined,
+			createdAt: h.created_at || new Date().toISOString(),
+			previousDetails: h.previous_details,
 		})) || [],
 		subtasks: raw.subtasks?.map(mapTask) || [],
 		parentId: raw.parent_id ? String(raw.parent_id) : null,
@@ -134,7 +152,7 @@ export const taskService = {
 		if (data.projectStageId) formData.append('project_stage_id', data.projectStageId);
 		if (data.comment) formData.append('comment', data.comment);
 		if (data.links) {
-			data.links.forEach((link, index) => formData.append(`links[${index}]`, link));
+			data.links.forEach((link) => formData.append('links[]', link));
 		}
 		if (data.files) {
 			data.files.forEach((file) => formData.append('files[]', file));
@@ -149,5 +167,24 @@ export const taskService = {
 	start: async (id: string): Promise<Task> => {
 		const { data } = await api.post(`/tasks/${id}/start`);
 		return mapTask(data);
+	},
+
+	getHistory: async (id: string, page: number = 1): Promise<{ data: any[]; meta: any }> => {
+		const { data } = await api.get(`/tasks/${id}/history?page=${page}`);
+		return {
+			data: data.data.map((h: any) => ({
+				id: String(h.id),
+				action: h.action,
+				details: h.details,
+				user: h.user ? { id: String(h.user.id), name: h.user.name } : undefined,
+				createdAt: h.created_at || new Date().toISOString(),
+				previousDetails: h.previous_details,
+			})),
+			meta: {
+				currentPage: data.current_page,
+				lastPage: data.last_page,
+				total: data.total
+			}
+		};
 	},
 };

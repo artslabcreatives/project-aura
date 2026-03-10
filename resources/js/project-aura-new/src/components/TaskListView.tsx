@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-select";
+import { Department } from "@/types/department";
 import { format, isPast, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
@@ -29,6 +31,7 @@ interface TaskListViewProps {
   tasks: Task[];
   stages: Stage[];
   teamMembers: User[];
+  departments?: Department[];
   onTaskEdit: (task: Task) => void;
   onTaskDelete: (taskId: string) => void;
   onTaskUpdate: (taskId: string, updates: Partial<Task>) => void;
@@ -54,6 +57,7 @@ export function TaskListView({
   tasks,
   stages,
   teamMembers,
+  departments = [],
   onTaskEdit,
   onTaskDelete,
   onTaskUpdate,
@@ -67,7 +71,7 @@ export function TaskListView({
   // If canUpdateStage is not explicitly set, use canManage value
   const allowStageUpdate = canUpdateStage !== undefined ? canUpdateStage : canManage;
   const { currentUser } = useUser();
-  const canEditDate = currentUser?.role === "admin" || currentUser?.role === "team-lead";
+  const canEditDate = currentUser?.role === "admin" || currentUser?.role === "team-lead" || currentUser?.role === "account-manager";
   const [viewTask, setViewTask] = useState<Task | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
@@ -82,6 +86,30 @@ export function TaskListView({
       return { key, direction: "asc" };
     });
   };
+
+  const getDepartmentName = (departmentId: string) => {
+    return departments.find(dep => dep.id === departmentId)?.name || "Uncategorized";
+  };
+
+  const memberOptions = useMemo<SearchableOption[]>(() => {
+    // Only include active users in the base options
+    const options = teamMembers
+      .filter(member => member.is_active !== false)
+      .map((member) => ({
+        value: String(member.id),
+        label: member.name,
+        group: getDepartmentName(member.department),
+      }));
+
+    // Add Unassigned option
+    options.unshift({
+      value: "unassigned",
+      label: "Unassigned",
+      group: "General"
+    });
+
+    return options;
+  }, [teamMembers, departments]);
 
   const sortedTasks = useMemo(() => {
     if (!sortConfig.key || !sortConfig.direction) return tasks;
@@ -189,9 +217,24 @@ export function TaskListView({
         </TableHeader>
         <TableBody>
           {sortedTasks.map((task) => {
-            const dueDate = new Date(task.dueDate);
+            const isValidDate = (date: any) => {
+              return date && !isNaN(new Date(date).getTime());
+            };
+
+            const rawDueDate = task.dueDate ? new Date(task.dueDate) : null;
+            const isDateValid = rawDueDate && !isNaN(rawDueDate.getTime());
+            const dueDate = isDateValid ? rawDueDate : null;
+
+            const currentStage = stages.find(s => s.id === task.projectStage);
+            const isStageCompleted = currentStage?.title === "Completed" || currentStage?.title === "Complete";
+
             const isOverdue =
-              isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete";
+              dueDate && isPast(dueDate) && !isToday(dueDate) && task.userStatus !== "complete" && !isStageCompleted;
+
+            // Determine current assignee ID
+            const currentAssigneeUser = teamMembers.find(u => u.name === task.assignee);
+            const currentAssigneeValue = currentAssigneeUser ? String(currentAssigneeUser.id) : (task.assignee ? undefined : "unassigned");
+
             return (
               <TableRow key={task.id} className="h-12">
                 <TableCell className="font-medium py-2">
@@ -256,7 +299,7 @@ export function TaskListView({
                     }
                     disabled={!allowStageUpdate}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-8 [&>span]:truncate">
                       <SelectValue placeholder="Select stage" />
                     </SelectTrigger>
                     <SelectContent>
@@ -276,13 +319,13 @@ export function TaskListView({
                           variant={"outline"}
                           className={cn(
                             "w-[180px] h-8 justify-start text-left font-normal",
-                            !task.dueDate && "text-muted-foreground",
+                            !dueDate && "text-muted-foreground",
                             isOverdue && "text-status-overdue",
-                            isToday(dueDate) && "text-primary"
+                            dueDate && isToday(dueDate) && "text-primary"
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {task.dueDate ? (
+                          {dueDate ? (
                             format(dueDate, "MMM dd, yyyy")
                           ) : (
                             <span>Pick a date</span>
@@ -292,7 +335,7 @@ export function TaskListView({
                       <PopoverContent className="w-auto p-0">
                         <Calendar
                           mode="single"
-                          selected={dueDate}
+                          selected={dueDate || undefined}
                           onSelect={(date) =>
                             onTaskUpdate(task.id, {
                               dueDate: date?.toISOString(),
@@ -306,39 +349,41 @@ export function TaskListView({
                     <span
                       className={cn(
                         isOverdue && "text-status-overdue font-medium",
-                        isToday(dueDate) && "text-primary font-medium"
+                        dueDate && isToday(dueDate) && "text-primary font-medium"
                       )}
                     >
-                      {format(dueDate, "MMM dd, yyyy")}
+                      {dueDate ? format(dueDate, "MMM dd, yyyy") : "No date"}
                     </span>
                   )}
                 </TableCell>
                 {showAssigneeColumn && (
 
-                  <TableCell className="py-2">
-                    <Select
-                      value={task.assignee || "--UNASSIGNED--"}
+                  <TableCell className="py-2 max-w-[200px]">
+                    <SearchableSelect
+                      value={currentAssigneeValue}
                       onValueChange={(value) => {
-                        const newAssignee =
-                          value === "--UNASSIGNED--" ? "" : value;
-                        onTaskUpdate(task.id, { assignee: newAssignee });
+                        let newAssigneeName = "";
+                        if (value !== "unassigned") {
+                          const selectedMember = teamMembers.find(m => String(m.id) === value);
+                          if (selectedMember) newAssigneeName = selectedMember.name;
+                        }
+                        onTaskUpdate(task.id, { assignee: newAssigneeName });
                       }}
+                      options={(() => {
+                        // Check if current assignee is inactive and needs to be added to options
+                        if (currentAssigneeUser && currentAssigneeUser.is_active === false) {
+                          return [...memberOptions, {
+                            value: String(currentAssigneeUser.id),
+                            label: currentAssigneeUser.name + " (Deactivated)",
+                            group: "Deactivated"
+                          }];
+                        }
+                        return memberOptions;
+                      })()}
+                      placeholder="Unassigned"
                       disabled={!canManage}
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Unassigned" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="--UNASSIGNED--">
-                          Unassigned
-                        </SelectItem>
-                        {teamMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.name}>
-                            {member.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      className="h-8"
+                    />
                   </TableCell>
                 )}
 
@@ -368,8 +413,6 @@ export function TaskListView({
                         Review Task
                       </Button>
                     )}
-
-
 
                     {canManage && (
                       <>

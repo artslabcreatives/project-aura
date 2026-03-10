@@ -1,13 +1,15 @@
+import { useNavigate } from "react-router-dom";
 import { Task } from "@/types/task";
 import {
 	Dialog,
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
+	DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Tag, Paperclip, Clock, X, ExternalLink, Download, AlertCircle } from "lucide-react";
+import { Calendar, User, Tag, Paperclip, Clock, X, ExternalLink, Download, AlertCircle, ArrowRight, Edit } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -16,9 +18,13 @@ interface TaskDetailsDialogProps {
 	task: Task | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
+	onEdit?: () => void;
 }
 
-export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialogProps) {
+export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEdit }: TaskDetailsDialogProps) {
+	const navigate = useNavigate();
+
 	if (!task) return null;
 
 	const priorityColors = {
@@ -35,12 +41,18 @@ export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialo
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
-				<DialogHeader>
-					<DialogTitle className="text-2xl">{task.title}</DialogTitle>
+			<DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto flex flex-col">
+				<DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+					<DialogTitle className="text-2xl font-bold flex-1 pr-4">{task.title}</DialogTitle>
+					{onEdit && (
+						<Button variant="outline" size="sm" onClick={onEdit}>
+							<Edit className="h-4 w-4 mr-2" />
+							Edit
+						</Button>
+					)}
 				</DialogHeader>
 
-				<div className="space-y-6">
+				<div className="space-y-6 flex-1">
 					{/* Revision Comment - Show at the top if exists */}
 					{task.revisionComment && task.tags?.includes("Redo") && (
 						<>
@@ -65,9 +77,16 @@ export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialo
 					{task.description && (
 						<div>
 							<h3 className="text-sm font-semibold mb-2">Description</h3>
-							<p className="text-sm text-muted-foreground whitespace-pre-wrap">
-								{task.description}
-							</p>
+							{/<\/?[a-z][\s\S]*>/i.test(task.description) ? (
+								<div
+									className="text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5"
+									dangerouslySetInnerHTML={{ __html: task.description }}
+								/>
+							) : (
+								<p className="text-sm text-muted-foreground whitespace-pre-wrap">
+									{task.description}
+								</p>
+							)}
 						</div>
 					)}
 
@@ -105,7 +124,7 @@ export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialo
 								variant="outline"
 								className={cn("text-sm capitalize", priorityColors[task.priority])}
 							>
-								{task.priority}
+								{task.priority || "Medium"}
 							</Badge>
 						</div>
 					</div>
@@ -237,6 +256,17 @@ export function TaskDetailsDialog({ task, open, onOpenChange }: TaskDetailsDialo
 						</div>
 					)}
 				</div>
+				<DialogFooter className="mt-6 sm:justify-end">
+					<Button
+						className="w-full sm:w-auto"
+						onClick={() => {
+							onOpenChange(false);
+							navigate(`/tasks/${task.id}`);
+						}}
+					>
+						View Full Details <ArrowRight className="ml-2 h-4 w-4" />
+					</Button>
+				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);

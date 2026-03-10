@@ -11,6 +11,9 @@ export const userService = {
 			email: u.email,
 			role: u.role,
 			department: u.department_id != null ? String(u.department_id) : '',
+			preferences: u.preferences,
+			is_active: u.is_active,
+			avatar: u.avatar, // Mattermost avatar URL
 		}));
 	},
 
@@ -22,12 +25,21 @@ export const userService = {
 			email: data.email,
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
+			preferences: data.preferences,
+			is_active: data.is_active,
+			avatar: data.avatar, // Mattermost avatar URL
 		};
 	},
 
 	getCurrentUser: async (): Promise<User> => {
-		const { data } = await api.get('/users/me');
-		return data;
+		const { data } = await api.get('/user');
+		return {
+			...data,
+			id: String(data.id),
+			department: data.department_id != null ? String(data.department_id) : '',
+			is_active: data.is_active,
+			avatar: data.avatar, // Mattermost avatar URL
+		};
 	},
 
 	create: async (user: Omit<User, 'id'>): Promise<User> => {
@@ -46,6 +58,8 @@ export const userService = {
 			email: data.email,
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
+			preferences: data.preferences,
+			is_active: data.is_active,
 		};
 	},
 
@@ -59,6 +73,9 @@ export const userService = {
 		if (updates.department) {
 			payload.department_id = parseInt(updates.department, 10);
 		}
+		if (updates.preferences) {
+			payload.preferences = updates.preferences;
+		}
 		const { data } = await api.put(`/users/${id}`, payload);
 		// Map response back to frontend format
 		return {
@@ -67,7 +84,28 @@ export const userService = {
 			email: data.email,
 			role: data.role,
 			department: data.department_id != null ? String(data.department_id) : '',
+			preferences: data.preferences,
+			is_active: data.is_active,
 		};
+	},
+
+	uploadAvatar: async (id: string, file: File): Promise<string> => {
+		const formData = new FormData();
+		formData.append('avatar', file);
+
+		const { data } = await api.post(`/users/${id}/avatar`, formData, {
+			headers: {
+				'Content-Type': 'multipart/form-data',
+			},
+		});
+		// Return the Mattermost avatar URL
+		return data.avatar_url;
+	},
+
+	getAvatarUrl: (userId: string): string => {
+		// Get avatar URL from Mattermost via our API
+		// The backend will proxy the request to Mattermost
+		return `/api/users/${userId}/avatar`;
 	},
 
 	delete: async (id: string): Promise<void> => {

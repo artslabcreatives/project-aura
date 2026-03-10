@@ -4,23 +4,105 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use OpenApi\Attributes as OA;
 
 class ProjectController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    #[OA\Get(
+        path: "/projects",
+        summary: "List all projects",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "List of projects",
+                content: new OA\JsonContent(
+                    type: "array",
+                    items: new OA\Items(
+                        properties: [
+                            new OA\Property(property: "id", type: "integer"),
+                            new OA\Property(property: "name", type: "string"),
+                            new OA\Property(property: "description", type: "string"),
+                            new OA\Property(property: "department", type: "object"),
+                            new OA\Property(property: "stages", type: "array", items: new OA\Items(type: "object")),
+                            new OA\Property(property: "tasks", type: "array", items: new OA\Items(type: "object"))
+                        ]
+                    )
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function index(): JsonResponse
     {
-        $projects = Project::with(['department', 'group', 'stages', 'tasks'])->get();
+        $user = auth()->user();
+        $query = Project::with(['department', 'group', 'client', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }, 'tasks', 'collaborators' => function ($query) {
+            $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+        }]);
+
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                    $taskQuery->where('assignee_id', $user->id);
+                })
+                ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                    $collabQuery->where('users.id', $user->id);
+                });
+            });
+        }
+
+        $projects = $query->get();
         return response()->json($projects);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    #[OA\Post(
+        path: "/projects",
+        summary: "Create a new project",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["name"],
+                properties: [
+                    new OA\Property(property: "name", type: "string", example: "New Website Project"),
+                    new OA\Property(property: "description", type: "string", example: "Build a modern website"),
+                    new OA\Property(property: "department_id", type: "integer", example: 1),
+                    new OA\Property(property: "emails", type: "array", items: new OA\Items(type: "string", format: "email")),
+                    new OA\Property(property: "phone_numbers", type: "array", items: new OA\Items(type: "string")),
+                    new OA\Property(property: "project_group_id", type: "integer", example: 1),
+                    new OA\Property(property: "client_id", type: "integer", example: 1, nullable: true),
+                    new OA\Property(property: "estimated_hours", type: "integer", example: 160, nullable: true),
+                    new OA\Property(property: "status", type: "string", example: "active", enum: ["active", "on-hold", "completed", "cancelled"], nullable: true)
+                ]
+            )
+        ),
+        tags: ["Projects"],
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: "Project created successfully",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "id", type: "integer"),
+                        new OA\Property(property: "name", type: "string"),
+                        new OA\Property(property: "description", type: "string"),
+                        new OA\Property(property: "department", type: "object"),
+                        new OA\Property(property: "group", type: "object"),
+                        new OA\Property(property: "client", type: "object"),
+                        new OA\Property(property: "stages", type: "array", items: new OA\Items(type: "object"))
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -32,6 +114,9 @@ class ProjectController extends Controller
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'string',
             'project_group_id' => 'nullable|exists:project_groups,id',
+            'client_id' => 'nullable|exists:clients,id',
+            'estimated_hours' => 'nullable|integer',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
         ]);
 
         $project = Project::create($validated);
@@ -47,20 +132,87 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
         }
 
-        return response()->json($project->load(['department', 'group', 'stages']), 201);
+        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }]), 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
+    #[OA\Get(
+        path: "/projects/{id}",
+        summary: "Get project by ID",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                description: "Project ID",
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Project details",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "id", type: "integer"),
+                        new OA\Property(property: "name", type: "string"),
+                        new OA\Property(property: "description", type: "string"),
+                        new OA\Property(property: "department", type: "object"),
+                        new OA\Property(property: "group", type: "object"),
+                        new OA\Property(property: "client", type: "object"),
+                        new OA\Property(property: "stages", type: "array", items: new OA\Items(type: "object")),
+                        new OA\Property(property: "tasks", type: "array", items: new OA\Items(type: "object"))
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function show(Project $project): JsonResponse
     {
-        return response()->json($project->load(['department', 'group', 'stages', 'tasks']));
+        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }, 'tasks', 'collaborators' => function ($query) {
+            $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+        }]));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+    #[OA\Put(
+        path: "/projects/{id}",
+        summary: "Update project",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "name", type: "string"),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "department_id", type: "integer", nullable: true),
+                    new OA\Property(property: "emails", type: "array", items: new OA\Items(type: "string", format: "email")),
+                    new OA\Property(property: "phone_numbers", type: "array", items: new OA\Items(type: "string")),
+                    new OA\Property(property: "project_group_id", type: "integer", nullable: true),
+                    new OA\Property(property: "is_archived", type: "boolean")
+                ]
+            )
+        ),
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Project updated"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function update(Request $request, Project $project): JsonResponse
     {
         $validated = $request->validate([
@@ -72,32 +224,116 @@ class ProjectController extends Controller
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'string',
             'project_group_id' => 'nullable|exists:project_groups,id',
+            'is_archived' => 'nullable|boolean',
+            'client_id' => 'nullable|exists:clients,id',
+            'estimated_hours' => 'nullable|integer',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
         ]);
 
+        $wasArchived = $project->is_archived;
         $project->update($validated);
-        return response()->json($project->load(['department', 'group', 'stages']));
+        
+        $action = 'update';
+        if (isset($validated['is_archived'])) {
+            if ($validated['is_archived'] && !$wasArchived) {
+                $action = 'archive';
+            } elseif (!$validated['is_archived'] && $wasArchived) {
+                $action = 'unarchive';
+            }
+        }
+
+        try {
+            \App\Events\ProjectUpdated::dispatch($project, $action);
+        } catch (\Exception $e) {
+            // Log error but continue
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast project update: ' . $e->getMessage());
+        }
+
+        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
+            $query->where('type', 'project');
+        }]));
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    #[OA\Delete(
+        path: "/projects/{id}",
+        summary: "Delete project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 204, description: "Project deleted"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function destroy(Project $project): JsonResponse
     {
         $project->delete();
         return response()->json(null, 204);
     }
 
-    /**
-     * Get suggested tasks for the project.
-     */
+    #[OA\Get(
+        path: "/projects/{id}/suggested-tasks",
+        summary: "Get suggested tasks for a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "List of suggested tasks"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function suggestedTasks(Project $project): JsonResponse
     {
         return response()->json($project->suggestedTasks);
     }
 
-	/**
-	 * Create a new suggested task for the project.
-	 */
+	#[OA\Post(
+        path: "/projects/{id}/suggested-tasks",
+        summary: "Create a suggested task for a project",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["title"],
+                properties: [
+                    new OA\Property(property: "title", type: "string"),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "project_stage_id", type: "integer", nullable: true),
+                    new OA\Property(property: "assignee_id", type: "integer", nullable: true)
+                ]
+            )
+        ),
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 201, description: "Suggested task created"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
 	public function createSuggestedTasks(Request $request, Project $project): JsonResponse
 	{
 		$validated = $request->validate([
@@ -111,9 +347,24 @@ class ProjectController extends Controller
 		return response()->json($suggestedTask, 201);
 	}
 
-    /**
-     * Search projects by WhatsApp Group ID.
-     */
+    #[OA\Get(
+        path: "/projects/search/whatsapp",
+        summary: "Search projects by WhatsApp group ID",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "group_id",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Projects found"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function searchByWhatsapp(Request $request): JsonResponse
     {
         $request->validate([
@@ -130,12 +381,32 @@ class ProjectController extends Controller
         // Let's assume it's one of the values in the array for now, or we can use whereJsonContains.
         
         $projects = Project::whereJsonContains('phone_numbers', $groupId)
-            ->with(['department', 'stages', 'tasks'])
+            ->with(['department', 'stages' => function ($query) {
+                $query->where('type', 'project');
+            }, 'tasks'])
             ->get();
 
         return response()->json($projects);
     }
 
+	#[OA\Get(
+        path: "/projects/search/email",
+        summary: "Search projects by email",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "email",
+                in: "query",
+                required: true,
+                schema: new OA\Schema(type: "string", format: "email")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Projects found"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
 	//get tasks
 	//get tasks by email
 	public function searchByEmail(Request $request): JsonResponse
@@ -147,8 +418,58 @@ class ProjectController extends Controller
 		$email = $request->input('email');
 
 		$projects = Project::whereJsonContains('emails', $email)
-			->with(['department', 'stages', 'tasks'])
+			->with(['department', 'stages' => function ($query) {
+				$query->where('type', 'project');
+			}, 'tasks'])
 			->get();	
 		return response()->json($projects);
 	}
+
+    /**
+     * Add collaborators to a project.
+     */
+    public function addCollaborators(Request $request, Project $project): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+        ]);
+
+        $invitedBy = $request->user()->id;
+
+        foreach ($validated['user_ids'] as $userId) {
+            // Only add if not already a collaborator
+            if (!$project->collaborators()->where('user_id', $userId)->exists()) {
+                $project->collaborators()->attach($userId, ['invited_by' => $invitedBy]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Collaborators added successfully',
+            'collaborators' => $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get(),
+        ]);
+    }
+
+    /**
+     * Remove a collaborator from a project.
+     */
+    public function removeCollaborator(Project $project, User $user): JsonResponse
+    {
+        $project->collaborators()->detach($user->id);
+
+        return response()->json([
+            'message' => 'Collaborator removed successfully',
+            'collaborators' => $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get(),
+        ]);
+    }
+
+    /**
+     * Get collaborators for a project.
+     */
+    public function getCollaborators(Project $project): JsonResponse
+    {
+        return response()->json(
+            $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get()
+        );
+    }
 }

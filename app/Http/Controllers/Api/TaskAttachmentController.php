@@ -6,12 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Models\TaskAttachment;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
+use OpenApi\Attributes as OA;
 
 class TaskAttachmentController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    #[OA\Get(
+        path: "/task-attachments",
+        summary: "List task attachments",
+        security: [["bearerAuth" => []]],
+        tags: ["Task Attachments"],
+        parameters: [
+            new OA\Parameter(
+                name: "task_id",
+                in: "query",
+                required: false,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "List of attachments"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $query = TaskAttachment::with('task');
@@ -24,9 +41,33 @@ class TaskAttachmentController extends Controller
         return response()->json($attachments);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    #[OA\Post(
+        path: "/task-attachments",
+        summary: "Create a new task attachment",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["task_id"],
+                    properties: [
+                        new OA\Property(property: "task_id", type: "integer"),
+                        new OA\Property(property: "name", type: "string", nullable: true),
+                        new OA\Property(property: "file", type: "string", format: "binary", nullable: true),
+                        new OA\Property(property: "url", type: "string", nullable: true),
+                        new OA\Property(property: "type", type: "string", enum: ["file", "link"])
+                    ]
+                )
+            )
+        ),
+        tags: ["Task Attachments"],
+        responses: [
+            new OA\Response(response: 201, description: "Attachment created"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -40,8 +81,8 @@ class TaskAttachmentController extends Controller
         // Handle file upload
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $path = $file->store('task-attachments', 'public');
-            $validated['url'] = '/storage/' . $path;
+            $path = $file->store('task-attachments', 's3');
+            $validated['url'] = Storage::disk('s3')->url($path);
             $validated['type'] = 'file';
             if (empty($validated['name'])) {
                 $validated['name'] = $file->getClientOriginalName();
@@ -63,17 +104,58 @@ class TaskAttachmentController extends Controller
         return response()->json($attachment, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
+    #[OA\Get(
+        path: "/task-attachments/{id}",
+        summary: "Get attachment by ID",
+        security: [["bearerAuth" => []]],
+        tags: ["Task Attachments"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Attachment details"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Attachment not found")
+        ]
+    )]
     public function show(TaskAttachment $taskAttachment): JsonResponse
     {
         return response()->json($taskAttachment->load('task'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+    #[OA\Put(
+        path: "/task-attachments/{id}",
+        summary: "Update attachment",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "name", type: "string"),
+                    new OA\Property(property: "url", type: "string"),
+                    new OA\Property(property: "type", type: "string", enum: ["file", "link"])
+                ]
+            )
+        ),
+        tags: ["Task Attachments"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Attachment updated"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Attachment not found")
+        ]
+    )]
     public function update(Request $request, TaskAttachment $taskAttachment): JsonResponse
     {
         $validated = $request->validate([
@@ -86,12 +168,78 @@ class TaskAttachmentController extends Controller
         return response()->json($taskAttachment);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    #[OA\Delete(
+        path: "/task-attachments/{id}",
+        summary: "Delete attachment",
+        security: [["bearerAuth" => []]],
+        tags: ["Task Attachments"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 204, description: "Attachment deleted"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Attachment not found")
+        ]
+    )]
     public function destroy(TaskAttachment $taskAttachment): JsonResponse
     {
         $taskAttachment->delete();
         return response()->json(null, 204);
+    }
+
+    #[OA\Get(
+        path: "/task-attachments/{id}/download",
+        summary: "Download or track download of an attachment",
+        security: [["bearerAuth" => []]],
+        tags: ["Task Attachments"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Download tracked"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Attachment not found")
+        ]
+    )]
+    public function download(TaskAttachment $taskAttachment): JsonResponse
+    {
+        $task = $taskAttachment->task;
+        
+        if ($task) {
+            // Track the download in task history
+            \App\Models\TaskHistory::create([
+                'action' => 'attachment_downloaded',
+                'details' => sprintf(
+                    'Attachment "%s" downloaded by %s',
+                    $taskAttachment->name ?? 'Unnamed attachment',
+                    auth()->user()?->name ?? 'Unknown user'
+                ),
+                'previous_details' => [
+                    'attachment_id' => $taskAttachment->id,
+                    'attachment_name' => $taskAttachment->name,
+                    'attachment_url' => $taskAttachment->url,
+                    'attachment_type' => $taskAttachment->type,
+                ],
+                'task_id' => $task->id,
+                'user_id' => auth()->id(),
+            ]);
+        }
+        
+        return response()->json([
+            'message' => 'Download tracked',
+            'url' => $taskAttachment->url,
+            'name' => $taskAttachment->name,
+        ]);
     }
 }
