@@ -124,15 +124,15 @@ export function AppSidebar() {
 	const [projectToInvite, setProjectToInvite] = useState<Project | null>(null);
 	const [invitedProjectsOpen, setInvitedProjectsOpen] = useState(true);
 
+	const userRole = currentUser?.role;
 	const collaboratedProjects = useMemo(() => {
 		if (!currentUser) return [];
 		return projects.filter(project =>
 			!project.isArchived &&
+			(userRole === 'admin' || userRole === 'team-lead' || project.status !== 'on-hold') &&
 			project.collaborators?.some(c => String(c.id) === String(currentUser.id))
 		);
-	}, [projects, currentUser]);
-
-	const userRole = currentUser?.role;
+	}, [projects, currentUser, userRole]);
 
 	const fetchData = async () => {
 		if (!currentUser) return;
@@ -201,7 +201,7 @@ export function AppSidebar() {
 				}
 
 				const assignedProjects = projectsData
-					.filter(project => userProjectStages.has(project.name) && !project.isArchived)
+					.filter(project => userProjectStages.has(project.name) && !project.isArchived && project.status !== 'on-hold')
 					.map(project => ({
 						...project,
 						stages: project.stages.filter(stage => {
@@ -225,8 +225,8 @@ export function AppSidebar() {
 				const currentDept = departmentsData.find(d => d.id === currentUser.department);
 				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 				const departmentProjects = projectsData.filter(project => {
-					// Exclude archived projects
-					if (project.isArchived) return false;
+					// Exclude archived and on-hold projects
+					if (project.isArchived || project.status === 'on-hold') return false;
 					const isOwnDepartment = String(project.department?.id) === String(currentUser.department);
 					const isDesignProject = isDigitalDept && project.department?.name.toLowerCase() === 'design';
 					return isOwnDepartment || isDesignProject;
@@ -652,9 +652,9 @@ export function AppSidebar() {
 					return hasMatchingDepartment || hasNoDepartment || hasSpecialPermission;
 				});
 			} else if (userRole === "account-manager" && currentUser) {
-				// Account Manager: Strict Department Only
+				// Account Manager: Strict Department Only + No On-hold
 				filteredProjects = projectList.filter(project => {
-					return project.department?.id === currentUser.department;
+					return project.department?.id === currentUser.department && project.status !== 'on-hold';
 				});
 			}
 
