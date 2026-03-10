@@ -1057,8 +1057,13 @@ export function AppSidebar() {
 								{showGroup && project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
 							</span>
 							{roleBadge}
+							{project.status === 'on-hold' && (
+								<span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 border border-orange-200 dark:border-orange-800 shrink-0 ml-auto">
+									Blocked
+								</span>
+							)}
 							{(userRole === 'admin' || userRole === 'team-lead') && project.hasPendingTasks && (
-								<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0 ml-auto" title="Has Pending Tasks" />
+								<span className={`h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0 ${project.status !== 'on-hold' ? 'ml-auto' : 'ml-1'}`} title="Has Pending Tasks" />
 							)}
 						</NavLink>
 					</SidebarMenuButton>

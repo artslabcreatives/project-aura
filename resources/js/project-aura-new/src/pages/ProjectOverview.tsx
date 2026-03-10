@@ -121,7 +121,7 @@ export default function ProjectOverview() {
 
     const statusColors = {
         active: "bg-green-500",
-        "on-hold": "bg-yellow-500",
+        "on-hold": "bg-orange-500",
         completed: "bg-blue-500",
         cancelled: "bg-red-500",
     };
@@ -194,18 +194,20 @@ export default function ProjectOverview() {
                             >
                                 <SelectTrigger className={`w-[130px] h-8 text-xs font-semibold capitalize border-none text-white focus:ring-0 ${statusColors[project.status || 'active']}`}>
                                     {isUpdatingStatus ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
-                                    <SelectValue placeholder="Status" />
+                                    <SelectValue placeholder="Status">
+                                        {project.status === 'on-hold' ? 'Blocked' : undefined}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="on-hold">On-Hold</SelectItem>
+                                    <SelectItem value="on-hold">Blocked</SelectItem>
                                     <SelectItem value="completed">Completed</SelectItem>
                                     <SelectItem value="cancelled">Cancelled</SelectItem>
                                 </SelectContent>
                             </Select>
                         ) : (
                             <Badge className={`${statusColors[project.status || 'active']} hover:${statusColors[project.status || 'active']} text-white capitalize px-3 py-1`}>
-                                {project.status || 'active'}
+                                {project.status === 'on-hold' ? 'Blocked' : project.status || 'active'}
                             </Badge>
                         )}
                     </div>

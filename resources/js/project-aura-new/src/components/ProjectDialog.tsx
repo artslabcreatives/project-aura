@@ -900,7 +900,7 @@ export function ProjectDialog({
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="active">Active</SelectItem>
-										<SelectItem value="on-hold">On Hold</SelectItem>
+										<SelectItem value="on-hold">Blocked</SelectItem>
 										<SelectItem value="completed">Completed</SelectItem>
 										<SelectItem value="cancelled">Cancelled</SelectItem>
 									</SelectContent>

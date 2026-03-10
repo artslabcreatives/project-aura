@@ -726,6 +726,11 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 						<div>
 							<h1 className="text-3xl font-bold flex items-center gap-3">
 								{project.name}
+								{project.status === 'on-hold' && (
+									<Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-orange-500 hover:bg-orange-600 border-none px-2 h-5">
+										Blocked
+									</Badge>
+								)}
 								{project.isArchived && (
 									<Badge variant="secondary" className="text-xs font-normal">
 										Archived
