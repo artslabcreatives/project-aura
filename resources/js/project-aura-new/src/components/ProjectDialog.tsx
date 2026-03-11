@@ -865,10 +865,13 @@ export function ProjectDialog({
 									onValueChange={(value) =>
 										setFormData({ ...formData, clientId: value })
 									}
-									options={clients.map(client => ({
-										value: String(client.id),
-										label: client.company_name,
-									}))}
+									options={[
+										{ value: "", label: "Internal Project" },
+										...clients.map(client => ({
+											value: String(client.id),
+											label: client.company_name,
+										}))
+									]}
 									placeholder="Select a client"
 								/>
 							</div>
