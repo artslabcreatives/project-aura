@@ -54,8 +54,12 @@ export default function Team() {
 					taskService.getAll(),
 				]);
 
-				// Filter out deactivated users where is_active is explicitly false
-				const activeMembers = usersData.filter((user: User) => user.is_active !== false);
+				// Filter out deactivated users and System Admin accounts
+				const activeMembers = usersData.filter((user: User) => 
+					user.is_active !== false && 
+					user.email !== 'system@artslabcreatives.com' && 
+					user.email !== 'systemadmin@artslabcreatives.com'
+				);
 				setTeamMembers(activeMembers);
 				setDepartments(departmentsData);
 				setTasks(tasksData);

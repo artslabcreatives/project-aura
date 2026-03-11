@@ -149,7 +149,11 @@ export function AppSidebar() {
 
 			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') {
 				const usersData = await userService.getAll();
-				setTeamMembers(usersData);
+				// Filter out System Admin accounts
+				setTeamMembers(usersData.filter((u: any) => 
+					u.email !== 'system@artslabcreatives.com' && 
+					u.email !== 'systemadmin@artslabcreatives.com'
+				));
 			}
 
 			// Do NOT reset expanded departments here to avoid collapsing user view on refresh
