@@ -12,9 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Stage } from "@/types/stage";
-import { Plus, Trash2, GripVertical, Check, X, Info } from "lucide-react";
+import { Plus, Trash2, GripVertical, Check, X, Info, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/task";
 import {
@@ -466,8 +467,9 @@ export function ProjectDialog({
 	const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
 	const [stageGroups, setStageGroups] = useState<StageGroup[]>([]);
 	const [phoneNumbersOptions, setPhoneNumbersOptions] = useState<{ value: string, label: string }[]>([]);
+	const [currentStep, setCurrentStep] = useState(1);
 	const [errors, setErrors] = useState<
-		Partial<Record<keyof ProjectFormData, string>>
+		Partial<Record<keyof ProjectFormData | 'department', string>>
 	>({});
 
 	const sensors = useSensors(
@@ -497,6 +499,7 @@ export function ProjectDialog({
 
 	useEffect(() => {
 		if (open) {
+			setCurrentStep(1);
 			fetch('https://automation.artslabcreatives.com/webhook/af66e522-e04f-478d-aa0b-6c7b408c8fc6')
 				.then(async response => {
 					const text = await response.text();
@@ -676,50 +679,69 @@ export function ProjectDialog({
 		}
 	};
 
+	const nextStep = () => {
+		setErrors({});
+		if (currentStep === 1) {
+			const result = projectSchema.safeParse({ name: formData.name, description: formData.description });
+			if (!result.success) {
+				const fieldErrors: any = {};
+				result.error.errors.forEach((err) => {
+					if (err.path[0]) fieldErrors[err.path[0]] = err.message;
+				});
+				setErrors(fieldErrors);
+				return;
+			}
+			if (!department) {
+				setErrors({ department: "Department is required" } as any);
+				return;
+			}
+			if (existingProjects.some(p => p.toLowerCase() === formData.name.toLowerCase() && (!editProject || p !== editProject.name))) {
+				setErrors({ name: "A project with this name already exists" });
+				return;
+			}
+		}
+		setCurrentStep(prev => Math.min(prev + 1, 3));
+	};
+
+	const prevStep = () => {
+		setCurrentStep(prev => Math.max(prev - 1, 1));
+	};
+
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-		setErrors({});
-
-		const result = projectSchema.safeParse(formData);
-
-		if (!result.success) {
-			const fieldErrors: Partial<Record<keyof ProjectFormData, string>> = {};
-			result.error.errors.forEach((err) => {
-				if (err.path[0]) {
-					fieldErrors[err.path[0] as keyof ProjectFormData] = err.message;
-				}
-			});
-			setErrors(fieldErrors);
+		
+		// If on step 1 or 2, just move to the next one
+		if (currentStep === 1 || currentStep === 2) {
+			nextStep();
 			return;
 		}
 
-		if (existingProjects.some(p => p.toLowerCase() === result.data.name.toLowerCase() && (!editProject || p !== editProject.name))) {
-			setErrors({ name: "A project with this name already exists" });
-			return;
-		}
+		// FINAL STEP (Step 3) VALIDATIONS - Only run if we are actually on step 3
+		if (currentStep !== 3) return;
 
-		// Ensure stages don't use reserved names
+		// 1. Stage name validation (cannot use system names)
 		const reservedNames = SYSTEM_STAGES;
 		const hasInvalidNames = middleStages.some(s => reservedNames.includes(s.title.toLowerCase().trim()));
 		if (hasInvalidNames) {
 			toast({
 				title: "Validation Error",
-				description: "You cannot create stages with system reserved names (Suggest, Pending, Complete, Archive).",
+				description: "You cannot create stages with system reserved names (Suggested, Pending, etc).",
 				variant: "destructive",
 			});
 			return;
 		}
 
+		// 2. Guard against empty custom stages if it's a new project
+		// We use middleStages which contains everything except system stages
 		if (middleStages.length === 0 && !editProject) {
 			toast({
 				title: "Validation Error",
-				description: "Please add at least one custom stage to the project.",
+				description: "Please add at least one custom stage to define your project workflow.",
 				variant: "destructive",
 			});
 			return;
 		}
 
-		// Filter out duplicate stages
 		const uniqueStages: Stage[] = [];
 		const seenTitles = new Set<string>();
 		stages.forEach(stage => {
@@ -730,14 +752,9 @@ export function ProjectDialog({
 			}
 		});
 
-		// Validate that all stages (except Completed and Archive) have a Main Responsible person
 		const stagesMissingResponsible = uniqueStages.filter(s => {
 			const title = s.title.toLowerCase().trim();
-			// Skip validation for Completed and Archive stages
-			if (['completed', 'complete', 'archive'].includes(title)) {
-				return false;
-			}
-			// Check if mainResponsibleId is missing
+			if (['completed', 'complete', 'archive'].includes(title)) return false;
 			return !s.mainResponsibleId;
 		});
 
@@ -745,13 +762,13 @@ export function ProjectDialog({
 			const missingNames = stagesMissingResponsible.map(s => s.title).join(", ");
 			toast({
 				title: "Validation Error",
-				description: `Please assign a Main Responsible person for the following stages: ${missingNames}`,
+				description: `Assign Main Responsible for: ${missingNames}`,
 				variant: "destructive",
 			});
 			return;
 		}
 
-		onSave(result.data.name, result.data.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status);
+		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status);
 		onOpenChange(false);
 	};
 
@@ -794,363 +811,243 @@ export function ProjectDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-				<form onSubmit={handleSubmit}>
-					<DialogHeader>
-						<DialogTitle>{editProject ? "Edit Project" : "Create New Project"}</DialogTitle>
-						<DialogDescription>
-							{editProject ? "Update project details and workflow stages." : "Add a new project with custom workflow stages."}
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="grid gap-4 py-4">
-						<div className="grid gap-2">
-							<Label htmlFor="name">
-								Project Name <span className="text-destructive">*</span>
-							</Label>
-							<Input
-								id="name"
-								value={formData.name}
-								onChange={(e) =>
-									setFormData({ ...formData, name: e.target.value })
-								}
-								placeholder="Enter project name"
-								maxLength={50}
-								className={errors.name ? "border-destructive" : ""}
-								disabled={!!editProject}
-							/>
-							{errors.name && (
-								<p className="text-sm text-destructive">{errors.name}</p>
-							)}
+			<DialogContent className="sm:max-w-[700px] max-h-[95vh] p-0 flex flex-col gap-0 overflow-hidden">
+				<form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[95vh] overflow-hidden">
+					<div className="p-6 pb-4 shrink-0">
+						<DialogHeader>
+							<DialogTitle>{editProject ? "Edit Project" : "Create New Project"}</DialogTitle>
+							<DialogDescription>
+								{editProject ? "Update project details and workflow stages." : "Add a new project with custom workflow stages."}
+							</DialogDescription>
+						</DialogHeader>
+						
+						{/* Step Indicator */}
+						<div className="flex items-center justify-between mt-6">
+							{[1, 2, 3].map((step) => (
+								<div key={step} className="flex items-center flex-1 last:flex-none">
+									<div className={cn(
+										"h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all",
+										currentStep === step ? "border-primary bg-primary text-primary-foreground scale-110" :
+										currentStep > step ? "border-primary bg-primary/20 text-primary" : "border-muted text-muted-foreground"
+									)}>
+										{currentStep > step ? <Check className="h-4 w-4" /> : step}
+									</div>
+									<div className="flex-1 px-4">
+										<p className={cn(
+											"text-[10px] uppercase tracking-wider font-bold mb-0.5",
+											currentStep === step ? "text-primary" : "text-muted-foreground"
+										)}>
+											Step {step}
+										</p>
+										<p className="text-xs font-semibold whitespace-nowrap">
+											{step === 1 ? "Basics" : step === 2 ? "Details" : "Workflow"}
+										</p>
+									</div>
+									{step < 3 && <div className={cn("h-[2px] flex-1 mx-2", currentStep > step ? "bg-primary" : "bg-muted")} />}
+								</div>
+							))}
 						</div>
+					</div>
 
-						<div className="grid gap-2">
-							<Label htmlFor="description">Description (Optional)</Label>
-							<RichTextEditor
-								id="description"
-								value={formData.description || ""}
-								onChange={(value) =>
-									setFormData({ ...formData, description: value })
-								}
-								placeholder="Enter project description"
-							/>
-						</div>
+					<Separator />
 
-						<div className="grid gap-2">
-							<Label htmlFor="emails">External Emails</Label>
-							<TagInput
-								value={emails}
-								onChange={setEmails}
-								placeholder="Add emails and press Enter..."
-								validate={(email) => /^\S+@\S+\.\S+$/.test(email)}
-								validationMessage="Please enter a valid email address."
-							/>
-						</div>
+					<div className="flex-1 overflow-y-auto p-6">
+						{currentStep === 1 && (
+							<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+								<div className="grid gap-2">
+									<Label htmlFor="name">Project Name <span className="text-destructive">*</span></Label>
+									<Input
+										id="name"
+										value={formData.name}
+										onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+										placeholder="Enter project name"
+										maxLength={50}
+										className={errors.name ? "border-destructive" : ""}
+										disabled={!!editProject}
+									/>
+									{errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+								</div>
 
-						<div className="grid gap-2">
-							<Label htmlFor="phoneNumbers">WhatsApp Group's</Label>
-							<MultiSearchableSelect
-								options={phoneNumbersOptions}
-								values={phoneNumbers}
-								onValuesChange={setPhoneNumbers}
-								placeholder="Select numbers..."
-							/>
-						</div>
+								<div className="grid gap-2">
+									<Label htmlFor="description">Description (Optional)</Label>
+									<RichTextEditor
+										id="description"
+										value={formData.description || ""}
+										onChange={(value) => setFormData({ ...formData, description: value })}
+										placeholder="Enter project description"
+									/>
+								</div>
 
-						{canSeeClientInfo && (
-							<div className="grid gap-2">
-								<Label htmlFor="client">Client (Optional)</Label>
-								<SearchableSelect
-									value={formData.clientId}
-									onValueChange={(value) =>
-										setFormData({ ...formData, clientId: value })
-									}
-									options={[
-										{ value: "", label: "Internal Project" },
-										...clients.map(client => ({
-											value: String(client.id),
-											label: client.company_name,
-										}))
-									]}
-									placeholder="Select a client"
-								/>
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
+										<Select
+											value={department?.id?.toString() ?? ""}
+											onValueChange={(value) => {
+												const selectedDept = departments.find(dept => dept.id.toString() === value);
+												if (selectedDept) {
+													setDepartment(selectedDept);
+													setGroupId("");
+													setErrors(prev => ({ ...prev, department: undefined }));
+												}
+											}}
+											disabled={(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
+										>
+											<SelectTrigger className={errors.department ? "border-destructive" : ""}>
+												<SelectValue placeholder="Select department" />
+											</SelectTrigger>
+											<SelectContent>
+												{departments.map((dept) => (
+													<SelectItem key={dept.id} value={dept.id.toString()}>{dept.name}</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+										{errors.department && <p className="text-sm text-destructive">{errors.department}</p>}
+									</div>
+
+									<div className="grid gap-2">
+										<div className="flex items-center justify-between">
+											<Label htmlFor="group">Group (Optional)</Label>
+											<Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setIsCreatingGroup(true)} disabled={!department}>
+												<Plus className="h-3 w-3 mr-1" /> New
+											</Button>
+										</div>
+										{isCreatingGroup ? (
+											<div className="flex flex-col gap-2 p-2 border rounded-md bg-muted/30">
+												<Input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Group Name" className="h-8 text-sm" />
+												<div className="flex justify-end gap-1">
+													<Button type="button" variant="ghost" size="sm" onClick={() => setIsCreatingGroup(false)}>Cancel</Button>
+													<Button type="button" size="sm" onClick={handleCreateGroup}>Create</Button>
+												</div>
+											</div>
+										) : (
+											<Select value={groupId} onValueChange={(val) => setGroupId(val === "unassign_group" ? "" : val)} disabled={!department}>
+												<SelectTrigger>
+													<SelectValue placeholder="Select a group" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="unassign_group" className="text-muted-foreground italic">None</SelectItem>
+													{hierarchicalGroupOptions}
+												</SelectContent>
+											</Select>
+										)}
+									</div>
+								</div>
 							</div>
 						)}
 
-						<div className="grid grid-cols-2 gap-4">
-							<div className="grid gap-2">
-								<Label htmlFor="estimatedHours">Estimated Hours</Label>
-								<Input
-									id="estimatedHours"
-									type="number"
-									value={formData.estimatedHours}
-									onChange={(e) =>
-										setFormData({ ...formData, estimatedHours: parseInt(e.target.value) || 0 })
-									}
-									placeholder="Estimated hours"
-								/>
-							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="status">Status</Label>
-								<Select
-									value={formData.status}
-									onValueChange={(value) =>
-										setFormData({ ...formData, status: value })
-									}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select status" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="active">Active</SelectItem>
-										<SelectItem value="on-hold">Blocked</SelectItem>
-										<SelectItem value="completed">Completed</SelectItem>
-										<SelectItem value="cancelled">Cancelled</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-						</div>
+						{currentStep === 2 && (
+							<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+								{canSeeClientInfo && (
+									<div className="grid gap-2">
+										<Label htmlFor="client">Client (Optional)</Label>
+										<SearchableSelect
+											value={formData.clientId}
+											onValueChange={(value) => setFormData({ ...formData, clientId: value })}
+											options={[
+												{ value: "", label: "Internal Project (Default)" },
+												...clients.map(client => ({ value: String(client.id), label: client.company_name }))
+											]}
+											placeholder="Select a client"
+										/>
+									</div>
+								)}
 
-						<div className="grid grid-cols-2 gap-4">
-							<div className="grid gap-2">
-								<Label htmlFor="department">Department</Label>
-								<Select
-									value={department?.id?.toString() ?? ""}
-									onValueChange={(value) => {
-										if (!value || value === "") {
-											setDepartment(undefined);
-											setGroupId("");
-											return;
-										}
-										const selectedDept = departments.find(
-											(dept) => dept.id.toString() === value
-										);
-										if (selectedDept) {
-											setDepartment(selectedDept);
-											setGroupId(""); // Reset group when dept changes
-										}
-									}}
-									disabled={(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select a department" />
-									</SelectTrigger>
-									<SelectContent>
-										{(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() === "digital" ? (
-											departments
-												.filter(dept => dept.name.toLowerCase() === "digital" || dept.name.toLowerCase() === "design")
-												.map((dept) => (
-													<SelectItem key={dept.id} value={dept.id.toString()}>
-														{dept.name}
-													</SelectItem>
-												))
-										) : (
-											departments.map((dept) => (
-												<SelectItem key={dept.id} value={dept.id.toString()}>
-													{dept.name}
-												</SelectItem>
-											))
-										)}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="grid gap-2">
-								<div className="flex items-center justify-between">
-									<Label htmlFor="group">Assign Group (Optional)</Label>
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										className="h-6 px-2 text-xs"
-										onClick={() => setIsCreatingGroup(true)}
-										disabled={!department}
-									>
-										<Plus className="h-3 w-3 mr-1" />
-										New
-									</Button>
+								<div className="grid gap-2">
+									<Label htmlFor="emails">External Emails</Label>
+									<TagInput
+										value={emails}
+										onChange={setEmails}
+										placeholder="Add emails..."
+										validate={(email) => /^\S+@\S+\.\S+$/.test(email)}
+									/>
 								</div>
 
-								{isCreatingGroup ? (
-									<div className="flex flex-col gap-2 p-2 border rounded-md">
-										<Input
-											value={newGroupName}
-											onChange={(e) => setNewGroupName(e.target.value)}
-											placeholder="Group Name"
-											className="h-8 text-sm"
-											autoFocus
-										/>
-										<Select
-											value={newGroupParentId}
-											onValueChange={setNewGroupParentId}
-										>
-											<SelectTrigger className="h-8 text-xs">
-												<SelectValue placeholder="Parent Group (Optional)" />
-											</SelectTrigger>
+								<div className="grid gap-2">
+									<Label htmlFor="phoneNumbers">WhatsApp Groups</Label>
+									<MultiSearchableSelect options={phoneNumbersOptions} values={phoneNumbers} onValuesChange={setPhoneNumbers} placeholder="Select groups..." />
+								</div>
+
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<Label htmlFor="estimatedHours">Estimated Hours</Label>
+										<Input id="estimatedHours" type="number" value={formData.estimatedHours} onChange={(e) => setFormData({ ...formData, estimatedHours: parseInt(e.target.value) || 0 })} />
+									</div>
+									<div className="grid gap-2">
+										<Label htmlFor="status">Status</Label>
+										<Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+											<SelectTrigger><SelectValue /></SelectTrigger>
 											<SelectContent>
-												<SelectItem value="none">No Parent (Root)</SelectItem>
-												{hierarchicalGroupOptions}
+												<SelectItem value="active">Active</SelectItem>
+												<SelectItem value="on-hold">Blocked</SelectItem>
+												<SelectItem value="completed">Completed</SelectItem>
+												<SelectItem value="cancelled">Cancelled</SelectItem>
 											</SelectContent>
 										</Select>
-										<div className="flex justify-end gap-1 mt-1">
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												className="h-7 px-2 text-xs"
-												onClick={() => {
-													setIsCreatingGroup(false);
-													setNewGroupName("");
-													setNewGroupParentId("none");
-												}}
-											>
-												Cancel
-											</Button>
-											<Button
-												type="button"
-												size="sm"
-												className="h-7 px-2 text-xs"
-												onClick={handleCreateGroup}
-											>
-												Create
-											</Button>
-										</div>
 									</div>
-								) : (
-									<Select
-										value={groupId}
-										onValueChange={(val) => setGroupId(val === "unassign_group" ? "" : val)}
-										disabled={!department}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Select a group" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="unassign_group" className="text-muted-foreground italic">
-												None
-											</SelectItem>
-											{hierarchicalGroupOptions}
-										</SelectContent>
-									</Select>
-								)}
-							</div>
-						</div>
-
-						<div className="grid gap-3">
-							<div className="flex items-center justify-between">
-								<Label>
-									Workflow Stages <span className="text-destructive">*</span>
-								</Label>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={addStage}
-									className="gap-2"
-								>
-									<Plus className="h-4 w-4" />
-									Add Stage
-								</Button>
-							</div>
-
-							<div className="text-xs text-muted-foreground bg-muted p-2 rounded-md">
-								Note: <strong>Suggested, Backlog, Complete, and Archive</strong> stages are automatically created and managed by the system. You only need to define the custom workflow steps in between.
-							</div>
-
-							{stages.length === 0 && !editProject ? (
-								<div className="text-center py-6 border-2 border-dashed rounded-lg">
-									<p className="text-sm text-muted-foreground">
-										No custom stages yet. Click "Add Stage" to create your workflow.
-									</p>
 								</div>
-							) : (
-								<div className="space-y-2">
-									{topStages.map(stage => (
-										<SortableStageItem
-											key={stage.id}
-											stage={stage}
-											updateStage={updateStage}
-											removeStage={removeStage}
-											stages={stages}
-											memberOptions={memberOptions}
-											isSystem={true}
-											currentUser={currentUser}
-											stageGroups={stageGroups}
-											allTeamMembers={teamMembers}
-										/>
-									))}
+							</div>
+						)}
 
-									<DndContext
-										sensors={sensors}
-										collisionDetection={closestCenter}
-										onDragEnd={handleDragEnd}
-									>
-										<SortableContext
-											items={middleStages.map(s => s.id)}
-											strategy={verticalListSortingStrategy}
-										>
-											{middleStages.map(stage => (
-												<SortableStageItem
-													key={stage.id}
-													stage={stage}
-													updateStage={updateStage}
-													removeStage={removeStage}
-													stages={stages}
-													memberOptions={memberOptions}
-													isSystem={false}
-													currentUser={currentUser}
-													stageGroups={stageGroups}
-													allTeamMembers={teamMembers}
-												/>
-											))}
+						{currentStep === 3 && (
+							<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+								<div className="flex items-center justify-between">
+									<Label className="text-base font-semibold">Workflow Stages <span className="text-destructive">*</span></Label>
+								</div>
+								
+								<div className="text-[10px] text-muted-foreground bg-muted/50 p-2 rounded-md border border-dashed text-center">
+									Note: <strong>Suggested, Backlog, Complete, and Archive</strong> stages are automatically managed.
+								</div>
+
+								<div className="space-y-4 pr-1">
+									{topStages.map(stage => <SortableStageItem key={stage.id} stage={stage} updateStage={updateStage} removeStage={removeStage} stages={stages} memberOptions={memberOptions} isSystem={true} currentUser={currentUser} stageGroups={stageGroups} allTeamMembers={teamMembers} />)}
+									
+									<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+										<SortableContext items={middleStages.map(s => s.id)} strategy={verticalListSortingStrategy}>
+											{middleStages.map(stage => <SortableStageItem key={stage.id} stage={stage} updateStage={updateStage} removeStage={removeStage} stages={stages} memberOptions={memberOptions} isSystem={false} currentUser={currentUser} stageGroups={stageGroups} allTeamMembers={teamMembers} />)}
 										</SortableContext>
 									</DndContext>
 
 									<div className="flex items-center justify-center py-2">
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											onClick={addStage}
-											className="h-8 text-xs border-dashed text-muted-foreground hover:text-foreground rounded-full bg-muted/30 hover:bg-muted/80"
+										<Button 
+											type="button" 
+											variant="outline" 
+											size="sm" 
+											onClick={addStage} 
+											className="w-full gap-2 border-dashed bg-muted/20 hover:bg-muted/40 text-muted-foreground hover:text-foreground transition-all h-10"
 										>
-											<Plus className="mr-2 h-3 w-3" />
-											Add Custom Stage
+											<Plus className="h-4 w-4" /> Add Custom Workflow Stage
 										</Button>
 									</div>
 
-									{bottomStages.map(stage => (
-										<SortableStageItem
-											key={stage.id}
-											stage={stage}
-											updateStage={updateStage}
-											removeStage={removeStage}
-											stages={stages}
-											memberOptions={memberOptions}
-											isSystem={true}
-											currentUser={currentUser}
-											stageGroups={stageGroups}
-											allTeamMembers={teamMembers}
-										/>
-									))}
+									{bottomStages.map(stage => <SortableStageItem key={stage.id} stage={stage} updateStage={updateStage} removeStage={removeStage} stages={stages} memberOptions={memberOptions} isSystem={true} currentUser={currentUser} stageGroups={stageGroups} allTeamMembers={teamMembers} />)}
 								</div>
-							)}
-							<p className="text-xs text-muted-foreground">
-								Drag and drop to reorder custom stages.
-							</p>
-						</div>
+							</div>
+						)}
 					</div>
 
-					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => onOpenChange(false)}
-						>
-							Cancel
-						</Button>
-						<Button type="submit">{editProject ? "Update Project" : "Create Project"}</Button>
-					</DialogFooter>
+					<div className="p-6 pt-4 shrink-0 border-t mt-auto">
+						<DialogFooter className="gap-2 sm:justify-between sm:gap-0">
+							{currentStep > 1 ? (
+								<Button key="back-btn" type="button" variant="outline" onClick={prevStep} className="gap-2">
+									<ChevronLeft className="h-4 w-4" /> Back
+								</Button>
+							) : (
+								<Button key="cancel-btn" type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+							)}
+							
+							{currentStep < 3 ? (
+								<Button key="next-btn" type="button" onClick={nextStep} className="gap-2">
+									Next <ChevronRight className="h-4 w-4" />
+								</Button>
+							) : (
+								<Button key="submit-btn" type="submit" className="gap-2">
+									{editProject ? "Update Project" : "Create Project"}
+									<Check className="h-4 w-4" />
+								</Button>
+							)}
+						</DialogFooter>
+					</div>
 				</form>
 			</DialogContent>
 		</Dialog>
