@@ -20,8 +20,11 @@ import {
     ArrowLeft,
     ExternalLink,
     FolderKanban,
-    Clock
+    Clock,
+    Copy,
+    Check
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Client, ClientContact } from "@/types/client";
 import { clientService } from "@/services/clientService";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +47,39 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const CopyButton = ({ text, label }: { text: string; label: string }) => {
+    const { toast } = useToast();
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        toast({
+            title: "Copied to clipboard",
+            description: `${label} has been copied.`,
+        });
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-1 hover:bg-primary/10 transition-colors"
+            onClick={handleCopy}
+            title={`Copy ${label}`}
+        >
+            {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+            ) : (
+                <Copy className="h-3 w-3 text-muted-foreground" />
+            )}
+        </Button>
+    );
+};
 
 export default function ClientProfile() {
     const { id } = useParams<{ id: string }>();
@@ -258,11 +294,17 @@ export default function ClientProfile() {
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary Email</p>
-                                    <p className="text-sm font-medium">{client.email || 'Not specified'}</p>
+                                    <div className="flex items-center">
+                                        <p className="text-sm font-medium">{client.email || 'Not specified'}</p>
+                                        {client.email && <CopyButton text={client.email} label="Primary Email" />}
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary Phone</p>
-                                    <p className="text-sm font-medium">{client.phone || 'Not specified'}</p>
+                                    <div className="flex items-center">
+                                        <p className="text-sm font-medium">{client.phone || 'Not specified'}</p>
+                                        {client.phone && <CopyButton text={client.phone} label="Primary Phone" />}
+                                    </div>
                                 </div>
                                 <div className="space-y-1 md:col-span-2">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Address</p>
@@ -365,13 +407,23 @@ export default function ClientProfile() {
                                                 <p className="text-xs text-muted-foreground mb-2">{contact.title || "No title"}</p>
                                                 <div className="space-y-1">
                                                     {contact.email && (
-                                                        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                                                            <Mail className="h-3 w-3" /> {contact.email}
+                                                        <div className="text-[11px] text-muted-foreground flex items-center justify-between group/item">
+                                                            <div className="flex items-center gap-1.5 truncate">
+                                                                <Mail className="h-3 w-3 flex-shrink-0" /> {contact.email}
+                                                            </div>
+                                                            <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                                <CopyButton text={contact.email} label="Email" />
+                                                            </div>
                                                         </div>
                                                     )}
                                                     {contact.phone && (
-                                                        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                                                            <Phone className="h-3 w-3" /> {contact.phone}
+                                                        <div className="text-[11px] text-muted-foreground flex items-center justify-between group/item">
+                                                            <div className="flex items-center gap-1.5 truncate">
+                                                                <Phone className="h-3 w-3 flex-shrink-0" /> {contact.phone}
+                                                            </div>
+                                                            <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                                <CopyButton text={contact.phone} label="Phone" />
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>

@@ -110,6 +110,7 @@ export function AppSidebar() {
 	// hoveredProject state removed in favor of CSS hover
 	const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
 	const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+	const [projectToArchive, setProjectToArchive] = useState<Project | null>(null);
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 	const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
 	const [isAssignGroupOpen, setIsAssignGroupOpen] = useState(false);
@@ -873,7 +874,9 @@ export function AppSidebar() {
 		return a.name.localeCompare(b.name);
 	});
 
-	const handleArchiveProject = async (project: Project) => {
+	const handleArchiveProject = async () => {
+		if (!projectToArchive) return;
+		const project = projectToArchive;
 		try {
 			await projectService.update(String(project.id), { isArchived: true });
 			setProjects(prev => prev.map(p => p.id === project.id ? { ...p, isArchived: true } : p));
@@ -884,6 +887,7 @@ export function AppSidebar() {
 			}));
 
 			toast({ title: "Project archived" });
+			setProjectToArchive(null);
 		} catch (error) {
 			toast({ title: "Failed to archive project", variant: "destructive" });
 		}
@@ -1128,15 +1132,15 @@ export function AppSidebar() {
 										</>
 									)}
 									{!project.isArchived ? (
-										<DropdownMenuItem
-											onClick={(e) => {
-												e.stopPropagation();
-												handleArchiveProject(project);
-											}}
-										>
-											<Archive className="mr-2 h-4 w-4" />
-											<span>Archive Project</span>
-										</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToArchive(project);
+												}}
+											>
+												<Archive className="mr-2 h-4 w-4" />
+												<span>Archive Project</span>
+											</DropdownMenuItem>
 									) : (
 										<DropdownMenuItem
 											onClick={(e) => {
@@ -1553,6 +1557,23 @@ export function AppSidebar() {
 				onUpdateGroup={handleUpdateGroup}
 				onDeleteGroup={handleDeleteGroup}
 			/>
+
+			<AlertDialog open={!!projectToArchive} onOpenChange={(open) => !open && setProjectToArchive(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Archive Project</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to archive "{projectToArchive?.name}"? You can restore it later from the Archived Projects section.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={handleArchiveProject}>
+							Archive
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
 				<AlertDialogContent>
