@@ -1082,47 +1082,51 @@ export function AppSidebar() {
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start" side="right" className="w-48">
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToEdit(project);
-											setIsProjectDialogOpen(true);
-										}}
-									>
-										<Pencil className="mr-2 h-4 w-4" />
-										<span>Edit Project</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToDuplicate(project);
-											setNewProjectName(`${project.name} (Copy)`);
-											setIsDuplicateDialogOpen(true);
-										}}
-									>
-										<Copy className="mr-2 h-4 w-4" />
-										<span>Duplicate Project</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToAssign(project);
-											setIsAssignGroupOpen(true);
-										}}
-									>
-										<FolderPlus className="mr-2 h-4 w-4" />
-										<span>Assign to Group</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToInvite(project);
-											setIsInviteDialogOpen(true);
-										}}
-									>
-										<UserPlus className="mr-2 h-4 w-4" />
-										<span>Invite Users</span>
-									</DropdownMenuItem>
+									{project.status !== 'on-hold' && (
+										<>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToEdit(project);
+													setIsProjectDialogOpen(true);
+												}}
+											>
+												<Pencil className="mr-2 h-4 w-4" />
+												<span>Edit Project</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToDuplicate(project);
+													setNewProjectName(`${project.name} (Copy)`);
+													setIsDuplicateDialogOpen(true);
+												}}
+											>
+												<Copy className="mr-2 h-4 w-4" />
+												<span>Duplicate Project</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToAssign(project);
+													setIsAssignGroupOpen(true);
+												}}
+											>
+												<FolderPlus className="mr-2 h-4 w-4" />
+												<span>Assign to Group</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToInvite(project);
+													setIsInviteDialogOpen(true);
+												}}
+											>
+												<UserPlus className="mr-2 h-4 w-4" />
+												<span>Invite Users</span>
+											</DropdownMenuItem>
+										</>
+									)}
 									{!project.isArchived ? (
 										<DropdownMenuItem
 											onClick={(e) => {
