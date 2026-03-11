@@ -25,12 +25,14 @@ import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-s
 import { Project } from "@/types/project";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Link as LinkIcon, Upload, Loader2 } from "lucide-react";
+import { X, Plus, Link as LinkIcon, Upload, Loader2, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { attachmentService } from "@/services/attachmentService";
 import { tagService, Tag } from "@/services/tagService";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 // Represents a file that is pending upload (not yet saved to server)
 interface PendingFile {
@@ -112,6 +114,9 @@ export function TaskDialog({
 	// Tag states
 	const [availableTags, setAvailableTags] = useState<Tag[]>([]);
 	const [tagDepartmentId, setTagDepartmentId] = useState<string>("");
+	
+	const [currentStep, setCurrentStep] = useState(1);
+	const [errors, setErrors] = useState<Record<string, string>>({});
 
 	// Calculate task count for each assignee
 	const getTaskCountForAssignee = (assigneeName: string) => {
@@ -242,8 +247,57 @@ export function TaskDialog({
 		}
 	}, [editTask, open, availableStatuses, useProjectStages, projects, initialStageId, teamMembers]);
 
+	useEffect(() => {
+		if (open) {
+			setCurrentStep(1);
+			setErrors({});
+		}
+	}, [open]);
+
+	const validateStep1 = () => {
+		const newErrors: Record<string, string> = {};
+		if (!formData.title.trim()) newErrors.title = "Title is required";
+		if (!formData.project) newErrors.project = "Project is required";
+		if (formData.assigneeIds.length === 0) newErrors.assignee = "Assignee is required";
+		
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
+	const validateStep2 = () => {
+		const newErrors: Record<string, string> = {};
+		if (!noEndDate && !formData.dueDate) newErrors.dueDate = "End date is required";
+		
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
+	const nextStep = () => {
+		if (currentStep === 1 && !validateStep1()) {
+			return;
+		}
+		if (currentStep === 2 && !validateStep2()) {
+			return;
+		}
+		setCurrentStep(prev => Math.min(prev + 1, 3));
+	};
+
+	const prevStep = () => {
+		setCurrentStep(prev => Math.max(prev - 1, 1));
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+
+		if (currentStep === 1) {
+			if (validateStep1()) nextStep();
+			return;
+		}
+		if (currentStep === 2) {
+			if (validateStep2()) nextStep();
+			return;
+		}
+		if (currentStep !== 3) return;
 
 		// Store as-is without timezone conversion
 		// Store as-is without timezone conversion
@@ -476,93 +530,136 @@ export function TaskDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-				<form onSubmit={handleSubmit}>
-					<DialogHeader>
-						<DialogTitle>
-							{editTask ? "Edit Task" : "Create New Task"}
-						</DialogTitle>
-						<DialogDescription>
-							{editTask
-								? "Make changes to the task details below."
-								: "Add a new task to your project. Fill in the details below."}
-						</DialogDescription>
-					</DialogHeader>
+			<DialogContent className="sm:max-w-[700px] max-h-[95vh] p-0 flex flex-col gap-0 overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+				<form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[95vh] overflow-hidden">
+					<div className="p-6 pb-4 shrink-0">
+						<DialogHeader>
+							<DialogTitle>
+								{editTask ? "Edit Task" : "Create New Task"}
+							</DialogTitle>
+							<DialogDescription>
+								{editTask
+									? "Make changes to the task details below."
+									: "Add a new task to your project. Fill in the details below."}
+							</DialogDescription>
+						</DialogHeader>
 
-					<div className="grid gap-4 py-4">
-						<div className="grid gap-2">
-							<Label htmlFor="title">Title *</Label>
-							<Input
-								id="title"
-								value={formData.title}
-								onChange={(e) =>
-									setFormData({ ...formData, title: e.target.value })
-								}
-								placeholder="Enter task title"
-								required
-							/>
-						</div>
-
-						<div className="grid gap-2">
-							<Label htmlFor="description">Description</Label>
-							<RichTextEditor
-								id="description"
-								value={formData.description}
-								onChange={(value) =>
-									setFormData({ ...formData, description: value })
-								}
-								placeholder="Enter task description"
-							/>
-						</div>
-
-						<div className="grid grid-cols-2 gap-4">
-							<div className="grid gap-2">
-								<Label htmlFor="project">Project *</Label>
-								<SearchableSelect
-									value={formData.project}
-									onValueChange={(value) =>
-										setFormData({ ...formData, project: value })
-									}
-									options={[
-										...(allProjects || []).map(project => ({
-											value: project.name,
-											label: project.name,
-											group: project.department ? project.department.name : "Uncategorized"
-										}))
-									]}
-									placeholder="Select project"
-									disabled={projects.length === 1}
-								/>
-							</div>
-
-							<div className="grid gap-2">
-								<Label htmlFor="assignee">Assign To *</Label>
-								<SearchableSelect
-									value={formData.assigneeIds[0]}
-									onValueChange={(value) =>
-										setFormData({ ...formData, assigneeIds: value ? [value] : [] })
-									}
-									options={memberOptions}
-									placeholder="Select member"
-								/>
-								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
-									<div className="flex items-center space-x-2 mt-2">
-										<Checkbox
-											id="isAssigneeLocked"
-											checked={formData.isAssigneeLocked}
-											onCheckedChange={(checked) => setFormData({ ...formData, isAssigneeLocked: checked as boolean })}
-										/>
-										<Label htmlFor="isAssigneeLocked" className="text-xs font-normal text-muted-foreground">
-											Keep Assigning this user
-										</Label>
+						{/* Step Indicator */}
+						<div className="flex items-center justify-between mt-6">
+							{[1, 2, 3].map((step) => (
+								<div key={step} className="flex items-center flex-1 last:flex-none">
+									<div className={cn(
+										"h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all",
+										currentStep === step ? "border-primary bg-primary text-primary-foreground scale-110" :
+										currentStep > step ? "border-primary bg-primary/20 text-primary" : "border-muted text-muted-foreground"
+									)}>
+										{currentStep > step ? <Check className="h-4 w-4" /> : step}
 									</div>
-								)}
-							</div>
+									<div className="flex-1 px-4">
+										<p className={cn(
+											"text-[10px] uppercase tracking-wider font-bold mb-0.5",
+											currentStep === step ? "text-primary" : "text-muted-foreground"
+										)}>
+											Step {step}
+										</p>
+										<p className="text-xs font-semibold whitespace-nowrap">
+											{step === 1 ? "Basics" : step === 2 ? "Schedule" : "Attachments"}
+										</p>
+									</div>
+									{step < 3 && <div className={cn("h-[2px] flex-1 mx-2", currentStep > step ? "bg-primary" : "bg-muted")} />}
+								</div>
+							))}
 						</div>
+					</div>
 
-						<div className="grid grid-cols-2 gap-4">
-							<div className="grid gap-2">
-								<Label htmlFor="status">Status</Label>
+					<Separator />
+
+					<div className="flex-1 overflow-y-auto p-6">
+						{currentStep === 1 && (
+							<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+								<div className="grid gap-2">
+									<Label htmlFor="title" className={errors.title ? "text-destructive" : ""}>Title *</Label>
+									<Input
+										id="title"
+										value={formData.title}
+										onChange={(e) => {
+											setFormData({ ...formData, title: e.target.value });
+											if (errors.title) setErrors({ ...errors, title: "" });
+										}}
+										placeholder="Enter task title"
+										className={errors.title ? "border-destructive focus-visible:ring-destructive" : ""}
+									/>
+									{errors.title && <span className="text-xs text-destructive">{errors.title}</span>}
+								</div>
+
+								<div className="grid gap-2">
+									<Label htmlFor="description">Description</Label>
+									<RichTextEditor
+										id="description"
+										value={formData.description}
+										onChange={(value) =>
+											setFormData({ ...formData, description: value })
+										}
+										placeholder="Enter task description"
+									/>
+								</div>
+
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<Label htmlFor="project" className={errors.project ? "text-destructive" : ""}>Project *</Label>
+										<SearchableSelect
+											value={formData.project}
+											onValueChange={(value) => {
+												setFormData({ ...formData, project: value });
+												if (errors.project) setErrors({ ...errors, project: "" });
+											}}
+											options={[
+												...(allProjects || []).map(project => ({
+													value: project.name,
+													label: project.name,
+													group: project.department ? project.department.name : "Uncategorized"
+												}))
+											]}
+											placeholder="Select project"
+											disabled={projects.length === 1}
+										/>
+										{errors.project && <span className="text-xs text-destructive">{errors.project}</span>}
+									</div>
+
+									<div className="grid gap-2">
+										<Label htmlFor="assignee" className={errors.assignee ? "text-destructive" : ""}>Assign To *</Label>
+										<SearchableSelect
+											value={formData.assigneeIds[0]}
+											onValueChange={(value) => {
+												setFormData({ ...formData, assigneeIds: value ? [value] : [] });
+												if (errors.assignee) setErrors({ ...errors, assignee: "" });
+											}}
+											options={memberOptions}
+											placeholder="Select member"
+										/>
+										{errors.assignee && <span className="text-xs text-destructive">{errors.assignee}</span>}
+										{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+											<div className="flex items-center space-x-2 mt-2">
+												<Checkbox
+													id="isAssigneeLocked"
+													checked={formData.isAssigneeLocked}
+													onCheckedChange={(checked) => setFormData({ ...formData, isAssigneeLocked: checked as boolean })}
+												/>
+												<Label htmlFor="isAssigneeLocked" className="text-xs font-normal text-muted-foreground">
+													Keep Assigning this user
+												</Label>
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+						)}
+
+						{currentStep === 2 && (
+							<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<Label htmlFor="status">Status</Label>
 								<Select
 									value={useProjectStages ? formData.projectStage : formData.userStatus}
 									onValueChange={(value) => {
@@ -806,10 +903,14 @@ export function TaskDialog({
 								/>
 							</div>
 						</div>
+					</div>
+				)}
 
+				{currentStep === 3 && (
+					<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
 						<div className="grid gap-2">
-							<div className="flex items-center justify-between">
-								<Label>Tags</Label>
+									<div className="flex items-center justify-between">
+										<Label>Tags</Label>
 								{currentUser?.role === 'admin' && (
 									<Select value={tagDepartmentId} onValueChange={setTagDepartmentId} disabled={!!fixedDepartmentId}>
 										<SelectTrigger className="w-[180px] h-8 text-xs">
@@ -1015,29 +1116,42 @@ export function TaskDialog({
 							</div>
 						</div>
 					</div>
+				)}
+			</div>
 
-					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => onOpenChange(false)}
-							disabled={isUploading}
-						>
-							Cancel
-						</Button>
-						<Button type="submit" disabled={isUploading}>
-							{isUploading ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Uploading...
-								</>
+					<div className="p-6 pt-4 shrink-0 border-t mt-auto">
+						<DialogFooter className="gap-2 sm:justify-between sm:gap-0">
+							{currentStep > 1 ? (
+								<Button key="back-btn" type="button" variant="outline" onClick={prevStep} className="gap-2">
+									<ChevronLeft className="h-4 w-4" /> Back
+								</Button>
 							) : (
-								editTask ? "Save Changes" : "Create Task"
+								<Button key="cancel-btn" type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
 							)}
-						</Button>
-					</DialogFooter>
+							
+							{currentStep < 3 ? (
+								<Button key="next-btn" type="button" onClick={nextStep} className="gap-2">
+									Next <ChevronRight className="h-4 w-4" />
+								</Button>
+							) : (
+								<Button key="submit-btn" type="submit" disabled={isUploading} className="gap-2">
+									{isUploading ? (
+										<>
+											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											Uploading...
+										</>
+									) : (
+										<>
+											{editTask ? "Update Task" : "Create Task"}
+											<Check className="h-4 w-4" />
+										</>
+									)}
+								</Button>
+							)}
+						</DialogFooter>
+					</div>
 				</form>
-			</DialogContent >
-		</Dialog >
+			</DialogContent>
+		</Dialog>
 	);
 }
