@@ -811,7 +811,12 @@ export function ProjectDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[700px] max-h-[95vh] p-0 flex flex-col gap-0 overflow-hidden">
+			<DialogContent 
+				className="sm:max-w-[700px] max-h-[95vh] p-0 flex flex-col gap-0 overflow-hidden"
+				onPointerDownOutside={(e) => e.preventDefault()}
+				onEscapeKeyDown={(e) => e.preventDefault()}
+				onInteractOutside={(e) => e.preventDefault()}
+			>
 				<form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[95vh] overflow-hidden">
 					<div className="p-6 pb-4 shrink-0">
 						<DialogHeader>

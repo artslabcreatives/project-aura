@@ -1597,7 +1597,11 @@ export function AppSidebar() {
 			</AlertDialog>
 			<SidebarRail />
 			<Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
-				<DialogContent>
+				<DialogContent 
+					onPointerDownOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+					onInteractOutside={(e) => e.preventDefault()}
+				>
 					<DialogHeader>
 						<DialogTitle>Duplicate Project</DialogTitle>
 						<DialogDescription>
