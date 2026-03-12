@@ -150,8 +150,8 @@ export function AppSidebar() {
 			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') {
 				const usersData = await userService.getAll();
 				// Filter out System Admin accounts
-				setTeamMembers(usersData.filter((u: any) => 
-					u.email !== 'system@artslabcreatives.com' && 
+				setTeamMembers(usersData.filter((u: any) =>
+					u.email !== 'system@artslabcreatives.com' &&
 					u.email !== 'systemadmin@artslabcreatives.com'
 				));
 			}
@@ -1070,8 +1070,8 @@ export function AppSidebar() {
 									Blocked
 								</span>
 							)}
-							{(userRole === 'admin' || userRole === 'team-lead') && project.hasPendingTasks && (
-								<span className={`h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0 ${project.status !== 'on-hold' ? 'ml-auto' : 'ml-1'}`} title="Has Pending Tasks" />
+							{project.hasOverdueTasks && (
+								<span className={`h-2 w-2 rounded-full bg-red-600 animate-pulse shrink-0 ${project.status !== 'on-hold' ? 'ml-auto' : 'ml-1'}`} title="Has Overdue Tasks" />
 							)}
 						</NavLink>
 					</SidebarMenuButton>
@@ -1136,15 +1136,15 @@ export function AppSidebar() {
 										</>
 									)}
 									{!project.isArchived ? (
-											<DropdownMenuItem
-												onClick={(e) => {
-													e.stopPropagation();
-													setProjectToArchive(project);
-												}}
-											>
-												<Archive className="mr-2 h-4 w-4" />
-												<span>Archive Project</span>
-											</DropdownMenuItem>
+										<DropdownMenuItem
+											onClick={(e) => {
+												e.stopPropagation();
+												setProjectToArchive(project);
+											}}
+										>
+											<Archive className="mr-2 h-4 w-4" />
+											<span>Archive Project</span>
+										</DropdownMenuItem>
 									) : (
 										<DropdownMenuItem
 											onClick={(e) => {
@@ -1247,6 +1247,9 @@ export function AppSidebar() {
 																	{project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
 																</span>
 															</div>
+															{project.hasOverdueTasks && (
+																<span className="h-2 w-2 rounded-full bg-red-600 shrink-0 ml-1" title="Has Overdue Tasks" />
+															)}
 															<ChevronRight
 																className={`h-4 w-4 transition-transform ${expandedProjects.has(String(project.id)) ? "rotate-90" : ""
 																	}`}
@@ -1597,7 +1600,7 @@ export function AppSidebar() {
 			</AlertDialog>
 			<SidebarRail />
 			<Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
-				<DialogContent 
+				<DialogContent
 					onPointerDownOutside={(e) => e.preventDefault()}
 					onEscapeKeyDown={(e) => e.preventDefault()}
 					onInteractOutside={(e) => e.preventDefault()}

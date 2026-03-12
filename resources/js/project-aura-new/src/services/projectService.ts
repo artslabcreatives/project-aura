@@ -31,16 +31,26 @@ function mapStage(raw: any): Stage {
 }
 
 function mapProject(raw: any): Project {
-	// Determine if Pending stage has tasks
-	// 1. Find the Pending stage ID (case-insensitive)
-	const pendingStage = Array.isArray(raw.stages)
-		? raw.stages.find((s: any) => s.title?.toLowerCase()?.trim() === 'pending')
-		: null;
 
-	let hasPendingTasks = false;
-	if (pendingStage && Array.isArray(raw.tasks)) {
-		// Check if any task belongs to the Pending stage
-		hasPendingTasks = raw.tasks.some((t: any) => String(t.project_stage_id) === String(pendingStage.id));
+	// Determine if there are overdue tasks
+	// Ignore "completed" and "archive" stages
+	const ignoreStages = Array.isArray(raw.stages)
+		? raw.stages.filter((s: any) => {
+			const t = s.title?.toLowerCase()?.trim();
+			return t === 'completed' || t === 'complete' || t === 'archive';
+		}).map((s: any) => String(s.id))
+		: [];
+
+	const now = new Date();
+	let hasOverdueTasks = false;
+	if (Array.isArray(raw.tasks)) {
+		hasOverdueTasks = raw.tasks.some((t: any) => {
+			if (!t.due_date || t.user_status === 'complete') return false;
+			const dueDate = new Date(t.due_date);
+			const isOverdue = dueDate < now;
+			const isIgnoredStage = ignoreStages.includes(String(t.project_stage_id));
+			return isOverdue && !isIgnoredStage;
+		});
 	}
 
 	return {
@@ -53,7 +63,7 @@ function mapProject(raw: any): Project {
 		emails: raw.emails || [],
 		phoneNumbers: raw.phoneNumbers || [],
 		group: raw.group ? { id: String(raw.group.id), name: raw.group.name, departmentId: String(raw.group.department_id) } : undefined,
-		hasPendingTasks,
+		hasOverdueTasks,
 		isArchived: raw.is_archived,
 		collaborators: Array.isArray(raw.collaborators)
 			? raw.collaborators.map((c: any) => ({

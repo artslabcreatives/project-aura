@@ -13,7 +13,7 @@ export interface Project {
 	emails?: string[];
 	phoneNumbers?: string[];
 	group?: ProjectGroup;
-	hasPendingTasks?: boolean;
+	hasOverdueTasks?: boolean;
 	isArchived?: boolean;
 	collaborators?: { id: number; name: string; email: string; department_id?: number; role?: string }[];
 	mattermostChannelId?: string;
