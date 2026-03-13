@@ -11,7 +11,7 @@ import { useEffect, useState, useRef } from "react";
 import { Department } from "@/types/department";
 import { departmentService } from "@/services/departmentService";
 import { userService } from "@/services/userService";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
@@ -185,7 +185,11 @@ export default function Profile() {
                             <Label className="text-muted-foreground">Member Since</Label>
                             <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{format(new Date(), 'MMMM yyyy')}</span> {/* Placeholder date */}
+                                <span className="font-medium">
+                                    {currentUser.createdAt 
+                                        ? format(parseISO(currentUser.createdAt), 'MMMM yyyy') 
+                                        : 'Not available'}
+                                </span>
                             </div>
                         </div>
                     </CardContent>

@@ -103,4 +103,5 @@ export interface User {
 	twoFactorEnabled?: boolean;
 	hasSeenWelcomeVideo?: boolean;
 	is_active?: boolean;
+	createdAt?: string;
 }
