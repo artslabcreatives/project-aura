@@ -5,9 +5,10 @@ import { isWithinInterval, addDays, startOfDay, parseISO } from "date-fns";
 
 interface HRDashboardStatsProps {
     projects: Project[];
+    onCardClick?: (type: 'total' | 'active' | 'upcoming' | 'missing', title: string) => void;
 }
 
-export function HRDashboardStats({ projects }: HRDashboardStatsProps) {
+export function HRDashboardStats({ projects, onCardClick }: HRDashboardStatsProps) {
     const totalProjects = projects.length;
     const activeProjects = projects.filter(p => p.status === 'active').length;
     
@@ -28,6 +29,7 @@ export function HRDashboardStats({ projects }: HRDashboardStatsProps) {
 
     const stats = [
         {
+            type: 'total' as const,
             title: "Total Projects",
             value: totalProjects,
             icon: FolderKanban,
@@ -36,6 +38,7 @@ export function HRDashboardStats({ projects }: HRDashboardStatsProps) {
             description: "Total projects in system"
         },
         {
+            type: 'active' as const,
             title: "Active Projects",
             value: activeProjects,
             icon: Activity,
@@ -44,6 +47,7 @@ export function HRDashboardStats({ projects }: HRDashboardStatsProps) {
             description: "Currently ongoing"
         },
         {
+            type: 'upcoming' as const,
             title: "Upcoming Deadlines",
             value: upcomingDeadlines,
             icon: CalendarClock,
@@ -52,6 +56,7 @@ export function HRDashboardStats({ projects }: HRDashboardStatsProps) {
             description: "Next 14 days"
         },
         {
+            type: 'missing' as const,
             title: "Missing Deadlines",
             value: missingDeadlines,
             icon: AlertTriangle,
@@ -64,7 +69,11 @@ export function HRDashboardStats({ projects }: HRDashboardStatsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
-                <Card key={stat.title} className="hover:shadow-md transition-all border-none shadow-sm bg-card/60 backdrop-blur-sm">
+                <Card 
+                    key={stat.title} 
+                    className="hover:shadow-md transition-all border-none shadow-sm bg-card/60 backdrop-blur-sm cursor-pointer hover:bg-white/5 active:scale-95"
+                    onClick={() => onCardClick?.(stat.type, stat.title)}
+                >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             {stat.title}
