@@ -281,7 +281,9 @@ export function AppSidebar() {
 		groupId?: string,
 		clientId?: string,
 		estimatedHours?: number,
-		status?: string
+		status?: string,
+		poNumber?: string,
+		poDocument?: File
 	) => {
 		if (!currentUser) return;
 		try {
@@ -296,6 +298,8 @@ export function AppSidebar() {
 				client_id: clientId ? parseInt(clientId) : undefined,
 				estimated_hours: estimatedHours,
 				status,
+				po_number: poNumber,
+				po_document: poDocument,
 			});
 
 			// Fetch fresh project details to get any auto-created system stages
@@ -400,7 +404,9 @@ export function AppSidebar() {
 		groupId?: string,
 		clientId?: string,
 		estimatedHours?: number,
-		status?: string
+		status?: string,
+		poNumber?: string,
+		poDocument?: File
 	) => {
 		if (!currentUser || !projectToEdit) return;
 		try {
@@ -413,6 +419,8 @@ export function AppSidebar() {
 				client_id: clientId ? parseInt(clientId) : null,
 				estimated_hours: estimatedHours,
 				status,
+				po_number: poNumber,
+				po_document: poDocument,
 			});
 
 			// Create any newly added stages (id not numeric)

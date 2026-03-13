@@ -21,4 +21,8 @@ export interface Project {
 	estimatedHours?: number;
 	status?: 'active' | 'on-hold' | 'completed' | 'cancelled';
 	client?: Client;
+	poNumber?: string;
+	poDocument?: string;
+	poDocumentUrl?: string;
+	isLockedByPo?: boolean;
 }

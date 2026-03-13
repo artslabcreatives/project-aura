@@ -15,7 +15,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Stage } from "@/types/stage";
-import { Plus, Trash2, GripVertical, Check, X, Info, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Trash2, GripVertical, Check, X, Info, ChevronRight, ChevronLeft, UploadCloud, File as FileIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/task";
 import {
@@ -105,7 +105,9 @@ interface ProjectDialogProps {
 		groupId?: string,
 		clientId?: string,
 		estimatedHours?: number,
-		status?: string
+		status?: string,
+		poNumber?: string,
+		poDocument?: File
 	) => Promise<void> | void;
 	existingProjects: string[];
 	teamMembers: User[];
@@ -451,12 +453,14 @@ export function ProjectDialog({
 }: ProjectDialogProps) {
 	const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
 	const { toast } = useToast();
-	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string }>({
+	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, poDocument?: File }>({
 		name: "",
 		description: "",
 		clientId: "",
 		estimatedHours: 0,
 		status: "active",
+		poNumber: "",
+		poDocument: undefined,
 	});
 	const [clients, setClients] = useState<ClientType[]>([]);
 	const [stages, setStages] = useState<Stage[]>([]);
@@ -468,6 +472,7 @@ export function ProjectDialog({
 	const [stageGroups, setStageGroups] = useState<StageGroup[]>([]);
 	const [phoneNumbersOptions, setPhoneNumbersOptions] = useState<{ value: string, label: string }[]>([]);
 	const [currentStep, setCurrentStep] = useState(1);
+	const [isDraggingPO, setIsDraggingPO] = useState(false);
 	const [errors, setErrors] = useState<
 		Partial<Record<keyof ProjectFormData | 'department', string>>
 	>({});
@@ -543,6 +548,8 @@ export function ProjectDialog({
 					clientId: editProject.clientId ? String(editProject.clientId) : "",
 					estimatedHours: editProject.estimatedHours || 0,
 					status: editProject.status || "active",
+					poNumber: editProject.poNumber || "",
+					poDocument: undefined, // cannot prefill file inputs
 				});
 				setStages(editProject.stages || []);
 				setEmails(editProject.emails || []);
@@ -566,7 +573,7 @@ export function ProjectDialog({
 			}
 		} else {
 			setGroupId("");
-			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active" });
+			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", poDocument: undefined });
 			setStages([]);
 			setEmails([]);
 			setPhoneNumbers([]);
@@ -768,7 +775,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status);
+		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status, formData.poNumber, formData.poDocument);
 		onOpenChange(false);
 	};
 
@@ -989,6 +996,79 @@ export function ProjectDialog({
 												<SelectItem value="cancelled">Cancelled</SelectItem>
 											</SelectContent>
 										</Select>
+									</div>
+								</div>
+								
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<Label htmlFor="poNumber">PO Number</Label>
+										<Input
+											id="poNumber"
+											value={formData.poNumber}
+											onChange={(e) => setFormData({ ...formData, poNumber: e.target.value })}
+											placeholder="Enter PO Number"
+										/>
+									</div>
+									<div className="grid gap-2">
+										<Label htmlFor="poDocument">Upload PO Document (Optional)</Label>
+										<div 
+											className={`flex justify-center px-6 py-4 border-2 border-dashed rounded-md transition-colors h-[104px]
+											${isDraggingPO ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50'}`}
+											onDragOver={(e) => { e.preventDefault(); setIsDraggingPO(true); }}
+											onDragLeave={(e) => { e.preventDefault(); setIsDraggingPO(false); }}
+											onDrop={(e) => {
+												e.preventDefault();
+												setIsDraggingPO(false);
+												const file = e.dataTransfer.files?.[0];
+												if (file) setFormData({ ...formData, poDocument: file });
+											}}
+										>
+											<div className="space-y-1 text-center">
+												{formData.poDocument ? (
+													<div className="flex flex-col items-center justify-center h-full">
+														<div className="flex items-center gap-2">
+															<FileIcon className="h-6 w-6 text-primary" />
+															<div className="text-left">
+																<p className="text-sm font-medium max-w-[120px] truncate">{formData.poDocument.name}</p>
+																<p className="text-xs text-muted-foreground">{(formData.poDocument.size / 1024 / 1024).toFixed(2)} MB</p>
+															</div>
+															<Button 
+																type="button" 
+																variant="ghost" 
+																size="sm" 
+																className="text-destructive hover:text-destructive h-8 px-2 ml-2"
+																onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, poDocument: undefined }); }}
+															>
+																<X className="h-4 w-4" />
+															</Button>
+														</div>
+													</div>
+												) : (
+													<>
+														<UploadCloud className="mx-auto h-6 w-6 text-muted-foreground" />
+														<div className="flex justify-center text-xs text-muted-foreground">
+															<label
+																htmlFor="poDocument"
+																className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+															>
+																<span>Upload a file</span>
+																<Input
+																	id="poDocument"
+																	type="file"
+																	className="sr-only"
+																	onChange={(e) => {
+																		const file = e.target.files?.[0];
+																		if (file) setFormData({ ...formData, poDocument: file });
+																	}}
+																/>
+															</label>
+															<p className="pl-1 hidden sm:block">or drag and drop</p>
+														</div>
+														<p className="text-[10px] text-muted-foreground hidden sm:block">PDF, PNG, JPG up to 10MB</p>
+													</>
+												)}
+											</div>
+										</div>
 									</div>
 								</div>
 							</div>

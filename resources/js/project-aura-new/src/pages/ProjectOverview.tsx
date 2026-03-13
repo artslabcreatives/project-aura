@@ -7,7 +7,7 @@ import { Task } from "@/types/task";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe, ArrowLeft } from "lucide-react";
+import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe, ArrowLeft, Lock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { POUploadDialog } from "@/components/POUploadDialog";
 
 export default function ProjectOverview() {
     const { projectId } = useParams<{ projectId: string }>();
@@ -27,6 +28,7 @@ export default function ProjectOverview() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
     const navigate = useNavigate();
@@ -186,6 +188,34 @@ export default function ProjectOverview() {
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
                         <h1 className="text-4xl font-bold tracking-tight">{project.name}</h1>
+                        {project.isLockedByPo ? (
+                            <div className="flex items-center gap-2">
+                                <Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-500 hover:bg-red-600 border-none px-2 h-6 flex items-center gap-1">
+                                    <Lock className="h-3 w-3" /> Awaiting PO
+                                </Badge>
+                                {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-6 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                                        onClick={() => setIsPOUploadOpen(true)}
+                                    >
+                                        Upload PO
+                                    </Button>
+                                )}
+                            </div>
+                        ) : project.poDocumentUrl ? (
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-6 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+                                    onClick={() => window.open(project.poDocumentUrl, '_blank')}
+                                >
+                                    View PO
+                                </Button>
+                            </div>
+                        ) : null}
                         {canChangeStatus ? (
                             <Select
                                 value={project.status || 'active'}
@@ -421,6 +451,13 @@ export default function ProjectOverview() {
                     </div>
                 </CardContent>
             </Card>
+
+            <POUploadDialog
+                open={isPOUploadOpen}
+                onOpenChange={setIsPOUploadOpen}
+                project={project}
+                onSuccess={(updatedProject) => setProject(updatedProject)}
+            />
         </div>
     );
 }

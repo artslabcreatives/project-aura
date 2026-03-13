@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -38,9 +38,8 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-
 import { Skeleton } from "@/components/ui/skeleton";
+import { POUploadDialog } from "@/components/POUploadDialog";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -150,6 +149,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
 	const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 	const [isReviewTaskDialogOpen, setIsReviewTaskDialogOpen] = useState(false);
+	const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
 	const [reviewTask, setReviewTask] = useState<Task | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
@@ -731,6 +731,34 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 										Blocked
 									</Badge>
 								)}
+								{project.isLockedByPo ? (
+									<div className="flex items-center gap-2">
+										<Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-500 hover:bg-red-600 border-none px-2 h-5 flex items-center gap-1">
+											<Lock className="h-3 w-3" /> Awaiting PO
+										</Badge>
+										{(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+											<Button 
+												variant="outline" 
+												size="sm" 
+												className="h-5 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+												onClick={() => setIsPOUploadOpen(true)}
+											>
+												Upload PO
+											</Button>
+										)}
+									</div>
+								) : project.poDocumentUrl ? (
+									<div className="flex items-center gap-2">
+										<Button 
+											variant="outline" 
+											size="sm" 
+											className="h-5 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+											onClick={() => window.open(project.poDocumentUrl, '_blank')}
+										>
+											View PO
+										</Button>
+									</div>
+								) : null}
 								{project.isArchived && (
 									<Badge variant="secondary" className="text-xs font-normal">
 										Archived
@@ -765,7 +793,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 										View History
 									</Button>
-									{!project.isArchived && project.status !== 'on-hold' && (
+									{!project.isArchived && project.status !== 'on-hold' && !project.isLockedByPo && (
 										<>
 											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
 												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
@@ -915,6 +943,13 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<POUploadDialog
+				open={isPOUploadOpen}
+				onOpenChange={setIsPOUploadOpen}
+				project={project}
+				onSuccess={(updatedProject) => setProject(updatedProject)}
+			/>
 		</div>
 	);
 }

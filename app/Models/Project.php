@@ -28,6 +28,9 @@ class Project extends Model
         'client_id',
         'estimated_hours',
         'status',
+        'po_number',
+        'po_document',
+        'is_locked_by_po',
     ];
 
     protected $casts = [
@@ -35,7 +38,28 @@ class Project extends Model
         'phone_numbers' => 'array',
         'deadline' => 'date',
         'is_archived' => 'boolean',
+        'is_locked_by_po' => 'boolean',
     ];
+
+    protected $appends = [
+        'po_document_url',
+    ];
+
+    /**
+     * Get the full URL to the PO document.
+     */
+    public function getPoDocumentUrlAttribute()
+    {
+        if (!$this->po_document) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->po_document);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
 
 	/**
 	 * Get the indexable data array for the model.
@@ -51,6 +75,7 @@ class Project extends Model
 			'phone_numbers' => $this->phone_numbers,
 			'description' => $this->description,
 			'is_archived' => $this->is_archived,
+			'po_number' => $this->po_number,
 			'created_at' => $this->created_at->timestamp,
 		]);
 	}

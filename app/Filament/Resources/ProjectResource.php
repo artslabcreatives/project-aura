@@ -37,6 +37,29 @@ class ProjectResource extends Resource
                             ->searchable()
                             ->preload(),
                     ]),
+                Forms\Components\Section::make('Purchase Order Details')
+                    ->schema([
+                        Forms\Components\TextInput::make('po_number')
+                            ->label('PO Number')
+                            ->maxLength(255),
+                        Forms\Components\FileUpload::make('po_document')
+                            ->label('PO Document')
+                            ->disk('s3')
+                            ->directory('purchase-orders')
+                            ->visibility('public')
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                if ($state) {
+                                    $set('is_locked_by_po', false);
+                                } else {
+                                    $set('is_locked_by_po', true);
+                                }
+                            }),
+                        Forms\Components\Toggle::make('is_locked_by_po')
+                            ->label('Locked (Awaiting PO)')
+                            ->default(true),
+                    ])
+                    ->columns(2),
                 Forms\Components\Section::make('Contact Information')
                     ->schema([
                         Forms\Components\TagsInput::make('emails')
@@ -60,6 +83,13 @@ class ProjectResource extends Resource
                 Tables\Columns\TextColumn::make('department.name')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\IconColumn::make('is_locked_by_po')
+                    ->label('Locked')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('po_number')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('stages_count')
                     ->counts('stages')
                     ->label('Stages'),

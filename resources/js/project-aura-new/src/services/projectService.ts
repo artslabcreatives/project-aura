@@ -79,6 +79,10 @@ function mapProject(raw: any): Project {
 		estimatedHours: raw.estimated_hours,
 		status: raw.status,
 		client: raw.client,
+		poNumber: raw.po_number,
+		poDocument: raw.po_document,
+		poDocumentUrl: raw.po_document_url,
+		isLockedByPo: raw.is_locked_by_po,
 	};
 }
 
@@ -101,36 +105,92 @@ export const projectService = {
 	},
 
 	create: async (project: any): Promise<Project> => {
-		// Backend expects department_id not nested object
-		const payload: any = {
-			name: project.name,
-			description: project.description,
-			department_id: project.department ? parseInt(project.department.id, 10) : null,
-			emails: project.emails,
-			phone_numbers: project.phoneNumbers,
-			project_group_id: project.group ? parseInt(project.group.id, 10) : null,
-			client_id: project.client_id,
-			estimated_hours: project.estimated_hours,
-			status: project.status,
-		};
-		const { data } = await api.post('/projects', payload);
+		const isFormData = project.po_document instanceof File;
+		
+		let payload: any;
+		if (isFormData) {
+			payload = new FormData();
+			payload.append('name', project.name || '');
+			payload.append('description', project.description || '');
+			if (project.department?.id) payload.append('department_id', String(project.department.id));
+			if (project.group?.id) payload.append('project_group_id', String(project.group.id));
+			if (project.client_id) payload.append('client_id', String(project.client_id));
+			if (project.estimated_hours) payload.append('estimated_hours', String(project.estimated_hours));
+			if (project.status) payload.append('status', String(project.status));
+			if (project.po_number) payload.append('po_number', String(project.po_number));
+			if (project.po_document) payload.append('po_document', project.po_document);
+			
+			// Append arrays
+			project.emails?.forEach((email: string) => payload.append('emails[]', email));
+			project.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+		} else {
+			payload = {
+				name: project.name,
+				description: project.description,
+				department_id: project.department ? parseInt(project.department.id, 10) : null,
+				emails: project.emails,
+				phone_numbers: project.phoneNumbers,
+				project_group_id: project.group ? parseInt(project.group.id, 10) : null,
+				client_id: project.client_id,
+				estimated_hours: project.estimated_hours,
+				status: project.status,
+				po_number: project.po_number,
+			};
+		}
+
+		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
+		const { data } = await api.post('/projects', payload, config);
 		return mapProject(data);
 	},
 
 	update: async (id: string, updates: any): Promise<Project> => {
-		const payload: any = {
-			name: updates.name,
-			description: updates.description,
-			department_id: updates.department ? parseInt(updates.department.id, 10) : undefined,
-			emails: updates.emails,
-			phone_numbers: updates.phoneNumbers,
-			project_group_id: updates.group === null ? null : (updates.group ? parseInt(updates.group.id, 10) : undefined),
-			is_archived: updates.isArchived,
-			client_id: updates.client_id,
-			estimated_hours: updates.estimated_hours,
-			status: updates.status,
-		};
-		const { data } = await api.put(`/projects/${id}`, payload);
+		const isFormData = updates.po_document instanceof File;
+
+		let payload: any;
+		if (isFormData) {
+			payload = new FormData();
+			payload.append('_method', 'PUT');
+			if (updates.name !== undefined) payload.append('name', updates.name);
+			if (updates.description !== undefined) payload.append('description', updates.description || '');
+			if (updates.department?.id) payload.append('department_id', String(updates.department.id));
+			if (updates.group === null) payload.append('project_group_id', '');
+			else if (updates.group?.id) payload.append('project_group_id', String(updates.group.id));
+			if (updates.isArchived !== undefined) payload.append('is_archived', updates.isArchived ? '1' : '0');
+			
+			// Fix null/undefined numeric relationships so Laravel validation passes
+			if (updates.client_id !== undefined && updates.client_id !== null && updates.client_id !== '') {
+				payload.append('client_id', String(updates.client_id));
+			}
+			if (updates.estimated_hours !== undefined && updates.estimated_hours !== null && updates.estimated_hours !== '') {
+				payload.append('estimated_hours', String(updates.estimated_hours));
+			}
+
+			if (updates.status !== undefined) payload.append('status', updates.status);
+			if (updates.po_number !== undefined) payload.append('po_number', updates.po_number);
+			if (updates.po_document !== undefined) payload.append('po_document', updates.po_document);
+
+			// Append arrays
+			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
+			updates.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+		} else {
+			payload = {
+				name: updates.name,
+				description: updates.description,
+				department_id: updates.department ? parseInt(updates.department.id, 10) : undefined,
+				emails: updates.emails,
+				phone_numbers: updates.phoneNumbers,
+				project_group_id: updates.group === null ? null : (updates.group ? parseInt(updates.group.id, 10) : undefined),
+				is_archived: updates.isArchived,
+				client_id: updates.client_id,
+				estimated_hours: updates.estimated_hours,
+				status: updates.status,
+				po_number: updates.po_number,
+			};
+		}
+
+		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
+		const method = isFormData ? 'post' : 'put';
+		const { data } = await api[method](`/projects/${id}`, payload, config);
 		return mapProject(data);
 	},
 

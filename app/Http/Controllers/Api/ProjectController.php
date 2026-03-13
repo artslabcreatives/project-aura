@@ -117,7 +117,15 @@ class ProjectController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'estimated_hours' => 'nullable|integer',
             'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
+            'po_number' => 'nullable|string|max:255',
+            'po_document' => 'nullable|file|max:10240', // Max 10MB
         ]);
+
+        if ($request->hasFile('po_document')) {
+            $path = $request->file('po_document')->store('purchase-orders', 's3');
+            $validated['po_document'] = $path;
+            $validated['is_locked_by_po'] = false;
+        }
 
         $project = Project::create($validated);
 
@@ -215,20 +223,37 @@ class ProjectController extends Controller
     )]
     public function update(Request $request, Project $project): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'department_id' => 'nullable|exists:departments,id',
-            'emails' => 'nullable|array',
-            'emails.*' => 'email',
-            'phone_numbers' => 'nullable|array',
-            'phone_numbers.*' => 'string',
-            'project_group_id' => 'nullable|exists:project_groups,id',
-            'is_archived' => 'nullable|boolean',
-            'client_id' => 'nullable|exists:clients,id',
-            'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'sometimes|required|string|max:255',
+                'description' => 'nullable|string',
+                'department_id' => 'nullable|exists:departments,id',
+                'emails' => 'nullable|array',
+                'emails.*' => 'email',
+                'phone_numbers' => 'nullable|array',
+                'phone_numbers.*' => 'string',
+                'project_group_id' => 'nullable|exists:project_groups,id',
+                'is_archived' => 'nullable|boolean',
+                'client_id' => 'nullable|exists:clients,id',
+                'estimated_hours' => 'nullable|integer',
+                'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
+                'po_number' => 'nullable|string|max:255',
+                'po_document' => 'nullable|file|max:10240',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Project update validation failed', [
+                'errors' => $e->errors(),
+                'input' => $request->all(),
+                'method' => $request->method(),
+            ]);
+            throw $e;
+        }
+
+        if ($request->hasFile('po_document')) {
+            $path = $request->file('po_document')->store('purchase-orders', 's3');
+            $validated['po_document'] = $path;
+            $validated['is_locked_by_po'] = false;
+        }
 
         $wasArchived = $project->is_archived;
         $project->update($validated);
