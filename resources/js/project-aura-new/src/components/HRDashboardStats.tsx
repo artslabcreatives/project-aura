@@ -1,22 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderKanban, Activity, CalendarClock, AlertTriangle } from "lucide-react";
+import { FolderKanban, Activity, CalendarClock, AlertTriangle, AlertCircle } from "lucide-react";
 import { Project } from "@/types/project";
 import { isWithinInterval, addDays, startOfDay, parseISO } from "date-fns";
 
 interface HRDashboardStatsProps {
     projects: Project[];
-    onCardClick?: (type: 'total' | 'active' | 'upcoming' | 'missing', title: string) => void;
+    onCardClick?: (type: 'total' | 'active' | 'on-hold' | 'upcoming' | 'missing', title: string) => void;
 }
 
 export function HRDashboardStats({ projects, onCardClick }: HRDashboardStatsProps) {
     const totalProjects = projects.length;
-    const activeProjects = projects.filter(p => p.status === 'active').length;
+    const activeProjects = projects.filter(p => p.status === 'active' && !p.isArchived).length;
+    const onHoldProjects = projects.filter(p => p.status === 'on-hold' && !p.isArchived).length;
     
     const today = startOfDay(new Date());
     const fourteenDaysFromNow = addDays(today, 14);
     
     const upcomingDeadlines = projects.filter(p => {
-        if (!p.deadline) return false;
+        if (!p.deadline || p.isArchived || p.status === 'on-hold') return false;
         try {
             const deadlineDate = parseISO(p.deadline);
             return isWithinInterval(deadlineDate, { start: today, end: fourteenDaysFromNow });
@@ -47,13 +48,22 @@ export function HRDashboardStats({ projects, onCardClick }: HRDashboardStatsProp
             description: "Currently ongoing"
         },
         {
+            type: 'on-hold' as const,
+            title: "On Hold",
+            value: onHoldProjects,
+            icon: AlertCircle,
+            iconColor: "text-blue-400",
+            bgColor: "bg-blue-400/10",
+            description: "Projects paused"
+        },
+        {
             type: 'upcoming' as const,
             title: "Upcoming Deadlines",
             value: upcomingDeadlines,
             icon: CalendarClock,
             iconColor: "text-amber-500",
             bgColor: "bg-amber-500/10",
-            description: "Next 14 days"
+            description: "Excludes on-hold"
         },
         {
             type: 'missing' as const,
@@ -67,7 +77,7 @@ export function HRDashboardStats({ projects, onCardClick }: HRDashboardStatsProp
     ];
 
     return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {stats.map((stat) => (
                 <Card 
                     key={stat.title} 

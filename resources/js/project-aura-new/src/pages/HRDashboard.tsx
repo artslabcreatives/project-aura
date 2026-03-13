@@ -16,7 +16,7 @@ const HRDashboard = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'summary' | 'project-list'>('summary');
-    const [filterType, setFilterType] = useState<'total' | 'active' | 'upcoming' | 'missing' | null>(null);
+    const [filterType, setFilterType] = useState<'total' | 'active' | 'on-hold' | 'upcoming' | 'missing' | null>(null);
     const [filterTitle, setFilterTitle] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const navigate = useNavigate();
@@ -45,8 +45,9 @@ const HRDashboard = () => {
 
         if (filterType === 'total') matchesType = true;
         else if (filterType === 'active') matchesType = p.status === 'active';
+        else if (filterType === 'on-hold') matchesType = p.status === 'on-hold';
         else if (filterType === 'upcoming') {
-            if (!p.deadline) matchesType = false;
+            if (!p.deadline || p.status === 'on-hold') matchesType = false;
             else {
                 try {
                     const deadlineDate = parseISO(p.deadline);
@@ -68,7 +69,7 @@ const HRDashboard = () => {
         return true;
     });
 
-    const handleCardClick = (type: 'total' | 'active' | 'upcoming' | 'missing', title: string) => {
+    const handleCardClick = (type: 'total' | 'active' | 'on-hold' | 'upcoming' | 'missing', title: string) => {
         setFilterType(type);
         setFilterTitle(title);
         setSearchQuery("");

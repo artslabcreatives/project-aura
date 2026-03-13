@@ -29,7 +29,9 @@ export function DeadlineCalendar({ projects }: DeadlineCalendarProps) {
 
     const getProjectsForDate = (date: Date) => {
         return projects.filter(project =>
-            project.deadline && isSameDay(parseISO(project.deadline), date)
+            project.deadline && 
+            project.status !== 'on-hold' &&
+            isSameDay(parseISO(project.deadline), date)
         );
     };
 
