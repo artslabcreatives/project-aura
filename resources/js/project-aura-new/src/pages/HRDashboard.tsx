@@ -194,8 +194,8 @@ const HRDashboard = () => {
                                                     {project.name}
                                                 </h4>
                                                 <div className="flex items-center gap-3">
-                                                    <Badge variant="outline" className="text-[11px] uppercase font-black tracking-[0.1em] py-0.5 px-3 h-6 border-white/10 bg-white/5 text-muted-foreground">
-                                                        {project.status || 'Active'}
+                                                    <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest py-0.5 px-3 h-6 border-white/10 bg-white/5 text-muted-foreground whitespace-nowrap w-fit">
+                                                        {(project.status || 'Active').replace('-', ' ')}
                                                     </Badge>
                                                     {project.client?.company_name && (
                                                         <span className="text-sm font-semibold text-muted-foreground truncate opacity-70">
