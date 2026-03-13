@@ -259,58 +259,58 @@ export default function ProjectOverview() {
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20">
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 flex flex-col">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                             <Clock className="h-4 w-4 text-indigo-500" />
                             Estimated Hours
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{project.estimatedHours || 0}h</div>
+                    <CardContent className="flex-1 flex flex-col justify-center">
+                        <div className="text-4xl font-black tracking-tighter">{project.estimatedHours || 0}h</div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-md bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20">
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20 flex flex-col">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                             Completion
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="text-3xl font-bold">{progress}%</div>
+                    <CardContent className="flex-1 flex flex-col justify-center space-y-3">
+                        <div className="text-4xl font-black tracking-tighter">{progress}%</div>
                         <Progress value={progress} className="h-2" />
-                        <p className="text-xs text-muted-foreground">
-                            {completedTasks} of {totalTasks} tasks finished
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">
+                            {completedTasks} / {totalTasks} tasks finished
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-md bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20">
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20 flex flex-col">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-amber-500" />
                             Created On
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
+                    <CardContent className="flex-1 flex flex-col justify-center">
+                        <div className="text-3xl font-black tracking-tighter">
                             {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}
                         </div>
                     </CardContent>
                 </Card>
 
                 {canSeeClientInfo && (
-                    <Card className="border-none shadow-md bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20">
+                    <Card className="h-full border-none shadow-md bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20 flex flex-col">
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-pink-500" />
                                 Client
-                            </CardTitle>
+                              </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xl font-bold truncate">
+                        <CardContent className="flex-1 flex flex-col justify-center">
+                            <div className="text-xl font-black tracking-tight line-clamp-2">
                                 {project.client?.company_name || 'Internal Project'}
                             </div>
                         </CardContent>
