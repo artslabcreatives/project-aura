@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { POUploadDialog } from "@/components/POUploadDialog";
+import { POViewDialog } from "@/components/POViewDialog";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -150,6 +151,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 	const [isReviewTaskDialogOpen, setIsReviewTaskDialogOpen] = useState(false);
 	const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
+	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
 	const [reviewTask, setReviewTask] = useState<Task | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
@@ -753,7 +755,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 											variant="outline" 
 											size="sm" 
 											className="h-5 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
-											onClick={() => window.open(project.poDocumentUrl, '_blank')}
+											onClick={() => setIsPOViewOpen(true)}
 										>
 											View PO
 										</Button>
@@ -949,6 +951,13 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				onOpenChange={setIsPOUploadOpen}
 				project={project}
 				onSuccess={(updatedProject) => setProject(updatedProject)}
+			/>
+
+			<POViewDialog
+				open={isPOViewOpen}
+				onOpenChange={setIsPOViewOpen}
+				url={project.poDocumentUrl || ""}
+				poNumber={project.poNumber}
 			/>
 		</div>
 	);

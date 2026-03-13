@@ -55,9 +55,15 @@ class Project extends Model
         }
 
         try {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->po_document);
+            // Use temporaryUrl to handle private S3 objects securely
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl(
+                $this->po_document, 
+                now()->addMinutes(60)
+            );
         } catch (\Exception $e) {
-            return null;
+            // Fallback to plain URL if temporaryUrl is not supported by the driver configuration
+            // though for S3 it usually is.
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->po_document);
         }
     }
 

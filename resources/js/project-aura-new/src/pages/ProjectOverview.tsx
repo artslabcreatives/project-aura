@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { POUploadDialog } from "@/components/POUploadDialog";
+import { POViewDialog } from "@/components/POViewDialog";
 
 export default function ProjectOverview() {
     const { projectId } = useParams<{ projectId: string }>();
@@ -29,6 +30,7 @@ export default function ProjectOverview() {
     const [loading, setLoading] = useState(true);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
+    const [isPOViewOpen, setIsPOViewOpen] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
     const navigate = useNavigate();
@@ -210,7 +212,7 @@ export default function ProjectOverview() {
                                     variant="outline" 
                                     size="sm" 
                                     className="h-6 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
-                                    onClick={() => window.open(project.poDocumentUrl, '_blank')}
+                                    onClick={() => setIsPOViewOpen(true)}
                                 >
                                     View PO
                                 </Button>
@@ -457,6 +459,13 @@ export default function ProjectOverview() {
                 onOpenChange={setIsPOUploadOpen}
                 project={project}
                 onSuccess={(updatedProject) => setProject(updatedProject)}
+            />
+
+            <POViewDialog
+                open={isPOViewOpen}
+                onOpenChange={setIsPOViewOpen}
+                url={project.poDocumentUrl || ""}
+                poNumber={project.poNumber}
             />
         </div>
     );
