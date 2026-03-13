@@ -22,6 +22,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { POUploadDialog } from "@/components/POUploadDialog";
 import { POViewDialog } from "@/components/POViewDialog";
+import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 
 export default function ProjectOverview() {
     const { projectId } = useParams<{ projectId: string }>();
@@ -31,6 +32,7 @@ export default function ProjectOverview() {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
     const [isPOViewOpen, setIsPOViewOpen] = useState(false);
+    const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
     const [isEditingDeadline, setIsEditingDeadline] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
@@ -141,6 +143,13 @@ export default function ProjectOverview() {
 
     const handleStatusChange = async (newStatus: string) => {
         if (!project) return;
+
+        // Trigger Invoice upload if status changed to completed
+        if (newStatus === 'completed' && (currentUser?.role === 'hr' || currentUser?.role === 'admin')) {
+            setIsInvoiceUploadOpen(true);
+            return;
+        }
+
         setIsUpdatingStatus(true);
         try {
             const updatedProject = await projectService.update(String(project.id), {
@@ -216,6 +225,27 @@ export default function ProjectOverview() {
                                     onClick={() => setIsPOViewOpen(true)}
                                 >
                                     View PO
+                                </Button>
+                                {project.invoiceDocumentUrl && (
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                        onClick={() => window.open(project.invoiceDocumentUrl, '_blank')}
+                                    >
+                                        View Invoice
+                                    </Button>
+                                )}
+                            </div>
+                        ) : project.invoiceDocumentUrl ? (
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                    onClick={() => window.open(project.invoiceDocumentUrl, '_blank')}
+                                >
+                                    View Invoice
                                 </Button>
                             </div>
                         ) : null}
@@ -517,6 +547,18 @@ export default function ProjectOverview() {
                 onOpenChange={setIsPOViewOpen}
                 url={project.poDocumentUrl || ""}
                 poNumber={project.poNumber}
+            />
+
+            <InvoiceUploadDialog
+                open={isInvoiceUploadOpen}
+                onOpenChange={setIsInvoiceUploadOpen}
+                project={project}
+                onSuccess={(updatedProject) => {
+                    setProject(updatedProject);
+                    // Optionally force status to completed if it wasn't already updated by the dialog's save logic
+                    // The projectService.update inside the dialog should handle fields, 
+                    // but we might want to ensure the status is 'completed' there too.
+                }}
             />
         </div>
     );

@@ -26,4 +26,7 @@ export interface Project {
 	poDocumentUrl?: string;
 	isLockedByPo?: boolean;
 	deadline?: string;
+	invoiceNumber?: string;
+	invoiceDocument?: string;
+	invoiceDocumentUrl?: string;
 }

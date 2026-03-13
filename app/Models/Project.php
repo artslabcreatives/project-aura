@@ -31,6 +31,8 @@ class Project extends Model
         'po_number',
         'po_document',
         'is_locked_by_po',
+        'invoice_number',
+        'invoice_document',
     ];
 
     protected $casts = [
@@ -43,6 +45,7 @@ class Project extends Model
 
     protected $appends = [
         'po_document_url',
+        'invoice_document_url',
     ];
 
     /**
@@ -50,20 +53,33 @@ class Project extends Model
      */
     public function getPoDocumentUrlAttribute()
     {
-        if (!$this->po_document) {
+        return $this->getStoreUrl($this->po_document);
+    }
+
+    /**
+     * Get the full URL to the invoice document.
+     */
+    public function getInvoiceDocumentUrlAttribute()
+    {
+        return $this->getStoreUrl($this->invoice_document);
+    }
+
+    /**
+     * Helper to get temporary or plain URL from S3.
+     */
+    protected function getStoreUrl($path)
+    {
+        if (!$path) {
             return null;
         }
 
         try {
-            // Use temporaryUrl to handle private S3 objects securely
             return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl(
-                $this->po_document, 
+                $path, 
                 now()->addMinutes(60)
             );
         } catch (\Exception $e) {
-            // Fallback to plain URL if temporaryUrl is not supported by the driver configuration
-            // though for S3 it usually is.
-            return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->po_document);
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
         }
     }
 
@@ -82,6 +98,7 @@ class Project extends Model
 			'description' => $this->description,
 			'is_archived' => $this->is_archived,
 			'po_number' => $this->po_number,
+			'invoice_number' => $this->invoice_number,
 			'created_at' => $this->created_at->timestamp,
 		]);
 	}

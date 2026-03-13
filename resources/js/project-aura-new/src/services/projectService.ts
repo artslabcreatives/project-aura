@@ -84,6 +84,9 @@ function mapProject(raw: any): Project {
 		poDocumentUrl: raw.po_document_url,
 		isLockedByPo: raw.is_locked_by_po,
 		deadline: raw.deadline,
+		invoiceNumber: raw.invoice_number,
+		invoiceDocument: raw.invoice_document,
+		invoiceDocumentUrl: raw.invoice_document_url,
 	};
 }
 
@@ -138,6 +141,8 @@ export const projectService = {
 				status: project.status,
 				po_number: project.po_number,
 				deadline: project.deadline,
+				invoice_number: project.invoice_number,
+				invoice_document: project.invoice_document,
 			};
 		}
 
@@ -172,6 +177,8 @@ export const projectService = {
 			if (updates.po_number !== undefined) payload.append('po_number', updates.po_number);
 			if (updates.deadline !== undefined) payload.append('deadline', updates.deadline);
 			if (updates.po_document !== undefined) payload.append('po_document', updates.po_document);
+			if (updates.invoice_number !== undefined) payload.append('invoice_number', updates.invoice_number);
+			if (updates.invoice_document !== undefined) payload.append('invoice_document', updates.invoice_document);
 
 			// Append arrays
 			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
@@ -191,6 +198,8 @@ export const projectService = {
 				po_number: updates.po_number,
 				deadline: updates.deadline,
 				po_document: updates.po_document,
+				invoice_number: updates.invoice_number,
+				invoice_document: updates.invoice_document,
 			};
 		}
 

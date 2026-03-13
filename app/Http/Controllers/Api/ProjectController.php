@@ -120,12 +120,19 @@ class ProjectController extends Controller
             'po_number' => 'nullable|string|max:255',
             'deadline' => 'nullable|date',
             'po_document' => 'nullable|file|max:10240', // Max 10MB
+            'invoice_number' => 'nullable|string|max:255',
+            'invoice_document' => 'nullable|file|max:10240',
         ]);
 
         if ($request->hasFile('po_document')) {
             $path = $request->file('po_document')->store('purchase-orders', 's3');
             $validated['po_document'] = $path;
             $validated['is_locked_by_po'] = false;
+        }
+
+        if ($request->hasFile('invoice_document')) {
+            $path = $request->file('invoice_document')->store('invoices', 's3');
+            $validated['invoice_document'] = $path;
         }
 
         $project = Project::create($validated);
@@ -241,6 +248,8 @@ class ProjectController extends Controller
                 'po_number' => 'nullable|string|max:255',
                 'deadline' => 'nullable|date',
                 'po_document' => 'nullable', // Allow either file or base64 string
+                'invoice_number' => 'nullable|string|max:255',
+                'invoice_document' => 'nullable',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $fileError = 'no file';
@@ -288,6 +297,31 @@ class ProjectController extends Controller
                 }
             } catch (\Exception $e) {
                 \Log::error('Base64 PO upload failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        if ($request->hasFile('invoice_document')) {
+            $path = $request->file('invoice_document')->store('invoices', 's3');
+            $validated['invoice_document'] = $path;
+        } elseif ($request->filled('invoice_document') && is_string($request->invoice_document) && str_starts_with($request->invoice_document, 'data:')) {
+            try {
+                $base64data = $request->invoice_document;
+                $commaPos = strpos($base64data, ',');
+                if ($commaPos !== false) {
+                    $header = substr($base64data, 0, $commaPos);
+                    $data = base64_decode(substr($base64data, $commaPos + 1));
+                    
+                    $ext = 'pdf';
+                    if (str_contains($header, 'image/png')) $ext = 'png';
+                    elseif (str_contains($header, 'image/jpeg')) $ext = 'jpg';
+                    
+                    $filename = 'invoices/' . \Illuminate\Support\Str::random(40) . '.' . $ext;
+                    \Illuminate\Support\Facades\Storage::disk('s3')->put($filename, $data);
+                    
+                    $validated['invoice_document'] = $filename;
+                }
+            } catch (\Exception $e) {
+                \Log::error('Base64 Invoice upload failed', ['error' => $e->getMessage()]);
             }
         }
 
