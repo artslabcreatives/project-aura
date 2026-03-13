@@ -16,7 +16,11 @@ export function POViewDialog({ open, onOpenChange, url, poNumber }: POViewDialog
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl w-[90vw] h-[90vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent 
+                className="max-w-4xl w-[90vw] h-[90vh] flex flex-col p-0 overflow-hidden"
+                onPointerDownOutside={(e) => e.preventDefault()}
+                onInteractOutside={(e) => e.preventDefault()}
+            >
                 <DialogHeader className="p-4 border-b flex flex-row items-center justify-between space-y-0">
                     <div>
                         <DialogTitle className="text-xl font-bold">
