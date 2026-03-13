@@ -185,6 +185,7 @@ export const projectService = {
 				estimated_hours: updates.estimated_hours,
 				status: updates.status,
 				po_number: updates.po_number,
+				po_document: updates.po_document,
 			};
 		}
 

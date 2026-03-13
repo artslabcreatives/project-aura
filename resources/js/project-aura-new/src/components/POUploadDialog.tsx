@@ -26,9 +26,21 @@ export function POUploadDialog({ open, onOpenChange, project, onSuccess }: POUpl
         e.preventDefault();
         setIsUploading(true);
         try {
+            let poDocumentValue: any = poDocument;
+
+            if (poDocument instanceof File) {
+                // Read as base64 to bypass server /tmp full issue
+                poDocumentValue = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(poDocument);
+                });
+            }
+
             const updatedProject = await projectService.update(String(project.id), {
                 po_number: poNumber,
-                po_document: poDocument,
+                po_document: poDocumentValue,
             });
             onSuccess(updatedProject);
             onOpenChange(false);
