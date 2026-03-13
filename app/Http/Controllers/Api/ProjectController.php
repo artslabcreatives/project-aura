@@ -118,6 +118,7 @@ class ProjectController extends Controller
             'estimated_hours' => 'nullable|integer',
             'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
             'po_number' => 'nullable|string|max:255',
+            'deadline' => 'nullable|date',
             'po_document' => 'nullable|file|max:10240', // Max 10MB
         ]);
 
@@ -238,6 +239,7 @@ class ProjectController extends Controller
                 'estimated_hours' => 'nullable|integer',
                 'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
                 'po_number' => 'nullable|string|max:255',
+                'deadline' => 'nullable|date',
                 'po_document' => 'nullable', // Allow either file or base64 string
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {

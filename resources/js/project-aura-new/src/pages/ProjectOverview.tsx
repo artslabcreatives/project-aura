@@ -31,6 +31,7 @@ export default function ProjectOverview() {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
     const [isPOViewOpen, setIsPOViewOpen] = useState(false);
+    const [isEditingDeadline, setIsEditingDeadline] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
     const navigate = useNavigate();
@@ -258,7 +259,7 @@ export default function ProjectOverview() {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <Card className="h-full border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 flex flex-col">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -298,6 +299,56 @@ export default function ProjectOverview() {
                         <div className="text-3xl font-black tracking-tighter">
                             {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-rose-500/10 to-red-500/10 dark:from-rose-500/20 dark:to-red-500/20 flex flex-col">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-rose-500" />
+                            Deadline
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col justify-center">
+                        {canChangeStatus ? (
+                            <div className="flex flex-col gap-1">
+                                {isEditingDeadline || !project.deadline ? (
+                                    <input
+                                        type="date"
+                                        autoFocus={isEditingDeadline}
+                                        value={project.deadline || ""}
+                                        onBlur={() => setIsEditingDeadline(false)}
+                                        onChange={async (e) => {
+                                            const newDeadline = e.target.value;
+                                            try {
+                                                const updatedProject = await projectService.update(String(project.id), {
+                                                   ...project,
+                                                    deadline: newDeadline
+                                                });
+                                                setProject(updatedProject);
+                                                setIsEditingDeadline(false);
+                                                toast({ title: "Deadline Updated", description: "Project deadline has been updated successfully." });
+                                            } catch (error) {
+                                                toast({ title: "Error", description: "Failed to update deadline.", variant: "destructive" });
+                                            }
+                                        }}
+                                        className="bg-transparent border-none text-2xl font-black tracking-tighter focus:ring-0 p-0 w-full cursor-pointer hover:opacity-70 transition-opacity"
+                                    />
+                                ) : (
+                                    <div 
+                                        onClick={() => setIsEditingDeadline(true)}
+                                        className="text-3xl font-black tracking-tighter cursor-pointer hover:opacity-70 transition-opacity"
+                                    >
+                                        {new Date(project.deadline).toLocaleDateString()}
+                                    </div>
+                                )}
+                                {!project.deadline && !isEditingDeadline && <span className="text-[10px] uppercase font-bold text-muted-foreground/50">Set Deadline</span>}
+                            </div>
+                        ) : (
+                            <div className="text-3xl font-black tracking-tighter">
+                                {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

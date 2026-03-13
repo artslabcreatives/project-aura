@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -767,24 +767,32 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									</Badge>
 								)}
 							</h1>
-							<div
-								className="text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none"
-								dangerouslySetInnerHTML={{
-									__html: (() => {
-										const txt = document.createElement("textarea");
-										let val = project.description || '';
-										let lastVal = '';
-										let limit = 0;
-										while (val !== lastVal && limit < 5) {
-											lastVal = val;
-											txt.innerHTML = val;
-											val = txt.value;
-											limit++;
-										}
-										return val;
-									})()
-								}}
-							/>
+							<div className="flex items-center gap-4 mt-1 text-muted-foreground">
+								<div
+									className="prose prose-sm dark:prose-invert max-w-none line-clamp-1"
+									dangerouslySetInnerHTML={{
+										__html: (() => {
+											const txt = document.createElement("textarea");
+											let val = project.description || '';
+											let lastVal = '';
+											let limit = 0;
+											while (val !== lastVal && limit < 5) {
+												lastVal = val;
+												txt.innerHTML = val;
+												val = txt.value;
+												limit++;
+											}
+											return val;
+										})()
+									}}
+								/>
+								{project.deadline && (
+									<div className="flex items-center gap-1.5 text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full border border-rose-500/20">
+										<Calendar className="h-3 w-3" />
+										Deadline: {new Date(project.deadline).toLocaleDateString()}
+									</div>
+								)}
+							</div>
 						</div>
 						<div className="flex items-center gap-3">
 							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (

@@ -147,7 +147,7 @@ export function AppSidebar() {
 			setDepartments(departmentsData);
 			setProjectGroups(projectGroupsData);
 
-			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') {
+			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager' || userRole === 'hr') {
 				const usersData = await userService.getAll();
 				// Filter out System Admin accounts
 				setTeamMembers(usersData.filter((u: any) =>
@@ -283,6 +283,7 @@ export function AppSidebar() {
 		estimatedHours?: number,
 		status?: string,
 		poNumber?: string,
+		deadline?: string,
 		poDocument?: File
 	) => {
 		if (!currentUser) return;
@@ -299,6 +300,7 @@ export function AppSidebar() {
 				estimated_hours: estimatedHours,
 				status,
 				po_number: poNumber,
+				deadline: deadline,
 				po_document: poDocument,
 			});
 
@@ -406,6 +408,7 @@ export function AppSidebar() {
 		estimatedHours?: number,
 		status?: string,
 		poNumber?: string,
+		deadline?: string,
 		poDocument?: File
 	) => {
 		if (!currentUser || !projectToEdit) return;
@@ -420,6 +423,7 @@ export function AppSidebar() {
 				estimated_hours: estimatedHours,
 				status,
 				po_number: poNumber,
+				deadline: deadline,
 				po_document: poDocument,
 			});
 
@@ -1084,7 +1088,7 @@ export function AppSidebar() {
 						</NavLink>
 					</SidebarMenuButton>
 
-					{(userRole === 'admin' || userRole === 'team-lead') && (
+					{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
 						<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
@@ -1367,7 +1371,7 @@ export function AppSidebar() {
 					</SidebarGroup>
 				)}
 
-				{(userRole === "admin" || userRole === "team-lead" || userRole === "account-manager") && (
+				{(userRole === "admin" || userRole === "team-lead" || userRole === "account-manager" || userRole === "hr") && (
 					<SidebarGroup>
 						<Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
@@ -1378,7 +1382,7 @@ export function AppSidebar() {
 											}`}
 									/>
 								</CollapsibleTrigger>
-								{(userRole === 'admin' || userRole === 'team-lead') && (
+								{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
 									<Button
 										variant="ghost"
 										size="icon"

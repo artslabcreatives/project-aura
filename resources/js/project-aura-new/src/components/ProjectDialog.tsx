@@ -107,6 +107,7 @@ interface ProjectDialogProps {
 		estimatedHours?: number,
 		status?: string,
 		poNumber?: string,
+		deadline?: string,
 		poDocument?: File
 	) => Promise<void> | void;
 	existingProjects: string[];
@@ -453,13 +454,14 @@ export function ProjectDialog({
 }: ProjectDialogProps) {
 	const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
 	const { toast } = useToast();
-	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, poDocument?: File }>({
+	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, deadline?: string, poDocument?: File }>({
 		name: "",
 		description: "",
 		clientId: "",
 		estimatedHours: 0,
 		status: "active",
 		poNumber: "",
+		deadline: "",
 		poDocument: undefined,
 	});
 	const [clients, setClients] = useState<ClientType[]>([]);
@@ -549,6 +551,7 @@ export function ProjectDialog({
 					estimatedHours: editProject.estimatedHours || 0,
 					status: editProject.status || "active",
 					poNumber: editProject.poNumber || "",
+					deadline: editProject.deadline || "",
 					poDocument: undefined, // cannot prefill file inputs
 				});
 				setStages(editProject.stages || []);
@@ -573,7 +576,7 @@ export function ProjectDialog({
 			}
 		} else {
 			setGroupId("");
-			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", poDocument: undefined });
+			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", deadline: "", poDocument: undefined });
 			setStages([]);
 			setEmails([]);
 			setPhoneNumbers([]);
@@ -775,7 +778,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status, formData.poNumber, formData.poDocument);
+		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status, formData.poNumber, formData.deadline, formData.poDocument);
 		onOpenChange(false);
 	};
 
@@ -998,6 +1001,18 @@ export function ProjectDialog({
 										</Select>
 									</div>
 								</div>
+								
+								{canSeeClientInfo && (
+									<div className="grid gap-2">
+										<Label htmlFor="deadline">Project Deadline</Label>
+										<Input 
+											id="deadline" 
+											type="date" 
+											value={formData.deadline} 
+											onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} 
+										/>
+									</div>
+								)}
 								
 								<div className="grid grid-cols-2 gap-4">
 									<div className="grid gap-2">

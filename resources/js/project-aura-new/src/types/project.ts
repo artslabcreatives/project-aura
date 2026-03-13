@@ -25,4 +25,5 @@ export interface Project {
 	poDocument?: string;
 	poDocumentUrl?: string;
 	isLockedByPo?: boolean;
+	deadline?: string;
 }

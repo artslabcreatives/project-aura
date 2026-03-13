@@ -83,6 +83,7 @@ function mapProject(raw: any): Project {
 		poDocument: raw.po_document,
 		poDocumentUrl: raw.po_document_url,
 		isLockedByPo: raw.is_locked_by_po,
+		deadline: raw.deadline,
 	};
 }
 
@@ -118,6 +119,7 @@ export const projectService = {
 			if (project.estimated_hours) payload.append('estimated_hours', String(project.estimated_hours));
 			if (project.status) payload.append('status', String(project.status));
 			if (project.po_number) payload.append('po_number', String(project.po_number));
+			if (project.deadline) payload.append('deadline', project.deadline);
 			if (project.po_document) payload.append('po_document', project.po_document);
 			
 			// Append arrays
@@ -135,6 +137,7 @@ export const projectService = {
 				estimated_hours: project.estimated_hours,
 				status: project.status,
 				po_number: project.po_number,
+				deadline: project.deadline,
 			};
 		}
 
@@ -167,6 +170,7 @@ export const projectService = {
 
 			if (updates.status !== undefined) payload.append('status', updates.status);
 			if (updates.po_number !== undefined) payload.append('po_number', updates.po_number);
+			if (updates.deadline !== undefined) payload.append('deadline', updates.deadline);
 			if (updates.po_document !== undefined) payload.append('po_document', updates.po_document);
 
 			// Append arrays
@@ -185,6 +189,7 @@ export const projectService = {
 				estimated_hours: updates.estimated_hours,
 				status: updates.status,
 				po_number: updates.po_number,
+				deadline: updates.deadline,
 				po_document: updates.po_document,
 			};
 		}
