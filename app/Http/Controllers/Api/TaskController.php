@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Project;
 use App\Models\Task;
 use App\Events\TaskUpdated;
 use Illuminate\Http\Request;
@@ -142,6 +143,20 @@ class TaskController extends Controller
             $validated['assignee_id'] = $validated['assignee_ids'][0];
         } else if (!isset($validated['assignee_id'])) {
             $validated['assignee_id'] = $request->user()->id;
+        }
+
+        // PO Requirement Enforcement (Task 5): block task creation when project
+        // has no PO and no active grace period, or is manually blocked.
+        $project = Project::find($validated['project_id']);
+        if ($project && !$project->allowsTaskCreation()) {
+            $reason = $project->is_manually_blocked
+                ? 'This project is blocked and cannot accept new tasks.'
+                : 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.';
+
+            return response()->json([
+                'message' => $reason,
+                'project_status' => $project->is_manually_blocked ? 'blocked' : 'requires_po',
+            ], 403);
         }
 
         $task = Task::create($validated);
