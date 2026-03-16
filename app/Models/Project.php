@@ -29,6 +29,7 @@ class Project extends Model
         'estimate_id',
         'estimated_hours',
         'status',
+        'project_code',
     ];
 
     protected $casts = [
