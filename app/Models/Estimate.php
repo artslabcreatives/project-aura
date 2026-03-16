@@ -21,10 +21,32 @@ class Estimate extends Model
         'notes',
         'project_id',
         'created_by',
+        'issue_date',
+        'valid_until',
+        'currency',
+        'tax_rate',
+        'subtotal',
+        'tax_amount',
+        'total',
+    ];
+
+    protected $attributes = [
+        'status'   => 'draft',
+        'currency' => 'USD',
+        'tax_rate' => 0,
+        'subtotal' => 0,
+        'tax_amount' => 0,
+        'total'    => 0,
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
+        'amount'     => 'decimal:2',
+        'tax_rate'   => 'float',
+        'subtotal'   => 'float',
+        'tax_amount' => 'float',
+        'total'      => 'float',
+        'issue_date' => 'date',
+        'valid_until' => 'date',
     ];
 
     /**
@@ -49,5 +71,13 @@ class Estimate extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the line items for this estimate.
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(EstimateItem::class)->orderBy('sort_order');
     }
 }
