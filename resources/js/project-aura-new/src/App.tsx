@@ -13,6 +13,7 @@ import Team from "./pages/Team";
 import NotFound from "./pages/NotFound";
 import ProjectKanbanFixed from "./pages/ProjectKanbanFixed";
 import ProjectOverview from "./pages/ProjectOverview";
+import Emails from "./pages/Emails";
 import UserProjectStageTasks from "./pages/UserProjectStageTasks";
 import FilteredTasksPage from "./pages/FilteredTasksPage";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -322,6 +323,7 @@ const App = () => (
 									<AppLayout><ClientProfile /></AppLayout>
 								</ProtectedRoute>
 							} />
+							<Route path="/emails" element={<AppLayout><Emails /></AppLayout>} />
 
 							{/* Mattermost embedded routes (with /mattermost prefix) */}
 							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />

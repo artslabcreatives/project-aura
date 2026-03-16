@@ -47,6 +47,7 @@ Route::get('projects/search/email', [ProjectController::class, 'searchByEmail'])
 Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
 Route::get('users/search/exist', [UserController::class, 'exist']);
 Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Public avatar viewing
+Route::get('/zoho/callback', [\App\Http\Controllers\Api\ZohoMailController::class, 'handleCallback']);
 
 // Protected API routes (require bearer token)
 Route::middleware('auth:sanctum')->group(function () {
@@ -145,6 +146,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('clients/{client}/contacts', [App\Http\Controllers\Api\ClientController::class, 'storeContact']);
     Route::put('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'updateContact']);
     Route::delete('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'destroyContact']);
+
+    // Zoho Mail Integration
+    Route::prefix('zoho')->group(function () {
+        Route::get('/auth-url', [\App\Http\Controllers\Api\ZohoMailController::class, 'getAuthUrl']);
+        Route::get('/status', [\App\Http\Controllers\Api\ZohoMailController::class, 'getStatus']);
+        Route::get('/folders', [\App\Http\Controllers\Api\ZohoMailController::class, 'getFolders']);
+        Route::get('/folders/{folderId}/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'getMessages']);
+        Route::get('/folders/{folderId}/messages/{messageId}/content', [\App\Http\Controllers\Api\ZohoMailController::class, 'getMessageContent']);
+        Route::post('/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'sendMessage']);
+    });
 });
 
 // 2FA Verification during login
