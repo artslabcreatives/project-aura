@@ -52,6 +52,7 @@ export const EmailInbox: React.FC = () => {
 
   const handleFolderSelect = async (folderId: string) => {
     setSelectedFolder(folderId);
+    setSelectedMessageId(null);
     setCurrentPage(1);
     fetchMessages(folderId, 1);
   };
