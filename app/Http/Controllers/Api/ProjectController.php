@@ -115,8 +115,9 @@ class ProjectController extends Controller
             'phone_numbers.*' => 'string',
             'project_group_id' => 'nullable|exists:project_groups,id',
             'client_id' => 'nullable|exists:clients,id',
+            'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
         ]);
 
         $project = Project::create($validated);
@@ -226,8 +227,9 @@ class ProjectController extends Controller
             'project_group_id' => 'nullable|exists:project_groups,id',
             'is_archived' => 'nullable|boolean',
             'client_id' => 'nullable|exists:clients,id',
+            'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
         ]);
 
         $wasArchived = $project->is_archived;

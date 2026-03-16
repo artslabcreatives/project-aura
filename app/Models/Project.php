@@ -26,6 +26,7 @@ class Project extends Model
         'is_archived',
         'mattermost_channel_id',
         'client_id',
+        'estimate_id',
         'estimated_hours',
         'status',
     ];
@@ -69,6 +70,14 @@ class Project extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /**
+     * Get the originating estimate for this project.
+     */
+    public function estimate(): BelongsTo
+    {
+        return $this->belongsTo(Estimate::class);
     }
 
     /**

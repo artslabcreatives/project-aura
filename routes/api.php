@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\EstimateController;
 use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\RevisionHistoryController;
@@ -145,6 +146,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('clients/{client}/contacts', [App\Http\Controllers\Api\ClientController::class, 'storeContact']);
     Route::put('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'updateContact']);
     Route::delete('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'destroyContact']);
+
+    // Estimates
+    Route::apiResource('estimates', EstimateController::class);
 });
 
 // 2FA Verification during login
