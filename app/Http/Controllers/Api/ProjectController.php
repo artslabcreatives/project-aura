@@ -117,8 +117,24 @@ class ProjectController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
+            'po_number' => 'nullable|string|max:255',
+            'deadline' => 'nullable|date',
+            'po_document' => 'nullable|file|max:10240', // Max 10MB
+            'invoice_number' => 'nullable|string|max:255',
+            'invoice_document' => 'nullable|file|max:10240',
         ]);
+
+        if ($request->hasFile('po_document')) {
+            $path = $request->file('po_document')->store('purchase-orders', 's3');
+            $validated['po_document'] = $path;
+            $validated['is_locked_by_po'] = false;
+        }
+
+        if ($request->hasFile('invoice_document')) {
+            $path = $request->file('invoice_document')->store('invoices', 's3');
+            $validated['invoice_document'] = $path;
+        }
 
         $project = Project::create($validated);
 

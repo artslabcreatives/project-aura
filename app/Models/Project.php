@@ -37,7 +37,48 @@ class Project extends Model
         'phone_numbers' => 'array',
         'deadline' => 'date',
         'is_archived' => 'boolean',
+        'is_locked_by_po' => 'boolean',
     ];
+
+    protected $appends = [
+        'po_document_url',
+        'invoice_document_url',
+    ];
+
+    /**
+     * Get the full URL to the PO document.
+     */
+    public function getPoDocumentUrlAttribute()
+    {
+        return $this->getStoreUrl($this->po_document);
+    }
+
+    /**
+     * Get the full URL to the invoice document.
+     */
+    public function getInvoiceDocumentUrlAttribute()
+    {
+        return $this->getStoreUrl($this->invoice_document);
+    }
+
+    /**
+     * Helper to get temporary or plain URL from S3.
+     */
+    protected function getStoreUrl($path)
+    {
+        if (!$path) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl(
+                $path, 
+                now()->addMinutes(60)
+            );
+        } catch (\Exception $e) {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+        }
+    }
 
 	/**
 	 * Get the indexable data array for the model.
@@ -53,6 +94,8 @@ class Project extends Model
 			'phone_numbers' => $this->phone_numbers,
 			'description' => $this->description,
 			'is_archived' => $this->is_archived,
+			'po_number' => $this->po_number,
+			'invoice_number' => $this->invoice_number,
 			'created_at' => $this->created_at->timestamp,
 		]);
 	}

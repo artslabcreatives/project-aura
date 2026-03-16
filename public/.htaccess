@@ -1,4 +1,12 @@
 <IfModule mod_rewrite.c>
+    # Custom upload tmp dir workaround
+    <IfModule mod_php7.c>
+        php_value upload_tmp_dir /var/www/aura-staging/storage/app/tmp
+    </IfModule>
+    <IfModule mod_php.c>
+        php_value upload_tmp_dir /var/www/aura-staging/storage/app/tmp
+    </IfModule>
+    
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>

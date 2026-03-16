@@ -173,16 +173,17 @@ export function NotificationsPopover() {
                 });
 
                 // Desktop Push Notification
-                const savedSettings = localStorage.getItem('user_notifications');
-                if (savedSettings) {
-                    const settings = JSON.parse(savedSettings);
-                    if (settings.push && "Notification" in window && Notification.permission === "granted") {
+                const pushEnabled = currentUser?.preferences?.notifications?.push !== false;
+                
+                if (pushEnabled && "Notification" in window) {
+                    if (Notification.permission === "granted") {
                         try {
                             const n = new Notification(notification.title, {
                                 body: notification.message,
-                                icon: '/favicon.ico', // Adjust path if needed
-                                tag: notification.id // Prevent duplicates
-                            });
+                                icon: '/logo.png', 
+                                tag: notification.id,
+                                renotify: true,
+                            } as any);
                             n.onclick = function () {
                                 window.focus();
                                 handleNotificationClick({ ...newNotification, id: notification.id } as AppNotification);
@@ -249,12 +250,52 @@ export function NotificationsPopover() {
             <PopoverContent className="w-80 p-0" align="end">
                 <div className="flex items-center justify-between p-4 border-b">
                     <h4 className="font-semibold text-sm">Notifications</h4>
-                    {unreadCount > 0 && (
-                        <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs h-auto py-1 px-2">
-                            Mark all read
-                        </Button>
-                    )}
+                    <div className="flex gap-2">
+                        {unreadCount > 0 && (
+                            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs h-auto py-1 px-2">
+                                Mark all read
+                            </Button>
+                        )}
+                    </div>
                 </div>
+                
+                {/* Desktop Notification Prompt */}
+                {("Notification" in window) && Notification.permission !== "granted" && (
+                    <div className="bg-primary/5 p-3 border-b flex flex-col gap-2">
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                           {Notification.permission === 'denied' 
+                            ? "Notifications are blocked. Please allow them in your browser settings to receive popups."
+                            : "Enable desktop popups to never miss an update?"}
+                        </p>
+                        {Notification.permission !== 'denied' && (
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-[10px] w-fit" 
+                                onClick={async () => {
+                                    const permission = await Notification.requestPermission();
+                                    if (permission === "granted") {
+                                        toast({ title: "Notifications Enabled", description: "You will now receive desktop popups." });
+                                        // Trigger a test notification to confirm
+                                        new Notification("Notifications Enabled", {
+                                            body: "You've successfully enabled desktop popups for Aura.",
+                                            icon: '/logo.png'
+                                        });
+                                        setOpen(false); // Close popover to show success
+                                    } else {
+                                        toast({ 
+                                            title: "Permission Required", 
+                                            description: "Desktop popups were not enabled. Check browser settings.",
+                                            variant: "destructive"
+                                        });
+                                    }
+                                }}
+                            >
+                                Enable Desktop Popups
+                            </Button>
+                        )}
+                    </div>
+                )}
                 <ScrollArea className="h-[300px]">
                     {notifications.length === 0 ? (
                         <div className="p-8 text-center text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell, Mail } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -80,6 +80,7 @@ const mainMenuItems = [
 	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },
 	{ title: "Reminders", url: "/reminders", icon: Bell, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Clients", url: "/clients", icon: Building2, roles: ["admin", "hr"] },
+	{ title: "Emails", url: "/emails", icon: Mail, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 ];
 
 interface GroupedDepartment {
@@ -110,6 +111,7 @@ export function AppSidebar() {
 	// hoveredProject state removed in favor of CSS hover
 	const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
 	const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+	const [projectToArchive, setProjectToArchive] = useState<Project | null>(null);
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 	const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
 	const [isAssignGroupOpen, setIsAssignGroupOpen] = useState(false);
@@ -124,15 +126,15 @@ export function AppSidebar() {
 	const [projectToInvite, setProjectToInvite] = useState<Project | null>(null);
 	const [invitedProjectsOpen, setInvitedProjectsOpen] = useState(true);
 
+	const userRole = currentUser?.role;
 	const collaboratedProjects = useMemo(() => {
 		if (!currentUser) return [];
 		return projects.filter(project =>
 			!project.isArchived &&
+			(userRole === 'admin' || userRole === 'team-lead' || project.status !== 'on-hold') &&
 			project.collaborators?.some(c => String(c.id) === String(currentUser.id))
 		);
-	}, [projects, currentUser]);
-
-	const userRole = currentUser?.role;
+	}, [projects, currentUser, userRole]);
 
 	const fetchData = async () => {
 		if (!currentUser) return;
@@ -146,9 +148,13 @@ export function AppSidebar() {
 			setDepartments(departmentsData);
 			setProjectGroups(projectGroupsData);
 
-			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') {
+			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager' || userRole === 'hr') {
 				const usersData = await userService.getAll();
-				setTeamMembers(usersData);
+				// Filter out System Admin accounts
+				setTeamMembers(usersData.filter((u: any) =>
+					u.email !== 'system@artslabcreatives.com' &&
+					u.email !== 'systemadmin@artslabcreatives.com'
+				));
 			}
 
 			// Do NOT reset expanded departments here to avoid collapsing user view on refresh
@@ -201,7 +207,7 @@ export function AppSidebar() {
 				}
 
 				const assignedProjects = projectsData
-					.filter(project => userProjectStages.has(project.name) && !project.isArchived)
+					.filter(project => userProjectStages.has(project.name) && !project.isArchived && project.status !== 'on-hold')
 					.map(project => ({
 						...project,
 						stages: project.stages.filter(stage => {
@@ -225,8 +231,8 @@ export function AppSidebar() {
 				const currentDept = departmentsData.find(d => d.id === currentUser.department);
 				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 				const departmentProjects = projectsData.filter(project => {
-					// Exclude archived projects
-					if (project.isArchived) return false;
+					// Exclude archived and on-hold projects
+					if (project.isArchived || project.status === 'on-hold') return false;
 					const isOwnDepartment = String(project.department?.id) === String(currentUser.department);
 					const isDesignProject = isDigitalDept && project.department?.name.toLowerCase() === 'design';
 					return isOwnDepartment || isDesignProject;
@@ -276,7 +282,10 @@ export function AppSidebar() {
 		groupId?: string,
 		clientId?: string,
 		estimatedHours?: number,
-		status?: string
+		status?: string,
+		poNumber?: string,
+		deadline?: string,
+		poDocument?: File
 	) => {
 		if (!currentUser) return;
 		try {
@@ -291,6 +300,9 @@ export function AppSidebar() {
 				client_id: clientId ? parseInt(clientId) : undefined,
 				estimated_hours: estimatedHours,
 				status,
+				po_number: poNumber,
+				deadline: deadline,
+				po_document: poDocument,
 			});
 
 			// Fetch fresh project details to get any auto-created system stages
@@ -395,7 +407,10 @@ export function AppSidebar() {
 		groupId?: string,
 		clientId?: string,
 		estimatedHours?: number,
-		status?: string
+		status?: string,
+		poNumber?: string,
+		deadline?: string,
+		poDocument?: File
 	) => {
 		if (!currentUser || !projectToEdit) return;
 		try {
@@ -408,6 +423,9 @@ export function AppSidebar() {
 				client_id: clientId ? parseInt(clientId) : null,
 				estimated_hours: estimatedHours,
 				status,
+				po_number: poNumber,
+				deadline: deadline,
+				po_document: poDocument,
 			});
 
 			// Create any newly added stages (id not numeric)
@@ -652,9 +670,9 @@ export function AppSidebar() {
 					return hasMatchingDepartment || hasNoDepartment || hasSpecialPermission;
 				});
 			} else if (userRole === "account-manager" && currentUser) {
-				// Account Manager: Strict Department Only
+				// Account Manager: Strict Department Only + No On-hold
 				filteredProjects = projectList.filter(project => {
-					return project.department?.id === currentUser.department;
+					return project.department?.id === currentUser.department && project.status !== 'on-hold';
 				});
 			}
 
@@ -873,7 +891,9 @@ export function AppSidebar() {
 		return a.name.localeCompare(b.name);
 	});
 
-	const handleArchiveProject = async (project: Project) => {
+	const handleArchiveProject = async () => {
+		if (!projectToArchive) return;
+		const project = projectToArchive;
 		try {
 			await projectService.update(String(project.id), { isArchived: true });
 			setProjects(prev => prev.map(p => p.id === project.id ? { ...p, isArchived: true } : p));
@@ -884,6 +904,7 @@ export function AppSidebar() {
 			}));
 
 			toast({ title: "Project archived" });
+			setProjectToArchive(null);
 		} catch (error) {
 			toast({ title: "Failed to archive project", variant: "destructive" });
 		}
@@ -1057,13 +1078,18 @@ export function AppSidebar() {
 								{showGroup && project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
 							</span>
 							{roleBadge}
-							{(userRole === 'admin' || userRole === 'team-lead') && project.hasPendingTasks && (
-								<span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0 ml-auto" title="Has Pending Tasks" />
+							{project.status === 'on-hold' && (
+								<span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 border border-orange-200 dark:border-orange-800 shrink-0 ml-auto">
+									Blocked
+								</span>
+							)}
+							{project.hasOverdueTasks && (
+								<span className={`h-2 w-2 rounded-full bg-red-600 animate-pulse shrink-0 ${project.status !== 'on-hold' ? 'ml-auto' : 'ml-1'}`} title="Has Overdue Tasks" />
 							)}
 						</NavLink>
 					</SidebarMenuButton>
 
-					{(userRole === 'admin' || userRole === 'team-lead') && (
+					{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
 						<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
@@ -1077,52 +1103,56 @@ export function AppSidebar() {
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start" side="right" className="w-48">
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToEdit(project);
-											setIsProjectDialogOpen(true);
-										}}
-									>
-										<Pencil className="mr-2 h-4 w-4" />
-										<span>Edit Project</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToDuplicate(project);
-											setNewProjectName(`${project.name} (Copy)`);
-											setIsDuplicateDialogOpen(true);
-										}}
-									>
-										<Copy className="mr-2 h-4 w-4" />
-										<span>Duplicate Project</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToAssign(project);
-											setIsAssignGroupOpen(true);
-										}}
-									>
-										<FolderPlus className="mr-2 h-4 w-4" />
-										<span>Assign to Group</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToInvite(project);
-											setIsInviteDialogOpen(true);
-										}}
-									>
-										<UserPlus className="mr-2 h-4 w-4" />
-										<span>Invite Users</span>
-									</DropdownMenuItem>
+									{project.status !== 'on-hold' && (
+										<>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToEdit(project);
+													setIsProjectDialogOpen(true);
+												}}
+											>
+												<Pencil className="mr-2 h-4 w-4" />
+												<span>Edit Project</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToDuplicate(project);
+													setNewProjectName(`${project.name} (Copy)`);
+													setIsDuplicateDialogOpen(true);
+												}}
+											>
+												<Copy className="mr-2 h-4 w-4" />
+												<span>Duplicate Project</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToAssign(project);
+													setIsAssignGroupOpen(true);
+												}}
+											>
+												<FolderPlus className="mr-2 h-4 w-4" />
+												<span>Assign to Group</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
+													setProjectToInvite(project);
+													setIsInviteDialogOpen(true);
+												}}
+											>
+												<UserPlus className="mr-2 h-4 w-4" />
+												<span>Invite Users</span>
+											</DropdownMenuItem>
+										</>
+									)}
 									{!project.isArchived ? (
 										<DropdownMenuItem
 											onClick={(e) => {
 												e.stopPropagation();
-												handleArchiveProject(project);
+												setProjectToArchive(project);
 											}}
 										>
 											<Archive className="mr-2 h-4 w-4" />
@@ -1230,6 +1260,9 @@ export function AppSidebar() {
 																	{project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
 																</span>
 															</div>
+															{project.hasOverdueTasks && (
+																<span className="h-2 w-2 rounded-full bg-red-600 shrink-0 ml-1" title="Has Overdue Tasks" />
+															)}
 															<ChevronRight
 																className={`h-4 w-4 transition-transform ${expandedProjects.has(String(project.id)) ? "rotate-90" : ""
 																	}`}
@@ -1339,7 +1372,7 @@ export function AppSidebar() {
 					</SidebarGroup>
 				)}
 
-				{(userRole === "admin" || userRole === "team-lead" || userRole === "account-manager") && (
+				{(userRole === "admin" || userRole === "team-lead" || userRole === "account-manager" || userRole === "hr") && (
 					<SidebarGroup>
 						<Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
@@ -1350,7 +1383,7 @@ export function AppSidebar() {
 											}`}
 									/>
 								</CollapsibleTrigger>
-								{(userRole === 'admin' || userRole === 'team-lead') && (
+								{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
 									<Button
 										variant="ghost"
 										size="icon"
@@ -1545,6 +1578,23 @@ export function AppSidebar() {
 				onDeleteGroup={handleDeleteGroup}
 			/>
 
+			<AlertDialog open={!!projectToArchive} onOpenChange={(open) => !open && setProjectToArchive(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Archive Project</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to archive "{projectToArchive?.name}"? You can restore it later from the Archived Projects section.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={handleArchiveProject}>
+							Archive
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
 			<AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
@@ -1563,7 +1613,11 @@ export function AppSidebar() {
 			</AlertDialog>
 			<SidebarRail />
 			<Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
-				<DialogContent>
+				<DialogContent
+					onPointerDownOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+					onInteractOutside={(e) => e.preventDefault()}
+				>
 					<DialogHeader>
 						<DialogTitle>Duplicate Project</DialogTitle>
 						<DialogDescription>

@@ -7,7 +7,7 @@ import { Task } from "@/types/task";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe, ArrowLeft } from "lucide-react";
+import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe, ArrowLeft, Lock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { POUploadDialog } from "@/components/POUploadDialog";
+import { POViewDialog } from "@/components/POViewDialog";
+import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 
 export default function ProjectOverview() {
     const { projectId } = useParams<{ projectId: string }>();
@@ -27,6 +30,10 @@ export default function ProjectOverview() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
+    const [isPOViewOpen, setIsPOViewOpen] = useState(false);
+    const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
+    const [isEditingDeadline, setIsEditingDeadline] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
     const navigate = useNavigate();
@@ -121,7 +128,7 @@ export default function ProjectOverview() {
 
     const statusColors = {
         active: "bg-green-500",
-        "on-hold": "bg-yellow-500",
+        "on-hold": "bg-orange-500",
         completed: "bg-blue-500",
         cancelled: "bg-red-500",
     };
@@ -136,6 +143,13 @@ export default function ProjectOverview() {
 
     const handleStatusChange = async (newStatus: string) => {
         if (!project) return;
+
+        // Trigger Invoice upload if status changed to completed
+        if (newStatus === 'completed' && (currentUser?.role === 'hr' || currentUser?.role === 'admin')) {
+            setIsInvoiceUploadOpen(true);
+            return;
+        }
+
         setIsUpdatingStatus(true);
         try {
             const updatedProject = await projectService.update(String(project.id), {
@@ -186,6 +200,55 @@ export default function ProjectOverview() {
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
                         <h1 className="text-4xl font-bold tracking-tight">{project.name}</h1>
+                        {project.isLockedByPo ? (
+                            <div className="flex items-center gap-2">
+                                <Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-500 hover:bg-red-600 border-none px-2 h-6 flex items-center gap-1">
+                                    <Lock className="h-3 w-3" /> Awaiting PO
+                                </Badge>
+                                {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-6 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                                        onClick={() => setIsPOUploadOpen(true)}
+                                    >
+                                        Upload PO
+                                    </Button>
+                                )}
+                            </div>
+                        ) : project.poDocumentUrl ? (
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-6 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+                                    onClick={() => setIsPOViewOpen(true)}
+                                >
+                                    View PO
+                                </Button>
+                                {project.invoiceDocumentUrl && (
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                        onClick={() => window.open(project.invoiceDocumentUrl, '_blank')}
+                                    >
+                                        View Invoice
+                                    </Button>
+                                )}
+                            </div>
+                        ) : project.invoiceDocumentUrl ? (
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                    onClick={() => window.open(project.invoiceDocumentUrl, '_blank')}
+                                >
+                                    View Invoice
+                                </Button>
+                            </div>
+                        ) : null}
                         {canChangeStatus ? (
                             <Select
                                 value={project.status || 'active'}
@@ -194,18 +257,20 @@ export default function ProjectOverview() {
                             >
                                 <SelectTrigger className={`w-[130px] h-8 text-xs font-semibold capitalize border-none text-white focus:ring-0 ${statusColors[project.status || 'active']}`}>
                                     {isUpdatingStatus ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
-                                    <SelectValue placeholder="Status" />
+                                    <SelectValue placeholder="Status">
+                                        {project.status === 'on-hold' ? 'Blocked' : undefined}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="on-hold">On-Hold</SelectItem>
+                                    <SelectItem value="on-hold">Blocked</SelectItem>
                                     <SelectItem value="completed">Completed</SelectItem>
                                     <SelectItem value="cancelled">Cancelled</SelectItem>
                                 </SelectContent>
                             </Select>
                         ) : (
                             <Badge className={`${statusColors[project.status || 'active']} hover:${statusColors[project.status || 'active']} text-white capitalize px-3 py-1`}>
-                                {project.status || 'active'}
+                                {project.status === 'on-hold' ? 'Blocked' : project.status || 'active'}
                             </Badge>
                         )}
                     </div>
@@ -224,59 +289,109 @@ export default function ProjectOverview() {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 flex flex-col">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                             <Clock className="h-4 w-4 text-indigo-500" />
                             Estimated Hours
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{project.estimatedHours || 0}h</div>
+                    <CardContent className="flex-1 flex flex-col justify-center">
+                        <div className="text-4xl font-black tracking-tighter">{project.estimatedHours || 0}h</div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-md bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20">
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20 flex flex-col">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                             Completion
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="text-3xl font-bold">{progress}%</div>
+                    <CardContent className="flex-1 flex flex-col justify-center space-y-3">
+                        <div className="text-4xl font-black tracking-tighter">{progress}%</div>
                         <Progress value={progress} className="h-2" />
-                        <p className="text-xs text-muted-foreground">
-                            {completedTasks} of {totalTasks} tasks finished
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">
+                            {completedTasks} / {totalTasks} tasks finished
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-md bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20">
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20 flex flex-col">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-amber-500" />
                             Created On
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
+                    <CardContent className="flex-1 flex flex-col justify-center">
+                        <div className="text-3xl font-black tracking-tighter">
                             {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}
                         </div>
                     </CardContent>
                 </Card>
 
+                <Card className="h-full border-none shadow-md bg-gradient-to-br from-rose-500/10 to-red-500/10 dark:from-rose-500/20 dark:to-red-500/20 flex flex-col">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-rose-500" />
+                            Deadline
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col justify-center">
+                        {canChangeStatus ? (
+                            <div className="flex flex-col gap-1">
+                                {isEditingDeadline || !project.deadline ? (
+                                    <input
+                                        type="date"
+                                        autoFocus={isEditingDeadline}
+                                        value={project.deadline || ""}
+                                        onBlur={() => setIsEditingDeadline(false)}
+                                        onChange={async (e) => {
+                                            const newDeadline = e.target.value;
+                                            try {
+                                                const updatedProject = await projectService.update(String(project.id), {
+                                                   ...project,
+                                                    deadline: newDeadline
+                                                });
+                                                setProject(updatedProject);
+                                                setIsEditingDeadline(false);
+                                                toast({ title: "Deadline Updated", description: "Project deadline has been updated successfully." });
+                                            } catch (error) {
+                                                toast({ title: "Error", description: "Failed to update deadline.", variant: "destructive" });
+                                            }
+                                        }}
+                                        className="bg-transparent border-none text-2xl font-black tracking-tighter focus:ring-0 p-0 w-full cursor-pointer hover:opacity-70 transition-opacity"
+                                    />
+                                ) : (
+                                    <div 
+                                        onClick={() => setIsEditingDeadline(true)}
+                                        className="text-3xl font-black tracking-tighter cursor-pointer hover:opacity-70 transition-opacity"
+                                    >
+                                        {new Date(project.deadline).toLocaleDateString()}
+                                    </div>
+                                )}
+                                {!project.deadline && !isEditingDeadline && <span className="text-[10px] uppercase font-bold text-muted-foreground/50">Set Deadline</span>}
+                            </div>
+                        ) : (
+                            <div className="text-3xl font-black tracking-tighter">
+                                {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 {canSeeClientInfo && (
-                    <Card className="border-none shadow-md bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20">
+                    <Card className="h-full border-none shadow-md bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20 flex flex-col">
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-pink-500" />
                                 Client
-                            </CardTitle>
+                              </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xl font-bold truncate">
+                        <CardContent className="flex-1 flex flex-col justify-center">
+                            <div className="text-xl font-black tracking-tight line-clamp-2">
                                 {project.client?.company_name || 'Internal Project'}
                             </div>
                         </CardContent>
@@ -419,6 +534,32 @@ export default function ProjectOverview() {
                     </div>
                 </CardContent>
             </Card>
+
+            <POUploadDialog
+                open={isPOUploadOpen}
+                onOpenChange={setIsPOUploadOpen}
+                project={project}
+                onSuccess={(updatedProject) => setProject(updatedProject)}
+            />
+
+            <POViewDialog
+                open={isPOViewOpen}
+                onOpenChange={setIsPOViewOpen}
+                url={project.poDocumentUrl || ""}
+                poNumber={project.poNumber}
+            />
+
+            <InvoiceUploadDialog
+                open={isInvoiceUploadOpen}
+                onOpenChange={setIsInvoiceUploadOpen}
+                project={project}
+                onSuccess={(updatedProject) => {
+                    setProject(updatedProject);
+                    // Optionally force status to completed if it wasn't already updated by the dialog's save logic
+                    // The projectService.update inside the dialog should handle fields, 
+                    // but we might want to ensure the status is 'completed' there too.
+                }}
+            />
         </div>
     );
 }

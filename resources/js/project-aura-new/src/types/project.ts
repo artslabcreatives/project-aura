@@ -13,7 +13,7 @@ export interface Project {
 	emails?: string[];
 	phoneNumbers?: string[];
 	group?: ProjectGroup;
-	hasPendingTasks?: boolean;
+	hasOverdueTasks?: boolean;
 	isArchived?: boolean;
 	collaborators?: { id: number; name: string; email: string; department_id?: number; role?: string }[];
 	mattermostChannelId?: string;
@@ -21,4 +21,12 @@ export interface Project {
 	estimatedHours?: number;
 	status?: 'active' | 'on-hold' | 'completed' | 'cancelled';
 	client?: Client;
+	poNumber?: string;
+	poDocument?: string;
+	poDocumentUrl?: string;
+	isLockedByPo?: boolean;
+	deadline?: string;
+	invoiceNumber?: string;
+	invoiceDocument?: string;
+	invoiceDocumentUrl?: string;
 }

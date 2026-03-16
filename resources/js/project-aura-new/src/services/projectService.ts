@@ -31,16 +31,26 @@ function mapStage(raw: any): Stage {
 }
 
 function mapProject(raw: any): Project {
-	// Determine if Pending stage has tasks
-	// 1. Find the Pending stage ID (case-insensitive)
-	const pendingStage = Array.isArray(raw.stages)
-		? raw.stages.find((s: any) => s.title?.toLowerCase()?.trim() === 'pending')
-		: null;
 
-	let hasPendingTasks = false;
-	if (pendingStage && Array.isArray(raw.tasks)) {
-		// Check if any task belongs to the Pending stage
-		hasPendingTasks = raw.tasks.some((t: any) => String(t.project_stage_id) === String(pendingStage.id));
+	// Determine if there are overdue tasks
+	// Ignore "completed" and "archive" stages
+	const ignoreStages = Array.isArray(raw.stages)
+		? raw.stages.filter((s: any) => {
+			const t = s.title?.toLowerCase()?.trim();
+			return t === 'completed' || t === 'complete' || t === 'archive';
+		}).map((s: any) => String(s.id))
+		: [];
+
+	const now = new Date();
+	let hasOverdueTasks = false;
+	if (raw.status !== 'on-hold' && Array.isArray(raw.tasks)) {
+		hasOverdueTasks = raw.tasks.some((t: any) => {
+			if (!t.due_date || t.user_status === 'complete') return false;
+			const dueDate = new Date(t.due_date);
+			const isOverdue = dueDate < now;
+			const isIgnoredStage = ignoreStages.includes(String(t.project_stage_id));
+			return isOverdue && !isIgnoredStage;
+		});
 	}
 
 	return {
@@ -53,7 +63,7 @@ function mapProject(raw: any): Project {
 		emails: raw.emails || [],
 		phoneNumbers: raw.phoneNumbers || [],
 		group: raw.group ? { id: String(raw.group.id), name: raw.group.name, departmentId: String(raw.group.department_id) } : undefined,
-		hasPendingTasks,
+		hasOverdueTasks,
 		isArchived: raw.is_archived,
 		collaborators: Array.isArray(raw.collaborators)
 			? raw.collaborators.map((c: any) => ({
@@ -69,6 +79,14 @@ function mapProject(raw: any): Project {
 		estimatedHours: raw.estimated_hours,
 		status: raw.status,
 		client: raw.client,
+		poNumber: raw.po_number,
+		poDocument: raw.po_document,
+		poDocumentUrl: raw.po_document_url,
+		isLockedByPo: raw.is_locked_by_po,
+		deadline: raw.deadline,
+		invoiceNumber: raw.invoice_number,
+		invoiceDocument: raw.invoice_document,
+		invoiceDocumentUrl: raw.invoice_document_url,
 	};
 }
 
@@ -91,36 +109,103 @@ export const projectService = {
 	},
 
 	create: async (project: any): Promise<Project> => {
-		// Backend expects department_id not nested object
-		const payload: any = {
-			name: project.name,
-			description: project.description,
-			department_id: project.department ? parseInt(project.department.id, 10) : null,
-			emails: project.emails,
-			phone_numbers: project.phoneNumbers,
-			project_group_id: project.group ? parseInt(project.group.id, 10) : null,
-			client_id: project.client_id,
-			estimated_hours: project.estimated_hours,
-			status: project.status,
-		};
-		const { data } = await api.post('/projects', payload);
+		const isFormData = project.po_document instanceof File;
+		
+		let payload: any;
+		if (isFormData) {
+			payload = new FormData();
+			payload.append('name', project.name || '');
+			payload.append('description', project.description || '');
+			if (project.department?.id) payload.append('department_id', String(project.department.id));
+			if (project.group?.id) payload.append('project_group_id', String(project.group.id));
+			if (project.client_id) payload.append('client_id', String(project.client_id));
+			if (project.estimated_hours) payload.append('estimated_hours', String(project.estimated_hours));
+			if (project.status) payload.append('status', String(project.status));
+			if (project.po_number) payload.append('po_number', String(project.po_number));
+			if (project.deadline) payload.append('deadline', project.deadline);
+			if (project.po_document) payload.append('po_document', project.po_document);
+			
+			// Append arrays
+			project.emails?.forEach((email: string) => payload.append('emails[]', email));
+			project.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+		} else {
+			payload = {
+				name: project.name,
+				description: project.description,
+				department_id: project.department ? parseInt(project.department.id, 10) : null,
+				emails: project.emails,
+				phone_numbers: project.phoneNumbers,
+				project_group_id: project.group ? parseInt(project.group.id, 10) : null,
+				client_id: project.client_id,
+				estimated_hours: project.estimated_hours,
+				status: project.status,
+				po_number: project.po_number,
+				deadline: project.deadline,
+				invoice_number: project.invoice_number,
+				invoice_document: project.invoice_document,
+			};
+		}
+
+		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
+		const { data } = await api.post('/projects', payload, config);
 		return mapProject(data);
 	},
 
 	update: async (id: string, updates: any): Promise<Project> => {
-		const payload: any = {
-			name: updates.name,
-			description: updates.description,
-			department_id: updates.department ? parseInt(updates.department.id, 10) : undefined,
-			emails: updates.emails,
-			phone_numbers: updates.phoneNumbers,
-			project_group_id: updates.group === null ? null : (updates.group ? parseInt(updates.group.id, 10) : undefined),
-			is_archived: updates.isArchived,
-			client_id: updates.client_id,
-			estimated_hours: updates.estimated_hours,
-			status: updates.status,
-		};
-		const { data } = await api.put(`/projects/${id}`, payload);
+		const isFormData = updates.po_document instanceof File;
+
+		let payload: any;
+		if (isFormData) {
+			payload = new FormData();
+			payload.append('_method', 'PUT');
+			if (updates.name !== undefined) payload.append('name', updates.name);
+			if (updates.description !== undefined) payload.append('description', updates.description || '');
+			if (updates.department?.id) payload.append('department_id', String(updates.department.id));
+			if (updates.group === null) payload.append('project_group_id', '');
+			else if (updates.group?.id) payload.append('project_group_id', String(updates.group.id));
+			if (updates.isArchived !== undefined) payload.append('is_archived', updates.isArchived ? '1' : '0');
+			
+			// Fix null/undefined numeric relationships so Laravel validation passes
+			if (updates.client_id !== undefined && updates.client_id !== null && updates.client_id !== '') {
+				payload.append('client_id', String(updates.client_id));
+			}
+			if (updates.estimated_hours !== undefined && updates.estimated_hours !== null && updates.estimated_hours !== '') {
+				payload.append('estimated_hours', String(updates.estimated_hours));
+			}
+
+			if (updates.status !== undefined) payload.append('status', updates.status);
+			if (updates.po_number !== undefined) payload.append('po_number', updates.po_number);
+			if (updates.deadline !== undefined) payload.append('deadline', updates.deadline);
+			if (updates.po_document !== undefined) payload.append('po_document', updates.po_document);
+			if (updates.invoice_number !== undefined) payload.append('invoice_number', updates.invoice_number);
+			if (updates.invoice_document !== undefined) payload.append('invoice_document', updates.invoice_document);
+
+			// Append arrays
+			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
+			updates.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+		} else {
+			payload = {
+				name: updates.name,
+				description: updates.description,
+				department_id: updates.department ? parseInt(updates.department.id, 10) : undefined,
+				emails: updates.emails,
+				phone_numbers: updates.phoneNumbers,
+				project_group_id: updates.group === null ? null : (updates.group ? parseInt(updates.group.id, 10) : undefined),
+				is_archived: updates.isArchived,
+				client_id: updates.client_id,
+				estimated_hours: updates.estimated_hours,
+				status: updates.status,
+				po_number: updates.po_number,
+				deadline: updates.deadline,
+				po_document: updates.po_document,
+				invoice_number: updates.invoice_number,
+				invoice_document: updates.invoice_document,
+			};
+		}
+
+		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
+		const method = isFormData ? 'post' : 'put';
+		const { data } = await api[method](`/projects/${id}`, payload, config);
 		return mapProject(data);
 	},
 

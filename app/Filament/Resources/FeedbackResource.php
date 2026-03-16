@@ -59,23 +59,46 @@ class FeedbackResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('screenshot_path')
                             ->image()
-                            ->disk('public')
+                            ->disk('s3')
+                            ->visibility('private')
                             ->directory('feedback-screenshots')
-                            ->visibility('public')
+                            ->fetchFileInformation(false)
                             ->label('Screenshot (Legacy)')
                             ->openable()
-                            ->downloadable(),
+                            ->downloadable()
+                            ->previewable()
+                            ->formatStateUsing(function ($state) {
+                                if (!$state) return [];
+                                $path = is_array($state) ? ($state[0] ?? null) : $state;
+                                if ($path && is_string($path) && str_starts_with($path, 'http')) {
+                                    $path = ltrim(parse_url($path, PHP_URL_PATH), '/');
+                                }
+                                return $path ? [$path] : [];
+                            })
+                            ->dehydrateStateUsing(fn ($state) => is_array($state) ? ($state[0] ?? null) : $state),
                         Forms\Components\FileUpload::make('images')
                             ->image()
-                            ->disk('public')
-                            ->multiple()
+                            ->disk('s3')
+                            ->visibility('private')
                             ->directory('feedback-screenshots')
-                            ->visibility('public')
+                            ->multiple()
+                            ->fetchFileInformation(false)
                             ->label('Additional Images')
                             ->openable()
                             ->downloadable()
                             ->reorderable()
-                            ->appendFiles(),
+                            ->appendFiles()
+                            ->previewable()
+                            ->formatStateUsing(function ($state) {
+                                if (!$state) return [];
+                                $items = is_array($state) ? $state : [$state];
+                                return array_values(array_filter(array_map(function ($item) {
+                                    if (is_string($item) && str_starts_with($item, 'http')) {
+                                        return ltrim(parse_url($item, PHP_URL_PATH), '/');
+                                    }
+                                    return $item;
+                                }, $items)));
+                            }),
                         Forms\Components\KeyValue::make('device_info')
                             ->label('Device Metadata')
                             ->columnSpanFull(),
@@ -117,8 +140,38 @@ class FeedbackResource extends Resource
                     }),
                 Tables\Columns\ImageColumn::make('screenshot_path')
                     ->label('Screen')
-                    ->disk('public')
+                    ->state(function ($record) {
+                        $path = $record->screenshot_path;
+                        if (!$path) return null;
+                        if (str_starts_with($path, 'http')) {
+                            $path = ltrim(parse_url($path, PHP_URL_PATH), '/');
+                        }
+                        try {
+                            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(10));
+                        } catch (\Exception $e) {
+                            return null;
+                        }
+                    })
                     ->openUrlInNewTab(),
+                Tables\Columns\ImageColumn::make('images')
+                    ->label('More')
+                    ->circular()
+                    ->stacked()
+                    ->limit(3)
+                    ->state(function ($record) {
+                        $images = $record->images;
+                        if (!$images || !is_array($images)) return [];
+                        return array_map(function ($path) {
+                            if (is_string($path) && str_starts_with($path, 'http')) {
+                                $path = ltrim(parse_url($path, PHP_URL_PATH), '/');
+                            }
+                            try {
+                                return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(10));
+                            } catch (\Exception $e) {
+                                return null;
+                            }
+                        }, $images);
+                    }),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

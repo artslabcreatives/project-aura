@@ -13,7 +13,7 @@ export interface ClientContact {
 import { Project } from "./project";
 
 export interface Client {
-    id: number;
+    id: number | string;
     company_name: string;
     industry?: string;
     website?: string;

@@ -41,6 +41,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				twoFactorEnabled: !!response.two_factor_confirmed_at,
 				hasSeenWelcomeVideo: response.has_seen_welcome_video,
 				is_active: response.is_active,
+				createdAt: response.created_at,
 			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);
@@ -67,6 +68,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				avatar: u.avatar,
 				preferences: u.preferences,
 				is_active: u.is_active,
+				createdAt: u.created_at,
 			}));
 			setTeamMembers(users);
 		} catch (error) {

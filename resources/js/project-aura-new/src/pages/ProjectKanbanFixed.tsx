@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -38,9 +38,9 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-
 import { Skeleton } from "@/components/ui/skeleton";
+import { POUploadDialog } from "@/components/POUploadDialog";
+import { POViewDialog } from "@/components/POViewDialog";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -150,6 +150,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
 	const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 	const [isReviewTaskDialogOpen, setIsReviewTaskDialogOpen] = useState(false);
+	const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
+	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
 	const [reviewTask, setReviewTask] = useState<Task | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
@@ -726,30 +728,71 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 						<div>
 							<h1 className="text-3xl font-bold flex items-center gap-3">
 								{project.name}
+								{project.status === 'on-hold' && (
+									<Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-orange-500 hover:bg-orange-600 border-none px-2 h-5">
+										Blocked
+									</Badge>
+								)}
+								{project.isLockedByPo ? (
+									<div className="flex items-center gap-2">
+										<Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-500 hover:bg-red-600 border-none px-2 h-5 flex items-center gap-1">
+											<Lock className="h-3 w-3" /> Awaiting PO
+										</Badge>
+										{(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+											<Button 
+												variant="outline" 
+												size="sm" 
+												className="h-5 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+												onClick={() => setIsPOUploadOpen(true)}
+											>
+												Upload PO
+											</Button>
+										)}
+									</div>
+								) : project.poDocumentUrl ? (
+									<div className="flex items-center gap-2">
+										<Button 
+											variant="outline" 
+											size="sm" 
+											className="h-5 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+											onClick={() => setIsPOViewOpen(true)}
+										>
+											View PO
+										</Button>
+									</div>
+								) : null}
 								{project.isArchived && (
 									<Badge variant="secondary" className="text-xs font-normal">
 										Archived
 									</Badge>
 								)}
 							</h1>
-							<div
-								className="text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none"
-								dangerouslySetInnerHTML={{
-									__html: (() => {
-										const txt = document.createElement("textarea");
-										let val = project.description || '';
-										let lastVal = '';
-										let limit = 0;
-										while (val !== lastVal && limit < 5) {
-											lastVal = val;
-											txt.innerHTML = val;
-											val = txt.value;
-											limit++;
-										}
-										return val;
-									})()
-								}}
-							/>
+							<div className="flex items-center gap-4 mt-1 text-muted-foreground">
+								<div
+									className="prose prose-sm dark:prose-invert max-w-none line-clamp-1"
+									dangerouslySetInnerHTML={{
+										__html: (() => {
+											const txt = document.createElement("textarea");
+											let val = project.description || '';
+											let lastVal = '';
+											let limit = 0;
+											while (val !== lastVal && limit < 5) {
+												lastVal = val;
+												txt.innerHTML = val;
+												val = txt.value;
+												limit++;
+											}
+											return val;
+										})()
+									}}
+								/>
+								{project.deadline && (
+									<div className="flex items-center gap-1.5 text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full border border-rose-500/20">
+										<Calendar className="h-3 w-3" />
+										Deadline: {new Date(project.deadline).toLocaleDateString()}
+									</div>
+								)}
+							</div>
 						</div>
 						<div className="flex items-center gap-3">
 							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
@@ -760,7 +803,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 										View History
 									</Button>
-									{!project.isArchived && project.status !== 'on-hold' && (
+									{!project.isArchived && project.status !== 'on-hold' && !project.isLockedByPo && (
 										<>
 											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
 												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
@@ -910,6 +953,20 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<POUploadDialog
+				open={isPOUploadOpen}
+				onOpenChange={setIsPOUploadOpen}
+				project={project}
+				onSuccess={(updatedProject) => setProject(updatedProject)}
+			/>
+
+			<POViewDialog
+				open={isPOViewOpen}
+				onOpenChange={setIsPOViewOpen}
+				url={project.poDocumentUrl || ""}
+				poNumber={project.poNumber}
+			/>
 		</div>
 	);
 }

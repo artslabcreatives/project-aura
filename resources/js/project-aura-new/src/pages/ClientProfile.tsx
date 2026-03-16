@@ -20,10 +20,15 @@ import {
     ArrowLeft,
     ExternalLink,
     FolderKanban,
-    Clock
+    Clock,
+    Copy,
+    Check,
+    Shield
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Client, ClientContact } from "@/types/client";
 import { clientService } from "@/services/clientService";
+import { projectService } from "@/services/projectService";
 import { useToast } from "@/hooks/use-toast";
 import { ClientDialog } from "@/components/ClientDialog";
 import { ContactDialog } from "@/components/ContactDialog";
@@ -45,6 +50,39 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const CopyButton = ({ text, label }: { text: string; label: string }) => {
+    const { toast } = useToast();
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        toast({
+            title: "Copied to clipboard",
+            description: `${label} has been copied.`,
+        });
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-1 hover:bg-primary/10 transition-colors"
+            onClick={handleCopy}
+            title={`Copy ${label}`}
+        >
+            {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+            ) : (
+                <Copy className="h-3 w-3 text-muted-foreground" />
+            )}
+        </Button>
+    );
+};
+
 export default function ClientProfile() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -61,8 +99,22 @@ export default function ClientProfile() {
         if (!id) return;
         setLoading(true);
         try {
-            const data = await clientService.getById(id);
-            setClient(data);
+            if (id === 'internal') {
+                const projects = await projectService.getAll();
+                const internalProjects = projects.filter(p => !p.clientId);
+                setClient({
+                    id: 'internal',
+                    company_name: 'Internal Project',
+                    industry: 'Internal Operations',
+                    email: 'internal@aura.artslab',
+                    notes: 'This is a virtual client group representing all projects that do not have an external client associated with them.',
+                    projects: internalProjects,
+                    contacts: []
+                });
+            } else {
+                const data = await clientService.getById(id);
+                setClient(data);
+            }
         } catch (error) {
             console.error("Failed to fetch client:", error);
             toast({
@@ -189,7 +241,7 @@ export default function ClientProfile() {
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <div className="bg-primary/10 text-primary p-2 rounded-lg">
-                        <Building2 className="h-8 w-8" />
+                        {id === 'internal' ? <Shield className="h-8 w-8" /> : <Building2 className="h-8 w-8" />}
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">{client.company_name}</h1>
@@ -204,28 +256,30 @@ export default function ClientProfile() {
                         </div>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsClientDialogOpen(true)} className="gap-2">
-                        <Pencil className="h-4 w-4" />
-                        Edit Client
-                    </Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => setIsDeletingClient(true)}
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete Client
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                {id !== 'internal' && (
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setIsClientDialogOpen(true)} className="gap-2">
+                            <Pencil className="h-4 w-4" />
+                            Edit Client
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setIsDeletingClient(true)}
+                                >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete Client
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                )}
             </div>
 
             {/* Main Content Grid */}
@@ -258,11 +312,17 @@ export default function ClientProfile() {
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary Email</p>
-                                    <p className="text-sm font-medium">{client.email || 'Not specified'}</p>
+                                    <div className="flex items-center">
+                                        <p className="text-sm font-medium">{client.email || 'Not specified'}</p>
+                                        {client.email && <CopyButton text={client.email} label="Primary Email" />}
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary Phone</p>
-                                    <p className="text-sm font-medium">{client.phone || 'Not specified'}</p>
+                                    <div className="flex items-center">
+                                        <p className="text-sm font-medium">{client.phone || 'Not specified'}</p>
+                                        {client.phone && <CopyButton text={client.phone} label="Primary Phone" />}
+                                    </div>
                                 </div>
                                 <div className="space-y-1 md:col-span-2">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Address</p>
@@ -338,9 +398,11 @@ export default function ClientProfile() {
                                 <UserIcon className="h-5 w-5 text-primary" />
                                 Contacts
                             </CardTitle>
-                            <Button size="sm" variant="ghost" onClick={() => setIsContactDialogOpen(true)} className="h-8 w-8 p-0">
-                                <Plus className="h-4 w-4" />
-                            </Button>
+                            {id !== 'internal' && (
+                                <Button size="sm" variant="ghost" onClick={() => setIsContactDialogOpen(true)} className="h-8 w-8 p-0">
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            )}
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -365,13 +427,23 @@ export default function ClientProfile() {
                                                 <p className="text-xs text-muted-foreground mb-2">{contact.title || "No title"}</p>
                                                 <div className="space-y-1">
                                                     {contact.email && (
-                                                        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                                                            <Mail className="h-3 w-3" /> {contact.email}
+                                                        <div className="text-[11px] text-muted-foreground flex items-center justify-between group/item">
+                                                            <div className="flex items-center gap-1.5 truncate">
+                                                                <Mail className="h-3 w-3 flex-shrink-0" /> {contact.email}
+                                                            </div>
+                                                            <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                                <CopyButton text={contact.email} label="Email" />
+                                                            </div>
                                                         </div>
                                                     )}
                                                     {contact.phone && (
-                                                        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                                                            <Phone className="h-3 w-3" /> {contact.phone}
+                                                        <div className="text-[11px] text-muted-foreground flex items-center justify-between group/item">
+                                                            <div className="flex items-center gap-1.5 truncate">
+                                                                <Phone className="h-3 w-3 flex-shrink-0" /> {contact.phone}
+                                                            </div>
+                                                            <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                                <CopyButton text={contact.phone} label="Phone" />
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>

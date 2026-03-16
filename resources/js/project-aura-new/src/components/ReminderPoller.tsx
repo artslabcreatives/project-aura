@@ -19,9 +19,9 @@ export function ReminderPoller() {
     const activeReminders = data?.active || [];
 
     useEffect(() => {
-        // Request permission on mount if default
-        if ("Notification" in window && Notification.permission === "default") {
-            Notification.requestPermission();
+        // Log notification status for debugging
+        if ("Notification" in window) {
+            console.log("Current Notification Permission:", Notification.permission);
         }
     }, []);
 
@@ -46,7 +46,7 @@ export function ReminderPoller() {
                         try {
                             const n = new Notification(reminder.title, {
                                 body: reminder.description || `It's time! (${new Date(reminder.reminder_at).toLocaleTimeString()})`,
-                                icon: "/favicon.ico", // Ensure this exists or use logo
+                                icon: "/logo.png", 
                                 tag: `reminder-${reminder.id}`, // Replaces older notification with same tag
                                 requireInteraction: true,
                             });

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Building2, ExternalLink, Mail, Phone, MoreHorizontal, Pencil, Trash2, Loader2, History } from "lucide-react";
 import { Client } from "@/types/client";
 import { clientService } from "@/services/clientService";
+import { projectService } from "@/services/projectService";
 import { useToast } from "@/hooks/use-toast";
 import { ClientDialog } from "@/components/ClientDialog";
 import { ClientHistoryDialog } from "@/components/ClientHistoryDialog";
@@ -41,8 +42,25 @@ export default function Clients() {
     const fetchClients = async (query?: string) => {
         setLoading(true);
         try {
-            const data = await clientService.getAll(query);
-            setClients(data);
+            const clientData = await clientService.getAll(query);
+            
+            // Fetch internal projects to see if we should show the "Internal Project" card
+            const projects = await projectService.getAll();
+            const internalProjects = projects.filter(p => !p.clientId);
+            
+            if (internalProjects.length > 0 && (!query || "internal project".includes(query.toLowerCase()))) {
+                const internalClient: Client = {
+                    id: "internal",
+                    company_name: "Internal Project",
+                    industry: "Internal Operations",
+                    email: "internal@aura.artslab",
+                    projects: internalProjects,
+                    contacts_count: 0
+                };
+                setClients([internalClient, ...clientData]);
+            } else {
+                setClients(clientData);
+            }
         } catch (error) {
             console.error("Failed to fetch clients:", error);
             toast({

@@ -43,4 +43,12 @@ return [
 	'slack' => [
 		'token' => env('SLACK_TOKEN'),
 	],
+
+    'zoho' => [
+        'client_id' => env('ZOHO_CLIENT_ID'),
+        'client_secret' => env('ZOHO_CLIENT_SECRET'),
+        'redirect_uri' => env('ZOHO_REDIRECT_URI'),
+        'accounts_url' => env('ZOHO_ACCOUNTS_URL', 'https://accounts.zoho.com'),
+        'mail_url' => env('ZOHO_MAIL_URL', 'https://mail.zoho.com/api/v1'),
+    ],
 ];
