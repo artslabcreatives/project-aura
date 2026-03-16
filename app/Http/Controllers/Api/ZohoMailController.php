@@ -245,4 +245,16 @@ class ZohoMailController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    public function unlink(Request $request)
+    {
+        $userId = Auth::id();
+        $token = ZohoToken::where('user_id', $userId)->first();
+
+        if ($token) {
+            $token->delete();
+        }
+
+        return response()->json(['success' => true]);
+    }
 }

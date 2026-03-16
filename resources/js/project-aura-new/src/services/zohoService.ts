@@ -57,4 +57,9 @@ export const zohoService = {
     });
     return response.data;
   },
+
+  unlinkZoho: async () => {
+    const response = await api.post("/zoho/unlink");
+    return response.data;
+  },
 };

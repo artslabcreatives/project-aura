@@ -158,6 +158,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/folders/{folderId}/messages/{messageId}', [\App\Http\Controllers\Api\ZohoMailController::class, 'deleteMessage']);
         Route::post('/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'sendMessage']);
         Route::post('/messages/attachments', [\App\Http\Controllers\Api\ZohoMailController::class, 'uploadAttachment']);
+        Route::post('/unlink', [\App\Http\Controllers\Api\ZohoMailController::class, 'unlink']);
     });
     // Estimates
     Route::apiResource('estimates', EstimateController::class);
