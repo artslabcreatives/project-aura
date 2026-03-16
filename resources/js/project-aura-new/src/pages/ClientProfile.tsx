@@ -604,7 +604,7 @@ export default function ClientProfile() {
                 open={isEstimateDialogOpen}
                 onOpenChange={setIsEstimateDialogOpen}
                 onSave={handleSaveEstimate}
-                clients={client ? [client as any] : []}
+                clients={client ? [client] : []}
                 defaultClientId={typeof client?.id === 'number' ? client.id : undefined}
             />
         </div>

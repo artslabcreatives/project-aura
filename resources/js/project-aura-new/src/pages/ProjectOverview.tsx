@@ -346,7 +346,10 @@ export default function ProjectOverview() {
                             </Select>
                         ) : (
                             <Badge className={`${statusColors[project.status || 'active']} hover:${statusColors[project.status || 'active']} text-white capitalize px-3 py-1`}>
-                                {project.status === 'on-hold' ? 'On Hold' : project.status || 'active'}
+                                {project.status === 'on-hold' ? 'On Hold' :
+                                 project.status === 'suggested' ? 'Suggested' :
+                                 project.status === 'blocked' ? 'Blocked' :
+                                 project.status || 'Active'}
                             </Badge>
                         )}
                         {isBlocked && (

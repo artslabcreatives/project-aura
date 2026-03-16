@@ -66,8 +66,8 @@ export default function Estimates() {
             try {
                 const data = await clientService.getAll();
                 setClients(data);
-            } catch {
-                // silently ignore
+            } catch (error) {
+                console.error("Failed to load clients for estimate form:", error);
             }
         };
         fetchClients();
