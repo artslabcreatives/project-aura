@@ -255,6 +255,8 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import Reminders from "./pages/Reminders";
 import Clients from "./pages/Clients";
 import ClientProfile from "./pages/ClientProfile";
+import Estimates from "./pages/Estimates";
+import EstimateDetail from "./pages/EstimateDetail";
 import { PublicMattermostChat } from "./pages/PublicMattermostChat";
 import { ReminderPoller } from "./components/ReminderPoller";
 
@@ -321,6 +323,16 @@ const App = () => (
 							<Route path="/clients/:id" element={
 								<ProtectedRoute allowedRoles={['admin', 'hr']}>
 									<AppLayout><ClientProfile /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/estimates" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager']}>
+									<AppLayout><Estimates /></AppLayout>
+								</ProtectedRoute>
+							} />
+							<Route path="/estimates/:estimateId" element={
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager']}>
+									<AppLayout><EstimateDetail /></AppLayout>
 								</ProtectedRoute>
 							} />
 							<Route path="/emails" element={<AppLayout><Emails /></AppLayout>} />

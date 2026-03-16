@@ -83,10 +83,18 @@ function mapProject(raw: any): Project {
 		poDocument: raw.po_document,
 		poDocumentUrl: raw.po_document_url,
 		isLockedByPo: raw.is_locked_by_po,
+		isBlocked: raw.is_blocked,
 		deadline: raw.deadline,
 		invoiceNumber: raw.invoice_number,
 		invoiceDocument: raw.invoice_document,
 		invoiceDocumentUrl: raw.invoice_document_url,
+		projectCode: raw.project_code,
+		estimateId: raw.estimate_id,
+		gracePeriodExpiresAt: raw.grace_period_expires_at,
+		gracePeriodNotes: raw.grace_period_notes,
+		gracePeriodApprovedBy: raw.grace_period_approved_by,
+		provisionalPoNumber: raw.provisional_po_number,
+		provisionalPoExpiresAt: raw.provisional_po_expires_at,
 	};
 }
 
@@ -200,6 +208,11 @@ export const projectService = {
 				po_document: updates.po_document,
 				invoice_number: updates.invoice_number,
 				invoice_document: updates.invoice_document,
+				is_blocked: updates.isBlocked,
+				grace_period_expires_at: updates.gracePeriodExpiresAt,
+				grace_period_notes: updates.gracePeriodNotes,
+				provisional_po_number: updates.provisionalPoNumber,
+				provisional_po_expires_at: updates.provisionalPoExpiresAt,
 			};
 		}
 
