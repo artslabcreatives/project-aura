@@ -30,6 +30,11 @@ class Project extends Model
         'estimated_hours',
         'status',
         'project_code',
+        'po_number',
+        'po_document',
+        'is_locked_by_po',
+        'invoice_number',
+        'invoice_document',
     ];
 
     protected $casts = [
