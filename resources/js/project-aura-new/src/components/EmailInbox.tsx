@@ -151,7 +151,10 @@ export const EmailInbox: React.FC = () => {
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
                           {(() => {
                             try {
-                              const timestamp = parseInt(message.receivedTime);
+                              let timeStr = message.receivedTime?.toString();
+                              if (!timeStr) return "";
+                              if (timeStr.length > 13) timeStr = timeStr.substring(0, 13);
+                              const timestamp = parseInt(timeStr);
                               if (isNaN(timestamp)) return "";
                               return format(new Date(timestamp), "MMM d, h:mm a");
                             } catch (e) {

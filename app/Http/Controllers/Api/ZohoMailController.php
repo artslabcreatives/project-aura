@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\ZohoAuthService;
 use App\Services\ZohoMailService;
 use App\Models\ZohoToken;
+use Illuminate\Support\Facades\Log;
 
 class ZohoMailController extends Controller
 {
@@ -95,8 +96,17 @@ class ZohoMailController extends Controller
             $accountId = $accounts[0]['accountId'];
         }
 
+        $details = $this->mailService->getMessageDetails(Auth::id(), $accountId, $folderId, $messageId);
         $content = $this->mailService->getMessageBody(Auth::id(), $accountId, $folderId, $messageId);
-        return response()->json(['content' => $content]);
+
+        if ($details && $content) {
+            $details['content'] = $content['content'] ?? '';
+        }
+
+        $finalData = $details ?? $content;
+        Log::debug('Zoho Mail Final Combined Message Data', ['data' => $finalData]);
+
+        return response()->json(['content' => $finalData]);
     }
 
     public function sendMessage(Request $request)

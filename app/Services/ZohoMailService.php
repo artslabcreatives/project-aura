@@ -94,6 +94,24 @@ class ZohoMailService
             return null;
         }
 
+        $data = $response->json()['data'] ?? null;
+        Log::debug('Zoho Mail Get Message Content Success', ['data' => $data]);
+        return $data;
+    }
+
+    public function getMessageDetails($userId, $accountId, $folderId, $messageId)
+    {
+        $headers = $this->getHeaders($userId);
+        if (!$headers) return null;
+
+        $url = $this->mailUrl . "/accounts/{$accountId}/folders/{$folderId}/messages/{$messageId}/details";
+        $response = Http::withHeaders($headers)->get($url);
+
+        if ($response->failed()) {
+            Log::error('Zoho Mail Get Message Details Failed', ['response' => $response->json(), 'url' => $url]);
+            return null;
+        }
+
         return $response->json()['data'] ?? null;
     }
 

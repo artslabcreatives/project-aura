@@ -79,11 +79,11 @@ export const EmailDetailView: React.FC<EmailDetailViewProps> = ({ folderId, mess
             <div className="flex flex-wrap gap-y-4 justify-between items-start border-y py-4 border-muted/50">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  {content.senderName?.[0] || <User className="h-5 w-5" />}
+                  {(content.senderName?.[0] || content.sender?.[0] || content.fromAddress?.[0] || "U")}
                 </div>
                 <div>
-                  <div className="font-semibold text-sm">{content.senderName}</div>
-                  <div className="text-xs text-muted-foreground">{content.fromAddress}</div>
+                  <div className="font-semibold text-sm">{content.senderName || content.sender || "Unknown Sender"}</div>
+                  <div className="text-xs text-muted-foreground">{content.fromAddress || content.sender}</div>
                 </div>
               </div>
               
@@ -92,7 +92,11 @@ export const EmailDetailView: React.FC<EmailDetailViewProps> = ({ folderId, mess
                 <span>
                   {(() => {
                     try {
-                      const timestamp = parseInt(content.receivedTime);
+                      let timeStr = content.receivedTime?.toString();
+                      if (!timeStr) return "Unknown date";
+                      // If it's 19 digits (nanoseconds), take first 13 (milliseconds)
+                      if (timeStr.length > 13) timeStr = timeStr.substring(0, 13);
+                      const timestamp = parseInt(timeStr);
                       if (isNaN(timestamp)) return "Unknown date";
                       return format(new Date(timestamp), "MMMM d, yyyy 'at' h:mm a");
                     } catch (e) {
