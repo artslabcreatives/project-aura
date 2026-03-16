@@ -187,19 +187,18 @@ export const ComposeEmailDialog: React.FC<ComposeEmailDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[90vh] flex flex-col p-0 overflow-hidden bg-background border-none shadow-2xl">
-        <DialogHeader className="p-4 border-b bg-muted/30 flex flex-row items-center justify-between space-y-0">
+      <DialogContent 
+        className="sm:max-w-[1200px] h-[90vh] flex flex-col p-0 overflow-hidden bg-background border-none shadow-2xl"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="p-4 border-b bg-muted/30 flex flex-row items-center justify-between space-y-0 text-left">
           <DialogTitle className="flex items-center gap-2 text-lg font-bold">
             <div className="bg-primary/10 p-1.5 rounded-lg text-primary">
               <Send className="h-4 w-4" />
             </div>
             New Message
           </DialogTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col">
