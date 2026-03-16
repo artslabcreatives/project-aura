@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\EstimateController;
 use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\RevisionHistoryController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
+use App\Http\Controllers\Api\EstimateController;
 use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -157,6 +159,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'sendMessage']);
         Route::post('/messages/attachments', [\App\Http\Controllers\Api\ZohoMailController::class, 'uploadAttachment']);
     });
+    // Estimates
+    Route::apiResource('estimates', EstimateController::class);
+    Route::post('estimates/{estimate}/send', [EstimateController::class, 'send']);
+    Route::post('estimates/{estimate}/approve', [EstimateController::class, 'approve']);
 });
 
 // 2FA Verification during login

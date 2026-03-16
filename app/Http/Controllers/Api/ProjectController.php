@@ -115,6 +115,7 @@ class ProjectController extends Controller
             'phone_numbers.*' => 'string',
             'project_group_id' => 'nullable|exists:project_groups,id',
             'client_id' => 'nullable|exists:clients,id',
+            'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
             'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
             'po_number' => 'nullable|string|max:255',
@@ -231,99 +232,21 @@ class ProjectController extends Controller
     )]
     public function update(Request $request, Project $project): JsonResponse
     {
-        try {
-            $validated = $request->validate([
-                'name' => 'sometimes|required|string|max:255',
-                'description' => 'nullable|string',
-                'department_id' => 'nullable|exists:departments,id',
-                'emails' => 'nullable|array',
-                'emails.*' => 'email',
-                'phone_numbers' => 'nullable|array',
-                'phone_numbers.*' => 'string',
-                'project_group_id' => 'nullable|exists:project_groups,id',
-                'is_archived' => 'nullable|boolean',
-                'client_id' => 'nullable|exists:clients,id',
-                'estimated_hours' => 'nullable|integer',
-                'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
-                'po_number' => 'nullable|string|max:255',
-                'deadline' => 'nullable|date',
-                'po_document' => 'nullable', // Allow either file or base64 string
-                'invoice_number' => 'nullable|string|max:255',
-                'invoice_document' => 'nullable',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            $fileError = 'no file';
-            if ($request->hasFile('po_document')) {
-                $file = $request->file('po_document');
-                $fileError = [
-                    'error_code' => $file->getError(),
-                    'is_valid' => $file->isValid(),
-                    'mime' => $file->getMimeType(),
-                    'size' => $file->getSize(),
-                ];
-            }
-            \Log::error('Project update validation failed', [
-                'errors' => $e->errors(),
-                'file_status' => $fileError,
-                'input' => $request->all(),
-                'method' => $request->method(),
-            ]);
-            throw $e;
-        }
-
-        if ($request->hasFile('po_document')) {
-            $path = $request->file('po_document')->store('purchase-orders', 's3');
-            $validated['po_document'] = $path;
-            $validated['is_locked_by_po'] = false;
-        } elseif ($request->filled('po_document') && is_string($request->po_document) && str_starts_with($request->po_document, 'data:')) {
-            // Handle base64 upload to bypass full /tmp issue
-            try {
-                $base64data = $request->po_document;
-                $commaPos = strpos($base64data, ',');
-                if ($commaPos !== false) {
-                    $header = substr($base64data, 0, $commaPos);
-                    $data = base64_decode(substr($base64data, $commaPos + 1));
-                    
-                    // Determine extension from header
-                    $ext = 'pdf';
-                    if (str_contains($header, 'image/png')) $ext = 'png';
-                    elseif (str_contains($header, 'image/jpeg')) $ext = 'jpg';
-                    
-                    $filename = 'purchase-orders/' . \Illuminate\Support\Str::random(40) . '.' . $ext;
-                    \Illuminate\Support\Facades\Storage::disk('s3')->put($filename, $data);
-                    
-                    $validated['po_document'] = $filename;
-                    $validated['is_locked_by_po'] = false;
-                }
-            } catch (\Exception $e) {
-                \Log::error('Base64 PO upload failed', ['error' => $e->getMessage()]);
-            }
-        }
-
-        if ($request->hasFile('invoice_document')) {
-            $path = $request->file('invoice_document')->store('invoices', 's3');
-            $validated['invoice_document'] = $path;
-        } elseif ($request->filled('invoice_document') && is_string($request->invoice_document) && str_starts_with($request->invoice_document, 'data:')) {
-            try {
-                $base64data = $request->invoice_document;
-                $commaPos = strpos($base64data, ',');
-                if ($commaPos !== false) {
-                    $header = substr($base64data, 0, $commaPos);
-                    $data = base64_decode(substr($base64data, $commaPos + 1));
-                    
-                    $ext = 'pdf';
-                    if (str_contains($header, 'image/png')) $ext = 'png';
-                    elseif (str_contains($header, 'image/jpeg')) $ext = 'jpg';
-                    
-                    $filename = 'invoices/' . \Illuminate\Support\Str::random(40) . '.' . $ext;
-                    \Illuminate\Support\Facades\Storage::disk('s3')->put($filename, $data);
-                    
-                    $validated['invoice_document'] = $filename;
-                }
-            } catch (\Exception $e) {
-                \Log::error('Base64 Invoice upload failed', ['error' => $e->getMessage()]);
-            }
-        }
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string',
+            'department_id' => 'nullable|exists:departments,id',
+            'emails' => 'nullable|array',
+            'emails.*' => 'email',
+            'phone_numbers' => 'nullable|array',
+            'phone_numbers.*' => 'string',
+            'project_group_id' => 'nullable|exists:project_groups,id',
+            'is_archived' => 'nullable|boolean',
+            'client_id' => 'nullable|exists:clients,id',
+            'estimate_id' => 'nullable|exists:estimates,id',
+            'estimated_hours' => 'nullable|integer',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
+        ]);
 
         $wasArchived = $project->is_archived;
         $project->update($validated);
