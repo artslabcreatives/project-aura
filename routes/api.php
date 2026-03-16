@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
+use App\Http\Controllers\Api\EstimateController;
 use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -145,6 +146,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('clients/{client}/contacts', [App\Http\Controllers\Api\ClientController::class, 'storeContact']);
     Route::put('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'updateContact']);
     Route::delete('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'destroyContact']);
+
+    // Estimates
+    Route::apiResource('estimates', EstimateController::class);
+    Route::post('estimates/{estimate}/send', [EstimateController::class, 'send']);
+    Route::post('estimates/{estimate}/approve', [EstimateController::class, 'approve']);
 });
 
 // 2FA Verification during login
