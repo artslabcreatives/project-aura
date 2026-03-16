@@ -80,7 +80,7 @@ class ProjectController extends Controller
                     new OA\Property(property: "project_group_id", type: "integer", example: 1),
                     new OA\Property(property: "client_id", type: "integer", example: 1, nullable: true),
                     new OA\Property(property: "estimated_hours", type: "integer", example: 160, nullable: true),
-                    new OA\Property(property: "status", type: "string", example: "active", enum: ["active", "on-hold", "completed", "cancelled"], nullable: true)
+                    new OA\Property(property: "status", type: "string", example: "active", enum: ["active", "on-hold", "completed", "cancelled", "suggested"], nullable: true)
                 ]
             )
         ),
@@ -119,7 +119,7 @@ class ProjectController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
             'po_number' => 'nullable|string|max:255',
             'deadline' => 'nullable|date',
             'po_document' => 'nullable|file|max:10240', // Max 10MB
