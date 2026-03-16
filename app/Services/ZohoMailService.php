@@ -121,13 +121,46 @@ class ZohoMailService
         if (!$headers) return null;
 
         $url = $this->mailUrl . "/accounts/{$accountId}/messages";
-        $response = Http::withHeaders($headers)->post($url, $data);
+        
+        Log::debug('Zoho Mail Sending Message', ['url' => $url, 'data' => $data]);
+        
+        $response = Http::withHeaders($headers)->asJson()->post($url, $data);
 
         if ($response->failed()) {
-            Log::error('Zoho Mail Send Message Failed', ['response' => $response->json(), 'url' => $url]);
+            Log::error('Zoho Mail Send Message Failed', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+                'url' => $url
+            ]);
             return null;
         }
 
+        Log::debug('Zoho Mail Send Message Success', ['response' => $response->json()]);
+
         return $response->json()['data'] ?? true;
+    }
+
+    public function uploadAttachment($userId, $accountId, $file)
+    {
+        $headers = $this->getHeaders($userId);
+        if (!$headers) return null;
+
+        $fileName = $file->getClientOriginalName();
+        // Zoho expects fileName in query for some reason even with multipart
+        $url = $this->mailUrl . "/accounts/{$accountId}/messages/attachments?uploadType=multipart&fileName=" . urlencode($fileName);
+        
+        $response = Http::withHeaders($headers)
+            ->attach('attach', file_get_contents($file->getRealPath()), $fileName)
+            ->post($url);
+
+        if ($response->failed()) {
+            Log::error('Zoho Mail Upload Attachment Failed', [
+                'response' => $response->json(),
+                'url' => $url
+            ]);
+            return null;
+        }
+
+        return $response->json()['data'] ?? null;
     }
 }

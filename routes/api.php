@@ -155,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/folders/{folderId}/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'getMessages']);
         Route::get('/folders/{folderId}/messages/{messageId}/content', [\App\Http\Controllers\Api\ZohoMailController::class, 'getMessageContent']);
         Route::post('/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'sendMessage']);
+        Route::post('/messages/attachments', [\App\Http\Controllers\Api\ZohoMailController::class, 'uploadAttachment']);
     });
 });
 

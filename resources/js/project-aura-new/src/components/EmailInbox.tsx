@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { EmailDetailView } from "./EmailDetailView";
+import { ComposeEmailDialog } from "./ComposeEmailDialog";
 
 interface Folder {
   folderId: string;
@@ -30,6 +31,7 @@ export const EmailInbox: React.FC = () => {
   const [loadingFolders, setLoadingFolders] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
   const pageSize = 50;
 
   useEffect(() => {
@@ -132,7 +134,7 @@ export const EmailInbox: React.FC = () => {
           </div>
         </ScrollArea>
         <div className="p-4 border-t mt-auto">
-          <Button className="w-full gap-2">
+          <Button className="w-full gap-2" onClick={() => setIsComposeOpen(true)}>
             <Plus className="h-4 w-4" /> Compose
           </Button>
         </div>
@@ -229,6 +231,11 @@ export const EmailInbox: React.FC = () => {
           </Card>
         )}
       </div>
+
+      <ComposeEmailDialog 
+        open={isComposeOpen} 
+        onOpenChange={setIsComposeOpen}
+      />
     </div>
   );
 };

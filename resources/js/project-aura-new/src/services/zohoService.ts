@@ -35,6 +35,17 @@ export const zohoService = {
     return response.data;
   },
 
+  uploadAttachment: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post("/zoho/messages/attachments", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
   handleCallback: async (code: string) => {
     const response = await api.get("/zoho/callback", {
       params: { code },
