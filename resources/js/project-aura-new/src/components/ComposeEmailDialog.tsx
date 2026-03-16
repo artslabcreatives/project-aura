@@ -43,12 +43,18 @@ interface ComposeEmailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  initialData?: {
+    toAddress?: string;
+    subject?: string;
+    content?: string;
+  };
 }
 
 export const ComposeEmailDialog: React.FC<ComposeEmailDialogProps> = ({
   open,
   onOpenChange,
   onSuccess,
+  initialData,
 }) => {
   const [loading, setLoading] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -68,8 +74,19 @@ export const ComposeEmailDialog: React.FC<ComposeEmailDialogProps> = ({
   useEffect(() => {
     if (open) {
       fetchStatus();
+      if (initialData) {
+        setFormData({
+          toAddress: initialData.toAddress || "",
+          ccAddress: "",
+          bccAddress: "",
+          subject: initialData.subject || "",
+        });
+        if (contentRef.current && initialData.content) {
+            contentRef.current.innerHTML = initialData.content;
+        }
+      }
     }
-  }, [open]);
+  }, [open, initialData]);
 
   const fetchStatus = async () => {
     try {

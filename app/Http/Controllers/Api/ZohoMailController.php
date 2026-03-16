@@ -225,4 +225,24 @@ class ZohoMailController extends Controller
 
         return response()->json(['attachment' => $attachment]);
     }
+
+    public function deleteMessage(Request $request, $folderId, $messageId)
+    {
+        $accountId = $request->query('account_id');
+        if (!$accountId) {
+            $accounts = $this->mailService->getAccounts(Auth::id());
+            if (empty($accounts)) {
+                return response()->json(['error' => 'No accounts found'], 404);
+            }
+            $accountId = $accounts[0]['accountId'];
+        }
+
+        $result = $this->mailService->deleteMessage(Auth::id(), $accountId, $folderId, $messageId);
+
+        if (!$result) {
+            return response()->json(['error' => 'Failed to delete email'], 500);
+        }
+
+        return response()->json(['success' => true]);
+    }
 }

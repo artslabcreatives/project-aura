@@ -166,4 +166,26 @@ class ZohoMailService
 
         return $uploadData;
     }
+
+    public function deleteMessage($userId, $accountId, $folderId, $messageId)
+    {
+        $headers = $this->getHeaders($userId);
+        if (!$headers) return false;
+
+        $url = $this->mailUrl . "/accounts/{$accountId}/folders/{$folderId}/messages/{$messageId}";
+        Log::debug('Zoho Mail Deleting Message', ['url' => $url]);
+        
+        $response = Http::withHeaders($headers)->delete($url);
+
+        if ($response->failed()) {
+            Log::error('Zoho Mail Delete Message Failed', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+                'url' => $url
+            ]);
+            return false;
+        }
+
+        return true;
+    }
 }

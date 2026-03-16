@@ -146,7 +146,10 @@ export const EmailInbox: React.FC = () => {
           <EmailDetailView 
             folderId={selectedFolder || ""} 
             messageId={selectedMessageId} 
-            onBack={() => setSelectedMessageId(null)} 
+            onBack={() => {
+              setSelectedMessageId(null);
+              if (selectedFolder) fetchMessages(selectedFolder, currentPage);
+            }} 
           />
         ) : (
           <Card className="h-full flex flex-col overflow-hidden">
