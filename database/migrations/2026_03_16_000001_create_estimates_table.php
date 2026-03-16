@@ -16,16 +16,11 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->foreignId('client_id')->nullable()->constrained('clients')->nullOnDelete();
-            $table->foreignId('project_id')->nullable()->constrained('projects')->nullOnDelete();
-            $table->enum('status', ['draft', 'sent', 'approved'])->default('draft');
-            $table->date('issue_date')->nullable();
-            $table->date('valid_until')->nullable();
-            $table->string('currency', 10)->default('USD');
-            $table->decimal('subtotal', 12, 2)->default(0);
-            $table->decimal('tax_rate', 5, 2)->default(0);
-            $table->decimal('tax_amount', 12, 2)->default(0);
-            $table->decimal('total', 12, 2)->default(0);
+            $table->integer('estimated_hours')->nullable();
+            $table->decimal('amount', 12, 2)->nullable();
+            $table->string('status')->default('draft'); // draft, sent, accepted, rejected
             $table->text('notes')->nullable();
+            $table->foreignId('project_id')->nullable()->after('notes')->index();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

@@ -15,30 +15,20 @@ class Estimate extends Model
         'title',
         'description',
         'client_id',
-        'project_id',
+        'estimated_hours',
+        'amount',
         'status',
-        'issue_date',
-        'valid_until',
-        'currency',
-        'subtotal',
-        'tax_rate',
-        'tax_amount',
-        'total',
         'notes',
+        'project_id',
         'created_by',
     ];
 
     protected $casts = [
-        'issue_date' => 'date',
-        'valid_until' => 'date',
-        'subtotal' => 'float',
-        'tax_rate' => 'float',
-        'tax_amount' => 'float',
-        'total' => 'float',
+        'amount' => 'decimal:2',
     ];
 
     /**
-     * Get the client linked to this estimate.
+     * Get the client for this estimate.
      */
     public function client(): BelongsTo
     {
@@ -46,7 +36,7 @@ class Estimate extends Model
     }
 
     /**
-     * Get the project linked to this estimate.
+     * Get the auto-created suggested project for this estimate.
      */
     public function project(): BelongsTo
     {
@@ -59,28 +49,5 @@ class Estimate extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Get the line items for this estimate.
-     */
-    public function items(): HasMany
-    {
-        return $this->hasMany(EstimateItem::class)->orderBy('sort_order');
-    }
-
-    /**
-     * Recalculate subtotal, tax_amount, and total from line items.
-     */
-    public function recalculateTotals(): void
-    {
-        $subtotal = $this->items()->sum('total');
-        $taxAmount = round($subtotal * ($this->tax_rate / 100), 2);
-
-        $this->update([
-            'subtotal' => $subtotal,
-            'tax_amount' => $taxAmount,
-            'total' => $subtotal + $taxAmount,
-        ]);
     }
 }
