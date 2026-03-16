@@ -71,6 +71,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/collaborators', [ProjectController::class, 'addCollaborators']);
     Route::delete('projects/{project}/collaborators/{user}', [ProjectController::class, 'removeCollaborator']);
     Route::get('projects/{project}/collaborators', [ProjectController::class, 'getCollaborators']);
+
+    // Project workflow actions
+    Route::post('projects/{project}/grace-period', [ProjectController::class, 'grantGracePeriod']);
+    Route::post('projects/{project}/block', [ProjectController::class, 'block']);
+    Route::post('projects/{project}/unblock', [ProjectController::class, 'unblock']);
     
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);

@@ -119,12 +119,13 @@ class ProjectController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested,blocked',
             'po_number' => 'nullable|string|max:255',
             'deadline' => 'nullable|date',
             'po_document' => 'nullable|file|max:10240', // Max 10MB
             'invoice_number' => 'nullable|string|max:255',
             'invoice_document' => 'nullable|file|max:10240',
+            'provisional_po_expires_at' => 'nullable|date',
         ]);
 
         if ($request->hasFile('po_document')) {
@@ -260,11 +261,12 @@ class ProjectController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested,blocked',
             'po_number' => 'nullable|string|max:255',
             'po_document' => 'nullable|file|max:10240',
             'invoice_number' => 'nullable|string|max:255',
             'invoice_document' => 'nullable|file|max:10240',
+            'provisional_po_expires_at' => 'nullable|date',
         ]);
 
         $wasArchived = $project->is_archived;
@@ -534,6 +536,75 @@ class ProjectController extends Controller
         return response()->json(
             $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get()
         );
+    }
+
+    /**
+     * Grant a grace period for a project that is missing a PO.
+     * Only users with admin or finance roles may approve a grace period.
+     */
+    public function grantGracePeriod(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'finance'])) {
+            return response()->json(['message' => 'Only admin or finance users can grant grace periods.'], 403);
+        }
+
+        $validated = $request->validate([
+            'grace_period_days' => 'required|integer|min:1|max:365',
+        ]);
+
+        $project->update([
+            'grace_period_days'       => $validated['grace_period_days'],
+            'grace_period_started_at' => now(),
+            'grace_period_approved_by' => $user->id,
+        ]);
+
+        return response()->json($project->fresh(['gracePeriodApprover']), 200);
+    }
+
+    /**
+     * Manually block a project, setting it to a read-only state.
+     * Only admin and hr users may block projects.
+     */
+    public function block(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can block projects.'], 403);
+        }
+
+        $project->update([
+            'is_manually_blocked' => true,
+            'status' => 'blocked',
+        ]);
+
+        return response()->json($project->fresh(), 200);
+    }
+
+    /**
+     * Unblock a manually blocked project.
+     * Only admin and hr users may unblock projects.
+     */
+    public function unblock(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can unblock projects.'], 403);
+        }
+
+        // Only update status when the project is currently blocked to avoid
+        // overwriting other valid statuses (on-hold, completed, etc.)
+        $updates = ['is_manually_blocked' => false];
+        if ($project->status === 'blocked') {
+            $updates['status'] = 'active';
+        }
+
+        $project->update($updates);
+
+        return response()->json($project->fresh(), 200);
     }
 
     /**

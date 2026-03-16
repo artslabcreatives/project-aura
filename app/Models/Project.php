@@ -35,6 +35,11 @@ class Project extends Model
         'is_locked_by_po',
         'invoice_number',
         'invoice_document',
+        'grace_period_days',
+        'grace_period_started_at',
+        'grace_period_approved_by',
+        'provisional_po_expires_at',
+        'is_manually_blocked',
     ];
 
     protected $casts = [
@@ -43,6 +48,9 @@ class Project extends Model
         'deadline' => 'date',
         'is_archived' => 'boolean',
         'is_locked_by_po' => 'boolean',
+        'is_manually_blocked' => 'boolean',
+        'grace_period_started_at' => 'datetime',
+        'provisional_po_expires_at' => 'date',
     ];
 
     protected $appends = [
@@ -83,6 +91,46 @@ class Project extends Model
         } catch (\Exception $e) {
             return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
         }
+    }
+
+    /**
+     * Determine whether the project's grace period is currently active.
+     */
+    public function isGracePeriodActive(): bool
+    {
+        if (!$this->grace_period_started_at || !$this->grace_period_days) {
+            return false;
+        }
+
+        $expiresAt = $this->grace_period_started_at->copy()->addDays($this->grace_period_days);
+
+        return now()->lessThanOrEqualTo($expiresAt);
+    }
+
+    /**
+     * Determine whether tasks can be created for this project.
+     * Returns true when the project is not blocked (has a PO or an active grace period)
+     * and is not manually blocked.
+     */
+    public function allowsTaskCreation(): bool
+    {
+        if ($this->is_manually_blocked) {
+            return false;
+        }
+
+        if (!$this->is_locked_by_po) {
+            return true; // PO has been received
+        }
+
+        return $this->isGracePeriodActive();
+    }
+
+    /**
+     * Get the user who approved the grace period.
+     */
+    public function gracePeriodApprover(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'grace_period_approved_by');
     }
 
 	/**
