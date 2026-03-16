@@ -23,15 +23,19 @@ import {
     Clock,
     Copy,
     Check,
-    Shield
+    Shield,
+    FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Client, ClientContact } from "@/types/client";
+import { Estimate } from "@/types/estimate";
 import { clientService } from "@/services/clientService";
 import { projectService } from "@/services/projectService";
+import { estimateService } from "@/services/estimateService";
 import { useToast } from "@/hooks/use-toast";
 import { ClientDialog } from "@/components/ClientDialog";
 import { ContactDialog } from "@/components/ContactDialog";
+import { EstimateDialog } from "@/components/EstimateDialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -88,9 +92,11 @@ export default function ClientProfile() {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [client, setClient] = useState<Client | null>(null);
+    const [estimates, setEstimates] = useState<Estimate[]>([]);
     const [loading, setLoading] = useState(true);
     const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
     const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+    const [isEstimateDialogOpen, setIsEstimateDialogOpen] = useState(false);
     const [editingContact, setEditingContact] = useState<ClientContact | null>(null);
     const [contactToDelete, setContactToDelete] = useState<ClientContact | null>(null);
     const [isDeletingClient, setIsDeletingClient] = useState(false);
@@ -114,6 +120,12 @@ export default function ClientProfile() {
             } else {
                 const data = await clientService.getById(id);
                 setClient(data);
+                try {
+                    const estData = await estimateService.getAll(id);
+                    setEstimates(estData);
+                } catch {
+                    // estimates may not be available yet
+                }
             }
         } catch (error) {
             console.error("Failed to fetch client:", error);
@@ -196,6 +208,16 @@ export default function ClientProfile() {
         } catch (error) {
             console.error("Failed to delete contact:", error);
             toast({ title: "Error", description: "Failed to delete contact.", variant: "destructive" });
+        }
+    };
+
+    const handleSaveEstimate = async (payload: Omit<Estimate, 'id' | 'created_at' | 'updated_at' | 'client'>) => {
+        try {
+            const created = await estimateService.create(payload);
+            setEstimates(prev => [created, ...prev]);
+            toast({ title: "Estimate created successfully." });
+        } catch {
+            toast({ title: "Error", description: "Failed to create estimate.", variant: "destructive" });
         }
     };
 
@@ -388,6 +410,75 @@ export default function ClientProfile() {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* Estimates Card */}
+                    {id !== 'internal' && (
+                        <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                                    <FileText className="h-5 w-5 text-primary" />
+                                    Estimates
+                                </CardTitle>
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="font-normal">
+                                        {estimates.length} Total
+                                    </Badge>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setIsEstimateDialogOpen(true)}>
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {estimates.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {estimates.map(est => (
+                                            <div
+                                                key={est.id}
+                                                onClick={() => navigate(`/estimates/${est.id}`)}
+                                                className="p-3 rounded-lg border bg-background/50 hover:bg-muted/30 transition-all cursor-pointer group border-border/50 hover:border-primary/20 flex items-center justify-between"
+                                            >
+                                                <div>
+                                                    <p className="text-sm font-semibold group-hover:text-primary transition-colors">{est.title}</p>
+                                                    {est.estimate_number && (
+                                                        <p className="text-xs text-muted-foreground font-mono">#{est.estimate_number}</p>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {est.total_amount !== undefined && (
+                                                        <span className="text-sm font-medium">${est.total_amount.toFixed(2)}</span>
+                                                    )}
+                                                    <Badge className={`text-[10px] capitalize ${
+                                                        est.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                                                        est.status === 'sent' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                                                        est.status === 'rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                                                        'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                                    }`}>
+                                                        {est.status}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full text-muted-foreground mt-1"
+                                            onClick={() => navigate('/estimates')}
+                                        >
+                                            View All Estimates →
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="py-8 text-center space-y-3">
+                                        <FileText className="h-8 w-8 text-muted-foreground mx-auto opacity-20" />
+                                        <p className="text-muted-foreground text-sm">No estimates for this client.</p>
+                                        <Button size="sm" variant="outline" onClick={() => setIsEstimateDialogOpen(true)}>
+                                            <Plus className="h-3.5 w-3.5 mr-1" /> Create Estimate
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Right Column: Contacts */}
@@ -508,6 +599,14 @@ export default function ClientProfile() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <EstimateDialog
+                open={isEstimateDialogOpen}
+                onOpenChange={setIsEstimateDialogOpen}
+                onSave={handleSaveEstimate}
+                clients={client ? [client as any] : []}
+                defaultClientId={typeof client?.id === 'number' ? client.id : undefined}
+            />
         </div>
     );
 }

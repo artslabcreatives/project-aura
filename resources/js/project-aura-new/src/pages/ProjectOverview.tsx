@@ -7,7 +7,7 @@ import { Task } from "@/types/task";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe, ArrowLeft, Lock } from "lucide-react";
+import { Building2, Clock, CheckCircle2, AlertCircle, Calendar, Mail, Phone, Globe, ArrowLeft, Lock, ShieldCheck, FileText, AlertTriangle, BanIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,8 @@ import { Loader2 } from "lucide-react";
 import { POUploadDialog } from "@/components/POUploadDialog";
 import { POViewDialog } from "@/components/POViewDialog";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
+import { GracePeriodDialog } from "@/components/GracePeriodDialog";
+import { ProvisionalPODialog } from "@/components/ProvisionalPODialog";
 
 export default function ProjectOverview() {
     const { projectId } = useParams<{ projectId: string }>();
@@ -34,6 +36,8 @@ export default function ProjectOverview() {
     const [isPOViewOpen, setIsPOViewOpen] = useState(false);
     const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
     const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+    const [isGracePeriodOpen, setIsGracePeriodOpen] = useState(false);
+    const [isProvisionalPOOpen, setIsProvisionalPOOpen] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
     const navigate = useNavigate();
@@ -126,11 +130,13 @@ export default function ProjectOverview() {
     const totalTasks = filteredTasks.length;
     const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    const statusColors = {
+    const statusColors: Record<string, string> = {
         active: "bg-green-500",
         "on-hold": "bg-orange-500",
         completed: "bg-blue-500",
         cancelled: "bg-red-500",
+        suggested: "bg-blue-400",
+        blocked: "bg-red-600",
     };
 
     const getDisplayName = (title: string) => {
@@ -177,7 +183,70 @@ export default function ProjectOverview() {
 
     const canChangeStatus = currentUser?.role === 'admin' || currentUser?.role === 'hr';
     const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
+    const canManageFinance = currentUser?.role === 'admin' || currentUser?.role === 'hr';
+    const isBlocked = project?.isBlocked || project?.status === 'blocked';
 
+    const handleGracePeriodSave = async (expiresAt: string, notes: string) => {
+        if (!project) return;
+        try {
+            const updatedProject = await projectService.update(String(project.id), {
+                ...project,
+                gracePeriodExpiresAt: expiresAt,
+                gracePeriodNotes: notes,
+            });
+            setProject(updatedProject);
+            toast({ title: "Grace period authorized successfully." });
+        } catch {
+            toast({ title: "Error", description: "Failed to save grace period.", variant: "destructive" });
+        }
+    };
+
+    const handleProvisionalPOSave = async (poNumber: string, expiresAt: string) => {
+        if (!project) return;
+        try {
+            const updatedProject = await projectService.update(String(project.id), {
+                ...project,
+                provisionalPoNumber: poNumber,
+                provisionalPoExpiresAt: expiresAt,
+            });
+            setProject(updatedProject);
+            toast({ title: "Provisional PO issued successfully." });
+        } catch {
+            toast({ title: "Error", description: "Failed to issue provisional PO.", variant: "destructive" });
+        }
+    };
+
+    const handleToggleBlock = async () => {
+        if (!project) return;
+        const newStatus = isBlocked ? 'active' : 'blocked';
+        setIsUpdatingStatus(true);
+        try {
+            const updatedProject = await projectService.update(String(project.id), {
+                ...project,
+                status: newStatus,
+                isBlocked: !isBlocked,
+            });
+            setProject(updatedProject);
+            toast({
+                title: isBlocked ? "Project Unblocked" : "Project Blocked",
+                description: isBlocked
+                    ? "The project has been unblocked and is now active."
+                    : "The project has been blocked and is now read-only.",
+            });
+        } catch {
+            toast({ title: "Error", description: "Failed to update project status.", variant: "destructive" });
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const hasPO = !!project?.poDocumentUrl || !!project?.poNumber;
+    const hasGracePeriod = !!project?.gracePeriodExpiresAt;
+    const gracePeriodExpired = hasGracePeriod && new Date(project!.gracePeriodExpiresAt!) < new Date();
+    const hasProvisionalPO = !!project?.provisionalPoNumber;
+    const provisionalPOExpired = hasProvisionalPO && project?.provisionalPoExpiresAt
+        ? new Date(project.provisionalPoExpiresAt) < new Date()
+        : false;
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -200,6 +269,11 @@ export default function ProjectOverview() {
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
                         <h1 className="text-4xl font-bold tracking-tight">{project.name}</h1>
+                        {project.projectCode && (
+                            <span className="text-sm font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                {project.projectCode}
+                            </span>
+                        )}
                         {project.isLockedByPo ? (
                             <div className="flex items-center gap-2">
                                 <Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-500 hover:bg-red-600 border-none px-2 h-6 flex items-center gap-1">
@@ -263,14 +337,21 @@ export default function ProjectOverview() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="on-hold">Blocked</SelectItem>
+                                    <SelectItem value="suggested">Suggested</SelectItem>
+                                    <SelectItem value="on-hold">On Hold</SelectItem>
+                                    <SelectItem value="blocked">Blocked</SelectItem>
                                     <SelectItem value="completed">Completed</SelectItem>
                                     <SelectItem value="cancelled">Cancelled</SelectItem>
                                 </SelectContent>
                             </Select>
                         ) : (
                             <Badge className={`${statusColors[project.status || 'active']} hover:${statusColors[project.status || 'active']} text-white capitalize px-3 py-1`}>
-                                {project.status === 'on-hold' ? 'Blocked' : project.status || 'active'}
+                                {project.status === 'on-hold' ? 'On Hold' : project.status || 'active'}
+                            </Badge>
+                        )}
+                        {isBlocked && (
+                            <Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-600 border-none px-2 h-6 flex items-center gap-1">
+                                <BanIcon className="h-3 w-3" /> Blocked
                             </Badge>
                         )}
                     </div>
@@ -278,7 +359,24 @@ export default function ProjectOverview() {
                         {project.department?.name} • {project.group?.name || 'No Group'}
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                    {canManageFinance && (
+                        <Button
+                            variant={isBlocked ? "outline" : "destructive"}
+                            size="sm"
+                            onClick={handleToggleBlock}
+                            disabled={isUpdatingStatus}
+                        >
+                            {isUpdatingStatus ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                            ) : isBlocked ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            ) : (
+                                <BanIcon className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            {isBlocked ? "Unblock Project" : "Block Project"}
+                        </Button>
+                    )}
                     <button
                         onClick={() => navigate(`/project/${projectId}`)}
                         className="px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors"
@@ -288,7 +386,79 @@ export default function ProjectOverview() {
                 </div>
             </div>
 
-            {/* Quick Stats Grid */}
+            {/* PO Warning Banner */}
+            {!hasPO && !hasGracePeriod && !hasProvisionalPO && (
+                <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4">
+                    <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <p className="font-semibold text-amber-800 dark:text-amber-300">Purchase Order Required</p>
+                        <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
+                            This project does not have a PO on file. Task creation is restricted until a PO is received.
+                        </p>
+                    </div>
+                    {canManageFinance && (
+                        <div className="flex gap-2 shrink-0">
+                            <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900" onClick={() => setIsPOUploadOpen(true)}>
+                                Upload PO
+                            </Button>
+                            <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900" onClick={() => setIsGracePeriodOpen(true)}>
+                                <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Grace Period
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Grace Period Banner */}
+            {hasGracePeriod && !hasPO && (
+                <div className={`flex items-start gap-3 rounded-lg border p-4 ${gracePeriodExpired ? 'border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800' : 'border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800'}`}>
+                    <ShieldCheck className={`h-5 w-5 shrink-0 mt-0.5 ${gracePeriodExpired ? 'text-red-500' : 'text-blue-500'}`} />
+                    <div className="flex-1">
+                        <p className={`font-semibold ${gracePeriodExpired ? 'text-red-800 dark:text-red-300' : 'text-blue-800 dark:text-blue-300'}`}>
+                            {gracePeriodExpired ? 'Grace Period Expired' : 'Grace Period Active'}
+                        </p>
+                        <p className={`text-sm mt-0.5 ${gracePeriodExpired ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                            {gracePeriodExpired
+                                ? `The authorized grace period expired on ${new Date(project!.gracePeriodExpiresAt!).toLocaleDateString()}. A PO is now required.`
+                                : `Work may proceed without PO until ${new Date(project!.gracePeriodExpiresAt!).toLocaleDateString()}.`}
+                            {project!.gracePeriodNotes && ` Note: ${project!.gracePeriodNotes}`}
+                        </p>
+                    </div>
+                    {canManageFinance && (
+                        <div className="flex gap-2 shrink-0">
+                            <Button size="sm" variant="outline" onClick={() => setIsGracePeriodOpen(true)}>
+                                Update
+                            </Button>
+                            {gracePeriodExpired && !hasProvisionalPO && (
+                                <Button size="sm" variant="outline" className="border-blue-400 text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900" onClick={() => setIsProvisionalPOOpen(true)}>
+                                    <FileText className="h-3.5 w-3.5 mr-1" /> Provisional PO
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Provisional PO Banner */}
+            {hasProvisionalPO && !hasPO && (
+                <div className={`flex items-start gap-3 rounded-lg border p-4 ${provisionalPOExpired ? 'border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800' : 'border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800'}`}>
+                    <FileText className={`h-5 w-5 shrink-0 mt-0.5 ${provisionalPOExpired ? 'text-orange-500' : 'text-green-500'}`} />
+                    <div className="flex-1">
+                        <p className={`font-semibold ${provisionalPOExpired ? 'text-orange-800 dark:text-orange-300' : 'text-green-800 dark:text-green-300'}`}>
+                            {provisionalPOExpired ? 'Provisional PO Expired' : 'Provisional PO Active'}
+                        </p>
+                        <p className={`text-sm mt-0.5 ${provisionalPOExpired ? 'text-orange-700 dark:text-orange-400' : 'text-green-700 dark:text-green-400'}`}>
+                            PO Reference: <strong>{project!.provisionalPoNumber}</strong>
+                            {project!.provisionalPoExpiresAt && ` · ${provisionalPOExpired ? 'Expired' : 'Expires'} ${new Date(project!.provisionalPoExpiresAt).toLocaleDateString()}`}
+                        </p>
+                    </div>
+                    {canManageFinance && (
+                        <Button size="sm" variant="outline" onClick={() => setIsProvisionalPOOpen(true)}>
+                            Update
+                        </Button>
+                    )}
+                </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <Card className="h-full border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 flex flex-col">
                     <CardHeader className="pb-2">
@@ -559,6 +729,23 @@ export default function ProjectOverview() {
                     // The projectService.update inside the dialog should handle fields, 
                     // but we might want to ensure the status is 'completed' there too.
                 }}
+            />
+
+            <GracePeriodDialog
+                open={isGracePeriodOpen}
+                onOpenChange={setIsGracePeriodOpen}
+                onSave={handleGracePeriodSave}
+                currentExpiresAt={project.gracePeriodExpiresAt}
+                currentNotes={project.gracePeriodNotes}
+            />
+
+            <ProvisionalPODialog
+                open={isProvisionalPOOpen}
+                onOpenChange={setIsProvisionalPOOpen}
+                onSave={handleProvisionalPOSave}
+                projectName={project.name}
+                currentPoNumber={project.provisionalPoNumber}
+                currentExpiresAt={project.provisionalPoExpiresAt}
             />
         </div>
     );
