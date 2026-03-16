@@ -19,7 +19,6 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
-use App\Http\Controllers\Api\EstimateController;
 use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
