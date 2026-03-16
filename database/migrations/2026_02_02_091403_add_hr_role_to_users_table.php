@@ -12,8 +12,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Using raw SQL to update the enum definition 
-        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('user', 'team-lead', 'admin', 'account-manager', 'hr') DEFAULT 'user'");
+        $driver = DB::getDriverName();
+
+        if ($driver === 'mysql' || $driver === 'mariadb') {
+            // Using raw SQL to update the enum definition
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('user', 'team-lead', 'admin', 'account-manager', 'hr') DEFAULT 'user'");
+        }
+        // SQLite does not support MODIFY COLUMN; no structural change needed for testing.
     }
 
     /**
@@ -21,8 +26,13 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revert ensuring we don't leave invalid data
-        DB::statement("UPDATE users SET role = 'user' WHERE role = 'hr'");
-        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('user', 'team-lead', 'admin', 'account-manager') DEFAULT 'user'");
+        $driver = DB::getDriverName();
+
+        if ($driver === 'mysql' || $driver === 'mariadb') {
+            // Revert ensuring we don't leave invalid data
+            DB::statement("UPDATE users SET role = 'user' WHERE role = 'hr'");
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('user', 'team-lead', 'admin', 'account-manager') DEFAULT 'user'");
+        }
     }
 };
+
