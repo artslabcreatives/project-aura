@@ -220,6 +220,9 @@ class ZohoMailController extends Controller
             return response()->json(['error' => 'Failed to upload attachment'], 500);
         }
 
-        return response()->json(['attachment' => $result]);
+        // Zoho returns an array of attachments even for single upload
+        $attachment = is_array($result) && isset($result[0]) ? $result[0] : $result;
+
+        return response()->json(['attachment' => $attachment]);
     }
 }
