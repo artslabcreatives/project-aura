@@ -4,14 +4,17 @@ namespace App\Observers;
 
 use App\Models\Project;
 use App\Services\MattermostService;
+use App\Services\ProjectIdGenerationService;
 
 class ProjectObserver
 {
     protected MattermostService $mattermostService;
+    protected ProjectIdGenerationService $idGenerationService;
 
-    public function __construct(MattermostService $mattermostService)
+    public function __construct(MattermostService $mattermostService, ProjectIdGenerationService $idGenerationService)
     {
         $this->mattermostService = $mattermostService;
+        $this->idGenerationService = $idGenerationService;
     }
 
     /**
@@ -19,6 +22,10 @@ class ProjectObserver
      */
     public function created(Project $project): void
     {
+        // Auto-assign a unique project code
+        $project->project_code = $this->idGenerationService->generate($project);
+        $project->saveQuietly();
+
         // Create Mattermost channel for the project
         $this->mattermostService->createChannelForProject($project);
         // Create default stages

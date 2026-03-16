@@ -11,12 +11,12 @@ use Illuminate\Support\Str;
 class MattermostService
 {
     protected string $baseUrl;
-    protected string $token;
-    protected string $teamId;
+    protected ?string $token;
+    protected ?string $teamId;
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('services.mattermost.url'), '/');
+        $this->baseUrl = rtrim(config('services.mattermost.url', ''), '/');
         $this->token = config('services.mattermost.token');
         $this->teamId = config('services.mattermost.team_id');
     }
