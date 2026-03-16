@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ProvisionalPoMailable;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Mail;
 use OpenApi\Attributes as OA;
 
 class ProjectController extends Controller
@@ -149,6 +151,19 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
         }
 
+        // Email client when provisional PO is raised
+        if ($request->hasFile('po_document') && $project->client_id) {
+            try {
+                $project->load('client.contacts', 'collaborators');
+                $clientEmail = $this->resolveClientEmail($project);
+                if ($clientEmail) {
+                    Mail::to($clientEmail)->queue(new ProvisionalPoMailable($project));
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send provisional PO email: ' . $e->getMessage());
+            }
+        }
+
         return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
             $query->where('type', 'project');
         }]), 201);
@@ -246,9 +261,26 @@ class ProjectController extends Controller
             'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
             'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
+            'po_number' => 'nullable|string|max:255',
+            'po_document' => 'nullable|file|max:10240',
+            'invoice_number' => 'nullable|string|max:255',
+            'invoice_document' => 'nullable|file|max:10240',
         ]);
 
         $wasArchived = $project->is_archived;
+        $hadPoDocument = (bool) $project->po_document;
+
+        if ($request->hasFile('po_document')) {
+            $path = $request->file('po_document')->store('purchase-orders', 's3');
+            $validated['po_document'] = $path;
+            $validated['is_locked_by_po'] = false;
+        }
+
+        if ($request->hasFile('invoice_document')) {
+            $path = $request->file('invoice_document')->store('invoices', 's3');
+            $validated['invoice_document'] = $path;
+        }
+
         $project->update($validated);
         
         $action = 'update';
@@ -265,6 +297,19 @@ class ProjectController extends Controller
         } catch (\Exception $e) {
             // Log error but continue
             \Illuminate\Support\Facades\Log::error('Failed to broadcast project update: ' . $e->getMessage());
+        }
+
+        // Email client when provisional PO is raised for the first time via update
+        if ($request->hasFile('po_document') && !$hadPoDocument && $project->client_id) {
+            try {
+                $project->load('client.contacts', 'collaborators');
+                $clientEmail = $this->resolveClientEmail($project);
+                if ($clientEmail) {
+                    Mail::to($clientEmail)->queue(new ProvisionalPoMailable($project));
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send provisional PO email: ' . $e->getMessage());
+            }
         }
 
         return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
@@ -489,5 +534,27 @@ class ProjectController extends Controller
         return response()->json(
             $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get()
         );
+    }
+
+    /**
+     * Resolve the best client email address for sending provisional PO notifications.
+     *
+     * Prefers the primary ClientContact email, then the Client's own email.
+     */
+    protected function resolveClientEmail(Project $project): ?string
+    {
+        $client = $project->client;
+
+        if (! $client) {
+            return null;
+        }
+
+        $primaryContact = $client->contacts()->where('is_primary', true)->first();
+
+        if ($primaryContact && $primaryContact->email) {
+            return $primaryContact->email;
+        }
+
+        return $client->email ?: null;
     }
 }
