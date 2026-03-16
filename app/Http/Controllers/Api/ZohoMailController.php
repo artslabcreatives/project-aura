@@ -143,7 +143,8 @@ class ZohoMailController extends Controller
             'askReceipt'
         ]);
 
-        Log::debug('Zoho Mail Accounts for Send', ['accounts' => $accounts, 'accountId' => $accountId]);
+        Log::debug('Zoho Mail Send Message Request Data', ['data' => $data, 'accountId' => $accountId]);
+        Log::debug('Zoho Mail Accounts for Send', ['accounts' => $accounts]);
 
         if (empty($data['fromAddress'])) {
              // Find the account and use its email
@@ -167,6 +168,7 @@ class ZohoMailController extends Controller
         }
 
         Log::debug('Zoho Mail Identified FromAddress', ['fromAddress' => $data['fromAddress']]);
+        Log::debug('Zoho Mail Attachments Before Sanitization', ['attachments' => $data['attachments'] ?? null]);
 
         // Remove empty optional fields that Zoho might be picky about
         if (empty($data['ccAddress'])) unset($data['ccAddress']);
@@ -185,6 +187,8 @@ class ZohoMailController extends Controller
 
         if (empty($data['subject'])) $data['subject'] = '(No Subject)';
         if (empty($data['askReceipt'])) unset($data['askReceipt']);
+
+        Log::debug('Zoho Mail Resulting Payload for Send', ['data' => $data]);
 
         $result = $this->mailService->sendMessage(Auth::id(), $accountId, $data);
         

@@ -161,6 +161,9 @@ class ZohoMailService
             return null;
         }
 
-        return $response->json()['data'] ?? null;
+        $uploadData = $response->json()['data'] ?? null;
+        Log::debug('Zoho Mail Upload Attachment Success', ['data' => $uploadData, 'fileName' => $fileName]);
+
+        return $uploadData;
     }
 }
