@@ -25,6 +25,7 @@ import { POViewDialog } from "@/components/POViewDialog";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import { GracePeriodDialog } from "@/components/GracePeriodDialog";
 import { ProvisionalPODialog } from "@/components/ProvisionalPODialog";
+import { InvoiceViewDialog } from "@/components/InvoiceViewDialog";
 
 export default function ProjectOverview() {
     const { projectId } = useParams<{ projectId: string }>();
@@ -38,6 +39,7 @@ export default function ProjectOverview() {
     const [isEditingDeadline, setIsEditingDeadline] = useState(false);
     const [isGracePeriodOpen, setIsGracePeriodOpen] = useState(false);
     const [isProvisionalPOOpen, setIsProvisionalPOOpen] = useState(false);
+    const [isInvoiceViewOpen, setIsInvoiceViewOpen] = useState(false);
     const { toast } = useToast();
     const { currentUser } = useUser();
     const navigate = useNavigate();
@@ -305,7 +307,7 @@ export default function ProjectOverview() {
                                         variant="outline" 
                                         size="sm" 
                                         className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-                                        onClick={() => window.open(project.invoiceDocumentUrl, '_blank')}
+                                        onClick={() => setIsInvoiceViewOpen(true)}
                                     >
                                         View Invoice
                                     </Button>
@@ -317,7 +319,7 @@ export default function ProjectOverview() {
                                     variant="outline" 
                                     size="sm" 
                                     className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-                                    onClick={() => window.open(project.invoiceDocumentUrl, '_blank')}
+                                    onClick={() => setIsInvoiceViewOpen(true)}
                                 >
                                     View Invoice
                                 </Button>
@@ -749,6 +751,14 @@ export default function ProjectOverview() {
                 projectName={project.name}
                 currentPoNumber={project.provisionalPoNumber}
                 currentExpiresAt={project.provisionalPoExpiresAt}
+            />
+
+            <InvoiceViewDialog
+                open={isInvoiceViewOpen}
+                onOpenChange={setIsInvoiceViewOpen}
+                url={project.invoiceDocumentUrl || ""}
+                project={project}
+                onSuccess={(updatedProject) => setProject(updatedProject)}
             />
         </div>
     );
