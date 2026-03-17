@@ -90,7 +90,7 @@ class Project extends Model
         try {
             return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl(
                 $path, 
-                now()->addMinutes(60)
+                now()->addMinutes(1440)
             );
         } catch (\Exception $e) {
             return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);

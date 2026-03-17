@@ -30,22 +30,10 @@ export function InvoiceUploadDialog({ open, onOpenChange, project, onSuccess }: 
         e.preventDefault();
         setIsUploading(true);
         try {
-            let invoiceDocumentValue: any = invoiceDocument;
-
-            if (invoiceDocument instanceof File) {
-                // Read as base64 to bypass server /tmp full issue
-                invoiceDocumentValue = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(invoiceDocument);
-                });
-            }
-
             const updatedProject = await projectService.update(String(project.id), {
                 status: 'completed',
                 invoice_number: invoiceNumber,
-                invoice_document: invoiceDocumentValue,
+                invoice_document: invoiceDocument,
                 isPhysicalInvoice: isPhysicalInvoice,
                 courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
             });

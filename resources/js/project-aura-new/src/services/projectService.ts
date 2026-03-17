@@ -120,7 +120,7 @@ export const projectService = {
 	},
 
 	create: async (project: any): Promise<Project> => {
-		const isFormData = project.po_document instanceof File;
+		const isFormData = project.po_document instanceof File || project.invoice_document instanceof File;
 		
 		let payload: any;
 		if (isFormData) {
@@ -163,7 +163,7 @@ export const projectService = {
 	},
 
 	update: async (id: string, updates: any): Promise<Project> => {
-		const isFormData = updates.po_document instanceof File;
+		const isFormData = updates.po_document instanceof File || updates.invoice_document instanceof File;
 
 		let payload: any;
 		if (isFormData) {
