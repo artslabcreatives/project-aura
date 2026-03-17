@@ -126,6 +126,8 @@ class ProjectController extends Controller
             'invoice_number' => 'nullable|string|max:255',
             'invoice_document' => 'nullable|file|max:10240',
             'provisional_po_expires_at' => 'nullable|date',
+            'is_physical_invoice' => 'nullable|boolean',
+            'courier_tracking_number' => 'nullable|string|max:255',
         ]);
 
         if ($request->hasFile('po_document')) {
@@ -267,6 +269,9 @@ class ProjectController extends Controller
             'invoice_number' => 'nullable|string|max:255',
             'invoice_document' => 'nullable|file|max:10240',
             'provisional_po_expires_at' => 'nullable|date',
+            'is_physical_invoice' => 'nullable|boolean',
+            'courier_tracking_number' => 'nullable|string|max:255',
+            'courier_delivery_status' => 'nullable|string|max:255',
         ]);
 
         $wasArchived = $project->is_archived;

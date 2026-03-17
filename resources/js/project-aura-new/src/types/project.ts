@@ -37,4 +37,7 @@ export interface Project {
 	gracePeriodApprovedBy?: string;
 	provisionalPoNumber?: string;
 	provisionalPoExpiresAt?: string;
+	isPhysicalInvoice?: boolean;
+	courierTrackingNumber?: string;
+	courierDeliveryStatus?: string;
 }

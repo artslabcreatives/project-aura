@@ -40,6 +40,9 @@ class Project extends Model
         'grace_period_approved_by',
         'provisional_po_expires_at',
         'is_manually_blocked',
+        'is_physical_invoice',
+        'courier_tracking_number',
+        'courier_delivery_status',
     ];
 
     protected $casts = [
@@ -49,6 +52,7 @@ class Project extends Model
         'is_archived' => 'boolean',
         'is_locked_by_po' => 'boolean',
         'is_manually_blocked' => 'boolean',
+        'is_physical_invoice' => 'boolean',
         'grace_period_started_at' => 'datetime',
         'provisional_po_expires_at' => 'date',
     ];

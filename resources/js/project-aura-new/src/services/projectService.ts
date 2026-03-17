@@ -95,6 +95,9 @@ function mapProject(raw: any): Project {
 		gracePeriodApprovedBy: raw.grace_period_approved_by,
 		provisionalPoNumber: raw.provisional_po_number,
 		provisionalPoExpiresAt: raw.provisional_po_expires_at,
+		isPhysicalInvoice: raw.is_physical_invoice,
+		courierTrackingNumber: raw.courier_tracking_number,
+		courierDeliveryStatus: raw.courier_delivery_status,
 	};
 }
 
@@ -187,6 +190,8 @@ export const projectService = {
 			if (updates.po_document !== undefined) payload.append('po_document', updates.po_document);
 			if (updates.invoice_number !== undefined) payload.append('invoice_number', updates.invoice_number);
 			if (updates.invoice_document !== undefined) payload.append('invoice_document', updates.invoice_document);
+			if (updates.isPhysicalInvoice !== undefined) payload.append('is_physical_invoice', updates.isPhysicalInvoice ? '1' : '0');
+			if (updates.courierTrackingNumber !== undefined) payload.append('courier_tracking_number', updates.courierTrackingNumber);
 
 			// Append arrays
 			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
@@ -213,6 +218,9 @@ export const projectService = {
 				grace_period_notes: updates.gracePeriodNotes,
 				provisional_po_number: updates.provisionalPoNumber,
 				provisional_po_expires_at: updates.provisionalPoExpiresAt,
+				is_physical_invoice: updates.isPhysicalInvoice,
+				courier_tracking_number: updates.courierTrackingNumber,
+				courier_delivery_status: updates.courierDeliveryStatus,
 			};
 		}
 
