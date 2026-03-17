@@ -309,7 +309,7 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 						</Button>
 					)}
 
-					{currentStage?.title === "Pending" && (currentUser?.role === "user" || currentUser?.role === "account-manager") && (
+					{currentStage?.title === "Pending" && currentStage?.type === "project" && (currentUser?.role === "user" || currentUser?.role === "account-manager") && (
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>
