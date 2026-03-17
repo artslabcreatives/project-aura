@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('amount', 12, 2)->nullable();
             $table->string('status')->default('draft'); // draft, sent, accepted, rejected
             $table->text('notes')->nullable();
-            $table->foreignId('project_id')->nullable()->after('notes')->index();
+            $table->foreignId('project_id')->nullable()->index();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

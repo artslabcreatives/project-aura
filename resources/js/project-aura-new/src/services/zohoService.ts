@@ -35,6 +35,11 @@ export const zohoService = {
     return response.data;
   },
 
+  deleteMessage: async (folderId: string, messageId: string) => {
+    const response = await api.delete(`/zoho/folders/${folderId}/messages/${messageId}`);
+    return response.data;
+  },
+
   uploadAttachment: async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -50,6 +55,11 @@ export const zohoService = {
     const response = await api.get("/zoho/callback", {
       params: { code },
     });
+    return response.data;
+  },
+
+  unlinkZoho: async () => {
+    const response = await api.post("/zoho/unlink");
     return response.data;
   },
 };

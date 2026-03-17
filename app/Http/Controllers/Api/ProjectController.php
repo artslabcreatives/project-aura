@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ProvisionalPoMailable;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Mail;
 use OpenApi\Attributes as OA;
 
 class ProjectController extends Controller
@@ -78,7 +80,7 @@ class ProjectController extends Controller
                     new OA\Property(property: "project_group_id", type: "integer", example: 1),
                     new OA\Property(property: "client_id", type: "integer", example: 1, nullable: true),
                     new OA\Property(property: "estimated_hours", type: "integer", example: 160, nullable: true),
-                    new OA\Property(property: "status", type: "string", example: "active", enum: ["active", "on-hold", "completed", "cancelled"], nullable: true)
+                    new OA\Property(property: "status", type: "string", example: "active", enum: ["active", "on-hold", "completed", "cancelled", "suggested"], nullable: true)
                 ]
             )
         ),
@@ -117,12 +119,15 @@ class ProjectController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested,blocked',
             'po_number' => 'nullable|string|max:255',
             'deadline' => 'nullable|date',
             'po_document' => 'nullable|file|max:10240', // Max 10MB
             'invoice_number' => 'nullable|string|max:255',
             'invoice_document' => 'nullable|file|max:10240',
+            'provisional_po_expires_at' => 'nullable|date',
+            'is_physical_invoice' => 'nullable|boolean',
+            'courier_tracking_number' => 'nullable|string|max:255',
         ]);
 
         if ($request->hasFile('po_document')) {
@@ -147,6 +152,19 @@ class ProjectController extends Controller
         } catch (\Exception $e) {
             // Log error but don't fail the request
             \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
+        }
+
+        // Email client when provisional PO is raised
+        if ($request->hasFile('po_document') && $project->client_id) {
+            try {
+                $project->load('client.contacts', 'collaborators');
+                $clientEmail = $this->resolveClientEmail($project);
+                if ($clientEmail) {
+                    Mail::to($clientEmail)->queue(new ProvisionalPoMailable($project));
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send provisional PO email: ' . $e->getMessage());
+            }
         }
 
         return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
@@ -245,10 +263,31 @@ class ProjectController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'estimate_id' => 'nullable|exists:estimates,id',
             'estimated_hours' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested',
+            'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested,blocked',
+            'po_number' => 'nullable|string|max:255',
+            'po_document' => 'nullable|file|max:10240',
+            'invoice_number' => 'nullable|string|max:255',
+            'invoice_document' => 'nullable|file|max:10240',
+            'provisional_po_expires_at' => 'nullable|date',
+            'is_physical_invoice' => 'nullable|boolean',
+            'courier_tracking_number' => 'nullable|string|max:255',
+            'courier_delivery_status' => 'nullable|string|max:255',
         ]);
 
         $wasArchived = $project->is_archived;
+        $hadPoDocument = (bool) $project->po_document;
+
+        if ($request->hasFile('po_document')) {
+            $path = $request->file('po_document')->store('purchase-orders', 's3');
+            $validated['po_document'] = $path;
+            $validated['is_locked_by_po'] = false;
+        }
+
+        if ($request->hasFile('invoice_document')) {
+            $path = $request->file('invoice_document')->store('invoices', 's3');
+            $validated['invoice_document'] = $path;
+        }
+
         $project->update($validated);
         
         $action = 'update';
@@ -265,6 +304,19 @@ class ProjectController extends Controller
         } catch (\Exception $e) {
             // Log error but continue
             \Illuminate\Support\Facades\Log::error('Failed to broadcast project update: ' . $e->getMessage());
+        }
+
+        // Email client when provisional PO is raised for the first time via update
+        if ($request->hasFile('po_document') && !$hadPoDocument && $project->client_id) {
+            try {
+                $project->load('client.contacts', 'collaborators');
+                $clientEmail = $this->resolveClientEmail($project);
+                if ($clientEmail) {
+                    Mail::to($clientEmail)->queue(new ProvisionalPoMailable($project));
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send provisional PO email: ' . $e->getMessage());
+            }
         }
 
         return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
@@ -489,5 +541,96 @@ class ProjectController extends Controller
         return response()->json(
             $project->collaborators()->select('users.id', 'users.name', 'users.email', 'users.department_id')->get()
         );
+    }
+
+    /**
+     * Grant a grace period for a project that is missing a PO.
+     * Only users with admin or finance roles may approve a grace period.
+     */
+    public function grantGracePeriod(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'finance'])) {
+            return response()->json(['message' => 'Only admin or finance users can grant grace periods.'], 403);
+        }
+
+        $validated = $request->validate([
+            'grace_period_days' => 'required|integer|min:1|max:365',
+        ]);
+
+        $project->update([
+            'grace_period_days'       => $validated['grace_period_days'],
+            'grace_period_started_at' => now(),
+            'grace_period_approved_by' => $user->id,
+        ]);
+
+        return response()->json($project->fresh(['gracePeriodApprover']), 200);
+    }
+
+    /**
+     * Manually block a project, setting it to a read-only state.
+     * Only admin and hr users may block projects.
+     */
+    public function block(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can block projects.'], 403);
+        }
+
+        $project->update([
+            'is_manually_blocked' => true,
+            'status' => 'blocked',
+        ]);
+
+        return response()->json($project->fresh(), 200);
+    }
+
+    /**
+     * Unblock a manually blocked project.
+     * Only admin and hr users may unblock projects.
+     */
+    public function unblock(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can unblock projects.'], 403);
+        }
+
+        // Only update status when the project is currently blocked to avoid
+        // overwriting other valid statuses (on-hold, completed, etc.)
+        $updates = ['is_manually_blocked' => false];
+        if ($project->status === 'blocked') {
+            $updates['status'] = 'active';
+        }
+
+        $project->update($updates);
+
+        return response()->json($project->fresh(), 200);
+    }
+
+    /**
+     * Resolve the best client email address for sending provisional PO notifications.
+     *
+     * Prefers the primary ClientContact email, then the Client's own email.
+     */
+    protected function resolveClientEmail(Project $project): ?string
+    {
+        $client = $project->client;
+
+        if (! $client) {
+            return null;
+        }
+
+        $primaryContact = $client->contacts()->where('is_primary', true)->first();
+
+        if ($primaryContact && $primaryContact->email) {
+            return $primaryContact->email;
+        }
+
+        return $client->email ?: null;
     }
 }

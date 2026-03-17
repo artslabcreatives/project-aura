@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { zohoService } from "@/services/zohoService";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, User, Calendar, Tag, Link2 } from "lucide-react";
+import { Loader2, ArrowLeft, User, Calendar, Tag, Link2, Reply, Forward, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { ComposeEmailDialog } from "./ComposeEmailDialog";
 
 interface EmailDetailViewProps {
   folderId: string;
@@ -14,6 +16,9 @@ interface EmailDetailViewProps {
 export const EmailDetailView: React.FC<EmailDetailViewProps> = ({ folderId, messageId, onBack }) => {
   const [content, setContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeInitialData, setComposeInitialData] = useState<any>(null);
 
   useEffect(() => {
     fetchContent();
@@ -29,6 +34,40 @@ export const EmailDetailView: React.FC<EmailDetailViewProps> = ({ folderId, mess
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this email?")) return;
+    
+    setDeleting(true);
+    try {
+      await zohoService.deleteMessage(folderId, messageId);
+      toast.success("Email deleted successfully");
+      onBack();
+    } catch (error) {
+      console.error("Failed to delete email", error);
+      toast.error("Failed to delete email");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleReply = () => {
+    setComposeInitialData({
+      toAddress: content.fromAddress || content.sender,
+      subject: content.subject.startsWith("Re:") ? content.subject : `Re: ${content.subject}`,
+      content: `<br><br>--- Original Message ---<br>From: ${content.sender}<br>Sent: ${format(new Date(parseInt(content.receivedTime?.toString().substring(0, 13))), "PPPP 'at' p")}<br>Subject: ${content.subject}<br><br>${content.content}`
+    });
+    setComposeOpen(true);
+  };
+
+  const handleForward = () => {
+    setComposeInitialData({
+      toAddress: "",
+      subject: content.subject.startsWith("Fwd:") ? content.subject : `Fwd: ${content.subject}`,
+      content: `<br><br>--- Forwarded Message ---<br>From: ${content.sender}<br>Sent: ${format(new Date(parseInt(content.receivedTime?.toString().substring(0, 13))), "PPPP 'at' p")}<br>Subject: ${content.subject}<br><br>${content.content}`
+    });
+    setComposeOpen(true);
   };
 
   if (loading) {
@@ -51,76 +90,98 @@ export const EmailDetailView: React.FC<EmailDetailViewProps> = ({ folderId, mess
   }
 
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg border">
-      {/* Toolbar */}
-      <div className="p-4 border-b flex items-center justify-between bg-muted/30 sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <Tag className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Email Details</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-           <Button variant="outline" size="sm" className="gap-2">
-            <Link2 className="h-4 w-4" /> Link to Project
-          </Button>
-        </div>
-      </div>
-
-      <ScrollArea className="flex-1">
-        <div className="p-6 space-y-6 max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="space-y-4">
-            <h1 className="text-2xl font-bold leading-tight">{content.subject}</h1>
-            
-            <div className="flex flex-wrap gap-y-4 justify-between items-start border-y py-4 border-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  {(content.senderName?.[0] || content.sender?.[0] || content.fromAddress?.[0] || "U")}
-                </div>
-                <div>
-                  <div className="font-semibold text-sm">{content.senderName || content.sender || "Unknown Sender"}</div>
-                  <div className="text-xs text-muted-foreground">{content.fromAddress || content.sender}</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>
-                  {(() => {
-                    try {
-                      let timeStr = content.receivedTime?.toString();
-                      if (!timeStr) return "Unknown date";
-                      // If it's 19 digits (nanoseconds), take first 13 (milliseconds)
-                      if (timeStr.length > 13) timeStr = timeStr.substring(0, 13);
-                      const timestamp = parseInt(timeStr);
-                      if (isNaN(timestamp)) return "Unknown date";
-                      return format(new Date(timestamp), "MMMM d, yyyy 'at' h:mm a");
-                    } catch (e) {
-                      return "Unknown date";
-                    }
-                  })()}
-                </span>
-              </div>
+    <>
+      <div className="flex flex-col h-full bg-background rounded-lg border">
+        {/* Toolbar */}
+        <div className="p-4 border-b flex items-center justify-between bg-muted/30 sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={onBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" className="gap-2" onClick={handleReply}>
+                <Reply className="h-4 w-4" /> Reply
+              </Button>
+              <Button variant="ghost" size="sm" className="gap-2" onClick={handleForward}>
+                <Forward className="h-4 w-4" /> Forward
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Delete
+              </Button>
             </div>
           </div>
-
-          {/* Body */}
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            {content.content ? (
-              <div 
-                className="email-content"
-                dangerouslySetInnerHTML={{ __html: content.content }} 
-              />
-            ) : (
-              <p className="text-muted-foreground italic">No content found for this message.</p>
-            )}
+          <div className="flex items-center gap-2">
+             <Button variant="outline" size="sm" className="gap-2">
+              <Link2 className="h-4 w-4" /> Link to Project
+            </Button>
           </div>
         </div>
-      </ScrollArea>
-    </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-6 space-y-6 max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="space-y-4">
+              <h1 className="text-2xl font-bold leading-tight">{content.subject}</h1>
+              
+              <div className="flex flex-wrap gap-y-4 justify-between items-start border-y py-4 border-muted/50">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    {(content.senderName?.[0] || content.sender?.[0] || content.fromAddress?.[0] || "U")}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">{content.senderName || content.sender || "Unknown Sender"}</div>
+                    <div className="text-xs text-muted-foreground">{content.fromAddress || content.sender}</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>
+                    {(() => {
+                      try {
+                        let timeStr = content.receivedTime?.toString();
+                        if (!timeStr) return "Unknown date";
+                        // If it's 19 digits (nanoseconds), take first 13 (milliseconds)
+                        if (timeStr.length > 13) timeStr = timeStr.substring(0, 13);
+                        const timestamp = parseInt(timeStr);
+                        if (isNaN(timestamp)) return "Unknown date";
+                        return format(new Date(timestamp), "MMMM d, yyyy 'at' h:mm a");
+                      } catch (e) {
+                        return "Unknown date";
+                      }
+                    })()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              {content.content ? (
+                <div 
+                  className="email-content"
+                  dangerouslySetInnerHTML={{ __html: content.content }} 
+                />
+              ) : (
+                <p className="text-muted-foreground italic">No content found for this message.</p>
+              )}
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
+
+      <ComposeEmailDialog 
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        initialData={composeInitialData}
+      />
+    </>
   );
 };

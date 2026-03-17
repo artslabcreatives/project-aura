@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,27 +23,19 @@ export function InvoiceUploadDialog({ open, onOpenChange, project, onSuccess }: 
     const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [isPhysicalInvoice, setIsPhysicalInvoice] = useState(project.isPhysicalInvoice || false);
+    const [courierTrackingNumber, setCourierTrackingNumber] = useState(project.courierTrackingNumber || "");
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsUploading(true);
         try {
-            let invoiceDocumentValue: any = invoiceDocument;
-
-            if (invoiceDocument instanceof File) {
-                // Read as base64 to bypass server /tmp full issue
-                invoiceDocumentValue = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(invoiceDocument);
-                });
-            }
-
             const updatedProject = await projectService.update(String(project.id), {
                 status: 'completed',
                 invoice_number: invoiceNumber,
-                invoice_document: invoiceDocumentValue,
+                invoice_document: invoiceDocument,
+                isPhysicalInvoice: isPhysicalInvoice,
+                courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
             });
 
             // Simulate sending email
@@ -100,6 +93,32 @@ export function InvoiceUploadDialog({ open, onOpenChange, project, onSuccess }: 
                                 className="bg-muted"
                             />
                         </div>
+                        <div className="flex items-center space-x-2 py-2">
+                            <Checkbox 
+                                id="isPhysicalInvoice" 
+                                checked={isPhysicalInvoice}
+                                onCheckedChange={(checked) => setIsPhysicalInvoice(!!checked)}
+                            />
+                            <Label 
+                                htmlFor="isPhysicalInvoice"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                                This is a physical invoice (Courier required)
+                            </Label>
+                        </div>
+
+                        {isPhysicalInvoice && (
+                            <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+                                <Label htmlFor="courierTrackingNumber">Courier Tracking Number</Label>
+                                <Input
+                                    id="courierTrackingNumber"
+                                    value={courierTrackingNumber}
+                                    onChange={(e) => setCourierTrackingNumber(e.target.value)}
+                                    placeholder="Enter Tracking Number"
+                                    required={isPhysicalInvoice}
+                                />
+                            </div>
+                        )}
                         <div className="grid gap-2">
                             <Label htmlFor="invoiceDocument">Upload Invoice Document</Label>
                             <div 

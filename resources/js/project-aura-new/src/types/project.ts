@@ -19,14 +19,25 @@ export interface Project {
 	mattermostChannelId?: string;
 	clientId?: number;
 	estimatedHours?: number;
-	status?: 'active' | 'on-hold' | 'completed' | 'cancelled';
+	status?: 'active' | 'on-hold' | 'completed' | 'cancelled' | 'suggested' | 'blocked';
 	client?: Client;
 	poNumber?: string;
 	poDocument?: string;
 	poDocumentUrl?: string;
 	isLockedByPo?: boolean;
+	isBlocked?: boolean;
 	deadline?: string;
 	invoiceNumber?: string;
 	invoiceDocument?: string;
 	invoiceDocumentUrl?: string;
+	projectCode?: string;
+	estimateId?: number;
+	gracePeriodExpiresAt?: string;
+	gracePeriodNotes?: string;
+	gracePeriodApprovedBy?: string;
+	provisionalPoNumber?: string;
+	provisionalPoExpiresAt?: string;
+	isPhysicalInvoice?: boolean;
+	courierTrackingNumber?: string;
+	courierDeliveryStatus?: string;
 }

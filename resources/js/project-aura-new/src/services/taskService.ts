@@ -168,6 +168,11 @@ export const taskService = {
 		const { data } = await api.post(`/tasks/${id}/start`);
 		return mapTask(data);
 	},
+	
+	earlyStart: async (id: string, projectStageId: string): Promise<Task> => {
+		const { data } = await api.post(`/tasks/${id}/early-start`, { project_stage_id: projectStageId });
+		return mapTask(data);
+	},
 
 	getHistory: async (id: string, page: number = 1): Promise<{ data: any[]; meta: any }> => {
 		const { data } = await api.get(`/tasks/${id}/history?page=${page}`);

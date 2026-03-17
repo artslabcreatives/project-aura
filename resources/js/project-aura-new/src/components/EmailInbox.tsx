@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { zohoService } from "@/services/zohoService";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mail, Inbox, Send, Archive, Trash2, Folder, Loader2, ChevronRight, RefreshCw, Plus, ChevronLeft } from "lucide-react";
+import { Mail, Inbox, Send, Archive, Trash2, Folder, Loader2, ChevronRight, RefreshCw, Plus, ChevronLeft, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { EmailDetailView } from "./EmailDetailView";
 import { ComposeEmailDialog } from "./ComposeEmailDialog";
 
@@ -32,11 +33,28 @@ export const EmailInbox: React.FC = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const pageSize = 50;
 
   useEffect(() => {
     fetchFolders();
   }, []);
+
+  const handleUnlink = async () => {
+    if (!confirm("Are you sure you want to disconnect your Zoho account? You will need to re-authenticate to view your emails.")) return;
+    
+    setUnlinking(true);
+    try {
+      await zohoService.unlinkZoho();
+      toast.success("Zoho account disconnected");
+      window.location.reload(); // Simple way to reset state
+    } catch (error) {
+      console.error("Failed to unlink Zoho", error);
+      toast.error("Failed to disconnect Zoho");
+    } finally {
+      setUnlinking(false);
+    }
+  };
 
   const fetchFolders = async () => {
     try {
@@ -102,9 +120,14 @@ export const EmailInbox: React.FC = () => {
       <Card className="w-64 flex flex-col">
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold text-lg">Mailbox</h2>
-          <Button variant="ghost" size="icon" onClick={fetchFolders}>
-            <RefreshCw className={cn("h-4 w-4", loadingFolders && "animate-spin")} />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={fetchFolders} disabled={loadingFolders}>
+                <RefreshCw className={cn("h-4 w-4", loadingFolders && "animate-spin")} />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleUnlink} disabled={unlinking} className="text-destructive hover:text-destructive hover:bg-destructive/10" title="Unlink Zoho">
+                {unlinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
@@ -146,7 +169,10 @@ export const EmailInbox: React.FC = () => {
           <EmailDetailView 
             folderId={selectedFolder || ""} 
             messageId={selectedMessageId} 
-            onBack={() => setSelectedMessageId(null)} 
+            onBack={() => {
+              setSelectedMessageId(null);
+              if (selectedFolder) fetchMessages(selectedFolder, currentPage);
+            }} 
           />
         ) : (
           <Card className="h-full flex flex-col overflow-hidden">

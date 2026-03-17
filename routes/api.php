@@ -19,7 +19,6 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
-use App\Http\Controllers\Api\EstimateController;
 use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -64,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tasks', TaskController::class);
     Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);
+    Route::post('/tasks/{task}/early-start', [TaskController::class, 'earlyStart']);
     Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
     Route::get('/task-attachments/{taskAttachment}/download', [TaskAttachmentController::class, 'download']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);
@@ -72,6 +72,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/collaborators', [ProjectController::class, 'addCollaborators']);
     Route::delete('projects/{project}/collaborators/{user}', [ProjectController::class, 'removeCollaborator']);
     Route::get('projects/{project}/collaborators', [ProjectController::class, 'getCollaborators']);
+
+    // Project workflow actions
+    Route::post('projects/{project}/grace-period', [ProjectController::class, 'grantGracePeriod']);
+    Route::post('projects/{project}/block', [ProjectController::class, 'block']);
+    Route::post('projects/{project}/unblock', [ProjectController::class, 'unblock']);
     
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
@@ -156,8 +161,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/folders', [\App\Http\Controllers\Api\ZohoMailController::class, 'getFolders']);
         Route::get('/folders/{folderId}/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'getMessages']);
         Route::get('/folders/{folderId}/messages/{messageId}/content', [\App\Http\Controllers\Api\ZohoMailController::class, 'getMessageContent']);
+        Route::delete('/folders/{folderId}/messages/{messageId}', [\App\Http\Controllers\Api\ZohoMailController::class, 'deleteMessage']);
         Route::post('/messages', [\App\Http\Controllers\Api\ZohoMailController::class, 'sendMessage']);
         Route::post('/messages/attachments', [\App\Http\Controllers\Api\ZohoMailController::class, 'uploadAttachment']);
+        Route::post('/unlink', [\App\Http\Controllers\Api\ZohoMailController::class, 'unlink']);
     });
     // Estimates
     Route::apiResource('estimates', EstimateController::class);

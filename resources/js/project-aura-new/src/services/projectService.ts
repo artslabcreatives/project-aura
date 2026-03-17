@@ -83,10 +83,21 @@ function mapProject(raw: any): Project {
 		poDocument: raw.po_document,
 		poDocumentUrl: raw.po_document_url,
 		isLockedByPo: raw.is_locked_by_po,
+		isBlocked: raw.is_blocked,
 		deadline: raw.deadline,
 		invoiceNumber: raw.invoice_number,
 		invoiceDocument: raw.invoice_document,
 		invoiceDocumentUrl: raw.invoice_document_url,
+		projectCode: raw.project_code,
+		estimateId: raw.estimate_id,
+		gracePeriodExpiresAt: raw.grace_period_expires_at,
+		gracePeriodNotes: raw.grace_period_notes,
+		gracePeriodApprovedBy: raw.grace_period_approved_by,
+		provisionalPoNumber: raw.provisional_po_number,
+		provisionalPoExpiresAt: raw.provisional_po_expires_at,
+		isPhysicalInvoice: raw.is_physical_invoice,
+		courierTrackingNumber: raw.courier_tracking_number,
+		courierDeliveryStatus: raw.courier_delivery_status,
 	};
 }
 
@@ -109,7 +120,7 @@ export const projectService = {
 	},
 
 	create: async (project: any): Promise<Project> => {
-		const isFormData = project.po_document instanceof File;
+		const isFormData = project.po_document instanceof File || project.invoice_document instanceof File;
 		
 		let payload: any;
 		if (isFormData) {
@@ -152,7 +163,7 @@ export const projectService = {
 	},
 
 	update: async (id: string, updates: any): Promise<Project> => {
-		const isFormData = updates.po_document instanceof File;
+		const isFormData = updates.po_document instanceof File || updates.invoice_document instanceof File;
 
 		let payload: any;
 		if (isFormData) {
@@ -179,6 +190,8 @@ export const projectService = {
 			if (updates.po_document !== undefined) payload.append('po_document', updates.po_document);
 			if (updates.invoice_number !== undefined) payload.append('invoice_number', updates.invoice_number);
 			if (updates.invoice_document !== undefined) payload.append('invoice_document', updates.invoice_document);
+			if (updates.isPhysicalInvoice !== undefined) payload.append('is_physical_invoice', updates.isPhysicalInvoice ? '1' : '0');
+			if (updates.courierTrackingNumber !== undefined) payload.append('courier_tracking_number', updates.courierTrackingNumber);
 
 			// Append arrays
 			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
@@ -200,6 +213,14 @@ export const projectService = {
 				po_document: updates.po_document,
 				invoice_number: updates.invoice_number,
 				invoice_document: updates.invoice_document,
+				is_blocked: updates.isBlocked,
+				grace_period_expires_at: updates.gracePeriodExpiresAt,
+				grace_period_notes: updates.gracePeriodNotes,
+				provisional_po_number: updates.provisionalPoNumber,
+				provisional_po_expires_at: updates.provisionalPoExpiresAt,
+				is_physical_invoice: updates.isPhysicalInvoice,
+				courier_tracking_number: updates.courierTrackingNumber,
+				courier_delivery_status: updates.courierDeliveryStatus,
 			};
 		}
 

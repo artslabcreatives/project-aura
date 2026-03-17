@@ -143,7 +143,8 @@ class ZohoMailController extends Controller
             'askReceipt'
         ]);
 
-        Log::debug('Zoho Mail Accounts for Send', ['accounts' => $accounts, 'accountId' => $accountId]);
+        Log::debug('Zoho Mail Send Message Request Data', ['data' => $data, 'accountId' => $accountId]);
+        Log::debug('Zoho Mail Accounts for Send', ['accounts' => $accounts]);
 
         if (empty($data['fromAddress'])) {
              // Find the account and use its email
@@ -167,6 +168,7 @@ class ZohoMailController extends Controller
         }
 
         Log::debug('Zoho Mail Identified FromAddress', ['fromAddress' => $data['fromAddress']]);
+        Log::debug('Zoho Mail Attachments Before Sanitization', ['attachments' => $data['attachments'] ?? null]);
 
         // Remove empty optional fields that Zoho might be picky about
         if (empty($data['ccAddress'])) unset($data['ccAddress']);
@@ -185,6 +187,8 @@ class ZohoMailController extends Controller
 
         if (empty($data['subject'])) $data['subject'] = '(No Subject)';
         if (empty($data['askReceipt'])) unset($data['askReceipt']);
+
+        Log::debug('Zoho Mail Resulting Payload for Send', ['data' => $data]);
 
         $result = $this->mailService->sendMessage(Auth::id(), $accountId, $data);
         
@@ -216,6 +220,41 @@ class ZohoMailController extends Controller
             return response()->json(['error' => 'Failed to upload attachment'], 500);
         }
 
-        return response()->json(['attachment' => $result]);
+        // Zoho returns an array of attachments even for single upload
+        $attachment = is_array($result) && isset($result[0]) ? $result[0] : $result;
+
+        return response()->json(['attachment' => $attachment]);
+    }
+
+    public function deleteMessage(Request $request, $folderId, $messageId)
+    {
+        $accountId = $request->query('account_id');
+        if (!$accountId) {
+            $accounts = $this->mailService->getAccounts(Auth::id());
+            if (empty($accounts)) {
+                return response()->json(['error' => 'No accounts found'], 404);
+            }
+            $accountId = $accounts[0]['accountId'];
+        }
+
+        $result = $this->mailService->deleteMessage(Auth::id(), $accountId, $folderId, $messageId);
+
+        if (!$result) {
+            return response()->json(['error' => 'Failed to delete email'], 500);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function unlink(Request $request)
+    {
+        $userId = Auth::id();
+        $token = ZohoToken::where('user_id', $userId)->first();
+
+        if ($token) {
+            $token->delete();
+        }
+
+        return response()->json(['success' => true]);
     }
 }
