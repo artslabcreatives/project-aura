@@ -3,7 +3,7 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText, Zap } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,7 @@ import { useState, useEffect, useRef } from "react";
 import { taskService } from "@/services/taskService";
 import { useUser } from "@/hooks/use-user";
 import { TaskHistoryDialog } from "./TaskHistoryDialog";
+import { EarlyStartDialog } from "./EarlyStartDialog";
 
 interface TaskCardProps {
 	task: Task;
@@ -52,9 +53,10 @@ interface TaskCardProps {
 	onAddSubtask?: () => void;
 	onViewSubtask?: (subtask: Task) => void;
 	onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
+	allStages?: Stage[];
 }
 
-export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId, onAddSubtask, onViewSubtask, onTaskUpdate }: TaskCardProps) {
+export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId, onAddSubtask, onViewSubtask, onTaskUpdate, allStages = [] }: TaskCardProps) {
 	const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 	const isValidDueDate = dueDate && isValid(dueDate);
 	const isCompleteStage = currentStage?.title?.toLowerCase() === "complete" || currentStage?.title?.toLowerCase() === "completed" || currentStage?.title?.toLowerCase() === "archive";
@@ -63,6 +65,8 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 	const [showRevisionHistoryDialog, setShowRevisionHistoryDialog] = useState(false);
 	const [showTaskHistoryDialog, setShowTaskHistoryDialog] = useState(false);
 	const [showSubtasks, setShowSubtasks] = useState(false);
+	const [isEarlyStartDialogOpen, setIsEarlyStartDialogOpen] = useState(false);
+	const [isEarlyStarting, setIsEarlyStarting] = useState(false);
 	const [timeLeft, setTimeLeft] = useState<string>("");
 	const [isShareOpen, setIsShareOpen] = useState(false);
 	const { toast } = useToast();
@@ -152,6 +156,30 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 		navigator.clipboard.writeText(url);
 		toast({ title: "Link copied", description: "Task link copied to clipboard" });
 		setIsShareOpen(false);
+	};
+	
+	const handleEarlyStartConfirm = async (stageId: string) => {
+		setIsEarlyStarting(true);
+		try {
+			const updatedTask = await taskService.earlyStart(task.id, stageId);
+			toast({
+				title: "Early Start Success",
+				description: `Task has been moved to early start stage.`,
+			});
+			if (onTaskUpdate) {
+				onTaskUpdate(updatedTask.id, updatedTask);
+			}
+			setIsEarlyStartDialogOpen(false);
+		} catch (error) {
+			console.error("Early start failed:", error);
+			toast({
+				title: "Error",
+				description: "Failed to start task early. Please try again.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsEarlyStarting(false);
+		}
 	};
 
 	const priorityColors = {
@@ -279,6 +307,29 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 						>
 							<ScrollText className="h-3.5 w-3.5" />
 						</Button>
+					)}
+
+					{currentStage?.title === "Pending" && (currentUser?.role === "user" || currentUser?.role === "account-manager") && (
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+										onClick={(e) => {
+											e.stopPropagation();
+											setIsEarlyStartDialogOpen(true);
+										}}
+									>
+										<Zap className="h-3.5 w-3.5" fill="currentColor" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Early Start</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
 					)}
 
 					{canManage && (
@@ -661,6 +712,17 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 				onOpenChange={setShowTaskHistoryDialog}
 				taskTitle={task.title}
 			/>
+
+			{isEarlyStartDialogOpen && (
+				<EarlyStartDialog
+					task={task}
+					stages={allStages}
+					open={isEarlyStartDialogOpen}
+					onOpenChange={setIsEarlyStartDialogOpen}
+					onConfirm={handleEarlyStartConfirm}
+					isLoading={isEarlyStarting}
+				/>
+			)}
 		</Card >
 	);
 }

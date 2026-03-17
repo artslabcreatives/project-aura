@@ -63,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tasks', TaskController::class);
     Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);
+    Route::post('/tasks/{task}/early-start', [TaskController::class, 'earlyStart']);
     Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
     Route::get('/task-attachments/{taskAttachment}/download', [TaskAttachmentController::class, 'download']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);

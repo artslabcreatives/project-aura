@@ -601,6 +601,7 @@ export function KanbanBoard({
                                 setIsViewDialogOpen(true);
                               }}
                               onTaskUpdate={onTaskUpdate}
+                              allStages={stages}
                             />
                           )}
 
@@ -628,6 +629,7 @@ export function KanbanBoard({
                                   setIsViewDialogOpen(true);
                                 }}
                                 onTaskUpdate={onTaskUpdate}
+                                allStages={stages}
                               />
                             ))}
                           </div>
@@ -657,6 +659,7 @@ export function KanbanBoard({
                             setIsViewDialogOpen(true);
                           }}
                           onTaskUpdate={onTaskUpdate}
+                          allStages={stages}
                         />
                       ));
                     }
@@ -685,6 +688,7 @@ export function KanbanBoard({
                         setIsViewDialogOpen(true);
                       }}
                       onTaskUpdate={onTaskUpdate}
+                      allStages={stages}
                     />
                   ))
                 )

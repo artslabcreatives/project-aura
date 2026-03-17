@@ -776,4 +776,69 @@ class TaskController extends Controller
 
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'comments.user', 'assignedUsers']));
     }
+
+    #[OA\Post(
+        path: "/tasks/{id}/early-start",
+        summary: "Move a task early and notify department team lead",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["project_stage_id"],
+                properties: [
+                    new OA\Property(property: "project_stage_id", type: "integer", example: 1)
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Task moved early"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found")
+        ]
+    )]
+    public function earlyStart(Request $request, Task $task): JsonResponse
+    {
+        $validated = $request->validate([
+            'project_stage_id' => 'required|exists:stages,id',
+        ]);
+
+        $task->project_stage_id = $validated['project_stage_id'];
+        $task->user_status = 'pending';
+        $task->save();
+
+        // Notify department team lead
+        $departmentId = $request->user()->department_id;
+        if ($departmentId) {
+            $teamLeads = \App\Models\User::where('role', 'team-lead')
+                ->where('department_id', $departmentId)
+                ->get();
+
+            if ($teamLeads->isNotEmpty()) {
+                $newStage = \App\Models\Stage::find($validated['project_stage_id']);
+                $newStageTitle = $newStage ? $newStage->title : 'Unknown Stage';
+                
+                \Illuminate\Support\Facades\Notification::send(
+                    $teamLeads, 
+                    new \App\Notifications\TaskEarlyStartNotification($task, $newStageTitle, $request->user()->name)
+                );
+            }
+        }
+
+        try {
+            \App\Events\TaskUpdated::dispatch($task, 'update');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
+        }
+
+        return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
+    }
 }
