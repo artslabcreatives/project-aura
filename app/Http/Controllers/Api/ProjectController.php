@@ -551,21 +551,59 @@ class ProjectController extends Controller
     {
         $user = $request->user();
 
-        if (!in_array($user->role, ['admin', 'finance'])) {
-            return response()->json(['message' => 'Only admin or finance users can grant grace periods.'], 403);
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can grant grace periods.'], 403);
         }
 
         $validated = $request->validate([
-            'grace_period_days' => 'required|integer|min:1|max:365',
+            'expires_at' => 'required|date|after:today',
+            'notes'      => 'nullable|string|max:1000',
         ]);
 
         $project->update([
-            'grace_period_days'       => $validated['grace_period_days'],
-            'grace_period_started_at' => now(),
+            'grace_period_expires_at'  => $validated['expires_at'],
+            'grace_period_notes'       => $validated['notes'] ?? null,
             'grace_period_approved_by' => $user->id,
         ]);
 
         return response()->json($project->fresh(['gracePeriodApprover']), 200);
+    }
+
+    /**
+     * Issue a provisional PO for a project, allowing work to continue while
+     * awaiting the official PO document.
+     * Only users with admin or hr roles may issue provisional POs.
+     */
+    public function issueProvisionalPo(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can issue provisional POs.'], 403);
+        }
+
+        $validated = $request->validate([
+            'po_number'  => 'required|string|max:255',
+            'expires_at' => 'required|date|after:today',
+        ]);
+
+        $project->update([
+            'provisional_po_number'     => $validated['po_number'],
+            'provisional_po_expires_at' => $validated['expires_at'],
+        ]);
+
+        // Send provisional PO email to the client
+        try {
+            $project->load('client.contacts', 'collaborators');
+            $clientEmail = $this->resolveClientEmail($project);
+            if ($clientEmail) {
+                Mail::to($clientEmail)->queue(new ProvisionalPoMailable($project));
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send provisional PO email: ' . $e->getMessage());
+        }
+
+        return response()->json($project->fresh(), 200);
     }
 
     /**

@@ -121,7 +121,7 @@ export const projectService = {
 
 	create: async (project: any): Promise<Project> => {
 		const isFormData = project.po_document instanceof File || project.invoice_document instanceof File;
-		
+
 		let payload: any;
 		if (isFormData) {
 			payload = new FormData();
@@ -135,7 +135,7 @@ export const projectService = {
 			if (project.po_number) payload.append('po_number', String(project.po_number));
 			if (project.deadline) payload.append('deadline', project.deadline);
 			if (project.po_document) payload.append('po_document', project.po_document);
-			
+
 			// Append arrays
 			project.emails?.forEach((email: string) => payload.append('emails[]', email));
 			project.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
@@ -175,7 +175,7 @@ export const projectService = {
 			if (updates.group === null) payload.append('project_group_id', '');
 			else if (updates.group?.id) payload.append('project_group_id', String(updates.group.id));
 			if (updates.isArchived !== undefined) payload.append('is_archived', updates.isArchived ? '1' : '0');
-			
+
 			// Fix null/undefined numeric relationships so Laravel validation passes
 			if (updates.client_id !== undefined && updates.client_id !== null && updates.client_id !== '') {
 				payload.append('client_id', String(updates.client_id));
@@ -243,5 +243,23 @@ export const projectService = {
 			source: raw.source,
 			suggestedAt: raw.suggested_at,
 		})) : [];
+	},
+
+	/** Authorize a grace period for a project (admin/hr only). */
+	grantGracePeriod: async (id: string, expiresAt: string, notes?: string): Promise<Project> => {
+		const { data } = await api.post(`/projects/${id}/grace-period`, {
+			expires_at: expiresAt,
+			notes: notes ?? null,
+		});
+		return mapProject(data);
+	},
+
+	/** Issue a provisional PO for a project (admin/hr only). */
+	issueProvisionalPo: async (id: string, poNumber: string, expiresAt: string): Promise<Project> => {
+		const { data } = await api.post(`/projects/${id}/provisional-po`, {
+			po_number: poNumber,
+			expires_at: expiresAt,
+		});
+		return mapProject(data);
 	},
 };

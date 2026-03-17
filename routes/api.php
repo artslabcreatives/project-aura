@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\EstimateController;
+use App\Http\Controllers\Api\XeroController;
 use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\RevisionHistoryController;
@@ -49,6 +50,7 @@ Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhats
 Route::get('users/search/exist', [UserController::class, 'exist']);
 Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Public avatar viewing
 Route::get('/zoho/callback', [\App\Http\Controllers\Api\ZohoMailController::class, 'handleCallback']);
+Route::get('/xero/callback', [XeroController::class, 'callback']);
 
 // Protected API routes (require bearer token)
 Route::middleware('auth:sanctum')->group(function () {
@@ -75,6 +77,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Project workflow actions
     Route::post('projects/{project}/grace-period', [ProjectController::class, 'grantGracePeriod']);
+    Route::post('projects/{project}/provisional-po', [ProjectController::class, 'issueProvisionalPo']);
     Route::post('projects/{project}/block', [ProjectController::class, 'block']);
     Route::post('projects/{project}/unblock', [ProjectController::class, 'unblock']);
     
@@ -170,6 +173,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('estimates', EstimateController::class);
     Route::post('estimates/{estimate}/send', [EstimateController::class, 'send']);
     Route::post('estimates/{estimate}/approve', [EstimateController::class, 'approve']);
+
+    // Xero Integration
+    Route::prefix('xero')->group(function () {
+        Route::get('/status', [XeroController::class, 'status']);
+        Route::get('/auth-url', [XeroController::class, 'getAuthUrl']);
+        Route::post('/sync', [XeroController::class, 'sync']);
+    });
 });
 
 // 2FA Verification during login
