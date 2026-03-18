@@ -349,7 +349,33 @@ class TaskController extends Controller
 
         $task->save();
 
-        // Notify new assignee
+        // Propagate changes to subtasks if Admin or Team Lead
+        if ($isAdminOrTL && ($statusChanged || $task->wasChanged('project_stage_id'))) {
+            foreach ($task->subtasks as $subtask) {
+                $subtaskUpdated = false;
+                if ($task->wasChanged('project_stage_id')) {
+                    $subtask->project_stage_id = $task->project_stage_id;
+                    $subtaskUpdated = true;
+                }
+                if ($statusChanged) {
+                    $subtask->user_status = $task->user_status;
+                    if ($task->user_status === 'complete') {
+                        $subtask->completed_at = $task->completed_at ?? now();
+                    }
+                    $subtaskUpdated = true;
+                }
+
+                if ($subtaskUpdated) {
+                    $subtask->save();
+                    try {
+                        TaskUpdated::dispatch($subtask, 'update');
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Failed to broadcast subtask update: ' . $e->getMessage());
+                    }
+                }
+            }
+        }
+
         // Notify new assignee
         $notifiedUserIds = [];
 
@@ -680,6 +706,7 @@ class TaskController extends Controller
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $task, $request) {
             $userId = $request->user()->id;
+            $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
             
             // Logic for multi-assignee completion
             $shouldCompleteMainTask = true;
@@ -687,7 +714,6 @@ class TaskController extends Controller
             $multiAssignee = $task->assignedUsers()->count() > 1;
             
             if ($hasPivot && isset($validated['user_status']) && $validated['user_status'] === 'complete') {
-                $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
                 
                 if ($isAdminOrTL) {
                     // Admin forces completion for all
@@ -721,6 +747,23 @@ class TaskController extends Controller
                 
                 try {
                     TaskUpdated::dispatch($task, 'update');
+                    
+                    // Propagate completion to subtasks if Admin or Team Lead
+                    if ($isAdminOrTL) {
+                        foreach ($task->subtasks as $subtask) {
+                            $subtask->project_stage_id = $task->project_stage_id;
+                            $subtask->user_status = $task->user_status;
+                            if ($task->user_status === 'complete') {
+                                $subtask->completed_at = $task->completed_at ?? now();
+                            }
+                            $subtask->save();
+                            try {
+                                TaskUpdated::dispatch($subtask, 'update');
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Failed to broadcast subtask update from complete: ' . $e->getMessage());
+                            }
+                        }
+                    }
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
                 }
