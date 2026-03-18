@@ -51,12 +51,23 @@ class ProjectController extends Controller
         if (in_array($user->role, ['user', 'account_manager'])) {
             $query->where(function ($q) use ($user) {
                 $q->whereHas('tasks', function ($taskQuery) use ($user) {
-                    $taskQuery->where('assignee_id', $user->id);
+                    $taskQuery->where('assignee_id', $user->id)
+                        ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                            $sq->where('users.id', $user->id);
+                        });
                 })
                 ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
                     $collabQuery->where('users.id', $user->id);
                 });
             });
+
+            // Also filter the tasks relationship itself
+            $query->with(['tasks' => function ($taskQuery) use ($user) {
+                $taskQuery->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
         }
 
         $projects = $query->get();
@@ -209,11 +220,41 @@ class ProjectController extends Controller
     )]
     public function show(Project $project): JsonResponse
     {
-        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
+        $user = auth()->user();
+
+        // Authorization check for user and account_manager roles
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $isAssigned = $project->tasks()->where(function($q) use ($user) {
+                $q->where('assignee_id', $user->id)
+                  ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                      $sq->where('users.id', $user->id);
+                  });
+            })->exists() || $project->collaborators()->where('users.id', $user->id)->exists();
+
+            if (!$isAssigned) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+        }
+
+        $project->load(['department', 'group', 'client', 'stages' => function ($query) {
             $query->where('type', 'project');
-        }, 'tasks', 'collaborators' => function ($query) {
+        }, 'collaborators' => function ($query) {
             $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
-        }]));
+        }]);
+
+        // Filter tasks relationship for user and account_manager
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $project->load(['tasks' => function ($query) use ($user) {
+                $query->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
+        } else {
+            $project->load('tasks');
+        }
+
+        return response()->json($project);
     }
 
     #[OA\Put(
@@ -450,11 +491,35 @@ class ProjectController extends Controller
         // It might be a key-value pair or just one of the values.
         // Let's assume it's one of the values in the array for now, or we can use whereJsonContains.
         
-        $projects = Project::whereJsonContains('phone_numbers', $groupId)
+        $projectsQuery = Project::whereJsonContains('phone_numbers', $groupId)
             ->with(['department', 'stages' => function ($query) {
                 $query->where('type', 'project');
-            }, 'tasks'])
-            ->get();
+            }]);
+
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $projectsQuery->where(function ($q) use ($user) {
+                $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                    $taskQuery->where('assignee_id', $user->id)
+                        ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                            $sq->where('users.id', $user->id);
+                        });
+                })
+                ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                    $collabQuery->where('users.id', $user->id);
+                });
+            });
+
+            $projectsQuery->with(['tasks' => function ($taskQuery) use ($user) {
+                $taskQuery->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
+        } else {
+            $projectsQuery->with('tasks');
+        }
+
+        $projects = $projectsQuery->get();
 
         return response()->json($projects);
     }
@@ -487,11 +552,35 @@ class ProjectController extends Controller
 
 		$email = $request->input('email');
 
-		$projects = Project::whereJsonContains('emails', $email)
-			->with(['department', 'stages' => function ($query) {
-				$query->where('type', 'project');
-			}, 'tasks'])
-			->get();	
+        $projectsQuery = Project::whereJsonContains('emails', $email)
+            ->with(['department', 'stages' => function ($query) {
+                $query->where('type', 'project');
+            }]);
+
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $projectsQuery->where(function ($q) use ($user) {
+                $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                    $taskQuery->where('assignee_id', $user->id)
+                        ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                            $sq->where('users.id', $user->id);
+                        });
+                })
+                ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                    $collabQuery->where('users.id', $user->id);
+                });
+            });
+
+            $projectsQuery->with(['tasks' => function ($taskQuery) use ($user) {
+                $taskQuery->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
+        } else {
+            $projectsQuery->with('tasks');
+        }
+
+        $projects = $projectsQuery->get();
 		return response()->json($projects);
 	}
 

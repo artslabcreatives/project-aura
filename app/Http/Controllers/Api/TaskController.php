@@ -57,7 +57,18 @@ class TaskController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
+        
+        // Global filter for user and account_manager roles
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $query->where(function($q) use ($user) {
+                $q->where('assignee_id', $user->id)
+                  ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                      $sq->where('users.id', $user->id);
+                  });
+            });
+        }
         
         if ($request->has('project_id')) {
             $query->where('project_id', $request->project_id);
