@@ -76,6 +76,7 @@ const projectSchema = z.object({
 		.trim()
 		.max(200, { message: "Description must be less than 200 characters" })
 		.optional(),
+	currency: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -108,7 +109,8 @@ interface ProjectDialogProps {
 		status?: string,
 		poNumber?: string,
 		deadline?: string,
-		poDocument?: File
+		poDocument?: File,
+		currency?: string
 	) => Promise<void> | void;
 	existingProjects: string[];
 	teamMembers: User[];
@@ -454,7 +456,7 @@ export function ProjectDialog({
 }: ProjectDialogProps) {
 	const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
 	const { toast } = useToast();
-	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, deadline?: string, poDocument?: File }>({
+	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, deadline?: string, poDocument?: File, currency?: string }>({
 		name: "",
 		description: "",
 		clientId: "",
@@ -463,6 +465,7 @@ export function ProjectDialog({
 		poNumber: "",
 		deadline: "",
 		poDocument: undefined,
+		currency: "USD",
 	});
 	const [clients, setClients] = useState<ClientType[]>([]);
 	const [stages, setStages] = useState<Stage[]>([]);
@@ -553,6 +556,7 @@ export function ProjectDialog({
 					poNumber: editProject.poNumber || "",
 					deadline: editProject.deadline || "",
 					poDocument: undefined, // cannot prefill file inputs
+					currency: editProject.currency || "USD",
 				});
 				setStages(editProject.stages || []);
 				setEmails(editProject.emails || []);
@@ -573,10 +577,11 @@ export function ProjectDialog({
 				]);
 				setEmails([]);
 				setPhoneNumbers([]);
+				setFormData(prev => ({ ...prev, currency: "USD" }));
 			}
 		} else {
 			setGroupId("");
-			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", deadline: "", poDocument: undefined });
+			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", deadline: "", poDocument: undefined, currency: "USD" });
 			setStages([]);
 			setEmails([]);
 			setPhoneNumbers([]);
@@ -692,7 +697,15 @@ export function ProjectDialog({
 	const nextStep = () => {
 		setErrors({});
 		if (currentStep === 1) {
-			const result = projectSchema.safeParse({ name: formData.name, description: formData.description });
+			if (existingProjects.some(p => p.toLowerCase() === formData.name.toLowerCase() && (!editProject || p !== editProject.name))) {
+				setErrors({ name: "A project with this name already exists" });
+				return;
+			}
+			const result = projectSchema.safeParse({ 
+				name: formData.name, 
+				description: formData.description,
+				currency: formData.currency 
+			});
 			if (!result.success) {
 				const fieldErrors: any = {};
 				result.error.errors.forEach((err) => {
@@ -703,10 +716,6 @@ export function ProjectDialog({
 			}
 			if (!department) {
 				setErrors({ department: "Department is required" } as any);
-				return;
-			}
-			if (existingProjects.some(p => p.toLowerCase() === formData.name.toLowerCase() && (!editProject || p !== editProject.name))) {
-				setErrors({ name: "A project with this name already exists" });
 				return;
 			}
 		}
@@ -778,7 +787,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status, formData.poNumber, formData.deadline, formData.poDocument);
+		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status, formData.poNumber, formData.deadline, formData.poDocument, formData.currency);
 		onOpenChange(false);
 	};
 
@@ -881,6 +890,24 @@ export function ProjectDialog({
 										disabled={!!editProject}
 									/>
 									{errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+								</div>
+								
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<Label htmlFor="currency">Currency <span className="text-destructive">*</span></Label>
+										<Select
+											value={formData.currency}
+											onValueChange={(value) => setFormData({ ...formData, currency: value })}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select currency" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="USD">USD ($)</SelectItem>
+												<SelectItem value="LKR">LKR (Rs.)</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
 								</div>
 
 								<div className="grid gap-2">

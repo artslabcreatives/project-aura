@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Estimate, EstimateLineItem, EstimateStatus } from "@/types/estimate";
 import { Client } from "@/types/client";
+import { Project } from "@/types/project";
 import { Plus, Trash2 } from "lucide-react";
 
 interface EstimateDialogProps {
@@ -28,7 +29,9 @@ interface EstimateDialogProps {
     onSave: (estimate: Omit<Estimate, 'id' | 'created_at' | 'updated_at' | 'client'>) => void;
     editEstimate?: Estimate | null;
     clients: Client[];
+    projects?: Project[];
     defaultClientId?: number;
+    defaultProjectId?: number;
 }
 
 const emptyLineItem = (): EstimateLineItem => ({
@@ -44,7 +47,9 @@ export function EstimateDialog({
     onSave,
     editEstimate,
     clients,
+    projects,
     defaultClientId,
+    defaultProjectId,
 }: EstimateDialogProps) {
     const [formData, setFormData] = useState({
         client_id: defaultClientId ?? 0,
@@ -54,6 +59,8 @@ export function EstimateDialog({
         valid_until: "",
         notes: "",
         tax_rate: 0,
+        currency: "USD",
+        project_id: defaultProjectId ?? 0,
     });
     const [lineItems, setLineItems] = useState<EstimateLineItem[]>([emptyLineItem()]);
 
@@ -67,8 +74,10 @@ export function EstimateDialog({
                 valid_until: editEstimate.valid_until ?? "",
                 notes: editEstimate.notes ?? "",
                 tax_rate: editEstimate.tax_rate ?? 0,
+                currency: editEstimate.currency || "USD",
+                project_id: editEstimate.project_id ?? 0,
             });
-            setLineItems(editEstimate.line_items?.length ? editEstimate.line_items : [emptyLineItem()]);
+            setLineItems(editEstimate.items?.length ? editEstimate.items : [emptyLineItem()]);
         } else {
             setFormData({
                 client_id: defaultClientId ?? 0,
@@ -78,10 +87,12 @@ export function EstimateDialog({
                 valid_until: "",
                 notes: "",
                 tax_rate: 0,
+                currency: "USD",
+                project_id: defaultProjectId ?? 0,
             });
             setLineItems([emptyLineItem()]);
         }
-    }, [editEstimate, open, defaultClientId]);
+    }, [editEstimate, open, defaultClientId, defaultProjectId]);
 
     const updateLineItem = (index: number, field: keyof EstimateLineItem, value: string | number) => {
         setLineItems(prev => {
@@ -102,11 +113,13 @@ export function EstimateDialog({
     const taxAmount = subtotal * (formData.tax_rate / 100);
     const totalAmount = subtotal + taxAmount;
 
+    const currencySymbol = formData.currency === "LKR" ? "Rs. " : "$";
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onSave({
             ...formData,
-            line_items: lineItems,
+            items: lineItems,
             subtotal,
             tax_amount: taxAmount,
             total_amount: totalAmount,
@@ -128,24 +141,53 @@ export function EstimateDialog({
                     </DialogHeader>
 
                     <div className="grid gap-4 py-4 px-1">
-                        {/* Client */}
-                        <div className="grid gap-2">
-                            <Label htmlFor="client">Client *</Label>
-                            <Select
-                                value={String(formData.client_id)}
-                                onValueChange={(v) => setFormData({ ...formData, client_id: Number(v) })}
-                            >
-                                <SelectTrigger id="client">
-                                    <SelectValue placeholder="Select client" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {clients.map(c => (
-                                        <SelectItem key={c.id} value={String(c.id)}>
-                                            {c.company_name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        {/* Client & Project */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="client">Client *</Label>
+                                <Select
+                                    value={String(formData.client_id)}
+                                    onValueChange={(v) => setFormData({ ...formData, client_id: Number(v) })}
+                                >
+                                    <SelectTrigger id="client">
+                                        <SelectValue placeholder="Select client" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {clients.map(c => (
+                                            <SelectItem key={c.id} value={String(c.id)}>
+                                                {c.company_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="project">Project (Optional)</Label>
+                                <Select
+                                    value={String(formData.project_id)}
+                                    onValueChange={(v) => {
+                                        const projectId = Number(v);
+                                        const selectedProject = projects?.find(p => p.id === projectId);
+                                        setFormData({ 
+                                            ...formData, 
+                                            project_id: projectId,
+                                            currency: selectedProject?.currency || formData.currency 
+                                        });
+                                    }}
+                                >
+                                    <SelectTrigger id="project">
+                                        <SelectValue placeholder="Select project" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="0">None</SelectItem>
+                                        {projects?.map(p => (
+                                            <SelectItem key={p.id} value={String(p.id)}>
+                                                {p.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
                         {/* Title */}
@@ -202,6 +244,25 @@ export function EstimateDialog({
                             </div>
                         </div>
 
+                        {/* Currency */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="currency">Currency *</Label>
+                                <Select
+                                    value={formData.currency}
+                                    onValueChange={(v) => setFormData({ ...formData, currency: v })}
+                                >
+                                    <SelectTrigger id="currency">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="USD">USD ($)</SelectItem>
+                                        <SelectItem value="LKR">LKR (Rs.)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
                         {/* Line Items */}
                         <div className="grid gap-2">
                             <Label>Line Items</Label>
@@ -235,7 +296,7 @@ export function EstimateDialog({
                                             />
                                         </div>
                                         <div className="col-span-2 text-right text-sm font-medium pr-1">
-                                            ${((item.quantity || 0) * (item.unit_price || 0)).toFixed(2)}
+                                            {currencySymbol}{((item.quantity || 0) * (item.unit_price || 0)).toFixed(2)}
                                         </div>
                                         <div className="col-span-1 flex justify-end">
                                             <Button
@@ -267,7 +328,7 @@ export function EstimateDialog({
                         <div className="border rounded-md p-3 space-y-1 text-sm bg-muted/40">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Subtotal</span>
-                                <span>${subtotal.toFixed(2)}</span>
+                                <span>{currencySymbol}{subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center gap-4">
                                 <span className="text-muted-foreground">Tax (%)</span>
@@ -283,7 +344,7 @@ export function EstimateDialog({
                             </div>
                             <div className="flex justify-between font-semibold border-t pt-1">
                                 <span>Total</span>
-                                <span>${totalAmount.toFixed(2)}</span>
+                                <span>{currencySymbol}{totalAmount.toFixed(2)}</span>
                             </div>
                         </div>
 

@@ -53,6 +53,16 @@ class Estimate extends Model
         'xero_last_synced_at' => 'datetime',
     ];
 
+    protected $appends = ['total_amount'];
+
+    /**
+     * Get total_amount (alias for total field).
+     */
+    public function getTotalAmountAttribute()
+    {
+        return $this->total;
+    }
+
     /**
      * Get the client for this estimate.
      */

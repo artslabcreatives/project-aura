@@ -19,12 +19,13 @@ export interface Estimate {
 	title: string;
 	description?: string;
 	status: EstimateStatus;
-	line_items?: EstimateLineItem[];
+	items?: EstimateLineItem[];
 	subtotal?: number;
 	tax_rate?: number;
 	tax_amount?: number;
 	total_amount?: number;
 	total?: number;
+	currency?: string;
 	valid_until?: string;
 	notes?: string;
 	project_id?: number;

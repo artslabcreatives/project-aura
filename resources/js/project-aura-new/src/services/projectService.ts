@@ -95,9 +95,9 @@ function mapProject(raw: any): Project {
 		gracePeriodApprovedBy: raw.grace_period_approved_by,
 		provisionalPoNumber: raw.provisional_po_number,
 		provisionalPoExpiresAt: raw.provisional_po_expires_at,
-		isPhysicalInvoice: raw.is_physical_invoice,
 		courierTrackingNumber: raw.courier_tracking_number,
 		courierDeliveryStatus: raw.courier_delivery_status,
+		currency: raw.currency,
 	};
 }
 
@@ -139,6 +139,7 @@ export const projectService = {
 			// Append arrays
 			project.emails?.forEach((email: string) => payload.append('emails[]', email));
 			project.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+			if (project.currency) payload.append('currency', project.currency);
 		} else {
 			payload = {
 				name: project.name,
@@ -154,6 +155,7 @@ export const projectService = {
 				deadline: project.deadline,
 				invoice_number: project.invoice_number,
 				invoice_document: project.invoice_document,
+				currency: project.currency,
 			};
 		}
 
@@ -196,6 +198,7 @@ export const projectService = {
 			// Append arrays
 			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
 			updates.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+			if (updates.currency !== undefined) payload.append('currency', updates.currency);
 		} else {
 			payload = {
 				name: updates.name,
@@ -221,6 +224,7 @@ export const projectService = {
 				is_physical_invoice: updates.isPhysicalInvoice,
 				courier_tracking_number: updates.courierTrackingNumber,
 				courier_delivery_status: updates.courierDeliveryStatus,
+				currency: updates.currency,
 			};
 		}
 

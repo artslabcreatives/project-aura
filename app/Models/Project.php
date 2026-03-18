@@ -44,6 +44,7 @@ class Project extends Model
         'is_physical_invoice',
         'courier_tracking_number',
         'courier_delivery_status',
+        'currency',
     ];
 
     protected $casts = [
@@ -56,6 +57,10 @@ class Project extends Model
         'is_physical_invoice' => 'boolean',
         'grace_period_expires_at' => 'date',
         'provisional_po_expires_at' => 'date',
+    ];
+
+    protected $attributes = [
+        'currency' => 'USD',
     ];
 
     protected $appends = [

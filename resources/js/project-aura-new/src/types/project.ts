@@ -40,4 +40,5 @@ export interface Project {
 	isPhysicalInvoice?: boolean;
 	courierTrackingNumber?: string;
 	courierDeliveryStatus?: string;
+	currency?: string;
 }

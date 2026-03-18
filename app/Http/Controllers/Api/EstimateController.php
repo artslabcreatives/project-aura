@@ -134,6 +134,9 @@ class EstimateController extends Controller
             return [$estimate];
         });
 
+        // Refresh to ensure all calculated values are loaded
+        $estimate->refresh();
+
         return response()->json(
             $estimate->load(['client', 'project', 'creator', 'items']),
             201
@@ -218,13 +221,18 @@ class EstimateController extends Controller
         ]);
 
         $itemsData = $validated['items'] ?? null;
+        $taxRateChanged = isset($validated['tax_rate']) && $validated['tax_rate'] !== $estimate->tax_rate;
         unset($validated['items']);
 
-        // Recalculate totals if items are provided
-        if ($itemsData !== null) {
+        // Recalculate totals if items are provided OR if tax_rate changed
+        if ($itemsData !== null || $taxRateChanged) {
+            $currentItems = $itemsData ?? $estimate->items()->get(['description', 'quantity', 'unit_price'])->toArray();
             $taxRate = $validated['tax_rate'] ?? $estimate->tax_rate ?? 0;
-            $totals  = $this->calculateTotals($itemsData, $taxRate);
-            $validated = array_merge($validated, $totals);
+            
+            if (!empty($currentItems)) {
+                $totals = $this->calculateTotals($currentItems, $taxRate);
+                $validated = array_merge($validated, $totals);
+            }
         }
 
         DB::transaction(function () use ($estimate, $validated, $itemsData) {
@@ -234,6 +242,9 @@ class EstimateController extends Controller
                 $this->syncItems($estimate, $itemsData, true);
             }
         });
+
+        // Refresh the model to get updated values including calculated totals
+        $estimate->refresh();
 
         return response()->json($estimate->load(['client', 'project', 'creator', 'items']));
     }

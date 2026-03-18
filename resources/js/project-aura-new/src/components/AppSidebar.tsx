@@ -286,7 +286,8 @@ export function AppSidebar() {
 		status?: string,
 		poNumber?: string,
 		deadline?: string,
-		poDocument?: File
+		poDocument?: File,
+		currency?: string
 	) => {
 		if (!currentUser) return;
 		try {
@@ -304,6 +305,7 @@ export function AppSidebar() {
 				po_number: poNumber,
 				deadline: deadline,
 				po_document: poDocument,
+				currency,
 			});
 
 			// Fetch fresh project details to get any auto-created system stages
@@ -411,7 +413,8 @@ export function AppSidebar() {
 		status?: string,
 		poNumber?: string,
 		deadline?: string,
-		poDocument?: File
+		poDocument?: File,
+		currency?: string
 	) => {
 		if (!currentUser || !projectToEdit) return;
 		try {
@@ -427,6 +430,7 @@ export function AppSidebar() {
 				po_number: poNumber,
 				deadline: deadline,
 				po_document: poDocument,
+				currency,
 			});
 
 			// Create any newly added stages (id not numeric)

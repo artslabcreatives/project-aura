@@ -4,6 +4,8 @@ import { Estimate, EstimateStatus } from "@/types/estimate";
 import { Client } from "@/types/client";
 import { estimateService } from "@/services/estimateService";
 import { clientService } from "@/services/clientService";
+import { projectService } from "@/services/projectService";
+import { Project } from "@/types/project";
 import { useUser } from "@/hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,7 @@ const statusConfig: Record<EstimateStatus, { label: string; className: string }>
 export default function Estimates() {
 	const [estimates, setEstimates] = useState<Estimate[]>([]);
 	const [clients, setClients] = useState<Client[]>([]);
+	const [projects, setProjects] = useState<Project[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [statusFilter, setStatusFilter] = useState<EstimateStatus | "all">("all");
@@ -74,6 +77,14 @@ export default function Estimates() {
 				console.error("Failed to load clients for estimate form:", error);
 			}
 		};
+		const fetchProjects = async () => {
+			try {
+				const data = await projectService.getAll();
+				setProjects(data);
+			} catch (error) {
+				console.error("Failed to load projects for estimate form:", error);
+			}
+		};
 		const checkXero = async () => {
 			try {
 				const status = await estimateService.xeroStatus();
@@ -83,6 +94,7 @@ export default function Estimates() {
 			}
 		};
 		fetchClients();
+		fetchProjects();
 		fetchEstimates();
 		checkXero();
 	}, []);
@@ -292,7 +304,7 @@ export default function Estimates() {
 									<div className="flex items-center gap-4 shrink-0">
 										{estimate.total_amount !== undefined && (
 											<span className="font-semibold text-right hidden sm:block">
-												${estimate.total_amount.toFixed(2)}
+												{estimate.currency === "LKR" ? "Rs. " : "$"}{estimate.total_amount.toFixed(2)}
 											</span>
 										)}
 										{estimate.valid_until && (
@@ -345,6 +357,7 @@ export default function Estimates() {
 				onSave={handleSave}
 				editEstimate={editEstimate}
 				clients={clients}
+				projects={projects}
 			/>
 
 			{/* Delete Confirmation */}

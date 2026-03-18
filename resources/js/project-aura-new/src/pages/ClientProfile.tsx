@@ -445,7 +445,9 @@ export default function ClientProfile() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     {est.total_amount !== undefined && (
-                                                        <span className="text-sm font-medium">${est.total_amount.toFixed(2)}</span>
+                                                        <span className="text-sm font-medium">
+                                                            {est.currency === "LKR" ? "Rs. " : "$"}{est.total_amount.toFixed(2)}
+                                                        </span>
                                                     )}
                                                     <Badge className={`text-[10px] capitalize ${
                                                         est.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
@@ -604,7 +606,8 @@ export default function ClientProfile() {
                 open={isEstimateDialogOpen}
                 onOpenChange={setIsEstimateDialogOpen}
                 onSave={handleSaveEstimate}
-                clients={client ? [client] : []}
+                clients={client ? [(client as unknown as Client)] : []}
+                projects={client?.projects || []}
                 defaultClientId={typeof client?.id === 'number' ? client.id : undefined}
             />
         </div>
