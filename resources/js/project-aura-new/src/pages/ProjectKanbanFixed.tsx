@@ -311,7 +311,17 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		}
 	};
 
+	// Determine if task creation is allowed (mirrors backend allowsTaskCreation())
+	const hasPO = !!project.poDocumentUrl || !!project.poNumber;
+	const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
+	const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
+	const canCreateTasks = !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
+
 	const handleAddTaskToStage = (stageId: string) => {
+		if (!canCreateTasks) {
+			toast({ title: 'PO Required', description: 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.', variant: 'destructive' });
+			return;
+		}
 		setEditingTask(null);
 		setPreselectedStageId(stageId);
 		setIsTaskDialogOpen(true);
@@ -390,6 +400,10 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 
 	const handleSaveTask = async (task: Omit<Task, 'id' | 'createdAt'> & { assigneeId?: string; assigneeIds?: string[] }, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (!currentUser || !project) return;
+		if (!editingTask && !canCreateTasks) {
+			toast({ title: 'PO Required', description: 'This project requires a Purchase Order (PO) before tasks can be created.', variant: 'destructive' });
+			return;
+		}
 		try {
 			// Extract assignee IDs and convert to numbers
 			const assigneeId = task.assigneeId ? parseInt(task.assigneeId) : undefined;
@@ -657,6 +671,10 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		pendingLinks?: { name: string; url: string }[];
 	}) => {
 		if (!project || !parentTaskForSubtask || !currentUser) return;
+		if (!canCreateTasks) {
+			toast({ title: 'PO Required', description: 'This project requires a Purchase Order (PO) before tasks can be created.', variant: 'destructive' });
+			return;
+		}
 		try {
 			// Use provided ID or find by name if not provided
 			const assigneeId = subtaskData.assigneeId
@@ -803,16 +821,22 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 										View History
 									</Button>
-									{!project.isArchived && project.status !== 'on-hold' && !project.isLockedByPo && (
+									{!project.isArchived && project.status !== 'on-hold' && (
 										<>
 											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
 												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
 													Manage Stages
 												</Button>
 											)}
-											<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
-												<Plus className="mr-2 h-4 w-4" /> Add Task
-											</Button>
+											{canCreateTasks ? (
+												<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
+													<Plus className="mr-2 h-4 w-4" /> Add Task
+												</Button>
+											) : (
+												<Button variant="destructive" disabled>
+													<Lock className="mr-2 h-4 w-4" /> PO Required
+												</Button>
+											)}
 										</>
 									)}
 								</>
@@ -852,9 +876,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								disableColumnScroll={true}
 								disableBacklogRenaming={false}
 								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
-								onAddTaskToStage={(!project.isArchived && project.status !== 'on-hold') ? handleAddTaskToStage : undefined}
+								onAddTaskToStage={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}
-								onAddSubtask={(!project.isArchived && project.status !== 'on-hold') ? handleAddSubtask : undefined}
+								onAddSubtask={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddSubtask : undefined}
 							/>
 						) : (
 							<TaskListView

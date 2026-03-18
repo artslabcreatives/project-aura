@@ -99,6 +99,21 @@ export default function Tasks() {
 		}
 	}, [numericProjectId, allProjects]);
 
+	const currentProjectObj = useMemo(() => {
+		if (selectedProject === "all") return null;
+		return allProjects.find(p => p.name === selectedProject);
+	}, [selectedProject, allProjects]);
+
+	const canCreateTask = useMemo(() => {
+		if (!currentProjectObj) return true; // Let TaskDialog handle it if no project selected
+		
+		const hasPO = !!currentProjectObj.poDocumentUrl || !!currentProjectObj.poNumber;
+		const hasActiveGracePeriod = !!currentProjectObj.gracePeriodExpiresAt && new Date(currentProjectObj.gracePeriodExpiresAt) >= new Date();
+		const hasActiveProvisionalPO = !!currentProjectObj.provisionalPoNumber && !!currentProjectObj.provisionalPoExpiresAt && new Date(currentProjectObj.provisionalPoExpiresAt) >= new Date();
+		
+		return !currentProjectObj.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
+	}, [currentProjectObj]);
+
 	const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
 		try {
 			const task = allTasks.find((t) => t.id === taskId);
@@ -588,10 +603,19 @@ export default function Tasks() {
 
 					<Button
 						onClick={() => {
+							if (!canCreateTask) {
+								toast({
+									title: "PO Required",
+									description: "This project requires a Purchase Order (PO) before tasks can be created.",
+									variant: "destructive",
+								});
+								return;
+							}
 							setEditingTask(null);
 							setIsDialogOpen(true);
 						}}
 						className="gap-2"
+						variant={canCreateTask ? "default" : "destructive"}
 					>
 						<Plus className="h-4 w-4" />
 						New Task
