@@ -62,6 +62,7 @@ function mapTask(raw: any): Task {
 		})) || [],
 		subtasks: raw.subtasks?.map(mapTask) || [],
 		parentId: raw.parent_id ? String(raw.parent_id) : null,
+		isAssigneeLocked: raw.is_assignee_locked === true || raw.is_assignee_locked === 1,
 	};
 }
 
@@ -103,6 +104,7 @@ export const taskService = {
 			is_in_specific_stage: task.isInSpecificStage,
 			revision_comment: task.revisionComment,
 			parent_id: task.parentId,
+			is_assignee_locked: task.isAssigneeLocked,
 		};
 		console.log('=== TASK CREATE DEBUG ===');
 		console.log('Input task:', task);
@@ -132,6 +134,7 @@ export const taskService = {
 			original_assignee_id: updates.originalAssigneeId,
 			completed_at: updates.completedAt,
 			parent_id: updates.parentId,
+			is_assignee_locked: updates.isAssigneeLocked,
 		};
 		const { data } = await api.put(`/tasks/${id}`, payload);
 		return mapTask(data);

@@ -321,8 +321,12 @@ class TaskController extends Controller
         // Handle multi-assignee sync
         if (isset($validated['assignee_ids'])) {
             $syncChanges = $task->assignedUsers()->sync($validated['assignee_ids']);
-            // Update primary assignee_id if not explicitly set but array changed? 
-            // Better to keep existing logic: if assignee_id passed, use it, else keep it.
+        } elseif ($assigneeChanged && $task->assignee_id) {
+            // If primary assignee_id changed, and no explicit multi-assignees provided, sync to only the new primary assignee
+            $syncChanges = $task->assignedUsers()->sync([$task->assignee_id]);
+        } elseif ($assigneeChanged && !$task->assignee_id) {
+            // If primary assignee_id was removed, clear all assigned users
+            $syncChanges = $task->assignedUsers()->sync([]);
         }
 
         $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);

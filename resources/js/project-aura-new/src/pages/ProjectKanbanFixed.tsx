@@ -360,7 +360,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				}
 			}
 			if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
-				if (!('assignee' in updates)) {
+				if (!('assignee' in updates) && !taskToUpdate.isAssigneeLocked) {
 					const targetStage = project.stages.find(s => s.id === updates.projectStage);
 					if (targetStage?.mainResponsibleId) {
 						const mr = teamMembers.find(m => m.id === targetStage.mainResponsibleId);
