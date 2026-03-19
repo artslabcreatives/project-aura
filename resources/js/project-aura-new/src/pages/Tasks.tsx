@@ -363,15 +363,41 @@ export default function Tasks() {
 	};
 
 	const allCategorizedTasks = useMemo(() => {
+		const isTaskCompleted = (task: Task) => {
+			if (task.userStatus === "complete") return true;
+
+			let stage: any = undefined;
+
+			if (task.projectId && allProjects.length > 0) {
+				const project = allProjects.find(p => String(p.id) === String(task.projectId));
+				if (project && task.projectStage) {
+					stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+				}
+			}
+
+			if (!stage && task.projectStage && allProjects.length > 0) {
+				const project = allProjects.find(p => p.stages.some(s => String(s.id) === String(task.projectStage)));
+				stage = project?.stages.find(s => String(s.id) === String(task.projectStage));
+			}
+
+			if (stage) {
+				const title = stage.title.toLowerCase().trim();
+				return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
+			}
+			return false;
+		};
+
 		// Build set of archived or on-hold project IDs
 		const excludedProjectIds = new Set(
 			allProjects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
 		);
 
-		// First filter out tasks from excluded projects
-		let tasksToProcess = allTasks.filter(task =>
-			!task.projectId || !excludedProjectIds.has(task.projectId)
-		);
+		// First filter out tasks from excluded projects, unless the task is completed
+		let tasksToProcess = allTasks.filter(task => {
+			const isCompleted = isTaskCompleted(task);
+			const isExcludedProject = task.projectId && excludedProjectIds.has(task.projectId);
+			return isCompleted || !isExcludedProject;
+		});
 
 
 		if (currentUser?.role === "team-lead") {
@@ -458,7 +484,11 @@ export default function Tasks() {
 		}
 
 		if (selectedAssignee !== "all") {
-			tasksToFilter = tasksToFilter.filter((task) => task.assignee === selectedAssignee);
+			tasksToFilter = tasksToFilter.filter((task) => {
+				const isPrimaryAssignee = task.assignee === selectedAssignee;
+				const isSecondaryAssignee = task.assignedUsers?.some(u => u.name === selectedAssignee);
+				return isPrimaryAssignee || isSecondaryAssignee;
+			});
 		}
 
 		if (selectedTag !== "all") {
