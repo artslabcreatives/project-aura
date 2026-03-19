@@ -212,9 +212,9 @@ export default function Tasks() {
 				startStageId: startStageIdStr ? parseInt(String(startStageIdStr), 10) : undefined,
 			};
 
-			await taskService.update(taskId, updatePayload);
+			const savedTask = await taskService.update(taskId, updatePayload);
 
-			setAllTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+			setAllTasks((prev) => prev.map((t) => (t.id === taskId ? savedTask : t)));
 
 			toast({
 				title: "Task updated",
@@ -267,19 +267,11 @@ export default function Tasks() {
 			};
 
 			if (editingTask) {
-				await taskService.update(editingTask.id, payload);
+				const savedTask = await taskService.update(editingTask.id, payload);
 
 				setAllTasks((prev) =>
 					prev.map((task) =>
-						task.id === editingTask.id
-							? {
-								...task,
-								...cleanTaskData,
-								projectId,
-								projectStage: projectStageId ? String(projectStageId) : undefined,
-								startStageId: startStageId ? String(startStageId) : undefined, // keep Task type happy
-							}
-							: task
+						task.id === editingTask.id ? savedTask : task
 					)
 				);
 

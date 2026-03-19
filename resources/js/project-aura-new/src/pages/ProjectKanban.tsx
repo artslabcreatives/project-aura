@@ -255,10 +255,10 @@ export default function ProjectKanban() {
 				}
 			}
 
-			await taskService.update(taskId, backendUpdates as any);
+			const savedTask = await taskService.update(taskId, backendUpdates as any);
 
-			// For local state, we keep using the name
-			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+			// For local state, use the returned updated task
+			setTasks(tasks.map(t => t.id === taskId ? savedTask : t));
 		} catch (error) {
 			console.error("Error updating task:", error);
 			toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });

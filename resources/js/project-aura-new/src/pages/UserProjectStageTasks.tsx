@@ -271,8 +271,7 @@ export default function UserProjectStageTasks() {
 
 	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (editingTask) {
-			await taskService.update(editingTask.id, taskData as any);
-			const updatedTask = { ...editingTask, ...taskData };
+			const updatedTask = await taskService.update(editingTask.id, taskData as any);
 			setTasks((prev) => prev.map((task) => (task.id === editingTask.id ? updatedTask : task)));
 			toast({
 				title: "Task updated",

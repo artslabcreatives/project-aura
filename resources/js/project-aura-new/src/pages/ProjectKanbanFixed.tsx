@@ -387,14 +387,14 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			const { startStageId: startStageIdStr, ...cleanUpdates } = updates;
 			const startStageId = startStageIdStr ? parseInt(String(startStageIdStr), 10) : undefined;
 
-			await taskService.update(taskId, {
+			const savedTask = await taskService.update(taskId, {
 				...cleanUpdates,
 				assigneeId: assigneeId ? parseInt(String(assigneeId), 10) : undefined,
 				projectStageId,
 				startStageId,
 			});
 			console.log('[KANBAN] Applied update', { taskId, assigneeId, projectStageId });
-			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+			setTasks(tasks.map(t => t.id === taskId ? savedTask : t));
 		} catch (e) { console.error(e); toast({ title: 'Error', description: 'Failed to update task.', variant: 'destructive' }); }
 	};
 
@@ -425,12 +425,6 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			};
 
 			if (editingTask) {
-				await taskService.update(editingTask.id, taskPayload);
-				// Update local state - convert back to strings/objects if needed or just reload?
-				// Reloading or partial update. For simple update we just spread.
-
-				// Fetch updated tasks to ensure correct state?
-				// Or use the response from update if available (taskService.update returns Task).
 				const updatedTask = await taskService.update(editingTask.id, taskPayload);
 				setTasks(tasks.map(t => t.id === editingTask.id ? updatedTask : t));
 				addHistoryEntry({ action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { from: editingTask, to: { ...editingTask, ...task } } });
