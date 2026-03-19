@@ -26,6 +26,7 @@ import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import { GracePeriodDialog } from "@/components/GracePeriodDialog";
 import { ProvisionalPODialog } from "@/components/ProvisionalPODialog";
 import { InvoiceViewDialog } from "@/components/InvoiceViewDialog";
+import { CampaignReportSection } from "@/components/CampaignReportSection";
 
 export default function ProjectOverview() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -149,11 +150,22 @@ export default function ProjectOverview() {
 		return title;
 	};
 
+	const isDigitalMarketing = project?.department?.name === 'Digital Marketing';
+	const isCampaignReportApproved = !isDigitalMarketing || project?.campaign_report_status === 'approved';
+
 	const handleStatusChange = async (newStatus: string) => {
 		if (!project) return;
 
 		// Trigger Invoice upload if status changed to completed
 		if (newStatus === 'completed' && (currentUser?.role === 'hr' || currentUser?.role === 'admin')) {
+			if (!isCampaignReportApproved) {
+				toast({
+					title: "Report Required",
+					description: "A campaign report must be uploaded and approved before completing a Digital Marketing project.",
+					variant: "destructive",
+				});
+				return;
+			}
 			setIsInvoiceUploadOpen(true);
 			return;
 		}
@@ -298,8 +310,18 @@ export default function ProjectOverview() {
 									<Button
 										variant="outline"
 										size="sm"
-										className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-										onClick={() => setIsInvoiceViewOpen(true)}
+										className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved ? 'opacity-50 cursor-not-allowed' : ''}`}
+										onClick={() => {
+											if (isCampaignReportApproved) {
+												setIsInvoiceViewOpen(true);
+											} else {
+												toast({
+													title: "Report Required",
+													description: "Report must be approved to view invoices.",
+													variant: "destructive",
+												});
+											}
+										}}
 									>
 										View Invoice
 									</Button>
@@ -310,8 +332,18 @@ export default function ProjectOverview() {
 								<Button
 									variant="outline"
 									size="sm"
-									className="h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-									onClick={() => setIsInvoiceViewOpen(true)}
+									className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved ? 'opacity-50 cursor-not-allowed' : ''}`}
+									onClick={() => {
+										if (isCampaignReportApproved) {
+											setIsInvoiceViewOpen(true);
+										} else {
+											toast({
+												title: "Report Required",
+												description: "Report must be approved to view invoices.",
+												variant: "destructive",
+											});
+										}
+									}}
 								>
 									View Invoice
 								</Button>
@@ -456,6 +488,13 @@ export default function ProjectOverview() {
 					)}
 				</div>
 			)}
+
+			{/* Campaign Report Section for Digital Marketing Projects */}
+			<CampaignReportSection 
+				project={project} 
+				onSuccess={(updatedProject) => setProject(updatedProject)} 
+			/>
+
 			<div className="grid grid-cols-1 md:grid-cols-5 gap-6">
 				<Card className="h-full border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 flex flex-col">
 					<CardHeader className="pb-2">

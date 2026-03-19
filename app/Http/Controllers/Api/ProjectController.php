@@ -760,4 +760,60 @@ class ProjectController extends Controller
 
         return $client->email ?: null;
     }
+
+    /**
+     * Upload a campaign report for a Digital Marketing project.
+     */
+    public function uploadCampaignReport(Request $request, Project $project): JsonResponse
+    {
+        $request->validate([
+            'report' => 'required|file|max:20480', // Max 20MB
+        ]);
+
+        if ($request->hasFile('report')) {
+            $path = $request->file('report')->store('campaign-reports', 's3');
+            
+            $project->update([
+                'campaign_report_document' => $path,
+                'campaign_report_status' => 'pending',
+                'campaign_report_approved_by' => null,
+                'campaign_report_approved_at' => null,
+            ]);
+
+            return response()->json($project->fresh(['department', 'group', 'client', 'stages']), 200);
+        }
+
+        return response()->json(['message' => 'No file uploaded'], 400);
+    }
+
+    /**
+     * Approve a campaign report for a Digital Marketing project.
+     * Only admins or users in HR department (Harshani) can approve.
+     */
+    public function approveCampaignReport(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        // Check if user is admin or in HR department
+        // Based on previous code, 'hr' is a role. Let's check both role and department name if needed.
+        // User said "harshani mean HR dont create new role just give access to hr departemt to handle this"
+        $isHR = $user->role === 'hr' || ($user->department && $user->department->name === 'HR');
+        $isAdmin = $user->role === 'admin';
+
+        if (!$isAdmin && !$isHR) {
+            return response()->json(['message' => 'Only admins or HR department users can approve reports.'], 403);
+        }
+
+        if ($project->campaign_report_status !== 'pending') {
+            return response()->json(['message' => 'Report is not in pending status.'], 400);
+        }
+
+        $project->update([
+            'campaign_report_status' => 'approved',
+            'campaign_report_approved_by' => $user->id,
+            'campaign_report_approved_at' => now(),
+        ]);
+
+        return response()->json($project->fresh(['department', 'group', 'client', 'stages']), 200);
+    }
 }

@@ -80,6 +80,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/provisional-po', [ProjectController::class, 'issueProvisionalPo']);
     Route::post('projects/{project}/block', [ProjectController::class, 'block']);
     Route::post('projects/{project}/unblock', [ProjectController::class, 'unblock']);
+    Route::post('projects/{project}/campaign-report', [ProjectController::class, 'uploadCampaignReport']);
+    Route::post('projects/{project}/approve-campaign-report', [ProjectController::class, 'approveCampaignReport']);
     
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);

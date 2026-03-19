@@ -45,6 +45,10 @@ class Project extends Model
         'courier_tracking_number',
         'courier_delivery_status',
         'currency',
+        'campaign_report_document',
+        'campaign_report_status',
+        'campaign_report_approved_by',
+        'campaign_report_approved_at',
     ];
 
     protected $casts = [
@@ -57,6 +61,7 @@ class Project extends Model
         'is_physical_invoice' => 'boolean',
         'grace_period_expires_at' => 'date',
         'provisional_po_expires_at' => 'date',
+        'campaign_report_approved_at' => 'datetime',
     ];
 
     protected $attributes = [
@@ -66,6 +71,7 @@ class Project extends Model
     protected $appends = [
         'po_document_url',
         'invoice_document_url',
+        'campaign_report_document_url',
     ];
 
     /**
@@ -82,6 +88,14 @@ class Project extends Model
     public function getInvoiceDocumentUrlAttribute()
     {
         return $this->getStoreUrl($this->invoice_document);
+    }
+
+    /**
+     * Get the full URL to the campaign report document.
+     */
+    public function getCampaignReportDocumentUrlAttribute()
+    {
+        return $this->getStoreUrl($this->campaign_report_document);
     }
 
     /**
@@ -141,6 +155,19 @@ class Project extends Model
         }
 
         return false;
+    }
+
+    /**
+     * Check if the campaign report is approved.
+     * Only applies to Digital Marketing projects.
+     */
+    public function isCampaignReportApproved(): bool
+    {
+        if ($this->department?->name !== 'Digital Marketing') {
+            return true;
+        }
+
+        return $this->campaign_report_status === 'approved';
     }
 
     /**

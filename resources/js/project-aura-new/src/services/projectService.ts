@@ -98,6 +98,11 @@ function mapProject(raw: any): Project {
 		courierTrackingNumber: raw.courier_tracking_number,
 		courierDeliveryStatus: raw.courier_delivery_status,
 		currency: raw.currency,
+		campaign_report_document: raw.campaign_report_document,
+		campaign_report_status: raw.campaign_report_status,
+		campaign_report_approved_by: raw.campaign_report_approved_by,
+		campaign_report_approved_at: raw.campaign_report_approved_at,
+		campaign_report_document_url: raw.campaign_report_document_url,
 	};
 }
 
@@ -264,6 +269,20 @@ export const projectService = {
 			po_number: poNumber,
 			expires_at: expiresAt,
 		});
+		return mapProject(data);
+	},
+
+	uploadCampaignReport: async (id: string, file: File): Promise<Project> => {
+		const formData = new FormData();
+		formData.append('report', file);
+		const { data } = await api.post(`/projects/${id}/campaign-report`, formData, {
+			headers: { 'Content-Type': 'multipart/form-data' }
+		});
+		return mapProject(data);
+	},
+
+	approveCampaignReport: async (id: string): Promise<Project> => {
+		const { data } = await api.post(`/projects/${id}/approve-campaign-report`);
 		return mapProject(data);
 	},
 };
