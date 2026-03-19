@@ -512,9 +512,10 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 						</div>
 						<div className="space-y-1">
 							{task.subtasks?.filter(st => {
-								// Only Admin and Team Lead can see completed subtasks
+								// Admin, Team Lead, and the subtask's assignee can see completed subtasks
 								const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
-								if (isAdminOrTL) return true;
+								const isAssignee = st.assignee === currentUser?.name || st.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
+								if (isAdminOrTL || isAssignee) return true;
 								return st.userStatus !== 'complete';
 							}).map(subtask => (
 								<div
@@ -535,7 +536,10 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 										onClick={async (e) => {
 											e.stopPropagation();
 											const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
-											if (!isAdminOrTL) return;
+											const isSubtaskAssignee = subtask.assignee === currentUser?.name || subtask.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
+											const isParentAssignee = task.assignee === currentUser?.name || task.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
+											
+											if (!isAdminOrTL && !isSubtaskAssignee && !isParentAssignee) return;
 
 											// Toggle status
 											const newStatus: UserStatus = subtask.userStatus === 'complete' ? 'pending' : 'complete';

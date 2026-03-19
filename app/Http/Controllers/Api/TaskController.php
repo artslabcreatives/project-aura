@@ -508,6 +508,25 @@ class TaskController extends Controller
             
             $task->user_status = 'complete';
             $task->completed_at = now();
+            $task->save(); // Save the subtask now so the parent check sees it as complete in DB
+
+            // If all subtasks of the parent are complete, advance parent task
+            $parent = $task->parentTask; // Relationship is parentTask()
+            if ($parent) {
+                $allSubtasksComplete = !$parent->subtasks()->where('user_status', '!=', 'complete')->exists();
+                if ($allSubtasksComplete) {
+                    $this->performStageAdvancement($parent);
+                    $parent->save();
+                    
+                    // Log the auto-progression
+                    \App\Models\TaskHistory::create([
+                        'task_id' => $parent->id,
+                        'action' => 'AUTO_STAGE_ADVANCE',
+                        'details' => "Task automatically advanced because all subtasks were completed.",
+                        'user_id' => auth()->id() ?? $task->assignee_id,
+                    ]);
+                }
+            }
             return;
         }
 

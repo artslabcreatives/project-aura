@@ -148,11 +148,16 @@ export default function UserProjectStageTasks() {
 					const myAssignment = t.assignedUsers?.find(u => String(u.id) === String(currentUser?.id));
 					const isMyPartComplete = myAssignment?.status === 'complete';
 
+					// Check if all subtasks are complete
+					const hasSubtasks = t.subtasks && t.subtasks.length > 0;
+					const allSubtasksComplete = hasSubtasks && t.subtasks.every(st => st.userStatus === 'complete');
+
 					return String(t.projectId) === String(projectId) &&
 						String(t.projectStage) === String(stageId) &&
 						isAssigned &&
 						t.userStatus !== 'complete' &&
-						!isMyPartComplete;
+						!isMyPartComplete &&
+						!allSubtasksComplete;
 				});
 				setTasks(filtered);
 			} catch (error) {
