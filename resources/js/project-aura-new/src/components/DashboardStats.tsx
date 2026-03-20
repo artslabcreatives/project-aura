@@ -71,6 +71,18 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
   const allTasks = allTasksRaw.filter(task => {
     if (task.parentId) return false; // Exclude subtasks
     if (!projects) return true;
+
+    // Filter out 'suggested' tasks (matches FilteredTasksPage)
+    if (task.projectStage) {
+      const project = projects.find(p => String(p.id) === String(task.projectId));
+      if (project) {
+        const stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+        if (stage && ['suggested', 'suggested task'].includes(stage.title.toLowerCase().trim())) {
+          return false;
+        }
+      }
+    }
+
     const excludedProjectIds = new Set(
       projects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
     );
