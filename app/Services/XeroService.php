@@ -41,6 +41,11 @@ class XeroService
         return config('services.xero.redirect_uri', '');
     }
 
+    private function scopes(): string
+    {
+        return trim((string) config('services.xero.scopes', 'accounting.invoices.read offline_access'));
+    }
+
     /**
      * Generate the OAuth2 authorisation URL that redirects the user to Xero's login.
      */
@@ -50,7 +55,7 @@ class XeroService
             'response_type' => 'code',
             'client_id'     => $this->clientId(),
             'redirect_uri'  => $this->redirectUri(),
-            'scope'         => 'openid profile email accounting.transactions.read offline_access',
+            'scope'         => $this->scopes(),
             'state'         => $state,
         ]);
 
@@ -218,11 +223,11 @@ class XeroService
         $data = [
             'xero_estimate_id'   => $xeroId,
             'estimate_number'    => $quote['QuoteNumber'] ?? null,
-            'title'              => $quote['Title'] ?: ($quote['QuoteNumber'] ?? 'Xero Quote'),
-            'description'        => $quote['Summary'] ?? null,
+            'title'              => $this->resolveQuoteTitle($quote),
+            'description'        => $this->nullableString($quote['Summary'] ?? null),
             'client_id'          => $clientId,
             'status'             => $status,
-            'notes'              => $quote['Terms'] ?? null,
+            'notes'              => $this->nullableString($quote['Terms'] ?? null),
             'issue_date'         => $this->parseXeroDate($quote['DateString'] ?? null),
             'valid_until'        => $this->parseXeroDate($quote['ExpiryDateString'] ?? null),
             'currency'           => $quote['CurrencyCode'] ?? 'USD',
@@ -242,6 +247,34 @@ class XeroService
         $estimate = Estimate::create($data);
         $this->syncLineItems($estimate, $quote['LineItems'] ?? []);
         return 'created';
+    }
+
+    private function resolveQuoteTitle(array $quote): string
+    {
+        $title = $this->nullableString($quote['Title'] ?? null);
+
+        if ($title !== null) {
+            return $title;
+        }
+
+        $quoteNumber = $this->nullableString($quote['QuoteNumber'] ?? null);
+
+        if ($quoteNumber !== null) {
+            return $quoteNumber;
+        }
+
+        return 'Xero Quote';
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     /**
