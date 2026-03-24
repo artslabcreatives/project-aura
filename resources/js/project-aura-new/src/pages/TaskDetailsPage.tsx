@@ -110,6 +110,32 @@ export default function TaskDetailsPage() {
 		loadTask();
 	}, [taskId]);
 
+	useEffect(() => {
+		const handleAttachmentUpload = (event: Event) => {
+			const detail = (event as CustomEvent<{ taskId?: string }>).detail;
+			if (detail?.taskId && detail.taskId === taskId) {
+				void loadTask();
+				void loadHistory(1);
+			}
+		};
+
+		const handleTaskCompletion = (event: Event) => {
+			const detail = (event as CustomEvent<{ taskId?: string }>).detail;
+			if (detail?.taskId && detail.taskId === taskId) {
+				void loadTask();
+				void loadHistory(1);
+			}
+		};
+
+		window.addEventListener('aura:task-attachments-uploaded', handleAttachmentUpload);
+		window.addEventListener('aura:task-completion-finished', handleTaskCompletion);
+
+		return () => {
+			window.removeEventListener('aura:task-attachments-uploaded', handleAttachmentUpload);
+			window.removeEventListener('aura:task-completion-finished', handleTaskCompletion);
+		};
+	}, [taskId]);
+
 	const handleFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
 		if (!event.target.files?.length) {
 			return;

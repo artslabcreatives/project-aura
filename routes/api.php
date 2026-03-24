@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\EstimateController;
 use App\Http\Controllers\Api\XeroController;
 use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ResumableUploadController;
 use App\Http\Controllers\Api\RevisionHistoryController;
 use App\Http\Controllers\Api\StageController;
 use App\Http\Controllers\Api\StageGroupController;
@@ -67,6 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);
     Route::post('/tasks/{task}/early-start', [TaskController::class, 'earlyStart']);
     Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
+    Route::match(['options', 'post', 'head', 'patch', 'delete'], '/uploads/tus/{uploadKey?}', [ResumableUploadController::class, 'handle'])
+        ->where('uploadKey', '.*');
     Route::get('/task-attachments/{taskAttachment}/download', [TaskAttachmentController::class, 'download']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);
     

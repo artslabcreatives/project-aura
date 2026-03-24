@@ -1,4 +1,5 @@
 import { api } from './api';
+import { uploadManager } from '@/lib/upload-manager';
 import { Task } from '@/types/task';
 
 function mapTask(raw: any): Task {
@@ -150,19 +151,30 @@ export const taskService = {
 	},
 
 	complete: async (id: string, data: { status?: string; projectStageId?: string; comment?: string; links?: string[]; files?: File[] }): Promise<Task> => {
-		const formData = new FormData();
-		if (data.status) formData.append('user_status', data.status);
-		if (data.projectStageId) formData.append('project_stage_id', data.projectStageId);
-		if (data.comment) formData.append('comment', data.comment);
-		if (data.links) {
-			data.links.forEach((link) => formData.append('links[]', link));
-		}
-		if (data.files) {
-			data.files.forEach((file) => formData.append('files[]', file));
+		console.log('[uppy] taskService.complete called', {
+			id,
+			status: data.status,
+			projectStageId: data.projectStageId,
+			fileCount: data.files?.length || 0,
+			files: (data.files || []).map((file) => ({
+				name: file.name,
+				size: file.size,
+				type: file.type,
+			})),
+			linkCount: data.links?.length || 0,
+			hasComment: Boolean(data.comment),
+		});
+		if (data.files && data.files.length > 0) {
+			console.log('[uppy] taskService.complete delegating to uploadManager.completeTask', { id, fileCount: data.files.length });
+			return uploadManager.completeTask(id, data);
 		}
 
-		const { data: result } = await api.post(`/tasks/${id}/complete`, formData, {
-			headers: { 'Content-Type': 'multipart/form-data' }
+		console.log('[uppy] taskService.complete using direct non-file completion request', { id });
+		const { data: result } = await api.post(`/tasks/${id}/complete`, {
+			user_status: data.status,
+			project_stage_id: data.projectStageId,
+			comment: data.comment,
+			links: data.links,
 		});
 		return mapTask(result);
 	},
@@ -171,7 +183,7 @@ export const taskService = {
 		const { data } = await api.post(`/tasks/${id}/start`);
 		return mapTask(data);
 	},
-	
+
 	earlyStart: async (id: string, projectStageId: string): Promise<Task> => {
 		const { data } = await api.post(`/tasks/${id}/early-start`, { project_stage_id: projectStageId });
 		return mapTask(data);

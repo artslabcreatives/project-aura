@@ -8,202 +8,212 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 interface TaskCompletionDialogProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    onConfirm: (data: { comment?: string; links: string[]; files: File[] }) => void;
-    taskTitle?: string;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	onConfirm: (data: { comment?: string; links: string[]; files: File[] }) => void;
+	taskTitle?: string;
 }
 
 export function TaskCompletionDialog({
-    open,
-    onOpenChange,
-    onConfirm,
-    taskTitle,
+	open,
+	onOpenChange,
+	onConfirm,
+	taskTitle,
 }: TaskCompletionDialogProps) {
-    const [comment, setComment] = useState("");
-    const [links, setLinks] = useState<string[]>([]);
-    const [currentLink, setCurrentLink] = useState("");
-    const [files, setFiles] = useState<File[]>([]);
+	const [comment, setComment] = useState("");
+	const [links, setLinks] = useState<string[]>([]);
+	const [currentLink, setCurrentLink] = useState("");
+	const [files, setFiles] = useState<File[]>([]);
 
-    const normalizeSafeUrl = (raw: string): string | null => {
-        const trimmed = raw.trim();
+	const normalizeSafeUrl = (raw: string): string | null => {
+		const trimmed = raw.trim();
 
-        if (!trimmed) {
-            return null;
-        }
+		if (!trimmed) {
+			return null;
+		}
 
-        const tryParse = (value: string): URL | null => {
-            try {
-                return new URL(value);
-            } catch {
-                return null;
-            }
-        };
+		const tryParse = (value: string): URL | null => {
+			try {
+				return new URL(value);
+			} catch {
+				return null;
+			}
+		};
 
-        let url = tryParse(trimmed);
+		let url = tryParse(trimmed);
 
-        if (!url) {
-            url = tryParse("https://" + trimmed);
-        }
+		if (!url) {
+			url = tryParse("https://" + trimmed);
+		}
 
-        if (!url) {
-            return null;
-        }
+		if (!url) {
+			return null;
+		}
 
-        if (url.protocol !== "http:" && url.protocol !== "https:") {
-            return null;
-        }
+		if (url.protocol !== "http:" && url.protocol !== "https:") {
+			return null;
+		}
 
-        return url.toString();
-    };
+		return url.toString();
+	};
 
-    const handleAddLink = () => {
-        const normalized = normalizeSafeUrl(currentLink);
-        if (normalized && !links.includes(normalized)) {
-            setLinks([...links, normalized]);
-        }
-        setCurrentLink("");
-    };
+	const handleAddLink = () => {
+		const normalized = normalizeSafeUrl(currentLink);
+		if (normalized && !links.includes(normalized)) {
+			setLinks([...links, normalized]);
+		}
+		setCurrentLink("");
+	};
 
-    const handleRemoveLink = (linkToRemove: string) => {
-        setLinks(links.filter((link) => link !== linkToRemove));
-    };
+	const handleRemoveLink = (linkToRemove: string) => {
+		setLinks(links.filter((link) => link !== linkToRemove));
+	};
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setFiles([...files, ...Array.from(e.target.files)]);
-        }
-    };
+	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		if (e.target.files) {
+			setFiles([...files, ...Array.from(e.target.files)]);
+		}
+	};
 
-    const handleRemoveFile = (indexToRemove: number) => {
-        setFiles(files.filter((_, index) => index !== indexToRemove));
-    };
+	const handleRemoveFile = (indexToRemove: number) => {
+		setFiles(files.filter((_, index) => index !== indexToRemove));
+	};
 
-    const handleSubmit = () => {
-        onConfirm({
-            comment: comment.trim() || undefined,
-            links,
-            files,
-        });
-        // Reset state
-        setComment("");
-        setLinks([]);
-        setFiles([]);
-        onOpenChange(false);
-    };
+	const handleSubmit = () => {
+		console.log('[uppy] task completion dialog submit', {
+			commentLength: comment.trim().length,
+			linkCount: links.length,
+			fileCount: files.length,
+			files: files.map((file) => ({
+				name: file.name,
+				size: file.size,
+				type: file.type,
+			})),
+		});
+		onConfirm({
+			comment: comment.trim() || undefined,
+			links,
+			files,
+		});
+		// Reset state
+		setComment("");
+		setLinks([]);
+		setFiles([]);
+		onOpenChange(false);
+	};
 
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle>Complete Task</DialogTitle>
-                    <DialogDescription>
-                        {taskTitle ? `"${taskTitle}"` : "This task"} is being moved to complete. Would you like to add any closing comments or resources?
-                    </DialogDescription>
-                </DialogHeader>
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-[500px]">
+				<DialogHeader>
+					<DialogTitle>Complete Task</DialogTitle>
+					<DialogDescription>
+						{taskTitle ? `"${taskTitle}"` : "This task"} is being moved to complete. Would you like to add any closing comments or resources?
+					</DialogDescription>
+				</DialogHeader>
 
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="comment">Closing Comment</Label>
-                        <RichTextEditor
-                            id="comment"
-                            placeholder="Add a summary or closing note..."
-                            value={comment}
-                            onChange={(value) => setComment(value)}
-                        />
-                    </div>
+				<div className="grid gap-4 py-4">
+					<div className="space-y-2">
+						<Label htmlFor="comment">Closing Comment</Label>
+						<RichTextEditor
+							id="comment"
+							placeholder="Add a summary or closing note..."
+							value={comment}
+							onChange={(value) => setComment(value)}
+						/>
+					</div>
 
-                    <div className="space-y-2">
-                        <Label>Resources (Links)</Label>
-                        <div className="flex gap-2">
-                            <div className="relative flex-1">
-                                <LinkIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="https://..."
-                                    value={currentLink}
-                                    onChange={(e) => setCurrentLink(e.target.value)}
-                                    className="pl-9"
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            handleAddLink();
-                                        }
-                                    }}
-                                />
-                            </div>
-                            <Button type="button" size="icon" variant="outline" onClick={handleAddLink}>
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        {links.length > 0 && (
-                            <ScrollArea className="h-24 rounded-md border p-2">
-                                <div className="space-y-2">
-                                    {links.map((link, index) => (
-                                        <div key={index} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 text-sm">
-                                            <a href={link} target="_blank" rel="noopener noreferrer" className="truncate hover:underline text-blue-500 flex-1 min-w-0">
-                                                {link}
-                                            </a>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                                onClick={() => handleRemoveLink(link)}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </ScrollArea>
-                        )}
-                    </div>
+					<div className="space-y-2">
+						<Label>Resources (Links)</Label>
+						<div className="flex gap-2">
+							<div className="relative flex-1">
+								<LinkIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+								<Input
+									placeholder="https://..."
+									value={currentLink}
+									onChange={(e) => setCurrentLink(e.target.value)}
+									className="pl-9"
+									onKeyDown={(e) => {
+										if (e.key === "Enter") {
+											e.preventDefault();
+											handleAddLink();
+										}
+									}}
+								/>
+							</div>
+							<Button type="button" size="icon" variant="outline" onClick={handleAddLink}>
+								<Plus className="h-4 w-4" />
+							</Button>
+						</div>
+						{links.length > 0 && (
+							<ScrollArea className="h-24 rounded-md border p-2">
+								<div className="space-y-2">
+									{links.map((link, index) => (
+										<div key={index} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 text-sm">
+											<a href={link} target="_blank" rel="noopener noreferrer" className="truncate hover:underline text-blue-500 flex-1 min-w-0">
+												{link}
+											</a>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="h-6 w-6 text-muted-foreground hover:text-destructive"
+												onClick={() => handleRemoveLink(link)}
+											>
+												<X className="h-4 w-4" />
+											</Button>
+										</div>
+									))}
+								</div>
+							</ScrollArea>
+						)}
+					</div>
 
-                    <div className="space-y-2">
-                        <Label>Attachments</Label>
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="file-upload" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
-                                <Upload className="h-4 w-4 mr-2" />
-                                Upload Files
-                                <Input id="file-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
-                            </Label>
-                        </div>
-                        {files.length > 0 && (
-                            <ScrollArea className="h-24 rounded-md border p-2">
-                                <div className="space-y-2">
-                                    {files.map((file, index) => (
-                                        <div key={index} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 text-sm">
-                                            <div className="flex items-center gap-2 truncate">
-                                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                                <span className="truncate">{file.name}</span>
-                                                <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)}KB)</span>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                                onClick={() => handleRemoveFile(index)}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </ScrollArea>
-                        )}
-                    </div>
-                </div>
+					<div className="space-y-2">
+						<Label>Attachments</Label>
+						<div className="flex items-center gap-2">
+							<Label htmlFor="file-upload" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
+								<Upload className="h-4 w-4 mr-2" />
+								Upload Files
+								<Input id="file-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
+							</Label>
+						</div>
+						{files.length > 0 && (
+							<ScrollArea className="h-24 rounded-md border p-2">
+								<div className="space-y-2">
+									{files.map((file, index) => (
+										<div key={index} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 text-sm">
+											<div className="flex items-center gap-2 truncate">
+												<FileText className="h-4 w-4 text-muted-foreground" />
+												<span className="truncate">{file.name}</span>
+												<span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)}KB)</span>
+											</div>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="h-6 w-6 text-muted-foreground hover:text-destructive"
+												onClick={() => handleRemoveFile(index)}
+											>
+												<X className="h-4 w-4" />
+											</Button>
+										</div>
+									))}
+								</div>
+							</ScrollArea>
+						)}
+					</div>
+				</div>
 
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSubmit}>
-                        Complete Task
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+				<DialogFooter className="gap-2 sm:gap-0">
+					<Button variant="outline" onClick={() => onOpenChange(false)}>
+						Cancel
+					</Button>
+					<Button onClick={handleSubmit}>
+						Complete Task
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }

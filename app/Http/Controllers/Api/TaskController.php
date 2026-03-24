@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\Task;
 use App\Events\TaskUpdated;
+use App\Services\ResumableUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
@@ -726,7 +727,7 @@ class TaskController extends Controller
             new OA\Response(response: 404, description: "Task not found")
         ]
     )]
-    public function complete(Request $request, Task $task): JsonResponse
+    public function complete(Request $request, Task $task, ResumableUploadService $resumableUploadService): JsonResponse
     {
         $validated = $request->validate([
             'user_status' => 'sometimes|in:complete',
@@ -736,9 +737,11 @@ class TaskController extends Controller
             'links.*' => 'string', // Relaxed validation
             'files' => 'nullable|array',
             'files.*' => 'file|max:10240',
+            'upload_keys' => 'nullable|array',
+            'upload_keys.*' => 'string|max:255',
         ]);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $task, $request) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $task, $request, $resumableUploadService) {
             $userId = $request->user()->id;
             $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
             
@@ -845,6 +848,18 @@ class TaskController extends Controller
                     $task->attachments()->create([
                         'name' => $file->getClientOriginalName(),
                         'url' => $url,
+                        'type' => 'file',
+                    ]);
+                }
+            }
+
+            if (!empty($validated['upload_keys'])) {
+                foreach ($validated['upload_keys'] as $uploadKey) {
+                    $finalized = $resumableUploadService->finalizeToDisk($uploadKey, 'task-attachments');
+
+                    $task->attachments()->create([
+                        'name' => $finalized['name'],
+                        'url' => $finalized['url'],
                         'type' => 'file',
                     ]);
                 }
