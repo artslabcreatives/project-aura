@@ -58,4 +58,8 @@ return [
         'redirect_uri'  => env('XERO_REDIRECT_URI'),
         'scopes'        => env('XERO_SCOPES', 'accounting.invoices.read offline_access'),
     ],
+
+    'n8n' => [
+        'webhook_secret' => env('N8N_WEBHOOK_SECRET'),
+    ],
 ];
