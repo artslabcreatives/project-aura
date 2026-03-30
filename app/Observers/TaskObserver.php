@@ -135,6 +135,17 @@ class TaskObserver
         // Track all changes using the history service
         $this->historyService->trackChanges($task);
 
+        // Propagate stage change to subtasks
+        if ($task->wasChanged('project_stage_id') && !$task->parent_id) {
+            $newStageId = $task->project_stage_id;
+            foreach ($task->subtasks as $subtask) {
+                if ($subtask->project_stage_id !== $newStageId) {
+                    $subtask->project_stage_id = $newStageId;
+                    $subtask->save();
+                }
+            }
+        }
+
         // Log for debugging purposes
         Log::debug("Task {$task->id} updated", [
             'status' => $task->user_status,
