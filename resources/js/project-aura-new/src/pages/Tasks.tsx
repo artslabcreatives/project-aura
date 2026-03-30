@@ -99,6 +99,21 @@ export default function Tasks() {
 		}
 	}, [numericProjectId, allProjects]);
 
+	const currentProjectObj = useMemo(() => {
+		if (selectedProject === "all") return null;
+		return allProjects.find(p => p.name === selectedProject);
+	}, [selectedProject, allProjects]);
+
+	const canCreateTask = useMemo(() => {
+		if (!currentProjectObj) return true; // Let TaskDialog handle it if no project selected
+		
+		const hasPO = !!currentProjectObj.poDocumentUrl || !!currentProjectObj.poNumber;
+		const hasActiveGracePeriod = !!currentProjectObj.gracePeriodExpiresAt && new Date(currentProjectObj.gracePeriodExpiresAt) >= new Date();
+		const hasActiveProvisionalPO = !!currentProjectObj.provisionalPoNumber && !!currentProjectObj.provisionalPoExpiresAt && new Date(currentProjectObj.provisionalPoExpiresAt) >= new Date();
+		
+		return !currentProjectObj.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
+	}, [currentProjectObj]);
+
 	const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
 		try {
 			const task = allTasks.find((t) => t.id === taskId);
@@ -197,9 +212,9 @@ export default function Tasks() {
 				startStageId: startStageIdStr ? parseInt(String(startStageIdStr), 10) : undefined,
 			};
 
-			await taskService.update(taskId, updatePayload);
+			const savedTask = await taskService.update(taskId, updatePayload);
 
-			setAllTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+			setAllTasks((prev) => prev.map((t) => (t.id === taskId ? savedTask : t)));
 
 			toast({
 				title: "Task updated",
@@ -252,19 +267,11 @@ export default function Tasks() {
 			};
 
 			if (editingTask) {
-				await taskService.update(editingTask.id, payload);
+				const savedTask = await taskService.update(editingTask.id, payload);
 
 				setAllTasks((prev) =>
 					prev.map((task) =>
-						task.id === editingTask.id
-							? {
-								...task,
-								...cleanTaskData,
-								projectId,
-								projectStage: projectStageId ? String(projectStageId) : undefined,
-								startStageId: startStageId ? String(startStageId) : undefined, // keep Task type happy
-							}
-							: task
+						task.id === editingTask.id ? savedTask : task
 					)
 				);
 
@@ -348,15 +355,41 @@ export default function Tasks() {
 	};
 
 	const allCategorizedTasks = useMemo(() => {
+		const isTaskCompleted = (task: Task) => {
+			if (task.userStatus === "complete") return true;
+
+			let stage: any = undefined;
+
+			if (task.projectId && allProjects.length > 0) {
+				const project = allProjects.find(p => String(p.id) === String(task.projectId));
+				if (project && task.projectStage) {
+					stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+				}
+			}
+
+			if (!stage && task.projectStage && allProjects.length > 0) {
+				const project = allProjects.find(p => p.stages.some(s => String(s.id) === String(task.projectStage)));
+				stage = project?.stages.find(s => String(s.id) === String(task.projectStage));
+			}
+
+			if (stage) {
+				const title = stage.title.toLowerCase().trim();
+				return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
+			}
+			return false;
+		};
+
 		// Build set of archived or on-hold project IDs
 		const excludedProjectIds = new Set(
 			allProjects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
 		);
 
-		// First filter out tasks from excluded projects
-		let tasksToProcess = allTasks.filter(task =>
-			!task.projectId || !excludedProjectIds.has(task.projectId)
-		);
+		// First filter out tasks from excluded projects, unless the task is completed
+		let tasksToProcess = allTasks.filter(task => {
+			const isCompleted = isTaskCompleted(task);
+			const isExcludedProject = task.projectId && excludedProjectIds.has(task.projectId);
+			return isCompleted || !isExcludedProject;
+		});
 
 
 		if (currentUser?.role === "team-lead") {
@@ -443,7 +476,11 @@ export default function Tasks() {
 		}
 
 		if (selectedAssignee !== "all") {
-			tasksToFilter = tasksToFilter.filter((task) => task.assignee === selectedAssignee);
+			tasksToFilter = tasksToFilter.filter((task) => {
+				const isPrimaryAssignee = task.assignee === selectedAssignee;
+				const isSecondaryAssignee = task.assignedUsers?.some(u => u.name === selectedAssignee);
+				return isPrimaryAssignee || isSecondaryAssignee;
+			});
 		}
 
 		if (selectedTag !== "all") {
@@ -588,10 +625,19 @@ export default function Tasks() {
 
 					<Button
 						onClick={() => {
+							if (!canCreateTask) {
+								toast({
+									title: "PO Required",
+									description: "This project requires a Purchase Order (PO) before tasks can be created.",
+									variant: "destructive",
+								});
+								return;
+							}
 							setEditingTask(null);
 							setIsDialogOpen(true);
 						}}
 						className="gap-2"
+						variant={canCreateTask ? "default" : "destructive"}
 					>
 						<Plus className="h-4 w-4" />
 						New Task

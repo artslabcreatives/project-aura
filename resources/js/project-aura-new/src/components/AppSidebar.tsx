@@ -127,6 +127,10 @@ export function AppSidebar() {
 	const [projectToInvite, setProjectToInvite] = useState<Project | null>(null);
 	const [invitedProjectsOpen, setInvitedProjectsOpen] = useState(true);
 
+	// Loading states for skeleton animations
+	const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+	const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
+
 	const userRole = currentUser?.role;
 	const collaboratedProjects = useMemo(() => {
 		if (!currentUser) return [];
@@ -140,6 +144,8 @@ export function AppSidebar() {
 	const fetchData = async () => {
 		if (!currentUser) return;
 		try {
+			setIsLoadingProjects(true);
+			setIsLoadingDepartments(true);
 			const [projectsData, departmentsData, projectGroupsData] = await Promise.all([
 				projectService.getAll(),
 				departmentService.getAll(),
@@ -245,6 +251,10 @@ export function AppSidebar() {
 		} catch (error) {
 			console.error('Failed to fetch data from API:', error);
 			// Silent error or toast? Toast might be spammy on auto-refresh
+		} finally {
+			// Reset loading states after data fetch completes or fails
+			setIsLoadingProjects(false);
+			setIsLoadingDepartments(false);
 		}
 	};
 
@@ -286,7 +296,8 @@ export function AppSidebar() {
 		status?: string,
 		poNumber?: string,
 		deadline?: string,
-		poDocument?: File
+		poDocument?: File,
+		currency?: string
 	) => {
 		if (!currentUser) return;
 		try {
@@ -304,6 +315,7 @@ export function AppSidebar() {
 				po_number: poNumber,
 				deadline: deadline,
 				po_document: poDocument,
+				currency,
 			});
 
 			// Fetch fresh project details to get any auto-created system stages
@@ -411,7 +423,8 @@ export function AppSidebar() {
 		status?: string,
 		poNumber?: string,
 		deadline?: string,
-		poDocument?: File
+		poDocument?: File,
+		currency?: string
 	) => {
 		if (!currentUser || !projectToEdit) return;
 		try {
@@ -427,6 +440,7 @@ export function AppSidebar() {
 				po_number: poNumber,
 				deadline: deadline,
 				po_document: poDocument,
+				currency,
 			});
 
 			// Create any newly added stages (id not numeric)
@@ -1231,7 +1245,7 @@ export function AppSidebar() {
 					</SidebarGroupContent>
 				</SidebarGroup>
 
-				{(userRole === "user" || userRole === "account-manager") && userAssignedProjects.length > 0 && (
+				{(userRole === "user" || userRole === "account-manager") && (isLoadingProjects || userAssignedProjects.length > 0) && (
 					<SidebarGroup data-tour="projects-list">
 						<Collapsible open={assignedProjectsOpen} onOpenChange={setAssignedProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
@@ -1246,7 +1260,21 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{userAssignedProjects.map((project) => (
+										{isLoadingProjects ? (
+											// Show skeleton loaders while loading
+											Array.from({ length: 3 }).map((_, index) => (
+												<SidebarMenuItem key={index}>
+													<SidebarMenuButton className="w-full opacity-60">
+														<div className="flex items-center gap-3 w-full">
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+															<div className="h-4 w-28 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse flex-1" />
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+														</div>
+													</SidebarMenuButton>
+												</SidebarMenuItem>
+											))
+										) : (
+											userAssignedProjects.map((project) => (
 											<Collapsible
 												key={project.id}
 												open={expandedProjects.has(String(project.id))}
@@ -1293,7 +1321,8 @@ export function AppSidebar() {
 													</CollapsibleContent>
 												</SidebarMenuItem>
 											</Collapsible>
-										))}
+										))
+										)}
 									</SidebarMenu>
 								</SidebarGroupContent>
 							</CollapsibleContent>
@@ -1302,7 +1331,7 @@ export function AppSidebar() {
 				)}
 
 				{/* Invited Projects Section - Available for ALL roles */}
-				{collaboratedProjects.length > 0 && (
+				{(isLoadingProjects || collaboratedProjects.length > 0) && (
 					<SidebarGroup>
 						<Collapsible open={invitedProjectsOpen} onOpenChange={setInvitedProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
@@ -1320,14 +1349,35 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{Object.entries(
-											collaboratedProjects.reduce((acc, project) => {
-												const deptName = project.department?.name || 'Other';
-												if (!acc[deptName]) acc[deptName] = [];
-												acc[deptName].push(project);
-												return acc;
-											}, {} as Record<string, Project[]>)
-										).map(([deptName, deptProjects]) => (
+										{isLoadingProjects ? (
+											// Show skeleton loaders while loading
+											Array.from({ length: 2 }).map((_, deptIndex) => (
+												<div key={deptIndex} className="space-y-1">
+													{/* Department Header Skeleton */}
+													<SidebarMenuItem>
+														<SidebarMenuButton className="w-full opacity-60">
+															<div className="flex items-center gap-3 w-full">
+																<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+																<div className="h-4 w-20 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse flex-1" />
+																<div className="h-4 w-8 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+															</div>
+														</SidebarMenuButton>
+													</SidebarMenuItem>
+												</div>
+											))
+										) : collaboratedProjects.length === 0 ? (
+											<div className="px-3 py-2 text-sm text-muted-foreground">
+												No invited projects
+											</div>
+										) : (
+											Object.entries(
+												collaboratedProjects.reduce((acc, project) => {
+													const deptName = project.department?.name || 'Other';
+													if (!acc[deptName]) acc[deptName] = [];
+													acc[deptName].push(project);
+													return acc;
+												}, {} as Record<string, Project[]>)
+											).map(([deptName, deptProjects]) => (
 											<Collapsible
 												key={deptName}
 												open={expandedDepartments.has(`invited-${deptName}`)}
@@ -1365,7 +1415,8 @@ export function AppSidebar() {
 													</CollapsibleContent>
 												</SidebarMenuItem>
 											</Collapsible>
-										))}
+										))
+										)}
 									</SidebarMenu>
 								</SidebarGroupContent>
 							</CollapsibleContent>
@@ -1400,11 +1451,26 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{departmentGroups.length === 0 ? (
+										{isLoadingProjects ? (
+											// Show skeleton loaders while loading
+											Array.from({ length: 5 }).map((_, index) => (
+												<SidebarMenuItem key={index}>
+													<SidebarMenuButton className="w-full opacity-60">
+														<div className="flex items-center gap-3 w-full">
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+															<div className="h-4 w-32 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse flex-1" />
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+														</div>
+													</SidebarMenuButton>
+												</SidebarMenuItem>
+											))
+										) : departmentGroups.length === 0 ? (
 											<div className="px-3 py-2 text-sm text-muted-foreground">
 												No projects found
 											</div>
-										) : (userRole === "team-lead" || userRole === "account-manager") && departmentGroups[0]?.id === 'flat' ? (
+										) : (
+									(userRole === "team-lead" || userRole === "account-manager") && departmentGroups[0]?.id === 'flat'
+								) ? (
 											// Non-Digital Team-lead: Show flat list (with hierarchy support)
 											<>
 												{departmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
@@ -1459,7 +1525,7 @@ export function AppSidebar() {
 					</SidebarGroup>
 				)}
 
-				{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') && archivedDepartmentGroups.length > 0 && (
+				{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager') && (isLoadingProjects || archivedDepartmentGroups.length > 0) && (
 					<SidebarGroup>
 						<Collapsible open={archivedProjectsOpen} onOpenChange={setArchivedProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
@@ -1474,7 +1540,19 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{(userRole === "team-lead" || userRole === "account-manager") && archivedDepartmentGroups[0]?.id === 'flat' ? (
+										{isLoadingProjects ? (
+											// Show skeleton loaders while loading
+											Array.from({ length: 3 }).map((_, index) => (
+												<SidebarMenuItem key={index}>
+													<SidebarMenuButton className="w-full opacity-60">
+														<div className="flex items-center gap-3 w-full">
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+															<div className="h-4 w-32 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse flex-1" />
+														</div>
+													</SidebarMenuButton>
+												</SidebarMenuItem>
+											))
+										) : (userRole === "team-lead" || userRole === "account-manager") && archivedDepartmentGroups[0]?.id === 'flat' ? (
 											<>
 												{archivedDepartmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
 												{archivedDepartmentGroups[0].ungroupedProjects.map((project) => renderProjectItem(project))}
@@ -1525,13 +1603,13 @@ export function AppSidebar() {
 				)}
 
 
-				{(userRole === "user") && userDepartmentProjects.length > 0 && (
+				{(userRole === "user") && (isLoadingProjects || userDepartmentProjects.length > 0) && (
 					<SidebarGroup>
 						<Collapsible open={departmentProjectsOpen} onOpenChange={setDepartmentProjectsOpen}>
 							<div className="flex items-center justify-between px-2">
 								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
 									<SidebarGroupLabel className="hover:bg-transparent">
-										{departments.find(d => d.id === currentUser?.department)?.name || 'Department'} Projects
+										{isLoadingProjects ? 'Department Projects' : (departments.find(d => d.id === currentUser?.department)?.name || 'Department') + ' Projects'}
 									</SidebarGroupLabel>
 									<ChevronRight
 										className={`h-4 w-4 transition-transform ${departmentProjectsOpen ? "rotate-90" : ""
@@ -1542,8 +1620,24 @@ export function AppSidebar() {
 							<CollapsibleContent>
 								<SidebarGroupContent>
 									<SidebarMenu>
-										{userDepartmentGroups.rootGroups.map((group) => renderProjectGroup(group))}
-										{userDepartmentGroups.ungrouped.map((project) => renderProjectItem(project))}
+										{isLoadingProjects ? (
+											// Show skeleton loaders while loading
+											Array.from({ length: 4 }).map((_, index) => (
+												<SidebarMenuItem key={index}>
+													<SidebarMenuButton className="w-full opacity-60">
+														<div className="flex items-center gap-3 w-full">
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+															<div className="h-4 w-32 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse flex-1" />
+														</div>
+													</SidebarMenuButton>
+												</SidebarMenuItem>
+											))
+										) : (
+											<>
+												{userDepartmentGroups.rootGroups.map((group) => renderProjectGroup(group))}
+												{userDepartmentGroups.ungrouped.map((project) => renderProjectItem(project))}
+											</>
+										)}
 									</SidebarMenu>
 								</SidebarGroupContent>
 							</CollapsibleContent>

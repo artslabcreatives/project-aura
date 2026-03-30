@@ -40,4 +40,10 @@ export interface Project {
 	isPhysicalInvoice?: boolean;
 	courierTrackingNumber?: string;
 	courierDeliveryStatus?: string;
+	currency?: string;
+	campaign_report_document?: string;
+	campaign_report_status?: 'pending' | 'approved';
+	campaign_report_approved_by?: number;
+	campaign_report_approved_at?: string;
+	campaign_report_document_url?: string;
 }

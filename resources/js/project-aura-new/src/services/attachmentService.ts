@@ -1,4 +1,5 @@
 import { api } from './api';
+import { uploadManager } from '@/lib/upload-manager';
 import { TaskAttachment } from '@/types/task';
 
 interface RawAttachment {
@@ -26,17 +27,8 @@ export const attachmentService = {
 	 * Upload a file attachment to a task
 	 */
 	uploadFile: async (taskId: string, file: File): Promise<TaskAttachment> => {
-		const formData = new FormData();
-		formData.append('task_id', taskId);
-		formData.append('file', file);
-		formData.append('type', 'file');
-
-		const { data } = await api.post('/task-attachments', formData, {
-			headers: {
-				'Content-Type': 'multipart/form-data',
-			},
-		});
-		return mapAttachment(data);
+		const [attachment] = await uploadManager.attachFilesToTask(taskId, [file]);
+		return attachment;
 	},
 
 	/**
@@ -73,11 +65,6 @@ export const attachmentService = {
 	 * Upload multiple files to a task
 	 */
 	uploadFiles: async (taskId: string, files: File[]): Promise<TaskAttachment[]> => {
-		const results: TaskAttachment[] = [];
-		for (const file of files) {
-			const attachment = await attachmentService.uploadFile(taskId, file);
-			results.push(attachment);
-		}
-		return results;
+		return uploadManager.attachFilesToTask(taskId, files);
 	},
 };

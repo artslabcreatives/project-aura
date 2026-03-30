@@ -54,7 +54,11 @@ export function TaskFilters({
 }: TaskFiltersProps) {
   // Calculate task count for each assignee
   const getTaskCountForAssignee = (assigneeName: string) => {
-    return allTasks.filter(task => task.assignee === assigneeName).length;
+    return allTasks.filter(task => {
+        const isPrimary = task.assignee === assigneeName;
+        const isSecondary = task.assignedUsers?.some(u => u.name === assigneeName);
+        return isPrimary || isSecondary;
+    }).length;
   };
 
   // Get department name helper

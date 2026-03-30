@@ -51,12 +51,23 @@ class ProjectController extends Controller
         if (in_array($user->role, ['user', 'account_manager'])) {
             $query->where(function ($q) use ($user) {
                 $q->whereHas('tasks', function ($taskQuery) use ($user) {
-                    $taskQuery->where('assignee_id', $user->id);
+                    $taskQuery->where('assignee_id', $user->id)
+                        ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                            $sq->where('users.id', $user->id);
+                        });
                 })
                 ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
                     $collabQuery->where('users.id', $user->id);
                 });
             });
+
+            // Also filter the tasks relationship itself
+            $query->with(['tasks' => function ($taskQuery) use ($user) {
+                $taskQuery->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
         }
 
         $projects = $query->get();
@@ -209,11 +220,41 @@ class ProjectController extends Controller
     )]
     public function show(Project $project): JsonResponse
     {
-        return response()->json($project->load(['department', 'group', 'client', 'stages' => function ($query) {
+        $user = auth()->user();
+
+        // Authorization check for user and account_manager roles
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $isAssigned = $project->tasks()->where(function($q) use ($user) {
+                $q->where('assignee_id', $user->id)
+                  ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                      $sq->where('users.id', $user->id);
+                  });
+            })->exists() || $project->collaborators()->where('users.id', $user->id)->exists();
+
+            if (!$isAssigned) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+        }
+
+        $project->load(['department', 'group', 'client', 'stages' => function ($query) {
             $query->where('type', 'project');
-        }, 'tasks', 'collaborators' => function ($query) {
+        }, 'collaborators' => function ($query) {
             $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
-        }]));
+        }]);
+
+        // Filter tasks relationship for user and account_manager
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $project->load(['tasks' => function ($query) use ($user) {
+                $query->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
+        } else {
+            $project->load('tasks');
+        }
+
+        return response()->json($project);
     }
 
     #[OA\Put(
@@ -450,11 +491,35 @@ class ProjectController extends Controller
         // It might be a key-value pair or just one of the values.
         // Let's assume it's one of the values in the array for now, or we can use whereJsonContains.
         
-        $projects = Project::whereJsonContains('phone_numbers', $groupId)
+        $projectsQuery = Project::whereJsonContains('phone_numbers', $groupId)
             ->with(['department', 'stages' => function ($query) {
                 $query->where('type', 'project');
-            }, 'tasks'])
-            ->get();
+            }]);
+
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $projectsQuery->where(function ($q) use ($user) {
+                $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                    $taskQuery->where('assignee_id', $user->id)
+                        ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                            $sq->where('users.id', $user->id);
+                        });
+                })
+                ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                    $collabQuery->where('users.id', $user->id);
+                });
+            });
+
+            $projectsQuery->with(['tasks' => function ($taskQuery) use ($user) {
+                $taskQuery->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
+        } else {
+            $projectsQuery->with('tasks');
+        }
+
+        $projects = $projectsQuery->get();
 
         return response()->json($projects);
     }
@@ -487,11 +552,35 @@ class ProjectController extends Controller
 
 		$email = $request->input('email');
 
-		$projects = Project::whereJsonContains('emails', $email)
-			->with(['department', 'stages' => function ($query) {
-				$query->where('type', 'project');
-			}, 'tasks'])
-			->get();	
+        $projectsQuery = Project::whereJsonContains('emails', $email)
+            ->with(['department', 'stages' => function ($query) {
+                $query->where('type', 'project');
+            }]);
+
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $projectsQuery->where(function ($q) use ($user) {
+                $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                    $taskQuery->where('assignee_id', $user->id)
+                        ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                            $sq->where('users.id', $user->id);
+                        });
+                })
+                ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                    $collabQuery->where('users.id', $user->id);
+                });
+            });
+
+            $projectsQuery->with(['tasks' => function ($taskQuery) use ($user) {
+                $taskQuery->where('assignee_id', $user->id)
+                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                        $sq->where('users.id', $user->id);
+                    });
+            }]);
+        } else {
+            $projectsQuery->with('tasks');
+        }
+
+        $projects = $projectsQuery->get();
 		return response()->json($projects);
 	}
 
@@ -551,21 +640,59 @@ class ProjectController extends Controller
     {
         $user = $request->user();
 
-        if (!in_array($user->role, ['admin', 'finance'])) {
-            return response()->json(['message' => 'Only admin or finance users can grant grace periods.'], 403);
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can grant grace periods.'], 403);
         }
 
         $validated = $request->validate([
-            'grace_period_days' => 'required|integer|min:1|max:365',
+            'expires_at' => 'required|date|after:today',
+            'notes'      => 'nullable|string|max:1000',
         ]);
 
         $project->update([
-            'grace_period_days'       => $validated['grace_period_days'],
-            'grace_period_started_at' => now(),
+            'grace_period_expires_at'  => $validated['expires_at'],
+            'grace_period_notes'       => $validated['notes'] ?? null,
             'grace_period_approved_by' => $user->id,
         ]);
 
         return response()->json($project->fresh(['gracePeriodApprover']), 200);
+    }
+
+    /**
+     * Issue a provisional PO for a project, allowing work to continue while
+     * awaiting the official PO document.
+     * Only users with admin or hr roles may issue provisional POs.
+     */
+    public function issueProvisionalPo(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can issue provisional POs.'], 403);
+        }
+
+        $validated = $request->validate([
+            'po_number'  => 'required|string|max:255',
+            'expires_at' => 'required|date|after:today',
+        ]);
+
+        $project->update([
+            'provisional_po_number'     => $validated['po_number'],
+            'provisional_po_expires_at' => $validated['expires_at'],
+        ]);
+
+        // Send provisional PO email to the client
+        try {
+            $project->load('client.contacts', 'collaborators');
+            $clientEmail = $this->resolveClientEmail($project);
+            if ($clientEmail) {
+                Mail::to($clientEmail)->queue(new ProvisionalPoMailable($project));
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send provisional PO email: ' . $e->getMessage());
+        }
+
+        return response()->json($project->fresh(), 200);
     }
 
     /**
@@ -632,5 +759,61 @@ class ProjectController extends Controller
         }
 
         return $client->email ?: null;
+    }
+
+    /**
+     * Upload a campaign report for a Digital Marketing project.
+     */
+    public function uploadCampaignReport(Request $request, Project $project): JsonResponse
+    {
+        $request->validate([
+            'report' => 'required|file|max:20480', // Max 20MB
+        ]);
+
+        if ($request->hasFile('report')) {
+            $path = $request->file('report')->store('campaign-reports', 's3');
+            
+            $project->update([
+                'campaign_report_document' => $path,
+                'campaign_report_status' => 'pending',
+                'campaign_report_approved_by' => null,
+                'campaign_report_approved_at' => null,
+            ]);
+
+            return response()->json($project->fresh(['department', 'group', 'client', 'stages']), 200);
+        }
+
+        return response()->json(['message' => 'No file uploaded'], 400);
+    }
+
+    /**
+     * Approve a campaign report for a Digital Marketing project.
+     * Only admins or users in HR department (Harshani) can approve.
+     */
+    public function approveCampaignReport(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        // Check if user is admin or in HR department
+        // Based on previous code, 'hr' is a role. Let's check both role and department name if needed.
+        // User said "harshani mean HR dont create new role just give access to hr departemt to handle this"
+        $isHR = $user->role === 'hr' || ($user->department && $user->department->name === 'HR');
+        $isAdmin = $user->role === 'admin';
+
+        if (!$isAdmin && !$isHR) {
+            return response()->json(['message' => 'Only admins or HR department users can approve reports.'], 403);
+        }
+
+        if ($project->campaign_report_status !== 'pending') {
+            return response()->json(['message' => 'Report is not in pending status.'], 400);
+        }
+
+        $project->update([
+            'campaign_report_status' => 'approved',
+            'campaign_report_approved_by' => $user->id,
+            'campaign_report_approved_at' => now(),
+        ]);
+
+        return response()->json($project->fresh(['department', 'group', 'client', 'stages']), 200);
     }
 }

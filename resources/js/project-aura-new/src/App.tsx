@@ -35,6 +35,7 @@ import { useState, useEffect, useRef } from "react";
 import { ReportIssueDialog } from "@/components/ReportIssueDialog";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { UserProfileMenu } from "@/components/UserProfileMenu";
+import { UploadManagerPopup } from "@/components/UploadManagerPopup";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const { open } = useSidebar();
@@ -276,6 +277,7 @@ const App = () => (
 			<TooltipProvider>
 				<Toaster />
 				<Sonner />
+				<UploadManagerPopup />
 				<BrowserRouter>
 					<AuthWrapper>
 						<Routes>

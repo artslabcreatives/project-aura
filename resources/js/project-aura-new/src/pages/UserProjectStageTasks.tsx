@@ -148,11 +148,16 @@ export default function UserProjectStageTasks() {
 					const myAssignment = t.assignedUsers?.find(u => String(u.id) === String(currentUser?.id));
 					const isMyPartComplete = myAssignment?.status === 'complete';
 
+					// Check if all subtasks are complete
+					const hasSubtasks = t.subtasks && t.subtasks.length > 0;
+					const allSubtasksComplete = hasSubtasks && t.subtasks.every(st => st.userStatus === 'complete');
+
 					return String(t.projectId) === String(projectId) &&
 						String(t.projectStage) === String(stageId) &&
 						isAssigned &&
 						t.userStatus !== 'complete' &&
-						!isMyPartComplete;
+						!isMyPartComplete &&
+						!allSubtasksComplete;
 				});
 				setTasks(filtered);
 			} catch (error) {
@@ -271,8 +276,7 @@ export default function UserProjectStageTasks() {
 
 	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (editingTask) {
-			await taskService.update(editingTask.id, taskData as any);
-			const updatedTask = { ...editingTask, ...taskData };
+			const updatedTask = await taskService.update(editingTask.id, taskData as any);
 			setTasks((prev) => prev.map((task) => (task.id === editingTask.id ? updatedTask : task)));
 			toast({
 				title: "Task updated",
@@ -400,10 +404,29 @@ export default function UserProjectStageTasks() {
 
 	const handleTaskCompleteWithDetails = async (taskId: string, stageId: string, data: { comment?: string; links: string[]; files: File[] }) => {
 		try {
-			// Optimistic update
-			setTasks(prev => prev.map(t => t.id === taskId ? { ...t, userStatus: 'complete' } : t));
+			console.log('[uppy] user project stage tasks completion handler', {
+				taskId,
+				stageId,
+				fileCount: data.files.length,
+				files: data.files.map((file) => ({
+					name: file.name,
+					size: file.size,
+					type: file.type,
+				})),
+				linkCount: data.links.length,
+				hasComment: Boolean(data.comment),
+			});
 
-			// Record history
+			// Backend call
+			await taskService.complete(taskId, {
+				status: 'complete',
+				comment: data.comment,
+				links: data.links,
+				files: data.files
+			});
+			console.log('[uppy] user project stage tasks completion handler resolved', { taskId, stageId });
+
+			// Record history only after successful completion
 			const task = tasks.find(t => t.id === taskId);
 			if (task && projectId && currentUser) {
 				addHistoryEntry({
@@ -416,13 +439,7 @@ export default function UserProjectStageTasks() {
 				});
 			}
 
-			// Backend call
-			await taskService.complete(taskId, {
-				status: 'complete',
-				comment: data.comment,
-				links: data.links,
-				files: data.files
-			});
+			setTasks(prev => prev.map(t => t.id === taskId ? { ...t, userStatus: 'complete' } : t));
 
 			toast({
 				title: "Task completed",
@@ -441,6 +458,7 @@ export default function UserProjectStageTasks() {
 			}, 10000);
 
 		} catch (error) {
+			console.error('[uppy] user project stage tasks completion handler failed', { taskId, stageId, error });
 			console.error("Error completing task:", error);
 			toast({
 				title: "Error",

@@ -144,7 +144,7 @@ export default function EstimateDetail() {
         );
     }
 
-    const lineItems = estimate.line_items ?? [];
+    const lineItems = estimate.items ?? [];
 
     return (
         <div className="p-6 space-y-6">
@@ -270,9 +270,9 @@ export default function EstimateDetail() {
                                         <div key={i} className="grid grid-cols-12 gap-2 py-2 border-b last:border-b-0 text-sm">
                                             <div className="col-span-6">{item.description}</div>
                                             <div className="col-span-2 text-right">{item.quantity}</div>
-                                            <div className="col-span-2 text-right">${item.unit_price.toFixed(2)}</div>
+                                            <div className="col-span-2 text-right">{estimate.currency === "LKR" ? "Rs. " : "$"}{item.unit_price.toFixed(2)}</div>
                                             <div className="col-span-2 text-right font-medium">
-                                                ${(item.quantity * item.unit_price).toFixed(2)}
+                                                {estimate.currency === "LKR" ? "Rs. " : "$"}{(item.quantity * item.unit_price).toFixed(2)}
                                             </div>
                                         </div>
                                     ))}
@@ -284,18 +284,18 @@ export default function EstimateDetail() {
                                 <Separator />
                                 <div className="flex justify-between pt-2">
                                     <span className="text-muted-foreground">Subtotal</span>
-                                    <span>${(estimate.subtotal ?? 0).toFixed(2)}</span>
+                                    <span>{estimate.currency === "LKR" ? "Rs. " : "$"}{(estimate.subtotal ?? 0).toFixed(2)}</span>
                                 </div>
                                 {estimate.tax_rate !== undefined && estimate.tax_rate > 0 && (
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Tax ({estimate.tax_rate}%)</span>
-                                        <span>${(estimate.tax_amount ?? 0).toFixed(2)}</span>
+                                        <span>{estimate.currency === "LKR" ? "Rs. " : "$"}{(estimate.tax_amount ?? 0).toFixed(2)}</span>
                                     </div>
                                 )}
                                 <Separator />
                                 <div className="flex justify-between font-semibold text-base pt-1">
                                     <span>Total</span>
-                                    <span>${(estimate.total_amount ?? 0).toFixed(2)}</span>
+                                    <span>{estimate.currency === "LKR" ? "Rs. " : "$"}{(estimate.total_amount ?? 0).toFixed(2)}</span>
                                 </div>
                             </div>
                         </CardContent>

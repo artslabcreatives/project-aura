@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\Task;
 use App\Events\TaskUpdated;
+use App\Services\ResumableUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
@@ -57,7 +58,18 @@ class TaskController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
+        
+        // Global filter for user and account_manager roles
+        if (in_array($user->role, ['user', 'account_manager'])) {
+            $query->where(function($q) use ($user) {
+                $q->where('assignee_id', $user->id)
+                  ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                      $sq->where('users.id', $user->id);
+                  });
+            });
+        }
         
         if ($request->has('project_id')) {
             $query->where('project_id', $request->project_id);
@@ -310,8 +322,12 @@ class TaskController extends Controller
         // Handle multi-assignee sync
         if (isset($validated['assignee_ids'])) {
             $syncChanges = $task->assignedUsers()->sync($validated['assignee_ids']);
-            // Update primary assignee_id if not explicitly set but array changed? 
-            // Better to keep existing logic: if assignee_id passed, use it, else keep it.
+        } elseif ($assigneeChanged && $task->assignee_id) {
+            // If primary assignee_id changed, and no explicit multi-assignees provided, sync to only the new primary assignee
+            $syncChanges = $task->assignedUsers()->sync([$task->assignee_id]);
+        } elseif ($assigneeChanged && !$task->assignee_id) {
+            // If primary assignee_id was removed, clear all assigned users
+            $syncChanges = $task->assignedUsers()->sync([]);
         }
 
         $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
@@ -349,7 +365,33 @@ class TaskController extends Controller
 
         $task->save();
 
-        // Notify new assignee
+        // Propagate changes to subtasks if Admin or Team Lead
+        if ($isAdminOrTL && ($statusChanged || $task->wasChanged('project_stage_id'))) {
+            foreach ($task->subtasks as $subtask) {
+                $subtaskUpdated = false;
+                if ($task->wasChanged('project_stage_id')) {
+                    $subtask->project_stage_id = $task->project_stage_id;
+                    $subtaskUpdated = true;
+                }
+                if ($statusChanged) {
+                    $subtask->user_status = $task->user_status;
+                    if ($task->user_status === 'complete') {
+                        $subtask->completed_at = $task->completed_at ?? now();
+                    }
+                    $subtaskUpdated = true;
+                }
+
+                if ($subtaskUpdated) {
+                    $subtask->save();
+                    try {
+                        TaskUpdated::dispatch($subtask, 'update');
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Failed to broadcast subtask update: ' . $e->getMessage());
+                    }
+                }
+            }
+        }
+
         // Notify new assignee
         $notifiedUserIds = [];
 
@@ -467,6 +509,25 @@ class TaskController extends Controller
             
             $task->user_status = 'complete';
             $task->completed_at = now();
+            $task->save(); // Save the subtask now so the parent check sees it as complete in DB
+
+            // If all subtasks of the parent are complete, advance parent task
+            $parent = $task->parentTask; // Relationship is parentTask()
+            if ($parent) {
+                $allSubtasksComplete = !$parent->subtasks()->where('user_status', '!=', 'complete')->exists();
+                if ($allSubtasksComplete) {
+                    $this->performStageAdvancement($parent);
+                    $parent->save();
+                    
+                    // Log the auto-progression
+                    \App\Models\TaskHistory::create([
+                        'task_id' => $parent->id,
+                        'action' => 'AUTO_STAGE_ADVANCE',
+                        'details' => "Task automatically advanced because all subtasks were completed.",
+                        'user_id' => auth()->id() ?? $task->assignee_id,
+                    ]);
+                }
+            }
             return;
         }
 
@@ -666,7 +727,7 @@ class TaskController extends Controller
             new OA\Response(response: 404, description: "Task not found")
         ]
     )]
-    public function complete(Request $request, Task $task): JsonResponse
+    public function complete(Request $request, Task $task, ResumableUploadService $resumableUploadService): JsonResponse
     {
         $validated = $request->validate([
             'user_status' => 'sometimes|in:complete',
@@ -676,10 +737,13 @@ class TaskController extends Controller
             'links.*' => 'string', // Relaxed validation
             'files' => 'nullable|array',
             'files.*' => 'file|max:10240',
+            'upload_keys' => 'nullable|array',
+            'upload_keys.*' => 'string|max:255',
         ]);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $task, $request) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $task, $request, $resumableUploadService) {
             $userId = $request->user()->id;
+            $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
             
             // Logic for multi-assignee completion
             $shouldCompleteMainTask = true;
@@ -687,7 +751,6 @@ class TaskController extends Controller
             $multiAssignee = $task->assignedUsers()->count() > 1;
             
             if ($hasPivot && isset($validated['user_status']) && $validated['user_status'] === 'complete') {
-                $isAdminOrTL = in_array($request->user()->role, ['admin', 'team-lead']);
                 
                 if ($isAdminOrTL) {
                     // Admin forces completion for all
@@ -721,6 +784,23 @@ class TaskController extends Controller
                 
                 try {
                     TaskUpdated::dispatch($task, 'update');
+                    
+                    // Propagate completion to subtasks if Admin or Team Lead
+                    if ($isAdminOrTL) {
+                        foreach ($task->subtasks as $subtask) {
+                            $subtask->project_stage_id = $task->project_stage_id;
+                            $subtask->user_status = $task->user_status;
+                            if ($task->user_status === 'complete') {
+                                $subtask->completed_at = $task->completed_at ?? now();
+                            }
+                            $subtask->save();
+                            try {
+                                TaskUpdated::dispatch($subtask, 'update');
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Failed to broadcast subtask update from complete: ' . $e->getMessage());
+                            }
+                        }
+                    }
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event: ' . $e->getMessage());
                 }
@@ -768,6 +848,18 @@ class TaskController extends Controller
                     $task->attachments()->create([
                         'name' => $file->getClientOriginalName(),
                         'url' => $url,
+                        'type' => 'file',
+                    ]);
+                }
+            }
+
+            if (!empty($validated['upload_keys'])) {
+                foreach ($validated['upload_keys'] as $uploadKey) {
+                    $finalized = $resumableUploadService->finalizeToDisk($uploadKey, 'task-attachments');
+
+                    $task->attachments()->create([
+                        'name' => $finalized['name'],
+                        'url' => $finalized['url'],
                         'type' => 'file',
                     ]);
                 }

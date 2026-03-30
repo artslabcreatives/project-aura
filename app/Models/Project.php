@@ -35,14 +35,20 @@ class Project extends Model
         'is_locked_by_po',
         'invoice_number',
         'invoice_document',
-        'grace_period_days',
-        'grace_period_started_at',
+        'grace_period_expires_at',
+        'grace_period_notes',
         'grace_period_approved_by',
+        'provisional_po_number',
         'provisional_po_expires_at',
         'is_manually_blocked',
         'is_physical_invoice',
         'courier_tracking_number',
         'courier_delivery_status',
+        'currency',
+        'campaign_report_document',
+        'campaign_report_status',
+        'campaign_report_approved_by',
+        'campaign_report_approved_at',
     ];
 
     protected $casts = [
@@ -53,13 +59,19 @@ class Project extends Model
         'is_locked_by_po' => 'boolean',
         'is_manually_blocked' => 'boolean',
         'is_physical_invoice' => 'boolean',
-        'grace_period_started_at' => 'datetime',
+        'grace_period_expires_at' => 'date',
         'provisional_po_expires_at' => 'date',
+        'campaign_report_approved_at' => 'datetime',
+    ];
+
+    protected $attributes = [
+        'currency' => 'USD',
     ];
 
     protected $appends = [
         'po_document_url',
         'invoice_document_url',
+        'campaign_report_document_url',
     ];
 
     /**
@@ -76,6 +88,14 @@ class Project extends Model
     public function getInvoiceDocumentUrlAttribute()
     {
         return $this->getStoreUrl($this->invoice_document);
+    }
+
+    /**
+     * Get the full URL to the campaign report document.
+     */
+    public function getCampaignReportDocumentUrlAttribute()
+    {
+        return $this->getStoreUrl($this->campaign_report_document);
     }
 
     /**
@@ -102,19 +122,17 @@ class Project extends Model
      */
     public function isGracePeriodActive(): bool
     {
-        if (!$this->grace_period_started_at || !$this->grace_period_days) {
+        if (!$this->grace_period_expires_at) {
             return false;
         }
 
-        $expiresAt = $this->grace_period_started_at->copy()->addDays($this->grace_period_days);
-
-        return now()->lessThanOrEqualTo($expiresAt);
+        return now()->lessThanOrEqualTo($this->grace_period_expires_at);
     }
 
     /**
      * Determine whether tasks can be created for this project.
-     * Returns true when the project is not blocked (has a PO or an active grace period)
-     * and is not manually blocked.
+     * Returns true when the project is not blocked (has a PO or an active grace period
+     * or a provisional PO) and is not manually blocked.
      */
     public function allowsTaskCreation(): bool
     {
@@ -123,10 +141,33 @@ class Project extends Model
         }
 
         if (!$this->is_locked_by_po) {
-            return true; // PO has been received
+            return true; // Official PO has been received
         }
 
-        return $this->isGracePeriodActive();
+        // Allow if an active grace period covers today
+        if ($this->isGracePeriodActive()) {
+            return true;
+        }
+
+        // Allow if a provisional PO hasn't expired yet
+        if ($this->provisional_po_number && $this->provisional_po_expires_at) {
+            return now()->lessThanOrEqualTo($this->provisional_po_expires_at);
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if the campaign report is approved.
+     * Only applies to Digital Marketing projects.
+     */
+    public function isCampaignReportApproved(): bool
+    {
+        if ($this->department?->name !== 'Digital Marketing') {
+            return true;
+        }
+
+        return $this->campaign_report_status === 'approved';
     }
 
     /**

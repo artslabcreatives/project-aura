@@ -286,11 +286,33 @@ export function TaskDialog({
 		setCurrentStep(prev => Math.max(prev - 1, 1));
 	};
 
+	const allowsTaskCreation = (projectName: string) => {
+		if (!allProjects) return true;
+		const project = allProjects.find(p => p.name === projectName);
+		if (!project) return true;
+
+		const hasPO = !!project.poDocumentUrl || !!project.poNumber;
+		const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
+		const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
+		
+		return !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
 		if (currentStep === 1) {
-			if (validateStep1()) nextStep();
+			if (validateStep1()) {
+				if (!editTask && !allowsTaskCreation(formData.project)) {
+					toast({
+						title: "PO Required",
+						description: "This project requires a Purchase Order (PO) before tasks can be created.",
+						variant: "destructive",
+					});
+					return;
+				}
+				nextStep();
+			}
 			return;
 		}
 		if (currentStep === 2) {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\TaskAttachment;
+use App\Services\ResumableUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
@@ -68,18 +69,29 @@ class TaskAttachmentController extends Controller
             new OA\Response(response: 422, description: "Validation error")
         ]
     )]
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, ResumableUploadService $resumableUploadService): JsonResponse
     {
         $validated = $request->validate([
             'task_id' => 'required|exists:tasks,id',
             'name' => 'nullable|string|max:255',
             'file' => 'nullable|file|max:10240', // Max 10MB
+            'upload_key' => 'nullable|string|max:255',
             'url' => 'nullable|string|max:2048',
             'type' => 'sometimes|in:file,link',
         ]);
 
         // Handle file upload
-        if ($request->hasFile('file')) {
+        if (!empty($validated['upload_key'])) {
+            $finalized = $resumableUploadService->finalizeToDisk(
+                $validated['upload_key'],
+                'task-attachments',
+                $validated['name'] ?? null,
+            );
+
+            $validated['url'] = $finalized['url'];
+            $validated['type'] = 'file';
+            $validated['name'] = $validated['name'] ?? $finalized['name'];
+        } elseif ($request->hasFile('file')) {
             $file = $request->file('file');
             $path = $file->store('task-attachments', 's3');
             $validated['url'] = Storage::disk('s3')->url($path);
@@ -99,6 +111,7 @@ class TaskAttachmentController extends Controller
 
         // Remove the uploaded file from validated data as it's not a fillable field
         unset($validated['file']);
+        unset($validated['upload_key']);
 
         $attachment = TaskAttachment::create($validated);
         return response()->json($attachment, 201);

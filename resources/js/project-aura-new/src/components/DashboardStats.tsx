@@ -36,17 +36,6 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
 
   const allTasksRaw = flattenTasks(tasks);
 
-  // Filter out tasks from archived or on-hold projects (matches FilteredTasksPage) and exclude subtasks
-  const allTasks = allTasksRaw.filter(task => {
-    if (task.parentId) return false; // Exclude subtasks
-    if (!projects) return true;
-    const excludedProjectIds = new Set(
-      projects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
-    );
-    if (task.projectId && excludedProjectIds.has(task.projectId)) return false;
-    return true;
-  });
-
   // Helper to check if a task is effectively completed
   const isTaskCompleted = (task: Task) => {
     // 1. Explicit status
@@ -77,6 +66,31 @@ export function DashboardStats({ tasks, projects }: DashboardStatsProps) {
     }
     return false;
   };
+
+  // Filter out tasks from archived or on-hold projects (matches FilteredTasksPage) and exclude subtasks
+  const allTasks = allTasksRaw.filter(task => {
+    if (task.parentId) return false; // Exclude subtasks
+    if (!projects) return true;
+
+    // Filter out 'suggested' tasks (matches FilteredTasksPage)
+    if (task.projectStage) {
+      const project = projects.find(p => String(p.id) === String(task.projectId));
+      if (project) {
+        const stage = project.stages.find(s => String(s.id) === String(task.projectStage));
+        if (stage && ['suggested', 'suggested task'].includes(stage.title.toLowerCase().trim())) {
+          return false;
+        }
+      }
+    }
+
+    const excludedProjectIds = new Set(
+      projects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
+    );
+    const isExcludedProject = task.projectId && excludedProjectIds.has(task.projectId);
+    const isCompleted = isTaskCompleted(task);
+    if (isExcludedProject && !isCompleted) return false;
+    return true;
+  });
 
   const dueToday = allTasks.filter(
     (task) => !isTaskCompleted(task) && task.dueDate && isToday(new Date(task.dueDate))

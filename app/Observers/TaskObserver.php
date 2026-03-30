@@ -135,6 +135,17 @@ class TaskObserver
         // Track all changes using the history service
         $this->historyService->trackChanges($task);
 
+        // Propagate stage change to subtasks
+        if ($task->wasChanged('project_stage_id') && !$task->parent_id) {
+            $newStageId = $task->project_stage_id;
+            foreach ($task->subtasks as $subtask) {
+                if ($subtask->project_stage_id !== $newStageId) {
+                    $subtask->project_stage_id = $newStageId;
+                    $subtask->save();
+                }
+            }
+        }
+
         // Log for debugging purposes
         Log::debug("Task {$task->id} updated", [
             'status' => $task->user_status,
@@ -142,19 +153,8 @@ class TaskObserver
             'assignee' => $task->assignee_id,
         ]);
 
-        // If this task is a subtask and is completed, check if all siblings are complete
-        if ($task->parent_id && $task->user_status === 'complete') {
-            $parent = $task->parentTask;
-            if ($parent) {
-                $incompleteSubtasks = $parent->subtasks()->where('user_status', '!=', 'complete')->count();
-                
-                if ($incompleteSubtasks === 0) {
-                    // All subtasks are complete, complete the parent
-                    Log::info("All subtasks for task {$parent->id} are complete. Completing parent task.");
-                    $parent->update(['user_status' => 'complete']);
-                }
-            }
-        }
+        // Parent completion on subtask completion is now handled in TaskController
+        // to ensure proper stage progression logic is applied.
 
         // Send notification if stage changed or completed
         // We check if project_stage_id was changed in this update cycle

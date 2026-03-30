@@ -51,4 +51,15 @@ return [
         'accounts_url' => env('ZOHO_ACCOUNTS_URL', 'https://accounts.zoho.com'),
         'mail_url' => env('ZOHO_MAIL_URL', 'https://mail.zoho.com/api/v1'),
     ],
+
+    'xero' => [
+        'client_id'     => env('XERO_CLIENT_ID'),
+        'client_secret' => env('XERO_CLIENT_SECRET'),
+        'redirect_uri'  => env('XERO_REDIRECT_URI'),
+        'scopes'        => env('XERO_SCOPES', 'accounting.invoices.read offline_access'),
+    ],
+
+    'n8n' => [
+        'webhook_secret' => env('N8N_WEBHOOK_SECRET'),
+    ],
 ];

@@ -12,6 +12,8 @@ class Estimate extends Model
     use HasFactory;
 
     protected $fillable = [
+        'xero_estimate_id',
+        'estimate_number',
         'title',
         'description',
         'client_id',
@@ -28,6 +30,7 @@ class Estimate extends Model
         'subtotal',
         'tax_amount',
         'total',
+        'xero_last_synced_at',
     ];
 
     protected $attributes = [
@@ -40,14 +43,25 @@ class Estimate extends Model
     ];
 
     protected $casts = [
-        'amount'     => 'decimal:2',
-        'tax_rate'   => 'float',
-        'subtotal'   => 'float',
-        'tax_amount' => 'float',
-        'total'      => 'float',
-        'issue_date' => 'date',
-        'valid_until' => 'date',
+        'amount'             => 'decimal:2',
+        'tax_rate'           => 'float',
+        'subtotal'           => 'float',
+        'tax_amount'         => 'float',
+        'total'              => 'float',
+        'issue_date'         => 'date',
+        'valid_until'        => 'date',
+        'xero_last_synced_at' => 'datetime',
     ];
+
+    protected $appends = ['total_amount'];
+
+    /**
+     * Get total_amount (alias for total field).
+     */
+    public function getTotalAmountAttribute()
+    {
+        return $this->total;
+    }
 
     /**
      * Get the client for this estimate.

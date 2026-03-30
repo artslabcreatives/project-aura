@@ -193,19 +193,9 @@ export default function ProjectKanban() {
 			}
 			if (updates.projectStage && updates.projectStage !== taskToUpdate.projectStage) {
 				// Only auto-assign if assignee is NOT explicitly provided in updates
-				if (!('assignee' in updates)) {
+				if (!('assignee' in updates) && !taskToUpdate.isAssigneeLocked) {
 					const targetStage = project.stages.find(s => s.id === updates.projectStage);
 
-					// Check if we are reverting to previous stage (rejection)
-					// The backend handles this, but the frontend might override it if we set assignee here.
-					// If we are moving back to previous stage, we should ideally NOT set assignee here and let backend handle it.
-					// But we don't have easy access to 'previousStage' ID here unless it's in the task object.
-
-					// If the backend observer is working, it will override whatever we send here IF we send the ID.
-					// But we are sending the NAME here.
-
-					// Let's try to be smarter.
-					// If the target stage is the previous stage of the task, we should try to restore original assignee.
 					if (taskToUpdate.previousStage && updates.projectStage === taskToUpdate.previousStage && taskToUpdate.originalAssignee) {
 						updates.assignee = taskToUpdate.originalAssignee;
 					} else if (targetStage?.mainResponsibleId) {
@@ -255,10 +245,10 @@ export default function ProjectKanban() {
 				}
 			}
 
-			await taskService.update(taskId, backendUpdates as any);
+			const savedTask = await taskService.update(taskId, backendUpdates as any);
 
-			// For local state, we keep using the name
-			setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+			// For local state, use the returned updated task
+			setTasks(tasks.map(t => t.id === taskId ? savedTask : t));
 		} catch (error) {
 			console.error("Error updating task:", error);
 			toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });

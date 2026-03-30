@@ -83,11 +83,8 @@ export default function UserView() {
 						projectsData.filter((p: Project) => p.isArchived).map((p: Project) => p.id)
 					);
 
-					// Base Filter: Assigned to User & Not Archived Project
+					// Base Filter: Assigned to User
 					const allAssignedTasks = allFlatTasks.filter((task: Task) => {
-						// Exclude tasks from archived projects
-						if (task.projectId && archivedProjectIds.has(task.projectId)) return false;
-
 						// Must be assigned to user
 						const isAssigned =
 							task.assignee === currentUser.name ||

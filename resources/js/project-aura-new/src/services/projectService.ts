@@ -95,9 +95,14 @@ function mapProject(raw: any): Project {
 		gracePeriodApprovedBy: raw.grace_period_approved_by,
 		provisionalPoNumber: raw.provisional_po_number,
 		provisionalPoExpiresAt: raw.provisional_po_expires_at,
-		isPhysicalInvoice: raw.is_physical_invoice,
 		courierTrackingNumber: raw.courier_tracking_number,
 		courierDeliveryStatus: raw.courier_delivery_status,
+		currency: raw.currency,
+		campaign_report_document: raw.campaign_report_document,
+		campaign_report_status: raw.campaign_report_status,
+		campaign_report_approved_by: raw.campaign_report_approved_by,
+		campaign_report_approved_at: raw.campaign_report_approved_at,
+		campaign_report_document_url: raw.campaign_report_document_url,
 	};
 }
 
@@ -121,7 +126,7 @@ export const projectService = {
 
 	create: async (project: any): Promise<Project> => {
 		const isFormData = project.po_document instanceof File || project.invoice_document instanceof File;
-		
+
 		let payload: any;
 		if (isFormData) {
 			payload = new FormData();
@@ -135,10 +140,11 @@ export const projectService = {
 			if (project.po_number) payload.append('po_number', String(project.po_number));
 			if (project.deadline) payload.append('deadline', project.deadline);
 			if (project.po_document) payload.append('po_document', project.po_document);
-			
+
 			// Append arrays
 			project.emails?.forEach((email: string) => payload.append('emails[]', email));
 			project.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+			if (project.currency) payload.append('currency', project.currency);
 		} else {
 			payload = {
 				name: project.name,
@@ -154,6 +160,7 @@ export const projectService = {
 				deadline: project.deadline,
 				invoice_number: project.invoice_number,
 				invoice_document: project.invoice_document,
+				currency: project.currency,
 			};
 		}
 
@@ -175,7 +182,7 @@ export const projectService = {
 			if (updates.group === null) payload.append('project_group_id', '');
 			else if (updates.group?.id) payload.append('project_group_id', String(updates.group.id));
 			if (updates.isArchived !== undefined) payload.append('is_archived', updates.isArchived ? '1' : '0');
-			
+
 			// Fix null/undefined numeric relationships so Laravel validation passes
 			if (updates.client_id !== undefined && updates.client_id !== null && updates.client_id !== '') {
 				payload.append('client_id', String(updates.client_id));
@@ -196,6 +203,7 @@ export const projectService = {
 			// Append arrays
 			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
 			updates.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
+			if (updates.currency !== undefined) payload.append('currency', updates.currency);
 		} else {
 			payload = {
 				name: updates.name,
@@ -221,6 +229,7 @@ export const projectService = {
 				is_physical_invoice: updates.isPhysicalInvoice,
 				courier_tracking_number: updates.courierTrackingNumber,
 				courier_delivery_status: updates.courierDeliveryStatus,
+				currency: updates.currency,
 			};
 		}
 
@@ -243,5 +252,37 @@ export const projectService = {
 			source: raw.source,
 			suggestedAt: raw.suggested_at,
 		})) : [];
+	},
+
+	/** Authorize a grace period for a project (admin/hr only). */
+	grantGracePeriod: async (id: string, expiresAt: string, notes?: string): Promise<Project> => {
+		const { data } = await api.post(`/projects/${id}/grace-period`, {
+			expires_at: expiresAt,
+			notes: notes ?? null,
+		});
+		return mapProject(data);
+	},
+
+	/** Issue a provisional PO for a project (admin/hr only). */
+	issueProvisionalPo: async (id: string, poNumber: string, expiresAt: string): Promise<Project> => {
+		const { data } = await api.post(`/projects/${id}/provisional-po`, {
+			po_number: poNumber,
+			expires_at: expiresAt,
+		});
+		return mapProject(data);
+	},
+
+	uploadCampaignReport: async (id: string, file: File): Promise<Project> => {
+		const formData = new FormData();
+		formData.append('report', file);
+		const { data } = await api.post(`/projects/${id}/campaign-report`, formData, {
+			headers: { 'Content-Type': 'multipart/form-data' }
+		});
+		return mapProject(data);
+	},
+
+	approveCampaignReport: async (id: string): Promise<Project> => {
+		const { data } = await api.post(`/projects/${id}/approve-campaign-report`);
+		return mapProject(data);
 	},
 };

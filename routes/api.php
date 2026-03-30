@@ -4,8 +4,10 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\EstimateController;
+use App\Http\Controllers\Api\XeroController;
 use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ResumableUploadController;
 use App\Http\Controllers\Api\RevisionHistoryController;
 use App\Http\Controllers\Api\StageController;
 use App\Http\Controllers\Api\StageGroupController;
@@ -49,6 +51,7 @@ Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhats
 Route::get('users/search/exist', [UserController::class, 'exist']);
 Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Public avatar viewing
 Route::get('/zoho/callback', [\App\Http\Controllers\Api\ZohoMailController::class, 'handleCallback']);
+Route::get('/xero/callback', [XeroController::class, 'callback']);
 
 // Protected API routes (require bearer token)
 Route::middleware('auth:sanctum')->group(function () {
@@ -65,6 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);
     Route::post('/tasks/{task}/early-start', [TaskController::class, 'earlyStart']);
     Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
+    Route::match(['options', 'post', 'head', 'patch', 'delete'], '/uploads/tus/{uploadKey?}', [ResumableUploadController::class, 'handle'])
+        ->where('uploadKey', '.*');
     Route::get('/task-attachments/{taskAttachment}/download', [TaskAttachmentController::class, 'download']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);
     
@@ -75,8 +80,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Project workflow actions
     Route::post('projects/{project}/grace-period', [ProjectController::class, 'grantGracePeriod']);
+    Route::post('projects/{project}/provisional-po', [ProjectController::class, 'issueProvisionalPo']);
     Route::post('projects/{project}/block', [ProjectController::class, 'block']);
     Route::post('projects/{project}/unblock', [ProjectController::class, 'unblock']);
+    Route::post('projects/{project}/campaign-report', [ProjectController::class, 'uploadCampaignReport']);
+    Route::post('projects/{project}/approve-campaign-report', [ProjectController::class, 'approveCampaignReport']);
     
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
@@ -170,7 +178,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('estimates', EstimateController::class);
     Route::post('estimates/{estimate}/send', [EstimateController::class, 'send']);
     Route::post('estimates/{estimate}/approve', [EstimateController::class, 'approve']);
+
+    // Xero Integration
+    Route::prefix('xero')->group(function () {
+        Route::get('/status', [XeroController::class, 'status']);
+        Route::get('/auth-url', [XeroController::class, 'getAuthUrl']);
+        Route::post('/sync', [XeroController::class, 'sync']);
+    });
 });
 
 // 2FA Verification during login
 Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor']);
+
+// n8n integration endpoints (secured via N8N_WEBHOOK_SECRET bearer token)
+Route::get('/n8n/grace-periods', [\App\Http\Controllers\Api\IntegrationController::class, 'expiringGracePeriods']);

@@ -92,13 +92,40 @@ export default function FilteredTasksPage() {
         const allFlatTasks = flattenTasks(tasks);
         const today = new Date();
 
+        // Helper to check if task is completed
+        const isTaskCompleted = (t: Task) => {
+            if (t.userStatus === "complete") return true;
+
+            let stage: any = undefined;
+
+            if (t.projectId && projects.length > 0) {
+                const project = projects.find(p => String(p.id) === String(t.projectId));
+                if (project && t.projectStage) {
+                    stage = project.stages.find(s => String(s.id) === String(t.projectStage));
+                }
+            }
+
+            if (!stage && t.projectStage && projects.length > 0) {
+                const project = projects.find(p => p.stages.some(s => String(s.id) === String(t.projectStage)));
+                stage = project?.stages.find(s => String(s.id) === String(t.projectStage));
+            }
+
+            if (stage) {
+                const title = stage.title.toLowerCase().trim();
+                return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
+            }
+            return false;
+        };
+
         return allFlatTasks.filter(task => {
             if (task.parentId) return false; // Exclude subtasks
 
             const excludedProjectIds = new Set(
                 projects.filter(p => p.isArchived || p.status === 'on-hold').map(p => p.id)
             );
-            if (task.projectId && excludedProjectIds.has(task.projectId)) return false;
+            const isExcludedProject = task.projectId && excludedProjectIds.has(task.projectId);
+            const isCompleted = isTaskCompleted(task);
+            if (isExcludedProject && !isCompleted) return false;
 
             // Apply role-based filtering first
             if (currentUser) {
@@ -142,32 +169,6 @@ export default function FilteredTasksPage() {
                     }
                 }
             }
-
-            // Helper to check if task is completed
-            const isTaskCompleted = (t: Task) => {
-                if (t.userStatus === "complete") return true;
-
-                let stage: any = undefined;
-
-                if (t.projectId && projects.length > 0) {
-                    const project = projects.find(p => String(p.id) === String(t.projectId));
-                    if (project && t.projectStage) {
-                        stage = project.stages.find(s => String(s.id) === String(t.projectStage));
-                    }
-                }
-
-                if (!stage && t.projectStage && projects.length > 0) {
-                    const project = projects.find(p => p.stages.some(s => String(s.id) === String(t.projectStage)));
-                    stage = project?.stages.find(s => String(s.id) === String(t.projectStage));
-                }
-
-                if (stage) {
-                    const title = stage.title.toLowerCase().trim();
-                    return ['complete', 'completed', 'archive', 'done', 'finished', 'closed'].includes(title);
-                }
-                return false;
-            };
-
             // Now apply the specific category filter
             switch (filterType) {
                 case 'due-today':
