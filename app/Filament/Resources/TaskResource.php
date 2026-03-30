@@ -36,7 +36,9 @@ class TaskResource extends Resource
                             ->relationship('project', 'name')
                             ->required()
                             ->searchable()
-                            ->preload(),
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('project_stage_id', null)),
                         Forms\Components\Select::make('assignee_id')
                             ->relationship('assignee', 'name')
                             ->searchable()
@@ -61,7 +63,11 @@ class TaskResource extends Resource
                             ->default('medium')
                             ->required(),
                         Forms\Components\Select::make('project_stage_id')
-                            ->relationship('projectStage', 'title')
+                            ->relationship(
+                                name: 'projectStage',
+                                titleAttribute: 'title',
+                                modifyQueryUsing: fn (Builder $query, Forms\Get $get) => $query->where('project_id', $get('project_id'))
+                            )
                             ->searchable()
                             ->preload(),
                         Forms\Components\Toggle::make('is_in_specific_stage')
