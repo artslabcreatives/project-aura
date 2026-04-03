@@ -76,7 +76,7 @@ export function TimeLogWidget({ taskId }: TimeLogWidgetProps) {
 	const fetchTimeLogs = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get(`/api/tasks/${taskId}/time-logs`);
+			const response = await api.get(`/tasks/${taskId}/time-logs`);
 			setTimeLogs(response.data);
 
 			// Check if there's an active timer
@@ -99,7 +99,7 @@ export function TimeLogWidget({ taskId }: TimeLogWidgetProps) {
 
 	const startTimer = async () => {
 		try {
-			const response = await api.post(`/api/tasks/${taskId}/time-log`, {
+			const response = await api.post(`/tasks/${taskId}/time-log`, {
 				started_at: new Date().toISOString(),
 			});
 			setActiveLog(response.data);
@@ -123,7 +123,7 @@ export function TimeLogWidget({ taskId }: TimeLogWidgetProps) {
 		if (!activeLog) return;
 
 		try {
-			await api.patch(`/api/tasks/${taskId}/time-log/${activeLog.id}`, {
+			await api.patch(`/tasks/${taskId}/time-log/${activeLog.id}`, {
 				ended_at: new Date().toISOString(),
 			});
 			setIsTimerRunning(false);
@@ -158,7 +158,7 @@ export function TimeLogWidget({ taskId }: TimeLogWidgetProps) {
 			const startedAt = `${manualStartDate}T${manualStartTime}:00`;
 			const endedAt = `${manualEndDate}T${manualEndTime}:00`;
 
-			await api.post(`/api/tasks/${taskId}/time-log`, {
+			await api.post(`/tasks/${taskId}/time-log`, {
 				started_at: startedAt,
 				ended_at: endedAt,
 				notes: manualNotes || null,
