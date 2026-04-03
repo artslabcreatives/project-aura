@@ -208,7 +208,7 @@ export function NotificationsPopover() {
             clearInterval(interval);
             unsubscribeFromEcho?.();
         };
-    }, [currentUser, playNotificationSound]);
+    }, [currentUser?.id, playNotificationSound]);
 
 
     const handleMarkAsRead = async (id: string) => {

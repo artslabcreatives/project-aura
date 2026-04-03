@@ -269,9 +269,12 @@ export function AppSidebar() {
 		if (!echo || projects.length === 0) return;
 
 		// Listen to project channels
-		projects.forEach(project => {
-			const channel = echo.private(`project.${project.id}`);
+		const channels = projects.map(project => ({
+			projectId: project.id,
+			channel: echo.private(`project.${project.id}`),
+		}));
 
+		channels.forEach(({ channel }) => {
 			channel.listen('TaskUpdated', (e: any) => {
 				console.log('Real-time task update received:', e);
 				fetchData();
@@ -284,8 +287,10 @@ export function AppSidebar() {
 		});
 
 		return () => {
-			projects.forEach(project => {
-				echo.leave(`project.${project.id}`);
+			channels.forEach(({ projectId, channel }) => {
+				channel.stopListening('TaskUpdated');
+				channel.stopListening('ProjectUpdated');
+				echo.leave(`project.${projectId}`);
 			});
 		};
 	}, [projects.map(p => p.id).join(',')]); // Re-subscribe if project list changes (added/removed)

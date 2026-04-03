@@ -15,7 +15,7 @@ return [
     |
     */
 
-    // Prefer Laravel 11's BROADCAST_CONNECTION, but keep BROADCAST_DRIVER for older env files.
+    // Laravel 11 expects BROADCAST_CONNECTION; BROADCAST_DRIVER remains only as a deprecated fallback for older env files.
     'default' => env('BROADCAST_CONNECTION', env('BROADCAST_DRIVER', 'null')),
 
     /*

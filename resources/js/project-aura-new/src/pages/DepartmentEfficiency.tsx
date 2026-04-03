@@ -57,7 +57,8 @@ export default function DepartmentEfficiency() {
 		}
 
 		const firstDepartmentId = departments[0]?.id;
-		const defaultDepartmentId = currentUser?.department && departments.some((department) => department.id === currentUser.department)
+		const isUserDepartmentValid = !!currentUser?.department && departments.some((department) => department.id === currentUser.department);
+		const defaultDepartmentId = isUserDepartmentValid
 			? currentUser.department
 			: firstDepartmentId;
 

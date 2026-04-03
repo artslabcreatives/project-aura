@@ -8,6 +8,7 @@ import { getToken } from '@/lib/api';
 const normalizeScheme = (value: string | undefined) => (value || '').replace(/:$/, '');
 const appKey = import.meta.env.VITE_REVERB_APP_KEY || import.meta.env.VITE_PUSHER_APP_KEY;
 const host = import.meta.env.VITE_REVERB_HOST || import.meta.env.VITE_PUSHER_HOST || window.location.hostname;
+// Normalize both env values and window.location.protocol to plain http/https for Echo.
 const scheme = normalizeScheme(import.meta.env.VITE_REVERB_SCHEME || import.meta.env.VITE_PUSHER_SCHEME || window.location.protocol);
 const port = Number(import.meta.env.VITE_REVERB_PORT || import.meta.env.VITE_PUSHER_PORT || (scheme === 'https' ? 443 : 80));
 

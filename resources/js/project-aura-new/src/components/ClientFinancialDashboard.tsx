@@ -54,9 +54,12 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 			return;
 		}
 
-		subscribedProjectIds.forEach((projectId) => {
-			const channel = echo.private(`project.${projectId}`);
+		const channels = subscribedProjectIds.map((projectId) => ({
+			projectId,
+			channel: echo.private(`project.${projectId}`),
+		}));
 
+		channels.forEach(({ channel }) => {
 			channel.listen('TaskUpdated', () => {
 				scheduleRefresh();
 			});
@@ -67,7 +70,9 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 		});
 
 		return () => {
-			subscribedProjectIds.forEach((projectId) => {
+			channels.forEach(({ projectId, channel }) => {
+				channel.stopListening('TaskUpdated');
+				channel.stopListening('ProjectUpdated');
 				echo.leave(`project.${projectId}`);
 			});
 		};
