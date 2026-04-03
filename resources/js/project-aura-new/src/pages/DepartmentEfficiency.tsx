@@ -113,7 +113,7 @@ export default function DepartmentEfficiency() {
 					<div>
 						<h1 className="text-3xl font-bold tracking-tight">Department Efficiency</h1>
 						<p className="text-muted-foreground">
-							Monitor team-wide completion performance for {selectedDepartmentName.toLowerCase()}.
+							Monitor team-wide completion performance for {selectedDepartmentName}.
 						</p>
 					</div>
 				</div>

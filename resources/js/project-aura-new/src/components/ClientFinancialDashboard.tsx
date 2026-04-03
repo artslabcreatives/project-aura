@@ -181,7 +181,7 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 			<div className="flex items-center gap-2 text-sm text-muted-foreground">
 				<Radio className="h-4 w-4 text-primary" />
 				<span>
-					{echo ? 'Live updates enabled for linked projects' : 'Live updates unavailable until Reverb is configured'}
+					{echo ? 'Live updates enabled for linked projects' : 'Real-time updates are currently unavailable'}
 				</span>
 			</div>
 
