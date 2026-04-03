@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\TaskTimeLog;
 use App\Events\TaskUpdated;
+use App\Services\ProfitabilityService;
 use App\Services\ResumableUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +15,9 @@ use OpenApi\Attributes as OA;
 
 class TaskController extends Controller
 {
+    public function __construct(protected ProfitabilityService $profitabilityService)
+    {
+    }
     #[OA\Get(
         path: "/tasks",
         summary: "List all tasks",
@@ -363,6 +368,31 @@ class TaskController extends Controller
             }
         }
 
+        // Auto-manage timers on status change
+        if ($statusChanged) {
+            $originalStatus = $task->getOriginal('user_status');
+            $currentUserId = $request->user()->id;
+
+            if ($newStatus === 'complete') {
+                // Stop any active timer for the current user on this task
+                $this->stopOrCreateTimer($task, $currentUserId);
+            } elseif ($originalStatus === 'pending') {
+                // Moving from pending to an active (non-complete) status: start a timer if none is running
+                $hasActive = TaskTimeLog::where('task_id', $task->id)
+                    ->where('user_id', $currentUserId)
+                    ->whereNull('ended_at')
+                    ->exists();
+
+                if (!$hasActive) {
+                    TaskTimeLog::create([
+                        'task_id' => $task->id,
+                        'user_id' => $currentUserId,
+                        'started_at' => now(),
+                    ]);
+                }
+            }
+        }
+
         $task->save();
 
         // Propagate changes to subtasks if Admin or Team Lead
@@ -588,6 +618,33 @@ class TaskController extends Controller
         }
     }
 
+    /**
+     * Stop the running timer for a user on a task, or create a time log from start_date to now
+     * when the task is marked complete without a running timer.
+     */
+    private function stopOrCreateTimer(Task $task, int $userId): void
+    {
+        $activeLog = TaskTimeLog::where('task_id', $task->id)
+            ->where('user_id', $userId)
+            ->whereNull('ended_at')
+            ->first();
+
+        if ($activeLog) {
+            $activeLog->update(['ended_at' => now()]);
+            $this->profitabilityService->updateTaskHours($task);
+        } elseif ($task->start_date) {
+            // No running timer – create a log from the task's start date to now
+            TaskTimeLog::create([
+                'task_id' => $task->id,
+                'user_id' => $userId,
+                'started_at' => $task->start_date,
+                'ended_at' => now(),
+                'notes' => 'Auto-logged: task moved directly to complete',
+            ]);
+            $this->profitabilityService->updateTaskHours($task);
+        }
+    }
+
     #[OA\Delete(
         path: "/tasks/{id}",
         summary: "Delete task",
@@ -773,6 +830,9 @@ class TaskController extends Controller
 
             // Update Task Status if allowed
             if ($shouldCompleteMainTask) {
+                // Stop or create timer entry when task is completed
+                $this->stopOrCreateTimer($task, $userId);
+
                 // Apply completion logic
                 $this->handleTaskCompletion($task);
                 $task->save();

@@ -193,6 +193,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profitability & Financial Tracking
     Route::get('/projects/{project}/profitability', [ProfitabilityController::class, 'getProjectProfitability']);
     Route::get('/clients/{client}/profitability', [ProfitabilityController::class, 'getClientProfitability']);
+    Route::get('/user/active-timers', [ProfitabilityController::class, 'getActiveTimers']);
     Route::post('/tasks/{task}/time-log', [ProfitabilityController::class, 'logTaskTime']);
     Route::patch('/tasks/{task}/time-log/{timeLog}', [ProfitabilityController::class, 'endTimeLog']);
     Route::get('/tasks/{task}/time-logs', [ProfitabilityController::class, 'getTaskTimeLogs']);
