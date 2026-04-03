@@ -13,6 +13,7 @@ import { Calendar, User, Tag, Paperclip, Clock, X, ExternalLink, Download, Alert
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { TimeLogWidget } from "@/components/TimeLogWidget";
 
 interface TaskDetailsDialogProps {
 	task: Task | null;
@@ -256,6 +257,9 @@ export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEd
 						</div>
 					)}
 				</div>
+
+				{/* Time Tracking */}
+				<TimeLogWidget taskId={parseInt(task.id)} />
 				<DialogFooter className="mt-6 sm:justify-end">
 					<Button
 						className="w-full sm:w-auto"
