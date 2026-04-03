@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { CheckCircle, XCircle, RefreshCw, ExternalLink } from 'lucide-react';
-import api from '../lib/api';
+import { api } from '../lib/api';
 import { XeroStatus } from '../types/financial';
 
 export function XeroIntegration() {
