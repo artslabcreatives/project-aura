@@ -15,8 +15,7 @@ return new class extends Migration
             $table->decimal('hourly_rate', 10, 2)->nullable()->after('estimated_hours');
             $table->decimal('actual_hours_worked', 10, 2)->default(0)->after('hourly_rate');
             $table->decimal('task_cost', 15, 2)->nullable()->after('actual_hours_worked');
-            $table->timestamp('started_at')->nullable()->after('task_cost');
-            $table->timestamp('completed_at')->nullable()->after('started_at');
+            // Note: completed_at already exists in tasks table, no need to add it again
         });
     }
 
@@ -30,8 +29,6 @@ return new class extends Migration
                 'hourly_rate',
                 'actual_hours_worked',
                 'task_cost',
-                'started_at',
-                'completed_at',
             ]);
         });
     }
