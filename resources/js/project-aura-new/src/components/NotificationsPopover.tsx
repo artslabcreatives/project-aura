@@ -141,6 +141,7 @@ export function NotificationsPopover() {
         fetchNotifications();
 
         const interval = setInterval(fetchNotifications, 60000);
+        let unsubscribeFromEcho: (() => void) | undefined;
 
         // Listen for real-time notifications
         if (currentUser && echo) {
@@ -196,15 +197,16 @@ export function NotificationsPopover() {
                     }
                 }
             });
-
-            return () => {
+            unsubscribeFromEcho = () => {
                 console.log(`Unsubscribing from notifications for user ${currentUser.id}`);
                 echo.leave(`App.Models.User.${currentUser.id}`);
-                clearInterval(interval);
             };
         }
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            unsubscribeFromEcho?.();
+        };
     }, [currentUser, playNotificationSound]);
 
 

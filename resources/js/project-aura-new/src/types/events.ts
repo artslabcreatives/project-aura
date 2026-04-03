@@ -7,6 +7,6 @@ export interface TaskUpdated {
 }
 
 export interface ProjectUpdated {
-	project: Project;
-	action: 'update' | 'archive' | 'unarchive';
+    project: Project;
+    action: 'update' | 'archive' | 'unarchive';
 }

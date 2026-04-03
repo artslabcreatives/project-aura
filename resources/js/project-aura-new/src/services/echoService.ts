@@ -7,9 +7,8 @@ import { getToken } from '@/lib/api';
 
 const appKey = import.meta.env.VITE_REVERB_APP_KEY || import.meta.env.VITE_PUSHER_APP_KEY;
 const host = import.meta.env.VITE_REVERB_HOST || import.meta.env.VITE_PUSHER_HOST || window.location.hostname;
-const scheme = import.meta.env.VITE_REVERB_SCHEME || import.meta.env.VITE_PUSHER_SCHEME || window.location.protocol.replace(':', '');
-const normalizedScheme = scheme.replace(':', '');
-const port = Number(import.meta.env.VITE_REVERB_PORT || import.meta.env.VITE_PUSHER_PORT || (normalizedScheme === 'https' ? 443 : 80));
+const scheme = (import.meta.env.VITE_REVERB_SCHEME || import.meta.env.VITE_PUSHER_SCHEME || window.location.protocol).replace(':', '');
+const port = Number(import.meta.env.VITE_REVERB_PORT || import.meta.env.VITE_PUSHER_PORT || (scheme === 'https' ? 443 : 80));
 
 // Initialize Echo
 export const echo = appKey ? new Echo({
@@ -18,7 +17,7 @@ export const echo = appKey ? new Echo({
     wsHost: host,
     wsPort: port,
     wssPort: port,
-    forceTLS: normalizedScheme === 'https',
+    forceTLS: scheme === 'https',
     enabledTransports: ['ws', 'wss'],
     authEndpoint: '/broadcasting/auth',
     auth: {

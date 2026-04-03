@@ -11,6 +11,8 @@ interface ClientFinancialDashboardProps {
 	clientId: number;
 }
 
+const REFRESH_DEBOUNCE_MS = 250;
+
 export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialDashboardProps) {
 	const [dashboard, setDashboard] = useState<ClientFinancialDashboard | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 
 		refreshTimeoutRef.current = window.setTimeout(() => {
 			void fetchDashboard();
-		}, 250);
+		}, REFRESH_DEBOUNCE_MS);
 	}, [fetchDashboard]);
 
 	useEffect(() => {
