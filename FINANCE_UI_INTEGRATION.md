@@ -46,20 +46,21 @@ This document describes the UI integration of the finance features that were pre
 
 ### 3. Task Efficiency Dashboard
 **Component:** `TaskEfficiencyDashboard.tsx`
-**Integrated Into:** Profile Page (`/profile`)
+**Integrated Into:** Dedicated page with sidebar menu item (`/task-efficiency`)
 
 **Features:**
 - Shows user's efficiency percentage (estimated vs actual hours)
 - Displays tasks completed, average completion time
 - Shows efficiency trends over time
 - Task breakdown by completion status
+- Helpful info card explaining how efficiency is calculated
 
 **Access:**
-1. Click on **User Profile Menu** (top right)
-2. Select **Profile**
-3. Scroll down to see **Task Efficiency** card at the bottom
+1. Login as any user (all roles can access)
+2. Click **"Task Efficiency"** in the sidebar menu (below Review Needed)
+3. View your personal efficiency metrics and task performance
 
-**Note:** Shows metrics for the currently logged-in user only.
+**Note:** Shows metrics for the currently logged-in user only. Updated from Profile page to dedicated page for better visibility.
 
 ---
 
@@ -75,9 +76,18 @@ This document describes the UI integration of the finance features that were pre
    - Added "Integrations" navigation item
    - Added new section with role-based access (Admin/HR only)
 
-3. `/resources/js/project-aura-new/src/pages/Profile.tsx`
-   - Added import for `TaskEfficiencyDashboard`
-   - Integrated component as full-width card below personal info
+3. `/resources/js/project-aura-new/src/pages/TaskEfficiency.tsx` **[NEW]**
+   - Created dedicated page for Task Efficiency Dashboard
+   - Full-page layout with header and info cards
+   - Accessible to all user roles
+
+4. `/resources/js/project-aura-new/src/components/AppSidebar.tsx`
+   - Added "Task Efficiency" menu item with TrendingUp icon
+   - Accessible to all roles: admin, team-lead, user, account-manager, hr
+
+5. `/resources/js/project-aura-new/src/App.tsx`
+   - Added route for `/task-efficiency`
+   - No role restrictions (available to all authenticated users)
 
 ### Files Fixed
 1. `/resources/js/project-aura-new/src/components/ClientFinancialDashboard.tsx`
@@ -88,6 +98,7 @@ This document describes the UI integration of the finance features that were pre
 
 3. `/resources/js/project-aura-new/src/components/TaskEfficiencyDashboard.tsx`
    - Fixed API import from `import api` to `import { api }`
+   - Updated userId prop type to accept both number and string
 
 ---
 
@@ -130,12 +141,13 @@ This document describes the UI integration of the finance features that were pre
 - [ ] Check last sync timestamp updates
 
 ### Task Efficiency Dashboard
-- [ ] Navigate to Profile page
-- [ ] Scroll to Task Efficiency card
+- [ ] Navigate to sidebar and click "Task Efficiency"
 - [ ] Verify efficiency percentage displays
 - [ ] Check tasks completed count
 - [ ] Verify average completion time shows
+- [ ] Read the "How Efficiency is Calculated" info card
 - [ ] Test with users who have logged time on tasks
+- [ ] Verify it works for all user roles (admin, team-lead, user, account-manager, hr)
 
 ---
 

@@ -1276,53 +1276,53 @@ export function AppSidebar() {
 											))
 										) : (
 											userAssignedProjects.map((project) => (
-											<Collapsible
-												key={project.id}
-												open={expandedProjects.has(String(project.id))}
-												onOpenChange={() => toggleProjectExpanded(String(project.id))}
-											>
-												<SidebarMenuItem>
-													<CollapsibleTrigger asChild>
-														<SidebarMenuButton className="w-full">
-															<div className="flex items-center gap-2 flex-1">
-																<FolderKanban className="h-4 w-4" />
-																<span className="text-sm">
-																	{project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
-																</span>
-															</div>
-															{project.hasOverdueTasks && (
-																<span className="h-2 w-2 rounded-full bg-red-600 shrink-0 ml-1" title="Has Overdue Tasks" />
-															)}
-															<ChevronRight
-																className={`h-4 w-4 transition-transform ${expandedProjects.has(String(project.id)) ? "rotate-90" : ""
-																	}`}
-															/>
-														</SidebarMenuButton>
-													</CollapsibleTrigger>
-													<CollapsibleContent>
-														<SidebarMenuSub>
-															{project.stages
-																.map((stage) => (
-																	<SidebarMenuSubItem key={stage.id}>
-																		<SidebarMenuSubButton asChild>
-																			<NavLink
-																				to={`/user-project/${project.id}/stage/${stage.id}`}
-																				className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isStageActive(String(project.id), stage.id)
-																					? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-																					: ""
-																					}`}
-																			>
-																				<Layers className="h-3 w-3" />
-																				<span className="text-sm">{stage.title}</span>
-																			</NavLink>
-																		</SidebarMenuSubButton>
-																	</SidebarMenuSubItem>
-																))}
-														</SidebarMenuSub>
-													</CollapsibleContent>
-												</SidebarMenuItem>
-											</Collapsible>
-										))
+												<Collapsible
+													key={project.id}
+													open={expandedProjects.has(String(project.id))}
+													onOpenChange={() => toggleProjectExpanded(String(project.id))}
+												>
+													<SidebarMenuItem>
+														<CollapsibleTrigger asChild>
+															<SidebarMenuButton className="w-full">
+																<div className="flex items-center gap-2 flex-1">
+																	<FolderKanban className="h-4 w-4" />
+																	<span className="text-sm">
+																		{project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
+																	</span>
+																</div>
+																{project.hasOverdueTasks && (
+																	<span className="h-2 w-2 rounded-full bg-red-600 shrink-0 ml-1" title="Has Overdue Tasks" />
+																)}
+																<ChevronRight
+																	className={`h-4 w-4 transition-transform ${expandedProjects.has(String(project.id)) ? "rotate-90" : ""
+																		}`}
+																/>
+															</SidebarMenuButton>
+														</CollapsibleTrigger>
+														<CollapsibleContent>
+															<SidebarMenuSub>
+																{project.stages
+																	.map((stage) => (
+																		<SidebarMenuSubItem key={stage.id}>
+																			<SidebarMenuSubButton asChild>
+																				<NavLink
+																					to={`/user-project/${project.id}/stage/${stage.id}`}
+																					className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isStageActive(String(project.id), stage.id)
+																						? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+																						: ""
+																						}`}
+																				>
+																					<Layers className="h-3 w-3" />
+																					<span className="text-sm">{stage.title}</span>
+																				</NavLink>
+																			</SidebarMenuSubButton>
+																		</SidebarMenuSubItem>
+																	))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
+											))
 										)}
 									</SidebarMenu>
 								</SidebarGroupContent>
@@ -1379,44 +1379,44 @@ export function AppSidebar() {
 													return acc;
 												}, {} as Record<string, Project[]>)
 											).map(([deptName, deptProjects]) => (
-											<Collapsible
-												key={deptName}
-												open={expandedDepartments.has(`invited-${deptName}`)}
-												onOpenChange={() => {
-													const key = `invited-${deptName}`;
-													setExpandedDepartments(prev => {
-														const newSet = new Set(prev);
-														if (newSet.has(key)) {
-															newSet.delete(key);
-														} else {
-															newSet.add(key);
-														}
-														return newSet;
-													});
-												}}
-											>
-												<SidebarMenuItem>
-													<CollapsibleTrigger asChild>
-														<SidebarMenuButton className="w-full">
-															<div className="flex items-center gap-2 flex-1">
-																<Building2 className="h-4 w-4" />
-																<span className="text-sm font-medium">{deptName}</span>
-																<span className="text-xs text-muted-foreground ml-auto mr-2">({deptProjects.length})</span>
-															</div>
-															<ChevronRight
-																className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(`invited-${deptName}`) ? "rotate-90" : ""
-																	}`}
-															/>
-														</SidebarMenuButton>
-													</CollapsibleTrigger>
-													<CollapsibleContent>
-														<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
-															{deptProjects.map(project => renderProjectItem(project, true, true))}
-														</SidebarMenuSub>
-													</CollapsibleContent>
-												</SidebarMenuItem>
-											</Collapsible>
-										))
+												<Collapsible
+													key={deptName}
+													open={expandedDepartments.has(`invited-${deptName}`)}
+													onOpenChange={() => {
+														const key = `invited-${deptName}`;
+														setExpandedDepartments(prev => {
+															const newSet = new Set(prev);
+															if (newSet.has(key)) {
+																newSet.delete(key);
+															} else {
+																newSet.add(key);
+															}
+															return newSet;
+														});
+													}}
+												>
+													<SidebarMenuItem>
+														<CollapsibleTrigger asChild>
+															<SidebarMenuButton className="w-full">
+																<div className="flex items-center gap-2 flex-1">
+																	<Building2 className="h-4 w-4" />
+																	<span className="text-sm font-medium">{deptName}</span>
+																	<span className="text-xs text-muted-foreground ml-auto mr-2">({deptProjects.length})</span>
+																</div>
+																<ChevronRight
+																	className={`h-4 w-4 shrink-0 transition-transform ${expandedDepartments.has(`invited-${deptName}`) ? "rotate-90" : ""
+																		}`}
+																/>
+															</SidebarMenuButton>
+														</CollapsibleTrigger>
+														<CollapsibleContent>
+															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+																{deptProjects.map(project => renderProjectItem(project, true, true))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
+											))
 										)}
 									</SidebarMenu>
 								</SidebarGroupContent>
@@ -1470,8 +1470,8 @@ export function AppSidebar() {
 												No projects found
 											</div>
 										) : (
-									(userRole === "team-lead" || userRole === "account-manager") && departmentGroups[0]?.id === 'flat'
-								) ? (
+											(userRole === "team-lead" || userRole === "account-manager") && departmentGroups[0]?.id === 'flat'
+										) ? (
 											// Non-Digital Team-lead: Show flat list (with hierarchy support)
 											<>
 												{departmentGroups[0].rootGroups.map(group => renderProjectGroup(group))}
