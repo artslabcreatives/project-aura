@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
-import { DollarSign, TrendingUp, TrendingDown, FileText, Package } from 'lucide-react';
-import { api } from '../lib/api';
+import { DollarSign, Radio, TrendingUp, TrendingDown, FileText, Package } from 'lucide-react';
 import { ClientFinancialDashboard } from '../types/financial';
+import { financialService } from '../services/financialService';
+import { echo } from '../services/echoService';
 
 interface ClientFinancialDashboardProps {
 	clientId: number;
@@ -13,22 +14,68 @@ interface ClientFinancialDashboardProps {
 export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialDashboardProps) {
 	const [dashboard, setDashboard] = useState<ClientFinancialDashboard | null>(null);
 	const [loading, setLoading] = useState(true);
+	const refreshTimeoutRef = useRef<number | null>(null);
+
+	const fetchDashboard = useCallback(async () => {
+		try {
+			setLoading(true);
+			const response = await financialService.getClientFinancialDashboard(clientId);
+			setDashboard(response);
+		} catch (error) {
+			console.error('Failed to fetch financial dashboard:', error);
+		} finally {
+			setLoading(false);
+		}
+	}, [clientId]);
+
+	const scheduleRefresh = useCallback(() => {
+		if (refreshTimeoutRef.current) {
+			window.clearTimeout(refreshTimeoutRef.current);
+		}
+
+		refreshTimeoutRef.current = window.setTimeout(() => {
+			void fetchDashboard();
+		}, 250);
+	}, [fetchDashboard]);
 
 	useEffect(() => {
-		const fetchDashboard = async () => {
-			try {
-				setLoading(true);
-				const response = await api.get(`/api/clients/${clientId}/financial-dashboard`);
-				setDashboard(response.data);
-			} catch (error) {
-				console.error('Failed to fetch financial dashboard:', error);
-			} finally {
-				setLoading(false);
-			}
-		};
+		void fetchDashboard();
+	}, [fetchDashboard]);
 
-		fetchDashboard();
-	}, [clientId]);
+	const subscribedProjectIds = useMemo(
+		() => dashboard?.profitability.projects.map((project) => project.id) ?? [],
+		[dashboard]
+	);
+
+	useEffect(() => {
+		if (!echo || subscribedProjectIds.length === 0) {
+			return;
+		}
+
+		subscribedProjectIds.forEach((projectId) => {
+			const channel = echo.private(`project.${projectId}`);
+
+			channel.listen('TaskUpdated', () => {
+				scheduleRefresh();
+			});
+
+			channel.listen('ProjectUpdated', () => {
+				scheduleRefresh();
+			});
+		});
+
+		return () => {
+			subscribedProjectIds.forEach((projectId) => {
+				echo.leave(`project.${projectId}`);
+			});
+		};
+	}, [scheduleRefresh, subscribedProjectIds]);
+
+	useEffect(() => () => {
+		if (refreshTimeoutRef.current) {
+			window.clearTimeout(refreshTimeoutRef.current);
+		}
+	}, []);
 
 	if (loading) {
 		return (
@@ -129,6 +176,13 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 						</p>
 					</CardContent>
 				</Card>
+			</div>
+
+			<div className="flex items-center gap-2 text-sm text-muted-foreground">
+				<Radio className="h-4 w-4 text-primary" />
+				<span>
+					{echo ? 'Live updates enabled for linked projects' : 'Live updates unavailable until Reverb is configured'}
+				</span>
 			</div>
 
 			<Tabs defaultValue="profitability" className="w-full">

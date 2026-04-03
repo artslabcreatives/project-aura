@@ -14,6 +14,7 @@ This document describes the UI integration of the finance features that were pre
 - Displays invoice summary (paid vs outstanding)
 - Shows project status breakdown
 - Interactive tabs for profitability, invoices, and projects
+- Auto-refreshes when related project/task broadcast events are received over Reverb
 
 **Access:**
 1. Navigate to **Clients** page (sidebar menu)
@@ -64,6 +65,18 @@ This document describes the UI integration of the finance features that were pre
 
 ---
 
+### 4. Department Efficiency Dashboard
+**Component:** `DepartmentEfficiencyDashboard.tsx`
+**Integrated Into:** Dedicated page with sidebar menu item (`/department-efficiency`)
+
+**Features:**
+- Shows department-wide tracked users, completed tasks, logged hours, and average efficiency
+- Lists team members ranked by efficiency
+- Allows Admin/HR users to switch between departments
+- Defaults other users to their own department dashboard
+
+---
+
 ## Technical Details
 
 ### Files Modified
@@ -82,12 +95,22 @@ This document describes the UI integration of the finance features that were pre
    - Accessible to all user roles
 
 4. `/resources/js/project-aura-new/src/components/AppSidebar.tsx`
-   - Added "Task Efficiency" menu item with TrendingUp icon
-   - Accessible to all roles: admin, team-lead, user, account-manager, hr
+    - Added "Task Efficiency" menu item with TrendingUp icon
+    - Accessible to all roles: admin, team-lead, user, account-manager, hr
+    - Added "Department Efficiency" menu item
 
 5. `/resources/js/project-aura-new/src/App.tsx`
-   - Added route for `/task-efficiency`
-   - No role restrictions (available to all authenticated users)
+    - Added route for `/task-efficiency`
+    - Added route for `/department-efficiency`
+    - No role restrictions (available to all authenticated users)
+
+6. `/resources/js/project-aura-new/src/services/financialService.ts`
+   - Normalizes backend financial dashboard responses for the frontend
+   - Reused by the client financial dashboard
+
+7. `/resources/js/project-aura-new/src/services/efficiencyService.ts`
+   - Normalizes backend user and department efficiency responses
+   - Reused by both efficiency dashboards
 
 ### Files Fixed
 1. `/resources/js/project-aura-new/src/components/ClientFinancialDashboard.tsx`
@@ -97,8 +120,12 @@ This document describes the UI integration of the finance features that were pre
    - Fixed API import from `import api` to `import { api }`
 
 3. `/resources/js/project-aura-new/src/components/TaskEfficiencyDashboard.tsx`
-   - Fixed API import from `import api` to `import { api }`
-   - Updated userId prop type to accept both number and string
+    - Switched to normalized efficiency service data
+    - Updated userId prop type to accept both number and string
+
+4. `/resources/js/project-aura-new/src/components/ClientFinancialDashboard.tsx`
+   - Switched to normalized financial service data
+   - Added Reverb-driven live refresh behavior
 
 ---
 
@@ -119,6 +146,7 @@ This document describes the UI integration of the finance features that were pre
 - `GET /api/users/{user}/efficiency-trends?days=30` - Efficiency over time
 - `GET /api/projects/{project}/efficiency` - Project-level metrics
 - `GET /api/tasks/{task}/time-logs` - Time logs for a task
+- `GET /api/departments/{department}/efficiency` - Department-wide efficiency metrics
 
 ---
 
@@ -129,6 +157,7 @@ This document describes the UI integration of the finance features that were pre
 - [ ] Verify financial dashboard appears below contacts
 - [ ] Check that revenue, cost, and profit display correctly
 - [ ] Test interactive tabs (Profitability, Invoices, Projects)
+- [ ] Update a related task/project and verify the dashboard refreshes automatically
 - [ ] Verify internal project doesn't show dashboard
 
 ### Xero Integration (Admin/HR only)
@@ -149,14 +178,19 @@ This document describes the UI integration of the finance features that were pre
 - [ ] Test with users who have logged time on tasks
 - [ ] Verify it works for all user roles (admin, team-lead, user, account-manager, hr)
 
+### Department Efficiency Dashboard
+- [ ] Navigate to sidebar and click "Department Efficiency"
+- [ ] Verify department totals render correctly
+- [ ] Verify user breakdown shows efficiency and completed task counts
+- [ ] For Admin/HR, switch departments and confirm the dashboard reloads
+
 ---
 
 ## Known Limitations
 
 1. **Xero Sync:** Currently only syncs estimates/quotes, not invoices
 2. **Efficiency Metrics:** Requires users to log time via the API endpoints (no UI for time logging yet)
-3. **Financial Dashboard:** Does not auto-refresh, requires page reload to see updates
-4. **Permissions:** XeroIntegration is only accessible to Admin/HR roles
+3. **Permissions:** XeroIntegration is only accessible to Admin/HR roles
 
 ---
 
@@ -164,11 +198,9 @@ This document describes the UI integration of the finance features that were pre
 
 1. Add profitability component to Project Overview page
 2. Create time logging UI widget in task details
-3. Add real-time updates for financial dashboard
-4. Implement Xero invoice sync (currently only estimates)
-5. Add export functionality for financial reports
-6. Create department-level efficiency dashboards
-7. Add customizable date ranges for efficiency trends
+3. Implement Xero invoice sync (currently only estimates)
+4. Add export functionality for financial reports
+5. Add customizable date ranges for efficiency trends
 
 ---
 

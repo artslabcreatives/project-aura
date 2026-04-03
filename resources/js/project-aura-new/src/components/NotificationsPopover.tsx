@@ -140,8 +140,10 @@ export function NotificationsPopover() {
     useEffect(() => {
         fetchNotifications();
 
+        const interval = setInterval(fetchNotifications, 60000);
+
         // Listen for real-time notifications
-        if (currentUser) {
+        if (currentUser && echo) {
             console.log(`Subscribing to notifications for user ${currentUser.id}`);
             const channel = echo.private(`App.Models.User.${currentUser.id}`);
 
@@ -198,10 +200,10 @@ export function NotificationsPopover() {
             return () => {
                 console.log(`Unsubscribing from notifications for user ${currentUser.id}`);
                 echo.leave(`App.Models.User.${currentUser.id}`);
+                clearInterval(interval);
             };
         }
 
-        const interval = setInterval(fetchNotifications, 60000); // Poll every minute as backup
         return () => clearInterval(interval);
     }, [currentUser, playNotificationSound]);
 
