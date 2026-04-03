@@ -210,5 +210,6 @@ This document describes the UI integration of the finance features that were pre
 - Components are built with Radix UI and Tailwind CSS
 - API client is at `/resources/js/project-aura-new/src/lib/api.ts`
 - Type definitions are in `/resources/js/project-aura-new/src/types/financial.ts` and `efficiency.ts`
+- Reverb setup should use `BROADCAST_CONNECTION=reverb`; `BROADCAST_DRIVER` is only kept as a backward-compatible fallback
 
 For backend implementation details, see [FINANCE_FEATURES_IMPLEMENTATION.md](FINANCE_FEATURES_IMPLEMENTATION.md).

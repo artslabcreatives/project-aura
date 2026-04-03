@@ -145,8 +145,9 @@ export function NotificationsPopover() {
 
         // Listen for real-time notifications
         if (currentUser && echo) {
-            console.log(`Subscribing to notifications for user ${currentUser.id}`);
-            const channel = echo.private(`App.Models.User.${currentUser.id}`);
+            const currentUserId = currentUser.id;
+            console.log(`Subscribing to notifications for user ${currentUserId}`);
+            const channel = echo.private(`App.Models.User.${currentUserId}`);
 
             channel.notification((notification: any) => {
                 console.log('Real-time notification received:', notification);
@@ -198,8 +199,8 @@ export function NotificationsPopover() {
                 }
             });
             unsubscribeFromEcho = () => {
-                console.log(`Unsubscribing from notifications for user ${currentUser.id}`);
-                echo.leave(`App.Models.User.${currentUser.id}`);
+                console.log(`Unsubscribing from notifications for user ${currentUserId}`);
+                echo.leave(`App.Models.User.${currentUserId}`);
             };
         }
 

@@ -270,7 +270,6 @@ export function AppSidebar() {
 
 		// Listen to project channels
 		projects.forEach(project => {
-			echo.leave(`project.${project.id}`);
 			const channel = echo.private(`project.${project.id}`);
 
 			channel.listen('TaskUpdated', (e: any) => {

@@ -56,9 +56,14 @@ export default function DepartmentEfficiency() {
 			return;
 		}
 
+		const firstDepartmentId = departments[0]?.id;
 		const defaultDepartmentId = currentUser?.department && departments.some((department) => department.id === currentUser.department)
 			? currentUser.department
-			: departments[0].id;
+			: firstDepartmentId;
+
+		if (!defaultDepartmentId) {
+			return;
+		}
 
 		setSelectedDepartmentId(defaultDepartmentId);
 	}, [currentUser?.department, departments, selectedDepartmentId]);
