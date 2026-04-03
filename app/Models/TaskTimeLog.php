@@ -50,7 +50,7 @@ class TaskTimeLog extends Model
 
         static::saving(function ($log) {
             if ($log->ended_at && $log->started_at) {
-                $log->hours_logged = $log->started_at->diffInHours($log->ended_at, true);
+                $log->hours_logged = $log->started_at->diffInSeconds($log->ended_at, true) / 3600;
             }
         });
     }
