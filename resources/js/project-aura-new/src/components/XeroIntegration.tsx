@@ -2,14 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { CheckCircle, XCircle, RefreshCw, ExternalLink } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCw, ExternalLink, FileText, Receipt } from 'lucide-react';
 import { api } from '../lib/api';
 import { XeroStatus } from '../types/financial';
+import { useToast } from '../hooks/use-toast';
 
 export function XeroIntegration() {
 	const [status, setStatus] = useState<XeroStatus | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
+	const [syncingInvoices, setSyncingInvoices] = useState(false);
+	const { toast } = useToast();
 
 	const fetchStatus = async () => {
 		try {
@@ -26,23 +29,56 @@ export function XeroIntegration() {
 	const handleConnect = async () => {
 		try {
 			const response = await api.get('/api/xero/auth-url');
-			window.location.href = response.data.authUrl;
+			window.location.href = response.data.url;
 		} catch (error) {
 			console.error('Failed to get Xero auth URL:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to connect to Xero',
+				variant: 'destructive',
+			});
 		}
 	};
 
 	const handleSync = async () => {
 		try {
 			setSyncing(true);
-			await api.post('/api/xero/sync');
+			const response = await api.post('/api/xero/sync');
 			await fetchStatus();
-			alert('Xero sync completed successfully!');
-		} catch (error) {
+			toast({
+				title: 'Success',
+				description: `Synced ${response.data.created} new estimates and updated ${response.data.updated} existing ones`,
+			});
+		} catch (error: any) {
 			console.error('Failed to sync with Xero:', error);
-			alert('Failed to sync with Xero. Please try again.');
+			toast({
+				title: 'Error',
+				description: error.response?.data?.message || 'Failed to sync estimates',
+				variant: 'destructive',
+			});
 		} finally {
 			setSyncing(false);
+		}
+	};
+
+	const handleSyncInvoices = async () => {
+		try {
+			setSyncingInvoices(true);
+			const response = await api.post('/api/xero/sync-invoices');
+			await fetchStatus();
+			toast({
+				title: 'Success',
+				description: `Synced ${response.data.synced} invoices from Xero`,
+			});
+		} catch (error: any) {
+			console.error('Failed to sync invoices with Xero:', error);
+			toast({
+				title: 'Error',
+				description: error.response?.data?.message || 'Failed to sync invoices',
+				variant: 'destructive',
+			});
+		} finally {
+			setSyncingInvoices(false);
 		}
 	};
 
@@ -112,14 +148,18 @@ export function XeroIntegration() {
 					</div>
 				)}
 			</CardContent>
-			<CardFooter className="flex gap-2">
+			<CardFooter className="flex gap-2 flex-wrap">
 				{status?.connected ? (
 					<>
-						<Button onClick={handleSync} disabled={syncing} className="flex-1">
-							<RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-							{syncing ? 'Syncing...' : 'Manual Sync'}
+						<Button onClick={handleSync} disabled={syncing || syncingInvoices} className="flex-1">
+							<FileText className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+							{syncing ? 'Syncing Estimates...' : 'Sync Estimates'}
 						</Button>
-						<Button onClick={handleConnect} variant="outline">
+						<Button onClick={handleSyncInvoices} disabled={syncing || syncingInvoices} className="flex-1">
+							<Receipt className={`mr-2 h-4 w-4 ${syncingInvoices ? 'animate-spin' : ''}`} />
+							{syncingInvoices ? 'Syncing Invoices...' : 'Sync Invoices'}
+						</Button>
+						<Button onClick={handleConnect} variant="outline" className="w-full sm:w-auto">
 							<ExternalLink className="mr-2 h-4 w-4" />
 							Reconnect
 						</Button>
