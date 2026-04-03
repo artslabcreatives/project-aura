@@ -12,11 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tasks', function (Blueprint $table) {
-            $table->decimal('hourly_rate', 10, 2)->nullable()->after('estimated_hours');
-            $table->decimal('actual_hours_worked', 10, 2)->default(0)->after('hourly_rate');
-            $table->decimal('task_cost', 15, 2)->nullable()->after('actual_hours_worked');
-            $table->timestamp('started_at')->nullable()->after('task_cost');
-            $table->timestamp('completed_at')->nullable()->after('started_at');
+            if (!Schema::hasColumn('tasks', 'hourly_rate')) {
+                $table->decimal('hourly_rate', 10, 2)->nullable()->after('estimated_hours');
+            }
+            if (!Schema::hasColumn('tasks', 'actual_hours_worked')) {
+                $table->decimal('actual_hours_worked', 10, 2)->default(0)->after('hourly_rate');
+            }
+            if (!Schema::hasColumn('tasks', 'task_cost')) {
+                $table->decimal('task_cost', 15, 2)->nullable()->after('actual_hours_worked');
+            }
+            // Note: completed_at and started_at already exist in tasks table
         });
     }
 
@@ -26,13 +31,19 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tasks', function (Blueprint $table) {
-            $table->dropColumn([
-                'hourly_rate',
-                'actual_hours_worked',
-                'task_cost',
-                'started_at',
-                'completed_at',
-            ]);
+            $columns = [];
+            if (Schema::hasColumn('tasks', 'hourly_rate')) {
+                $columns[] = 'hourly_rate';
+            }
+            if (Schema::hasColumn('tasks', 'actual_hours_worked')) {
+                $columns[] = 'actual_hours_worked';
+            }
+            if (Schema::hasColumn('tasks', 'task_cost')) {
+                $columns[] = 'task_cost';
+            }
+            if (!empty($columns)) {
+                $table->dropColumn($columns);
+            }
         });
     }
 };
