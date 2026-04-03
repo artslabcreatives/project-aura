@@ -196,6 +196,94 @@ class XeroService
     }
 
     /**
+     * Fetch all Invoices from Xero and sync them with local Projects.
+     *
+     * Returns a summary array ['synced' => int, 'skipped' => int].
+     */
+    public function syncInvoices(): array
+    {
+        $bearer = $this->getBearerToken();
+        $token  = XeroToken::current();
+
+        $response = Http::withToken($bearer)
+            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+            ->get(self::API_BASE . '/Invoices', ['Status' => 'AUTHORISED']);
+
+        if ($response->failed()) {
+            Log::error('Xero Invoices fetch failed', ['body' => $response->body()]);
+            throw new \RuntimeException('Failed to fetch Invoices from Xero: ' . $response->body());
+        }
+
+        $invoices = $response->json('Invoices') ?? [];
+        $synced = 0;
+        $skipped = 0;
+
+        foreach ($invoices as $invoice) {
+            try {
+                $result = $this->syncInvoiceToProject($invoice);
+                if ($result) {
+                    $synced++;
+                } else {
+                    $skipped++;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to sync Xero Invoice', [
+                    'invoice_id' => $invoice['InvoiceID'] ?? null,
+                    'error'      => $e->getMessage(),
+                ]);
+                $skipped++;
+            }
+        }
+
+        return compact('synced', 'skipped');
+    }
+
+    /**
+     * Sync a single Xero Invoice to a local Project.
+     *
+     * @return bool true if synced, false if skipped
+     */
+    private function syncInvoiceToProject(array $invoice): bool
+    {
+        $invoiceNumber = $invoice['InvoiceNumber'] ?? null;
+        if (!$invoiceNumber) {
+            return false;
+        }
+
+        // Try to find a matching project by invoice number or reference
+        $project = \App\Models\Project::where('invoice_number', $invoiceNumber)->first();
+
+        // If not found by invoice number, try to match by client and estimate reference
+        if (!$project && isset($invoice['Reference'])) {
+            $clientId = $this->resolveClientId($invoice['Contact'] ?? []);
+            if ($clientId) {
+                $project = \App\Models\Project::where('client_id', $clientId)
+                    ->whereHas('estimate', function ($query) use ($invoice) {
+                        $query->where('estimate_number', $invoice['Reference']);
+                    })
+                    ->first();
+            }
+        }
+
+        if (!$project) {
+            // No matching project found
+            return false;
+        }
+
+        // Update project with invoice information
+        $project->update([
+            'invoice_number' => $invoiceNumber,
+            'xero_invoice_id' => $invoice['InvoiceID'],
+            'invoice_total' => (float) ($invoice['Total'] ?? 0),
+            'invoice_status' => strtolower($invoice['Status'] ?? 'draft'),
+            'invoice_date' => $this->parseXeroDate($invoice['DateString'] ?? null),
+            'invoice_due_date' => $this->parseXeroDate($invoice['DueDateString'] ?? null),
+        ]);
+
+        return true;
+    }
+
+    /**
      * Upsert a single Xero Quote into the local estimates table.
      *
      * @return string 'created' | 'updated' | 'skipped'
