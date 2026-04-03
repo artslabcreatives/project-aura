@@ -325,8 +325,21 @@ class ProjectController extends Controller
         }
 
         if ($request->hasFile('invoice_document')) {
+            // For Digital Marketing projects, require campaign report approval first
+            if ($project->department?->name === 'Digital Marketing' && !$project->isCampaignReportApproved()) {
+                return response()->json([
+                    'message' => 'Campaign report must be approved before uploading invoice for Digital Marketing projects.'
+                ], 403);
+            }
+
             $path = $request->file('invoice_document')->store('invoices', 's3');
             $validated['invoice_document'] = $path;
+
+            // Send email notification to client
+            if ($project->client && $project->client->email) {
+                \Illuminate\Support\Facades\Mail::to($project->client->email)
+                    ->send(new \App\Mail\InvoiceUploadedMailable($project));
+            }
         }
 
         $project->update($validated);

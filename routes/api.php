@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
 use App\Http\Controllers\Api\ProfitabilityController;
 use App\Http\Controllers\Api\ClientFinancialController;
+use App\Http\Controllers\Api\TaskEfficiencyController;
 use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -199,6 +200,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/clients/{client}/financial-dashboard', [ClientFinancialController::class, 'getFinancialDashboard']);
     Route::get('/clients/{client}/invoice-summary', [ClientFinancialController::class, 'getInvoiceSummary']);
     Route::get('/financial/aggregation', [ClientFinancialController::class, 'getFinancialAggregation']);
+
+    // Task Efficiency Tracking
+    Route::get('/projects/{project}/efficiency', [TaskEfficiencyController::class, 'getProjectEfficiency']);
+    Route::get('/users/{user}/efficiency', [TaskEfficiencyController::class, 'getUserEfficiency']);
+    Route::get('/users/{user}/efficiency-trends', [TaskEfficiencyController::class, 'getUserEfficiencyTrends']);
+    Route::get('/departments/{department}/efficiency', [TaskEfficiencyController::class, 'getDepartmentEfficiency']);
 });
 
 // 2FA Verification during login
