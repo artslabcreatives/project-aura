@@ -5,6 +5,7 @@ import { DollarSign, TrendingUp, TrendingDown, Package, Clock, AlertCircle } fro
 import { api } from '../lib/api';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
+import { ExportButtons } from './ExportButtons';
 
 interface TaskBreakdown {
 	task_id: number;
@@ -104,11 +105,16 @@ export function ProjectProfitability({ projectId }: ProjectProfitabilityProps) {
 	return (
 		<Card className="border-none shadow-md">
 			<CardHeader>
-				<CardTitle className="flex items-center gap-2">
-					<DollarSign className="h-5 w-5 text-primary" />
-					Project Profitability
-				</CardTitle>
-				<CardDescription>Financial overview and task cost breakdown</CardDescription>
+				<div className="flex items-center justify-between">
+					<div>
+						<CardTitle className="flex items-center gap-2">
+							<DollarSign className="h-5 w-5 text-primary" />
+							Project Profitability
+						</CardTitle>
+						<CardDescription>Financial overview and task cost breakdown</CardDescription>
+					</div>
+					<ExportButtons type="project-profitability" id={projectId} />
+				</div>
 			</CardHeader>
 			<CardContent className="space-y-6">
 				{/* Summary Cards */}
