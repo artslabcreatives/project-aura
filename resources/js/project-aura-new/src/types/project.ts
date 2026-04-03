@@ -46,4 +46,8 @@ export interface Project {
 	campaign_report_approved_by?: number;
 	campaign_report_approved_at?: string;
 	campaign_report_document_url?: string;
+	totalRevenue?: number;
+	totalCost?: number;
+	actualProfit?: number;
+	profitMarginPercentage?: number;
 }
