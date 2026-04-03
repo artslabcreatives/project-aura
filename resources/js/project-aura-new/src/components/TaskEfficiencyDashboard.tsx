@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Clock, TrendingUp, TrendingDown, Target } from 'lucide-react';
-import { api } from '../lib/api';
 import { UserEfficiency } from '../types/efficiency';
+import { efficiencyService } from '../services/efficiencyService';
 
 interface TaskEfficiencyDashboardProps {
 	userId: number | string;
@@ -17,8 +17,8 @@ export function TaskEfficiencyDashboard({ userId }: TaskEfficiencyDashboardProps
 		const fetchEfficiency = async () => {
 			try {
 				setLoading(true);
-				const response = await api.get(`/api/users/${userId}/efficiency`);
-				setEfficiency(response.data);
+				const response = await efficiencyService.getUserEfficiency(userId);
+				setEfficiency(response);
 			} catch (error) {
 				console.error('Failed to fetch efficiency data:', error);
 			} finally {

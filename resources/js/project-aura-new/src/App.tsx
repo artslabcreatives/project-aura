@@ -259,6 +259,7 @@ import ClientProfile from "./pages/ClientProfile";
 import Estimates from "./pages/Estimates";
 import EstimateDetail from "./pages/EstimateDetail";
 import TaskEfficiency from "./pages/TaskEfficiency";
+import DepartmentEfficiency from "./pages/DepartmentEfficiency";
 import { PublicMattermostChat } from "./pages/PublicMattermostChat";
 import { ReminderPoller } from "./components/ReminderPoller";
 
@@ -290,7 +291,8 @@ const App = () => (
 							<Route path="/reset-password" element={<ResetPasswordPage />} />
 
 							{/* Regular routes */}
-							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />						<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
+							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
+							<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
 							<Route path="/tasks" element={
 								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
 									<AppLayout><Tasks /></AppLayout>
@@ -316,7 +318,10 @@ const App = () => (
 								</ProtectedRoute>
 							} />
 							<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
-							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />						<Route path="/task-efficiency" element={<AppLayout><TaskEfficiency /></AppLayout>} />							<Route path="/reminders" element={<AppLayout><Reminders /></AppLayout>} />
+							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
+							<Route path="/task-efficiency" element={<AppLayout><TaskEfficiency /></AppLayout>} />
+							<Route path="/department-efficiency" element={<AppLayout><DepartmentEfficiency /></AppLayout>} />
+							<Route path="/reminders" element={<AppLayout><Reminders /></AppLayout>} />
 							<Route path="/clients" element={
 								<ProtectedRoute allowedRoles={['admin', 'hr']}>
 									<AppLayout><Clients /></AppLayout>

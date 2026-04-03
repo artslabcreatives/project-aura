@@ -5,21 +5,43 @@ import { getToken } from '@/lib/api';
 // Make Pusher available globally for Echo
 (window as any).Pusher = Pusher;
 
+const normalizeScheme = (value: string | undefined) => (value || '').replace(/:$/, '');
+const appKey = import.meta.env.VITE_REVERB_APP_KEY || import.meta.env.VITE_PUSHER_APP_KEY;
+const host = import.meta.env.VITE_REVERB_HOST || import.meta.env.VITE_PUSHER_HOST || window.location.hostname;
+// Normalize both env values and window.location.protocol to plain http/https for Echo.
+const scheme = normalizeScheme(import.meta.env.VITE_REVERB_SCHEME || import.meta.env.VITE_PUSHER_SCHEME || window.location.protocol);
+const port = Number(import.meta.env.VITE_REVERB_PORT || import.meta.env.VITE_PUSHER_PORT || (scheme === 'https' ? 443 : 80));
+
 // Initialize Echo
-export const echo = new Echo({
-    broadcaster: 'pusher',
-    key: import.meta.env.VITE_PUSHER_APP_KEY,
-    cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-    forceTLS: true,
-    // Add authorization header
-    auth: {
-        headers: {
-            Authorization: `Bearer ${getToken()}`,
+let echoInstance: Echo | null = null;
+
+if (!appKey) {
+    console.warn('Real-time updates are disabled because no Echo app key is configured.');
+} else {
+    echoInstance = new Echo({
+        broadcaster: 'reverb',
+        key: appKey,
+        wsHost: host,
+        wsPort: port,
+        wssPort: port,
+        forceTLS: scheme === 'https',
+        enabledTransports: ['ws', 'wss'],
+        authEndpoint: '/broadcasting/auth',
+        auth: {
+            headers: {
+                Authorization: `Bearer ${getToken()}`,
+            },
         },
-    },
-});
+    });
+}
+
+export const echo = echoInstance;
 
 // Helper to update token if it changes (e.g. login/logout)
 export const updateEchoToken = (token: string | null) => {
+    if (!echo) {
+        return;
+    }
+
     echo.connector.options.auth.headers.Authorization = token ? `Bearer ${token}` : '';
 };

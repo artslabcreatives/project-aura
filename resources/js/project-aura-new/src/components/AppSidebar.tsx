@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell, Mail, FileText, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell, Mail, FileText, TrendingUp, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -50,7 +50,6 @@ import { InviteUsersDialog } from "./InviteUsersDialog";
 import { ProjectGroup } from "@/types/project-group";
 import { FolderPlus } from "lucide-react";
 import { echo } from "@/services/echoService";
-import { TaskUpdated } from "@/types/events"; // We don't have this type yet but we can assume structure or use any
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -79,6 +78,7 @@ const mainMenuItems = [
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
 	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },
 	{ title: "Task Efficiency", url: "/task-efficiency", icon: TrendingUp, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
+	{ title: "Department Efficiency", url: "/department-efficiency", icon: BarChart3, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Reminders", url: "/reminders", icon: Bell, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Clients", url: "/clients", icon: Building2, roles: ["admin", "hr"] },
 	{ title: "Estimates", url: "/estimates", icon: FileText, roles: ["admin", "team-lead", "account-manager"] },
@@ -266,20 +266,31 @@ export function AppSidebar() {
 
 	// Real-time Updates
 	useEffect(() => {
-		if (projects.length === 0) return;
+		if (!echo || projects.length === 0) return;
 
 		// Listen to project channels
-		projects.forEach(project => {
-			echo.private(`project.${project.id}`)
-				.listen('TaskUpdated', (e: any) => {
-					console.log('Real-time update received:', e);
-					fetchData();
-				});
+		const channels = projects.map(project => ({
+			projectId: project.id,
+			channel: echo.private(`project.${project.id}`),
+		}));
+
+		channels.forEach(({ channel }) => {
+			channel.listen('TaskUpdated', (e: any) => {
+				console.log('Real-time task update received:', e);
+				fetchData();
+			});
+
+			channel.listen('ProjectUpdated', (e: any) => {
+				console.log('Real-time project update received:', e);
+				fetchData();
+			});
 		});
 
 		return () => {
-			projects.forEach(project => {
-				echo.leave(`project.${project.id}`);
+			channels.forEach(({ projectId, channel }) => {
+				channel.stopListening('TaskUpdated');
+				channel.stopListening('ProjectUpdated');
+				echo.leave(`project.${projectId}`);
 			});
 		};
 	}, [projects.map(p => p.id).join(',')]); // Re-subscribe if project list changes (added/removed)

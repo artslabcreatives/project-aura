@@ -140,10 +140,14 @@ export function NotificationsPopover() {
     useEffect(() => {
         fetchNotifications();
 
+        const interval = setInterval(fetchNotifications, 60000);
+        let unsubscribeFromEcho: (() => void) | undefined;
+
         // Listen for real-time notifications
-        if (currentUser) {
-            console.log(`Subscribing to notifications for user ${currentUser.id}`);
-            const channel = echo.private(`App.Models.User.${currentUser.id}`);
+        if (currentUser && echo) {
+            const currentUserId = currentUser.id;
+            console.log(`Subscribing to notifications for user ${currentUserId}`);
+            const channel = echo.private(`App.Models.User.${currentUserId}`);
 
             channel.notification((notification: any) => {
                 console.log('Real-time notification received:', notification);
@@ -194,16 +198,17 @@ export function NotificationsPopover() {
                     }
                 }
             });
-
-            return () => {
-                console.log(`Unsubscribing from notifications for user ${currentUser.id}`);
-                echo.leave(`App.Models.User.${currentUser.id}`);
+            unsubscribeFromEcho = () => {
+                console.log(`Unsubscribing from notifications for user ${currentUserId}`);
+                echo.leave(`App.Models.User.${currentUserId}`);
             };
         }
 
-        const interval = setInterval(fetchNotifications, 60000); // Poll every minute as backup
-        return () => clearInterval(interval);
-    }, [currentUser, playNotificationSound]);
+        return () => {
+            clearInterval(interval);
+            unsubscribeFromEcho?.();
+        };
+    }, [currentUser?.id, playNotificationSound]);
 
 
     const handleMarkAsRead = async (id: string) => {

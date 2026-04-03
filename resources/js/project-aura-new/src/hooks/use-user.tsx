@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types/task';
 import { api, getToken, removeToken } from '@/lib/api';
+import { updateEchoToken } from '@/services/echoService';
 
 interface UserContextType {
 	currentUser: User | null;
@@ -121,6 +122,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
 		initAuth();
 	}, []);
+
+	useEffect(() => {
+		updateEchoToken(getToken());
+	}, [isAuthenticated]);
 
 	useEffect(() => {
 		const checkToken = () => {

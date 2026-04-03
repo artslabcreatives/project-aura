@@ -261,7 +261,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		loadData();
 
 		// Real-time Updates
-		if (numericProjectId) {
+		if (numericProjectId && echo) {
 			console.log(`Subscribing to project.${numericProjectId}`);
 			const channel = echo.private(`project.${numericProjectId}`);
 			channel.listen('TaskUpdated', (e: any) => {
