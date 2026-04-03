@@ -45,6 +45,7 @@ import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/use-user";
+import { TimeLogWidget } from "@/components/TimeLogWidget";
 
 export default function TaskDetailsPage() {
 	const { taskId } = useParams<{ taskId: string }>();
@@ -843,6 +844,9 @@ export default function TaskDetailsPage() {
 					)}
 				</div>
 			</div>
+
+			{/* Time Tracking Widget - Full Width */}
+			<TimeLogWidget taskId={task.id} />
 
 			{/* Task Submission & Comments - Full Width */}
 			{((task.comments && task.comments.length > 0) || task.completedAt) && (
