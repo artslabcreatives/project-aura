@@ -56,8 +56,12 @@ export default function DepartmentEfficiency() {
 			return;
 		}
 
-		setSelectedDepartmentId(departments[0].id);
-	}, [departments, selectedDepartmentId]);
+		const defaultDepartmentId = currentUser?.department && departments.some((department) => department.id === currentUser.department)
+			? currentUser.department
+			: departments[0].id;
+
+		setSelectedDepartmentId(defaultDepartmentId);
+	}, [currentUser?.department, departments, selectedDepartmentId]);
 
 	const selectedDepartmentName = useMemo(() => {
 		if (selectedDepartmentId === currentUser?.department) {

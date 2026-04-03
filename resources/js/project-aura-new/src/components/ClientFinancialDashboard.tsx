@@ -55,6 +55,7 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 		}
 
 		subscribedProjectIds.forEach((projectId) => {
+			echo.leave(`project.${projectId}`);
 			const channel = echo.private(`project.${projectId}`);
 
 			channel.listen('TaskUpdated', () => {

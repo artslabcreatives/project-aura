@@ -43,7 +43,7 @@ const mapUserEfficiency = (raw: RawUserEfficiency): UserEfficiency => ({
 	tasks: raw.tasks.map((task) => ({
 		taskId: task.task_id,
 		taskName: task.task_name,
-		projectName: task.project_name ?? 'Unknown Project',
+		projectName: task.project_name ?? 'No project linked',
 		estimatedHours: task.estimated_hours,
 		userHoursWorked: task.user_hours_worked,
 		efficiencyPercentage: task.efficiency_percentage,
