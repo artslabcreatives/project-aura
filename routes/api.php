@@ -21,6 +21,8 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
+use App\Http\Controllers\Api\ProfitabilityController;
+use App\Http\Controllers\Api\ClientFinancialController;
 use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -185,6 +187,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth-url', [XeroController::class, 'getAuthUrl']);
         Route::post('/sync', [XeroController::class, 'sync']);
     });
+
+    // Profitability & Financial Tracking
+    Route::get('/projects/{project}/profitability', [ProfitabilityController::class, 'getProjectProfitability']);
+    Route::get('/clients/{client}/profitability', [ProfitabilityController::class, 'getClientProfitability']);
+    Route::post('/tasks/{task}/time-log', [ProfitabilityController::class, 'logTaskTime']);
+    Route::patch('/tasks/{task}/time-log/{timeLog}', [ProfitabilityController::class, 'endTimeLog']);
+    Route::get('/tasks/{task}/time-logs', [ProfitabilityController::class, 'getTaskTimeLogs']);
+
+    // Client Financial Dashboard
+    Route::get('/clients/{client}/financial-dashboard', [ClientFinancialController::class, 'getFinancialDashboard']);
+    Route::get('/clients/{client}/invoice-summary', [ClientFinancialController::class, 'getInvoiceSummary']);
+    Route::get('/financial/aggregation', [ClientFinancialController::class, 'getFinancialAggregation']);
 });
 
 // 2FA Verification during login

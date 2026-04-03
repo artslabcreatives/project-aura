@@ -33,6 +33,10 @@ class Task extends Model
         'estimated_hours',
         'parent_id',
         'is_assignee_locked',
+        'hourly_rate',
+        'actual_hours_worked',
+        'task_cost',
+        'started_at',
     ];
 
     protected $casts = [
@@ -40,8 +44,12 @@ class Task extends Model
         'due_date' => 'datetime',
         'start_date' => 'datetime',
         'completed_at' => 'datetime',
+        'started_at' => 'datetime',
         'is_in_specific_stage' => 'boolean',
         'is_assignee_locked' => 'boolean',
+        'hourly_rate' => 'decimal:2',
+        'actual_hours_worked' => 'decimal:2',
+        'task_cost' => 'decimal:2',
     ];
 
 	/**
@@ -161,6 +169,14 @@ class Task extends Model
     public function taskHistories(): HasMany
     {
         return $this->hasMany(TaskHistory::class)->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Get the time logs for the task.
+     */
+    public function timeLogs(): HasMany
+    {
+        return $this->hasMany(TaskTimeLog::class);
     }
 
     /**
