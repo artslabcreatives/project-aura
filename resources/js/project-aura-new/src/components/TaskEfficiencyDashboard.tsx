@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Clock, TrendingUp, TrendingDown, Target } from 'lucide-react';
-import api from '../lib/api';
+import { api } from '../lib/api';
 import { UserEfficiency } from '../types/efficiency';
 
 interface TaskEfficiencyDashboardProps {
-	userId: number;
+	userId: number | string;
 }
 
 export function TaskEfficiencyDashboard({ userId }: TaskEfficiencyDashboardProps) {
@@ -100,9 +100,8 @@ export function TaskEfficiencyDashboard({ userId }: TaskEfficiencyDashboardProps
 					</CardHeader>
 					<CardContent>
 						<div
-							className={`text-2xl font-bold ${
-								efficiency.averageEfficiency >= 100 ? 'text-green-600' : 'text-orange-600'
-							}`}
+							className={`text-2xl font-bold ${efficiency.averageEfficiency >= 100 ? 'text-green-600' : 'text-orange-600'
+								}`}
 						>
 							{efficiency.averageEfficiency.toFixed(1)}%
 						</div>

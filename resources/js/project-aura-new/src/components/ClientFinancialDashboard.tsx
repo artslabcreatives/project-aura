@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { DollarSign, TrendingUp, TrendingDown, FileText, Package } from 'lucide-react';
-import api from '../lib/api';
+import { api } from '../lib/api';
 import { ClientFinancialDashboard } from '../types/financial';
 
 interface ClientFinancialDashboardProps {
@@ -89,9 +89,8 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 					</CardHeader>
 					<CardContent>
 						<div
-							className={`text-2xl font-bold ${
-								dashboard.profitability.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
-							}`}
+							className={`text-2xl font-bold ${dashboard.profitability.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
+								}`}
 						>
 							{formatCurrency(dashboard.profitability.totalProfit)}
 						</div>
@@ -161,9 +160,8 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 										</div>
 										<div className="text-right">
 											<p
-												className={`font-bold ${
-													project.profit >= 0 ? 'text-green-600' : 'text-red-600'
-												}`}
+												className={`font-bold ${project.profit >= 0 ? 'text-green-600' : 'text-red-600'
+													}`}
 											>
 												{formatCurrency(project.profit)}
 											</p>
