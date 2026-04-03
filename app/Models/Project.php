@@ -49,6 +49,10 @@ class Project extends Model
         'campaign_report_status',
         'campaign_report_approved_by',
         'campaign_report_approved_at',
+        'total_revenue',
+        'total_cost',
+        'actual_profit',
+        'profit_margin_percentage',
     ];
 
     protected $casts = [
@@ -62,6 +66,10 @@ class Project extends Model
         'grace_period_expires_at' => 'date',
         'provisional_po_expires_at' => 'date',
         'campaign_report_approved_at' => 'datetime',
+        'total_revenue' => 'decimal:2',
+        'total_cost' => 'decimal:2',
+        'actual_profit' => 'decimal:2',
+        'profit_margin_percentage' => 'decimal:2',
     ];
 
     protected $attributes = [
