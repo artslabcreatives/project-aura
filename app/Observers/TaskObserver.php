@@ -9,7 +9,9 @@ use App\Models\User;
 use App\Notifications\TaskCompletedNotification;
 use App\Notifications\TaskReviewNeededNotification;
 use App\Notifications\TaskStageChangedNotification;
+use App\Services\ProfitabilityService;
 use App\Services\TaskHistoryService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TaskObserver
@@ -134,6 +136,20 @@ class TaskObserver
     {
         // Track all changes using the history service
         $this->historyService->trackChanges($task);
+
+        // When a task is marked complete, auto-close any open time logs and
+        // sync actual_hours_worked so efficiency metrics are immediately available.
+        if ($task->wasChanged('completed_at') && $task->completed_at !== null) {
+            DB::table('task_time_logs')
+                ->where('task_id', $task->id)
+                ->whereNull('ended_at')
+                ->update([
+                    'ended_at' => now(),
+                    'hours_logged' => DB::raw('TIMESTAMPDIFF(SECOND, started_at, ended_at) / 3600'),
+                ]);
+
+            app(ProfitabilityService::class)->updateTaskHours($task);
+        }
 
         // Propagate stage change to subtasks
         if ($task->wasChanged('project_stage_id') && !$task->parent_id) {
