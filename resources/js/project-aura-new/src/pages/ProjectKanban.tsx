@@ -605,7 +605,11 @@ export default function ProjectKanban() {
 							</span>
 						</AccordionTrigger>
 						<AccordionContent>
-							<div className="overflow-y-auto max-h-[60vh] px-1 py-2">
+							<div
+								role="region"
+								aria-label="Project overview details"
+								className="overflow-y-auto max-h-[60vh] px-1 py-2"
+							>
 								<ProjectOverviewContent
 									project={project}
 									tasks={tasks}
