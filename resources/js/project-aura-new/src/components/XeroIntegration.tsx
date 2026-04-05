@@ -17,8 +17,8 @@ export function XeroIntegration() {
 	const fetchStatus = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get('/api/xero/status');
-			setStatus(response.data);
+			const response = await api.get<XeroStatus>('/xero/status');
+			setStatus(response);
 		} catch (error) {
 			console.error('Failed to fetch Xero status:', error);
 		} finally {
@@ -28,8 +28,8 @@ export function XeroIntegration() {
 
 	const handleConnect = async () => {
 		try {
-			const response = await api.get('/api/xero/auth-url');
-			window.location.href = response.data.url;
+			const response = await api.get<{ url: string }>('/xero/auth-url');
+			window.location.href = response.url;
 		} catch (error) {
 			console.error('Failed to get Xero auth URL:', error);
 			toast({
@@ -43,11 +43,11 @@ export function XeroIntegration() {
 	const handleSync = async () => {
 		try {
 			setSyncing(true);
-			const response = await api.post('/api/xero/sync');
+			const response = await api.post<{ created: number; updated: number }>('/xero/sync', {});
 			await fetchStatus();
 			toast({
 				title: 'Success',
-				description: `Synced ${response.data.created} new estimates and updated ${response.data.updated} existing ones`,
+				description: `Synced ${response.created} new estimates and updated ${response.updated} existing ones`,
 			});
 		} catch (error: any) {
 			console.error('Failed to sync with Xero:', error);
@@ -64,11 +64,11 @@ export function XeroIntegration() {
 	const handleSyncInvoices = async () => {
 		try {
 			setSyncingInvoices(true);
-			const response = await api.post('/api/xero/sync-invoices');
+			const response = await api.post<{ synced: number }>('/xero/sync-invoices', {});
 			await fetchStatus();
 			toast({
 				title: 'Success',
-				description: `Synced ${response.data.synced} invoices from Xero`,
+				description: `Synced ${response.synced} invoices from Xero`,
 			});
 		} catch (error: any) {
 			console.error('Failed to sync invoices with Xero:', error);

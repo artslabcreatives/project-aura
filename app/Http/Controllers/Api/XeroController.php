@@ -58,21 +58,21 @@ class XeroController extends Controller
         $expected = $userId !== null ? Cache::pull($this->stateCacheKey($userId)) : null;
 
         if (!is_string($nonce) || !is_string($expected) || !hash_equals($expected, $nonce)) {
-            return redirect(config('app.frontend_url') . '/settings/integrations?xero=error&reason=state_mismatch');
+            return redirect(config('app.frontend_url') . '/configuration?section=integrations&xero=error&reason=state_mismatch');
         }
 
         if (!$code) {
-            return redirect(config('app.frontend_url') . '/settings/integrations?xero=error&reason=no_code');
+            return redirect(config('app.frontend_url') . '/configuration?section=integrations&xero=error&reason=no_code');
         }
 
         try {
             $this->xeroService->handleCallback($code);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Xero callback error: ' . $e->getMessage());
-            return redirect(config('app.frontend_url') . '/settings/integrations?xero=error&reason=token_exchange');
+            return redirect(config('app.frontend_url') . '/configuration?section=integrations&xero=error&reason=token_exchange');
         }
 
-        return redirect(config('app.frontend_url') . '/settings/integrations?xero=connected');
+        return redirect(config('app.frontend_url') . '/configuration?section=integrations&xero=connected');
     }
 
     private function stateCacheKey(int|string|null $userId): string

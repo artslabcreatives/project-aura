@@ -76,11 +76,11 @@ export function TimeLogWidget({ taskId }: TimeLogWidgetProps) {
 	const fetchTimeLogs = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get(`/tasks/${taskId}/time-logs`);
-			setTimeLogs(response.data);
+			const response = await api.get<TimeLog[]>(`/tasks/${taskId}/time-logs`);
+			setTimeLogs(response);
 
 			// Check if there's an active timer
-			const active = response.data.find((log: TimeLog) => !log.ended_at);
+			const active = response.find((log: TimeLog) => !log.ended_at);
 			if (active) {
 				setActiveLog(active);
 				setIsTimerRunning(true);
@@ -99,10 +99,10 @@ export function TimeLogWidget({ taskId }: TimeLogWidgetProps) {
 
 	const startTimer = async () => {
 		try {
-			const response = await api.post(`/tasks/${taskId}/time-log`, {
+			const response = await api.post<TimeLog>(`/tasks/${taskId}/time-log`, {
 				started_at: new Date().toISOString(),
 			});
-			setActiveLog(response.data);
+			setActiveLog(response);
 			setIsTimerRunning(true);
 			toast({
 				title: 'Timer Started',
