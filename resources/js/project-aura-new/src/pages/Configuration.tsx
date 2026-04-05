@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Settings, Bell, Lock, Palette, MessageSquare, Mail, Smartphone, Eye, EyeOff, DollarSign } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
@@ -18,6 +19,7 @@ import { XeroIntegration } from "@/components/XeroIntegration";
 export default function Configuration() {
 	const { currentUser, refreshUser } = useUser();
 	const { toast } = useToast();
+	const [searchParams, setSearchParams] = useSearchParams();
 
 	// Refs for scrolling
 	const appearanceRef = useRef<HTMLDivElement>(null);
@@ -60,6 +62,25 @@ export default function Configuration() {
 			}
 		}
 	}, [currentUser]);
+
+	// Handle query params from Xero OAuth callback
+	useEffect(() => {
+		const section = searchParams.get('section');
+		const xero = searchParams.get('xero');
+
+		if (section === 'integrations') {
+			setTimeout(() => integrationsRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
+		}
+
+		if (xero === 'connected') {
+			toast({ title: 'Xero Connected', description: 'Your Xero account has been connected successfully.' });
+			setSearchParams({}, { replace: true });
+		} else if (xero === 'error') {
+			const reason = searchParams.get('reason') || 'unknown';
+			toast({ title: 'Xero Connection Failed', description: `Error: ${reason}`, variant: 'destructive' });
+			setSearchParams({}, { replace: true });
+		}
+	}, [searchParams]);
 
 	const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
 		ref.current?.scrollIntoView({ behavior: 'smooth' });

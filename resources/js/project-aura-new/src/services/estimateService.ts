@@ -52,7 +52,7 @@ export const estimateService = {
 
 	/** Get the Xero OAuth2 authorisation URL. */
 	xeroAuthUrl: async (): Promise<{ url: string }> => {
-		const { data } = await api.get('/xero/auth-url');
+		const data = await api.get<{ url: string }>('/xero/auth-url');
 		return data;
 	},
 };
