@@ -24,6 +24,9 @@ import { departmentService } from "@/services/departmentService";
 import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { SuggestedTaskCard } from "@/components/SuggestedTaskCard";
+import { ProjectOverviewContent } from "@/components/ProjectOverviewContent";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Info } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -593,6 +596,27 @@ export default function ProjectKanban() {
 						<ToggleGroupItem value="list" aria-label="List view"><List className="h-4 w-4" /></ToggleGroupItem>
 					</ToggleGroup>
 				</div>
+				<Accordion type="single" collapsible>
+					<AccordionItem value="project-overview" className="border-none">
+						<AccordionTrigger className="py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:no-underline">
+							<span className="flex items-center gap-2">
+								<Info className="h-4 w-4" />
+								Project Overview
+							</span>
+						</AccordionTrigger>
+						<AccordionContent>
+							<div className="overflow-y-auto max-h-[60vh] px-1 py-2">
+								<ProjectOverviewContent
+									project={project}
+									tasks={tasks}
+									onProjectUpdate={setProject}
+									showBackButton={false}
+									showKanbanButton={false}
+								/>
+							</div>
+						</AccordionContent>
+					</AccordionItem>
+				</Accordion>
 			</div>
 			<div className="flex-1 overflow-auto p-4">
 				{suggestedTasks.length > 0 && (
