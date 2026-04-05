@@ -203,4 +203,55 @@ class ClientController extends Controller
 
         return response()->noContent();
     }
+
+    /**
+     * Merge another client into this client.
+     *
+     * All estimates, projects, and contacts belonging to the source client are
+     * re-assigned to $client (the target), source history entries are moved,
+     * a merged_client history entry is recorded, and the source client is deleted.
+     *
+     * POST /clients/{client}/merge   Body: { "merge_client_id": <int> }
+     */
+    public function mergeClients(Request $request, Client $client)
+    {
+        $this->checkPermission();
+
+        $validated = $request->validate([
+            'merge_client_id' => 'required|integer|exists:clients,id',
+        ]);
+
+        $sourceId = (int) $validated['merge_client_id'];
+
+        if ($sourceId === $client->id) {
+            return response()->json(['message' => 'Cannot merge a client with itself.'], 422);
+        }
+
+        $source = Client::findOrFail($sourceId);
+
+        DB::transaction(function () use ($client, $source) {
+            // Re-assign all related records from source → target
+            \App\Models\Estimate::where('client_id', $source->id)->update(['client_id' => $client->id]);
+            \App\Models\Project::where('client_id', $source->id)->update(['client_id' => $client->id]);
+            ClientContact::where('client_id', $source->id)->update(['client_id' => $client->id]);
+            ClientHistory::where('client_id', $source->id)->update(['client_id' => $client->id]);
+
+            // Carry over xero_contact_id if the target doesn't have one yet
+            if (!$client->xero_contact_id && $source->xero_contact_id) {
+                $client->update(['xero_contact_id' => $source->xero_contact_id]);
+            }
+
+            // Record merge in target's history
+            $this->recordHistory($client->id, 'merged_client', $client->company_name, [
+                'merged_client_id'   => $source->id,
+                'merged_client_name' => $source->company_name,
+            ]);
+
+            // Delete the source client
+            $source->delete();
+        });
+
+        return response()->json($client->fresh()->load(['contacts', 'projects']));
+    }
 }
+
