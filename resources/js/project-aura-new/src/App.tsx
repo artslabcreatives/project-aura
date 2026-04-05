@@ -36,6 +36,7 @@ import { ReportIssueDialog } from "@/components/ReportIssueDialog";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { UserProfileMenu } from "@/components/UserProfileMenu";
 import { UploadManagerPopup } from "@/components/UploadManagerPopup";
+import { ActiveTimersPopover } from "@/components/ActiveTimersPopover";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const { open } = useSidebar();
@@ -132,6 +133,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 									<Bug className="h-5 w-5" />
 								</Button>
 							</div>
+						</div>
+						<div data-tour="notifications">
+							<ActiveTimersPopover />
 						</div>
 						<div data-tour="notifications">
 							<NotificationsPopover />

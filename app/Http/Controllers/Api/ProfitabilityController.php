@@ -208,4 +208,24 @@ class ProfitabilityController extends Controller
 
         return response()->json($timeLogs);
     }
+
+    #[OA\Get(
+        path: "/user/active-timers",
+        summary: "Get all active timers for the current user",
+        security: [["bearerAuth" => []]],
+        tags: ["Profitability"],
+        responses: [
+            new OA\Response(response: 200, description: "List of active time logs with task info"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
+    public function getActiveTimers(): JsonResponse
+    {
+        $timeLogs = TaskTimeLog::with(['task:id,title,project_id', 'task.project:id,name'])
+            ->where('user_id', auth()->id())
+            ->whereNull('ended_at')
+            ->get();
+
+        return response()->json($timeLogs);
+    }
 }
