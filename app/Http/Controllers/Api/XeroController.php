@@ -122,6 +122,29 @@ class XeroController extends Controller
     }
 
     /**
+     * Trigger a manual sync of Xero Contacts → local Clients.
+     * Auto-merges contacts whose name matches an existing client (case-insensitive).
+     * Creates new clients for contacts that have no local match.
+     */
+    public function syncClients(Request $request): JsonResponse
+    {
+        if (!in_array($request->user()->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can sync Xero clients.'], 403);
+        }
+
+        try {
+            $summary = $this->xeroService->syncClients($request->user()->id);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Xero clients synced successfully.',
+            ...$summary,
+        ]);
+    }
+
+    /**
      * Trigger a manual sync of Xero Quotes → local Estimates.
      * Returns a summary of the sync operation.
      */
@@ -132,7 +155,7 @@ class XeroController extends Controller
         }
 
         try {
-            $summary = $this->xeroService->syncEstimates();
+            $summary = $this->xeroService->syncEstimates($request->user()->id);
         } catch (\Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

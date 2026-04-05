@@ -20,6 +20,7 @@ class Client extends Model
         'address',
         'notes',
         'created_by',
+        'xero_contact_id',
     ];
 
     /**

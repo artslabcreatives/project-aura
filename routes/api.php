@@ -164,6 +164,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('clients/{client}/contacts', [App\Http\Controllers\Api\ClientController::class, 'storeContact']);
     Route::put('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'updateContact']);
     Route::delete('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'destroyContact']);
+    Route::post('clients/{client}/merge', [App\Http\Controllers\Api\ClientController::class, 'mergeClients']);
 
     // Zoho Mail Integration
     Route::prefix('zoho')->group(function () {
@@ -187,6 +188,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/status', [XeroController::class, 'status']);
         Route::get('/auth-url', [XeroController::class, 'getAuthUrl']);
         Route::post('/sync', [XeroController::class, 'sync']);
+        Route::post('/sync-clients', [XeroController::class, 'syncClients']);
         Route::post('/sync-invoices', [XeroController::class, 'syncInvoices']);
     });
 

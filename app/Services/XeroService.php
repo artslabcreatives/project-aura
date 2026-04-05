@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\Client;
+use App\Models\ClientHistory;
 use App\Models\Estimate;
 use App\Models\EstimateItem;
 use App\Models\XeroToken;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -152,11 +154,122 @@ class XeroService
     }
 
     /**
+     * Fetch all Contacts from Xero and upsert them as local Clients.
+     *
+     * - Contacts already linked via xero_contact_id are updated in place.
+     * - Contacts whose name matches an existing client (case-insensitive) are
+     *   auto-merged: the existing client receives the xero_contact_id and a
+     *   history entry is recorded.
+     * - Remaining contacts are created as new clients.
+     *
+     * Returns a summary array ['created' => int, 'merged' => int, 'already_linked' => int, 'skipped' => int].
+     */
+    public function syncClients(?int $actorId = null): array
+    {
+        $bearer = $this->getBearerToken();
+        $token  = XeroToken::current();
+
+        $response = Http::withToken($bearer)
+            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+            ->get(self::API_BASE . '/Contacts', ['includeArchived' => 'false']);
+
+        if ($response->failed()) {
+            Log::error('Xero Contacts fetch failed', ['body' => $response->body()]);
+            throw new \RuntimeException('Failed to fetch Contacts from Xero: ' . $response->body());
+        }
+
+        $contacts      = $response->json('Contacts') ?? [];
+        $created       = 0;
+        $merged        = 0;
+        $alreadyLinked = 0;
+        $skipped       = 0;
+
+        foreach ($contacts as $contact) {
+            try {
+                $result = $this->upsertClient($contact, $actorId);
+                match ($result) {
+                    'created'        => $created++,
+                    'merged'         => $merged++,
+                    'already_linked' => $alreadyLinked++,
+                    default          => $skipped++,
+                };
+            } catch (\Throwable $e) {
+                Log::warning('Failed to sync Xero Contact', [
+                    'contact_id' => $contact['ContactID'] ?? null,
+                    'error'      => $e->getMessage(),
+                ]);
+                $skipped++;
+            }
+        }
+
+        return compact('created', 'merged', 'already_linked', 'skipped');
+    }
+
+    /**
+     * Upsert a single Xero Contact into the local clients table.
+     *
+     * @return string 'created' | 'merged' | 'already_linked' | 'skipped'
+     */
+    private function upsertClient(array $contact, ?int $actorId): string
+    {
+        $xeroContactId = $contact['ContactID'] ?? null;
+        $name          = trim($contact['Name'] ?? '');
+
+        if (!$xeroContactId || !$name) {
+            return 'skipped';
+        }
+
+        // 1. Already linked by xero_contact_id → nothing to do
+        $existing = Client::where('xero_contact_id', $xeroContactId)->first();
+        if ($existing) {
+            return 'already_linked';
+        }
+
+        // 2. Name match (case-insensitive) → auto-merge
+        $nameMatch = Client::whereRaw('LOWER(company_name) = ?', [strtolower($name)])->first();
+        if ($nameMatch) {
+            $nameMatch->update(['xero_contact_id' => $xeroContactId]);
+
+            ClientHistory::create([
+                'user_id'     => $actorId,
+                'client_id'   => $nameMatch->id,
+                'action'      => 'xero_auto_merged',
+                'target_name' => $nameMatch->company_name,
+                'details'     => [
+                    'xero_contact_id'   => $xeroContactId,
+                    'xero_contact_name' => $name,
+                ],
+            ]);
+
+            return 'merged';
+        }
+
+        // 3. No match → create new client
+        $client = Client::create([
+            'company_name'    => $name,
+            'email'           => $this->nullableString($contact['EmailAddress'] ?? null),
+            'phone'           => $this->nullableString($contact['Phones'][0]['PhoneNumber'] ?? null),
+            'xero_contact_id' => $xeroContactId,
+        ]);
+
+        ClientHistory::create([
+            'user_id'     => $actorId,
+            'client_id'   => $client->id,
+            'action'      => 'xero_client_created',
+            'target_name' => $client->company_name,
+            'details'     => ['xero_contact_id' => $xeroContactId],
+        ]);
+
+        return 'created';
+    }
+
+    /**
      * Fetch all Quotes from Xero and upsert them as local Estimates.
+     * Ensures every estimate has a client by resolving or creating one from the Xero Contact.
      *
      * Returns a summary array ['created' => int, 'updated' => int, 'skipped' => int].
      */
-    public function syncEstimates(): array
+    public function syncEstimates(?int $actorId = null): array
     {
         $bearer = $this->getBearerToken();
         $token  = XeroToken::current();
@@ -177,7 +290,7 @@ class XeroService
 
         foreach ($quotes as $quote) {
             try {
-                $result = $this->upsertEstimate($quote);
+                $result = $this->upsertEstimate($quote, $actorId);
                 match ($result) {
                     'created' => $created++,
                     'updated' => $updated++,
@@ -266,17 +379,16 @@ class XeroService
         }
 
         if (!$project) {
-            // No matching project found
             return false;
         }
 
         // Update project with invoice information
         $project->update([
-            'invoice_number' => $invoiceNumber,
+            'invoice_number'  => $invoiceNumber,
             'xero_invoice_id' => $invoice['InvoiceID'],
-            'invoice_total' => (float) ($invoice['Total'] ?? 0),
-            'invoice_status' => strtolower($invoice['Status'] ?? 'draft'),
-            'invoice_date' => $this->parseXeroDate($invoice['DateString'] ?? null),
+            'invoice_total'   => (float) ($invoice['Total'] ?? 0),
+            'invoice_status'  => strtolower($invoice['Status'] ?? 'draft'),
+            'invoice_date'    => $this->parseXeroDate($invoice['DateString'] ?? null),
             'invoice_due_date' => $this->parseXeroDate($invoice['DueDateString'] ?? null),
         ]);
 
@@ -285,10 +397,11 @@ class XeroService
 
     /**
      * Upsert a single Xero Quote into the local estimates table.
+     * The client is resolved or created from the Xero Contact so every estimate has a client.
      *
      * @return string 'created' | 'updated' | 'skipped'
      */
-    private function upsertEstimate(array $quote): string
+    private function upsertEstimate(array $quote, ?int $actorId): string
     {
         $xeroId = $quote['QuoteID'] ?? null;
         if (!$xeroId) {
@@ -296,7 +409,7 @@ class XeroService
         }
 
         $status    = self::STATUS_MAP[$quote['Status'] ?? ''] ?? 'draft';
-        $clientId  = $this->resolveClientId($quote['Contact'] ?? []);
+        $clientId  = $this->resolveOrCreateClient($quote['Contact'] ?? [], $actorId);
         $taxRate   = 0.0;
         $subtotal  = (float) ($quote['SubTotal'] ?? 0);
         $taxAmount = (float) ($quote['TotalTax'] ?? 0);
@@ -309,20 +422,20 @@ class XeroService
         $existing = Estimate::where('xero_estimate_id', $xeroId)->first();
 
         $data = [
-            'xero_estimate_id'   => $xeroId,
-            'estimate_number'    => $quote['QuoteNumber'] ?? null,
-            'title'              => $this->resolveQuoteTitle($quote),
-            'description'        => $this->nullableString($quote['Summary'] ?? null),
-            'client_id'          => $clientId,
-            'status'             => $status,
-            'notes'              => $this->nullableString($quote['Terms'] ?? null),
-            'issue_date'         => $this->parseXeroDate($quote['DateString'] ?? null),
-            'valid_until'        => $this->parseXeroDate($quote['ExpiryDateString'] ?? null),
-            'currency'           => $quote['CurrencyCode'] ?? 'USD',
-            'tax_rate'           => $taxRate,
-            'subtotal'           => $subtotal,
-            'tax_amount'         => $taxAmount,
-            'total'              => $total,
+            'xero_estimate_id'    => $xeroId,
+            'estimate_number'     => $quote['QuoteNumber'] ?? null,
+            'title'               => $this->resolveQuoteTitle($quote),
+            'description'         => $this->nullableString($quote['Summary'] ?? null),
+            'client_id'           => $clientId,
+            'status'              => $status,
+            'notes'               => $this->nullableString($quote['Terms'] ?? null),
+            'issue_date'          => $this->parseXeroDate($quote['DateString'] ?? null),
+            'valid_until'         => $this->parseXeroDate($quote['ExpiryDateString'] ?? null),
+            'currency'            => $quote['CurrencyCode'] ?? 'USD',
+            'tax_rate'            => $taxRate,
+            'subtotal'            => $subtotal,
+            'tax_amount'          => $taxAmount,
+            'total'               => $total,
             'xero_last_synced_at' => now(),
         ];
 
@@ -387,12 +500,88 @@ class XeroService
     }
 
     /**
-     * Attempt to match a Xero Contact to a local Client by company name.
+     * Resolve a Xero Contact to a local Client ID, or create one if none exists.
+     * Used during estimate sync to ensure every estimate has a client.
+     *
+     * - Checks by xero_contact_id first.
+     * - Falls back to case-insensitive name match (auto-merge).
+     * - Creates a new client if neither matches.
+     *
+     * Returns null only when the contact name is empty.
+     */
+    private function resolveOrCreateClient(array $contact, ?int $actorId): ?int
+    {
+        $xeroContactId = $this->nullableString($contact['ContactID'] ?? null);
+        $name          = trim($contact['Name'] ?? '');
+
+        if (!$name) {
+            return null;
+        }
+
+        // 1. Already linked by xero_contact_id
+        if ($xeroContactId) {
+            $linked = Client::where('xero_contact_id', $xeroContactId)->first();
+            if ($linked) {
+                return $linked->id;
+            }
+        }
+
+        // 2. Name match (case-insensitive) → auto-merge
+        $nameMatch = Client::whereRaw('LOWER(company_name) = ?', [strtolower($name)])->first();
+        if ($nameMatch) {
+            if ($xeroContactId && !$nameMatch->xero_contact_id) {
+                $nameMatch->update(['xero_contact_id' => $xeroContactId]);
+
+                ClientHistory::create([
+                    'user_id'     => $actorId,
+                    'client_id'   => $nameMatch->id,
+                    'action'      => 'xero_auto_merged',
+                    'target_name' => $nameMatch->company_name,
+                    'details'     => [
+                        'xero_contact_id'   => $xeroContactId,
+                        'xero_contact_name' => $name,
+                    ],
+                ]);
+            }
+            return $nameMatch->id;
+        }
+
+        // 3. No match → create new client
+        $client = Client::create([
+            'company_name'    => $name,
+            'email'           => $this->nullableString($contact['EmailAddress'] ?? null),
+            'phone'           => $this->nullableString($contact['Phones'][0]['PhoneNumber'] ?? null),
+            'xero_contact_id' => $xeroContactId,
+        ]);
+
+        ClientHistory::create([
+            'user_id'     => $actorId,
+            'client_id'   => $client->id,
+            'action'      => 'xero_client_created',
+            'target_name' => $client->company_name,
+            'details'     => ['xero_contact_id' => $xeroContactId],
+        ]);
+
+        return $client->id;
+    }
+
+    /**
+     * Attempt to match a Xero Contact to a local Client by xero_contact_id or company name.
      * Returns null when no match is found.
+     * Used for invoice syncing where we need lookup only (not create).
      */
     private function resolveClientId(array $contact): ?int
     {
-        $name = trim($contact['Name'] ?? '');
+        $xeroContactId = $this->nullableString($contact['ContactID'] ?? null);
+        $name          = trim($contact['Name'] ?? '');
+
+        if ($xeroContactId) {
+            $linked = Client::where('xero_contact_id', $xeroContactId)->first();
+            if ($linked) {
+                return $linked->id;
+            }
+        }
+
         if (!$name) {
             return null;
         }
@@ -435,11 +624,11 @@ class XeroService
         }
 
         return [
-            'connected'          => true,
-            'tenant_name'        => $token->tenant_name,
-            'tenant_id'          => $token->tenant_id,
-            'token_expires_at'   => $token->token_expires_at,
-            'token_is_expired'   => $token->isExpired(),
+            'connected'        => true,
+            'tenant_name'      => $token->tenant_name,
+            'tenant_id'        => $token->tenant_id,
+            'token_expires_at' => $token->token_expires_at,
+            'token_is_expired' => $token->isExpired(),
         ];
     }
 }
