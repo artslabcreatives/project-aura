@@ -166,13 +166,19 @@ class TaskController extends Controller
         // has no PO and no active grace period, or is manually blocked.
         $project = Project::find($validated['project_id']);
         if ($project && !$project->allowsTaskCreation()) {
-            $reason = $project->is_manually_blocked
-                ? 'This project is blocked and cannot accept new tasks.'
-                : 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.';
+            if ($project->is_archived) {
+                $reason = 'Cannot add tasks to an archived project.';
+            } elseif ($project->status === 'completed') {
+                $reason = 'Cannot add tasks to a completed project.';
+            } elseif ($project->is_manually_blocked) {
+                $reason = 'This project is blocked and cannot accept new tasks.';
+            } else {
+                $reason = 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.';
+            }
 
             return response()->json([
                 'message' => $reason,
-                'project_status' => $project->is_manually_blocked ? 'blocked' : 'requires_po',
+                'project_status' => $project->status,
             ], 403);
         }
 

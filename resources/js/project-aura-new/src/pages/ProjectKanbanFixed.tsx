@@ -41,6 +41,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { POUploadDialog } from "@/components/POUploadDialog";
 import { POViewDialog } from "@/components/POViewDialog";
+import { 
+	Select, 
+	SelectContent, 
+	SelectItem, 
+	SelectTrigger, 
+	SelectValue 
+} from "@/components/ui/select";
+import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -152,6 +160,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isReviewTaskDialogOpen, setIsReviewTaskDialogOpen] = useState(false);
 	const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
 	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
+	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
+	const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 	const [reviewTask, setReviewTask] = useState<Task | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
@@ -311,15 +321,76 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		}
 	};
 
+	const isDigitalMarketing = project.department?.name === "Digital Marketing";
+	const isCampaignReportApproved = !isDigitalMarketing || project.campaign_report_status === "approved";
+
+	const handleStatusChange = async (newStatus: string) => {
+		if (newStatus === "completed" && (currentUser?.role === "hr" || currentUser?.role === "admin")) {
+			if (!isCampaignReportApproved) {
+				toast({
+					title: "Report Required",
+					description: "A campaign report must be uploaded and approved before completing a Digital Marketing project.",
+					variant: "destructive",
+				});
+				return;
+			}
+			setIsInvoiceUploadOpen(true);
+			return;
+		}
+
+		setIsUpdatingStatus(true);
+		try {
+			const updatedProject = await projectService.update(String(project.id), {
+				status: newStatus,
+			});
+			
+			setProject(updatedProject);
+			
+			// Log project status change history
+			addHistoryEntry({
+				action: 'UPDATE_PROJECT_STATUS',
+				entityId: String(project.id),
+				entityType: 'project',
+				projectId: String(project.id),
+				userId: currentUser?.id || '',
+				details: {
+					from: project.status,
+					to: newStatus
+				}
+			});
+
+			toast({
+				title: "Status Updated",
+				description: `Project status changed to ${newStatus}.`,
+			});
+		} catch (error) {
+			console.error("Failed to update status:", error);
+			toast({
+				title: "Error",
+				description: "Failed to update project status. Please try again.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsUpdatingStatus(false);
+		}
+	};
+
 	// Determine if task creation is allowed (mirrors backend allowsTaskCreation())
 	const hasPO = !!project.poDocumentUrl || !!project.poNumber;
 	const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
 	const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
-	const canCreateTasks = !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
+	const isProjectActive = !project.isArchived && project.status !== 'completed';
+	const canCreateTasks = isProjectActive && (!project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
 
 	const handleAddTaskToStage = (stageId: string) => {
 		if (!canCreateTasks) {
-			toast({ title: 'PO Required', description: 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.', variant: 'destructive' });
+			if (project.isArchived) {
+				toast({ title: 'Project Archived', description: 'Cannot add tasks to an archived project.', variant: 'destructive' });
+			} else if (project.status === 'completed') {
+				toast({ title: 'Project Completed', description: 'Cannot add tasks to a completed project.', variant: 'destructive' });
+			} else {
+				toast({ title: 'PO Required', description: 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.', variant: 'destructive' });
+			}
 			return;
 		}
 		setEditingTask(null);
@@ -778,6 +849,27 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 										Archived
 									</Badge>
 								)}
+								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'hr') && (
+									<div className="flex items-center gap-1.5 ml-3">
+										<Select
+											disabled={isUpdatingStatus}
+											value={project.status || "active"}
+											onValueChange={handleStatusChange}
+										>
+											<SelectTrigger className="h-7 w-[120px] text-[10px] uppercase font-bold tracking-tight bg-muted/30 border-muted-foreground/20">
+												<SelectValue placeholder="Status" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="active" className="text-[10px] uppercase font-bold">Active</SelectItem>
+												<SelectItem value="on-hold" className="text-[10px] uppercase font-bold">On Hold</SelectItem>
+												<SelectItem value="blocked" className="text-[10px] uppercase font-bold">Blocked</SelectItem>
+												{(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+													<SelectItem value="completed" className="text-[10px] uppercase font-bold">Completed</SelectItem>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+								)}
 							</h1>
 							<div className="flex items-center gap-4 mt-1 text-muted-foreground">
 								<div
@@ -827,8 +919,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 													<Plus className="mr-2 h-4 w-4" /> Add Task
 												</Button>
 											) : (
-												<Button variant="destructive" disabled>
-													<Lock className="mr-2 h-4 w-4" /> PO Required
+												<Button variant="destructive" disabled className="opacity-80">
+													<Lock className="mr-2 h-4 w-4" /> 
+													{project.isArchived ? "Archived" : (project.status === 'completed' ? "Completed" : "PO Required")}
 												</Button>
 											)}
 										</>

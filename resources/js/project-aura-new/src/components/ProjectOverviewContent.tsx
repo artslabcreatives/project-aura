@@ -6,6 +6,7 @@ import { projectService } from "@/services/projectService";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import {
 	Building2,
 	Clock,
@@ -21,6 +22,7 @@ import {
 	FileText,
 	AlertTriangle,
 	BanIcon,
+	Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +43,7 @@ import { ProvisionalPODialog } from "@/components/ProvisionalPODialog";
 import { InvoiceViewDialog } from "@/components/InvoiceViewDialog";
 import { CampaignReportSection } from "@/components/CampaignReportSection";
 import { ProjectProfitability } from "@/components/ProjectProfitability";
+import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 
 interface ProjectOverviewContentProps {
 	project: Project;
@@ -180,7 +183,7 @@ export function ProjectOverviewContent({
 	};
 
 	const canChangeStatus =
-		currentUser?.role === "admin" || currentUser?.role === "hr";
+		currentUser?.role === "admin" || currentUser?.role === "hr" || currentUser?.role === "team-lead";
 	const canSeeClientInfo =
 		currentUser?.role === "admin" || currentUser?.role === "hr";
 	const canManageFinance =
@@ -334,29 +337,47 @@ export function ProjectOverviewContent({
 									View PO
 								</Button>
 								{project.invoiceDocumentUrl && (
-									<Button
-										variant="outline"
-										size="sm"
-										className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${
-											!isCampaignReportApproved
-												? "opacity-50 cursor-not-allowed"
-												: ""
-										}`}
-										onClick={() => {
-											if (isCampaignReportApproved) {
-												setIsInvoiceViewOpen(true);
-											} else {
-												toast({
-													title: "Report Required",
-													description:
-														"Report must be approved to view invoices.",
-													variant: "destructive",
-												});
-											}
-										}}
-									>
-										View Invoice
-									</Button>
+									<div className="flex items-center gap-1.5">
+										<Button
+											variant="outline"
+											size="sm"
+											className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${
+												!isCampaignReportApproved
+													? "opacity-50 cursor-not-allowed"
+													: ""
+											}`}
+											onClick={() => {
+												if (isCampaignReportApproved) {
+													setIsInvoiceViewOpen(true);
+												} else {
+													toast({
+														title: "Report Required",
+														description:
+															"Report must be approved to view invoices.",
+														variant: "destructive",
+													});
+												}
+											}}
+										>
+											View Invoice
+										</Button>
+										{project.isPhysicalInvoice && (
+											<Badge 
+												variant="outline" 
+												className={cn(
+													"h-6 text-[9px] font-bold uppercase border-none text-white flex items-center gap-1 px-2 cursor-pointer hover:opacity-90 transition-opacity",
+													project.courierDeliveryStatus === 'delivered' ? "bg-emerald-500" :
+													project.courierDeliveryStatus === 'shipped' ? "bg-amber-500" :
+													project.courierDeliveryStatus === 'returned' ? "bg-rose-500" :
+													"bg-indigo-500"
+												)}
+												onClick={() => setIsInvoiceViewOpen(true)}
+											>
+												<Truck className="h-3 w-3" />
+												{project.courierDeliveryStatus || 'Pending'}
+											</Badge>
+										)}
+									</div>
 								)}
 							</div>
 						) : project.invoiceDocumentUrl ? (
@@ -650,6 +671,14 @@ export function ProjectOverviewContent({
 			{canSeeClientInfo && project.client && (
 				<ProjectProfitability projectId={project.id} />
 			)}
+
+			{/* Project Finance: Expenses & Budget */}
+			<ProjectFinanceTab
+				project={project}
+				onBudgetUpdate={(budgetAllocated) =>
+					handleProjectChange({ ...project, budget_allocated: budgetAllocated ?? undefined })
+				}
+			/>
 
 			<div className="grid grid-cols-1 md:grid-cols-5 gap-6">
 				<Card className="h-full border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 flex flex-col">

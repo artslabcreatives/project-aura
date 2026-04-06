@@ -95,6 +95,7 @@ function mapProject(raw: any): Project {
 		gracePeriodApprovedBy: raw.grace_period_approved_by,
 		provisionalPoNumber: raw.provisional_po_number,
 		provisionalPoExpiresAt: raw.provisional_po_expires_at,
+		isPhysicalInvoice: raw.is_physical_invoice,
 		courierTrackingNumber: raw.courier_tracking_number,
 		courierDeliveryStatus: raw.courier_delivery_status,
 		currency: raw.currency,

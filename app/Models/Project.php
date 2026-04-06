@@ -53,6 +53,7 @@ class Project extends Model
         'total_cost',
         'actual_profit',
         'profit_margin_percentage',
+        'budget_allocated',
     ];
 
     protected $casts = [
@@ -70,6 +71,7 @@ class Project extends Model
         'total_cost' => 'decimal:2',
         'actual_profit' => 'decimal:2',
         'profit_margin_percentage' => 'decimal:2',
+        'budget_allocated' => 'decimal:2',
     ];
 
     protected $attributes = [
@@ -144,7 +146,7 @@ class Project extends Model
      */
     public function allowsTaskCreation(): bool
     {
-        if ($this->is_manually_blocked) {
+        if ($this->is_archived || $this->status === 'completed' || $this->is_manually_blocked) {
             return false;
         }
 
@@ -276,6 +278,14 @@ class Project extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the expense entries for the project.
+     */
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(ProjectExpense::class);
     }
 
     /**

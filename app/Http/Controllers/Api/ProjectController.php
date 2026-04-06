@@ -335,8 +335,9 @@ class ProjectController extends Controller
             $path = $request->file('invoice_document')->store('invoices', 's3');
             $validated['invoice_document'] = $path;
 
-            // Send email notification to client
-            if ($project->client && $project->client->email) {
+            // Send email notification to client only if NOT a physical invoice
+            $isPhysical = $request->input('is_physical_invoice') ?? $project->is_physical_invoice;
+            if (!$isPhysical && $project->client && $project->client->email) {
                 \Illuminate\Support\Facades\Mail::to($project->client->email)
                     ->send(new \App\Mail\InvoiceUploadedMailable($project));
             }

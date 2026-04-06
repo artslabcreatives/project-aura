@@ -38,17 +38,21 @@ export function InvoiceUploadDialog({ open, onOpenChange, project, onSuccess }: 
                 courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
             });
 
-            // Simulate sending email
-            setIsSendingEmail(true);
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            setIsSendingEmail(false);
+            // Simulate sending email only if NOT physical
+            if (!isPhysicalInvoice) {
+                setIsSendingEmail(true);
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                setIsSendingEmail(false);
+            }
 
             onSuccess(updatedProject);
             onOpenChange(false);
             setInvoiceDocument(undefined);
             toast({ 
                 title: "Invoice Uploaded", 
-                description: "Invoice has been uploaded and demo email sent to the client." 
+                description: isPhysicalInvoice 
+                    ? "Invoice has been uploaded. Tracking info is available in the invoice viewer." 
+                    : "Invoice has been uploaded and email sent to the client." 
             });
         } catch (error) {
             console.error("Failed to upload invoice:", error);
