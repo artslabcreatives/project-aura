@@ -104,6 +104,7 @@ function mapProject(raw: any): Project {
 		campaign_report_approved_by: raw.campaign_report_approved_by,
 		campaign_report_approved_at: raw.campaign_report_approved_at,
 		campaign_report_document_url: raw.campaign_report_document_url,
+		isInternalProject: raw.is_internal_project,
 	};
 }
 
@@ -146,6 +147,7 @@ export const projectService = {
 			project.emails?.forEach((email: string) => payload.append('emails[]', email));
 			project.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
 			if (project.currency) payload.append('currency', project.currency);
+			if (project.is_internal_project !== undefined) payload.append('is_internal_project', project.is_internal_project ? '1' : '0');
 		} else {
 			payload = {
 				name: project.name,
@@ -162,6 +164,7 @@ export const projectService = {
 				invoice_number: project.invoice_number,
 				invoice_document: project.invoice_document,
 				currency: project.currency,
+				is_internal_project: project.is_internal_project,
 			};
 		}
 
@@ -200,6 +203,7 @@ export const projectService = {
 			if (updates.invoice_document !== undefined) payload.append('invoice_document', updates.invoice_document);
 			if (updates.isPhysicalInvoice !== undefined) payload.append('is_physical_invoice', updates.isPhysicalInvoice ? '1' : '0');
 			if (updates.courierTrackingNumber !== undefined) payload.append('courier_tracking_number', updates.courierTrackingNumber);
+			if (updates.is_internal_project !== undefined) payload.append('is_internal_project', updates.is_internal_project ? '1' : '0');
 
 			// Append arrays
 			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
@@ -231,6 +235,7 @@ export const projectService = {
 				courier_tracking_number: updates.courierTrackingNumber,
 				courier_delivery_status: updates.courierDeliveryStatus,
 				currency: updates.currency,
+				is_internal_project: updates.isInternalProject || updates.is_internal_project,
 			};
 		}
 

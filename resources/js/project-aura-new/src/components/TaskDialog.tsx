@@ -295,7 +295,7 @@ export function TaskDialog({
 		const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
 		const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
 		
-		return !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
+		return project.isInternalProject || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {

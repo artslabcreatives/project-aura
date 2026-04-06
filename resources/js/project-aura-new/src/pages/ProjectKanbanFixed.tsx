@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock, Calendar } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar, Info } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -348,7 +348,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			
 			// Log project status change history
 			addHistoryEntry({
-				action: 'UPDATE_PROJECT_STATUS',
+				action: 'UPDATE_PROJECT',
 				entityId: String(project.id),
 				entityType: 'project',
 				projectId: String(project.id),
@@ -380,7 +380,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
 	const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
 	const isProjectActive = !project.isArchived && project.status !== 'completed';
-	const canCreateTasks = isProjectActive && (!project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
+	const canCreateTasks = isProjectActive && (project.isInternalProject || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
 
 	const handleAddTaskToStage = (stageId: string) => {
 		if (!canCreateTasks) {
@@ -816,7 +816,14 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 										Blocked
 									</Badge>
 								)}
-								{project.isLockedByPo ? (
+								{project.isInternalProject ? (
+									<Badge
+										variant="outline"
+										className="text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-500 border-blue-200 px-2 h-5 flex items-center gap-1"
+									>
+										<Info className="h-3 w-3" /> Internal Project
+									</Badge>
+								) : project.isLockedByPo ? (
 									<div className="flex items-center gap-2">
 										<Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-500 hover:bg-red-600 border-none px-2 h-5 flex items-center gap-1">
 											<Lock className="h-3 w-3" /> Awaiting PO

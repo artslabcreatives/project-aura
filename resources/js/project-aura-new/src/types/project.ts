@@ -51,4 +51,5 @@ export interface Project {
 	actualProfit?: number;
 	profitMarginPercentage?: number;
 	budget_allocated?: number;
+	isInternalProject?: boolean;
 }

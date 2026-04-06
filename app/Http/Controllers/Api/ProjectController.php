@@ -88,10 +88,13 @@ class ProjectController extends Controller
                     new OA\Property(property: "department_id", type: "integer", example: 1),
                     new OA\Property(property: "emails", type: "array", items: new OA\Items(type: "string", format: "email")),
                     new OA\Property(property: "phone_numbers", type: "array", items: new OA\Items(type: "string")),
+                    new OA\Property(property: "estimated_hours", type: "number", example: 40),
+                    new OA\Property(property: "status", type: "string", example: "active"),
+                    new OA\Property(property: "is_internal_project", type: "boolean", example: false),
+                    new OA\Property(property: "po_number", type: "string", example: "PO-123"),
+                    new OA\Property(property: "deadline", type: "string", format: "date", example: "2024-12-31"),
                     new OA\Property(property: "project_group_id", type: "integer", example: 1),
-                    new OA\Property(property: "client_id", type: "integer", example: 1, nullable: true),
-                    new OA\Property(property: "estimated_hours", type: "integer", example: 160, nullable: true),
-                    new OA\Property(property: "status", type: "string", example: "active", enum: ["active", "on-hold", "completed", "cancelled", "suggested"], nullable: true)
+                    new OA\Property(property: "client_id", type: "integer", example: 1, nullable: true)
                 ]
             )
         ),
@@ -139,6 +142,7 @@ class ProjectController extends Controller
             'provisional_po_expires_at' => 'nullable|date',
             'is_physical_invoice' => 'nullable|boolean',
             'courier_tracking_number' => 'nullable|string|max:255',
+            'is_internal_project' => 'nullable|boolean',
         ]);
 
         if ($request->hasFile('po_document')) {
@@ -313,6 +317,7 @@ class ProjectController extends Controller
             'is_physical_invoice' => 'nullable|boolean',
             'courier_tracking_number' => 'nullable|string|max:255',
             'courier_delivery_status' => 'nullable|string|max:255',
+            'is_internal_project' => 'nullable|boolean',
         ]);
 
         $wasArchived = $project->is_archived;

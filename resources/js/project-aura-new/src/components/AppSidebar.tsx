@@ -310,7 +310,8 @@ export function AppSidebar() {
 		poNumber?: string,
 		deadline?: string,
 		poDocument?: File,
-		currency?: string
+		currency?: string,
+		isInternalProject?: boolean
 	) => {
 		if (!currentUser) return;
 		try {
@@ -329,6 +330,7 @@ export function AppSidebar() {
 				deadline: deadline,
 				po_document: poDocument,
 				currency,
+				is_internal_project: isInternalProject,
 			});
 
 			// Fetch fresh project details to get any auto-created system stages
@@ -437,7 +439,8 @@ export function AppSidebar() {
 		poNumber?: string,
 		deadline?: string,
 		poDocument?: File,
-		currency?: string
+		currency?: string,
+		isInternalProject?: boolean
 	) => {
 		if (!currentUser || !projectToEdit) return;
 		try {
@@ -454,6 +457,7 @@ export function AppSidebar() {
 				deadline: deadline,
 				po_document: poDocument,
 				currency,
+				is_internal_project: isInternalProject,
 			});
 
 			// Create any newly added stages (id not numeric)

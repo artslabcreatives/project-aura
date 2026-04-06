@@ -54,6 +54,7 @@ class Project extends Model
         'actual_profit',
         'profit_margin_percentage',
         'budget_allocated',
+        'is_internal_project',
     ];
 
     protected $casts = [
@@ -72,6 +73,7 @@ class Project extends Model
         'actual_profit' => 'decimal:2',
         'profit_margin_percentage' => 'decimal:2',
         'budget_allocated' => 'decimal:2',
+        'is_internal_project' => 'boolean',
     ];
 
     protected $attributes = [
@@ -148,6 +150,10 @@ class Project extends Model
     {
         if ($this->is_archived || $this->status === 'completed' || $this->is_manually_blocked) {
             return false;
+        }
+
+        if ($this->is_internal_project) {
+            return true; // Internal projects don't need PO/Docs
         }
 
         if (!$this->is_locked_by_po) {

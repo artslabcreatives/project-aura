@@ -23,6 +23,7 @@ import {
 	AlertTriangle,
 	BanIcon,
 	Truck,
+	Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -306,7 +307,14 @@ export function ProjectOverviewContent({
 								{project.projectCode}
 							</span>
 						)}
-						{project.isLockedByPo ? (
+						{project.isInternalProject ? (
+							<Badge
+								variant="outline"
+								className="text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-500 border-blue-200 px-2 h-6 flex items-center gap-1"
+							>
+								<Info className="h-3 w-3" /> Internal Project
+							</Badge>
+						) : project.isLockedByPo ? (
 							<div className="flex items-center gap-2">
 								<Badge
 									variant="destructive"
@@ -499,7 +507,7 @@ export function ProjectOverviewContent({
 			</div>
 
 			{/* PO Warning Banner */}
-			{!hasPO && !hasGracePeriod && !hasProvisionalPO && (
+			{!hasPO && !hasGracePeriod && !hasProvisionalPO && !project.isInternalProject && (
 				<div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4">
 					<AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
 					<div className="flex-1">
@@ -536,7 +544,7 @@ export function ProjectOverviewContent({
 			)}
 
 			{/* Grace Period Banner */}
-			{hasGracePeriod && !hasPO && (
+			{hasGracePeriod && !hasPO && !project.isInternalProject && (
 				<div
 					className={`flex items-start gap-3 rounded-lg border p-4 ${
 						gracePeriodExpired
@@ -668,7 +676,7 @@ export function ProjectOverviewContent({
 			/>
 
 			{/* Project Profitability Section */}
-			{canSeeClientInfo && project.client && (
+			{canSeeClientInfo && project.client && !project.isInternalProject && (
 				<ProjectProfitability projectId={project.id} />
 			)}
 
