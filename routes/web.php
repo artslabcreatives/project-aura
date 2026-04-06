@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\SSOController;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,6 +14,10 @@ use Illuminate\Http\Request;
 | be assigned to the "web" middleware group. Make something great!
 |
 */
+
+// OIDC well-known discovery endpoints
+Route::get('/.well-known/openid-configuration', [SSOController::class, 'discovery']);
+Route::get('/.well-known/jwks.json', [SSOController::class, 'jwks']);
 
 // Mattermost embedded views (with API key authentication)
 // Usage: /mattermost/tasks?mattermost_token=YOUR_API_KEY&mattermost_user_id=123

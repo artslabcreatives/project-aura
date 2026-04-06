@@ -50,4 +50,5 @@ export interface Project {
 	totalCost?: number;
 	actualProfit?: number;
 	profitMarginPercentage?: number;
+	budget_allocated?: number;
 }

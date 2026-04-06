@@ -36,14 +36,14 @@ function formatElapsed(startedAt: string): string {
 export function ActiveTimersPopover() {
     const [open, setOpen] = useState(false);
     const [timers, setTimers] = useState<ActiveTimeLog[]>([]);
-    const [tick, setTick] = useState(0);
+    const [, setTick] = useState(0);
     const { toast } = useToast();
     const navigate = useNavigate();
 
     const fetchTimers = useCallback(async () => {
         try {
-            const response = await api.get('/user/active-timers');
-            setTimers(response.data);
+            const response = await api.get<ActiveTimeLog[]>('/user/active-timers');
+            setTimers(Array.isArray(response) ? response : []);
         } catch (error) {
             // Silently fail – timers are optional UI
         }
@@ -62,7 +62,7 @@ export function ActiveTimersPopover() {
         if (!hasTimers) return;
         const interval = setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(interval);
-    }, [timers.length > 0]);
+    }, [timers.length]);
 
     const stopTimer = async (timer: ActiveTimeLog) => {
         try {

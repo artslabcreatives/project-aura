@@ -63,16 +63,22 @@ class ProfitabilityService
     }
 
     /**
-     * Calculate project cost from actual hours worked.
+     * Calculate project cost from actual hours worked PLUS approved supplier/expense entries.
      */
     public function calculateProjectCost(Project $project): float
     {
-        return $project->tasks()
+        $taskCost = $project->tasks()
             ->whereNotNull('hourly_rate')
             ->get()
             ->sum(function ($task) {
                 return $task->hourly_rate * $task->actual_hours_worked;
             });
+
+        $expenseCost = $project->expenses()
+            ->where('status', 'approved')
+            ->sum('amount');
+
+        return $taskCost + (float) $expenseCost;
     }
 
     /**

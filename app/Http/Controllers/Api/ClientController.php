@@ -64,7 +64,25 @@ class ClientController extends Controller
             });
         }
 
-        return response()->json($query->orderBy('company_name')->get());
+        $query->orderBy('company_name');
+
+        if ($request->filled('per_page')) {
+            $perPage = max(1, min(100, (int) $request->per_page));
+            $paginator = $query->paginate($perPage);
+            return response()->json([
+                'data' => $paginator->items(),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page'    => $paginator->lastPage(),
+                    'per_page'     => $paginator->perPage(),
+                    'total'        => $paginator->total(),
+                    'from'         => $paginator->firstItem(),
+                    'to'           => $paginator->lastItem(),
+                ],
+            ]);
+        }
+
+        return response()->json($query->get());
     }
 
     public function store(Request $request)

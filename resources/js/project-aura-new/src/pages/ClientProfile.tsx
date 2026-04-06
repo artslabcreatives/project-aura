@@ -14,6 +14,7 @@ import {
 	Pencil,
 	Trash2,
 	ChevronLeft,
+	ChevronDown,
 	User as UserIcon,
 	Star,
 	MoreHorizontal,
@@ -104,6 +105,15 @@ export default function ClientProfile() {
 	const [editingContact, setEditingContact] = useState<ClientContact | null>(null);
 	const [contactToDelete, setContactToDelete] = useState<ClientContact | null>(null);
 	const [isDeletingClient, setIsDeletingClient] = useState(false);
+	const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+
+	const toggleGroup = (groupId: string) => {
+		setExpandedGroupId(prev => prev === groupId ? null : groupId);
+	};
+
+	const collapseAllGroups = () => {
+		setExpandedGroupId(null);
+	};
 
 	const fetchClient = async () => {
 		if (!id) return;
@@ -420,30 +430,54 @@ export default function ClientProfile() {
 								<FolderKanban className="h-5 w-5 text-primary" />
 								Associated Projects
 							</CardTitle>
-							<Badge variant="outline" className="font-normal">
-								{client.projects?.length || 0} Total
-							</Badge>
+							<div className="flex items-center gap-2">
+								{expandedGroupId && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={collapseAllGroups}
+										className="text-[10px] h-6 px-2 text-muted-foreground hover:text-primary font-medium"
+									>
+										Collapse All
+									</Button>
+								)}
+								<Badge variant="outline" className="font-normal">
+									{client.projects?.length || 0} Total
+								</Badge>
+							</div>
 						</CardHeader>
 						<CardContent className="space-y-6">
 							{client.projects && client.projects.length > 0 ? (
 								<>
 									{groupedProjects.groups.length > 0 && (
-										<div className="space-y-6">
-											{groupedProjects.groups.map(({ group, projects }) => (
-												<div key={group.id} className="space-y-3">
-													<div className="flex items-center gap-2 px-1">
-														<FolderOpen className="h-4 w-4 text-primary" />
-														<h4 className="text-sm font-semibold text-foreground/80">{group.name}</h4>
-														<Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal">
-															{projects.length}
-														</Badge>
-														<div className="h-px flex-grow bg-border/40 ml-2" />
+										<div className="space-y-4">
+											{groupedProjects.groups.map(({ group, projects }) => {
+												const isExpanded = expandedGroupId === String(group.id);
+												return (
+													<div key={group.id} className="space-y-3">
+														<div
+															className="flex items-center gap-2 px-1 cursor-pointer group/group-header"
+															onClick={() => toggleGroup(String(group.id))}
+														>
+															<ChevronDown className={cn(
+																"h-4 w-4 text-muted-foreground transition-transform duration-200",
+																!isExpanded && "-rotate-90"
+															)} />
+															<FolderOpen className="h-4 w-4 text-primary/70" />
+															<h4 className="text-sm font-semibold text-foreground/80 group-hover/group-header:text-primary transition-colors">{group.name}</h4>
+															<Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal">
+																{projects.length}
+															</Badge>
+															<div className="h-px flex-grow bg-border/40 ml-2" />
+														</div>
+														{isExpanded && (
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+																{projects.map(project => renderProjectCard(project))}
+															</div>
+														)}
 													</div>
-													<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-														{projects.map(project => renderProjectCard(project))}
-													</div>
-												</div>
-											))}
+												);
+											})}
 										</div>
 									)}
 
@@ -509,9 +543,9 @@ export default function ClientProfile() {
 														</span>
 													)}
 													<Badge className={`text-[10px] capitalize ${est.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-															est.status === 'sent' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-																est.status === 'rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
-																	'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+														est.status === 'sent' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+															est.status === 'rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+																'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
 														}`}>
 														{est.status}
 													</Badge>

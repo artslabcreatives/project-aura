@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\ClientHistory;
 use App\Models\Estimate;
 use App\Models\EstimateItem;
+use App\Models\Supplier;
 use App\Models\XeroToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -154,31 +155,55 @@ class XeroService
     }
 
     /**
-     * Fetch all Contacts from Xero and upsert them as local Clients.
+     * Fetch all paginated contacts from Xero matching an optional WHERE filter.
      *
-     * - Contacts already linked via xero_contact_id are updated in place.
-     * - Contacts whose name matches an existing client (case-insensitive) are
-     *   auto-merged: the existing client receives the xero_contact_id and a
-     *   history entry is recorded.
-     * - Remaining contacts are created as new clients.
+     * @throws \RuntimeException
+     */
+    private function fetchAllXeroContacts(string $bearer, string $tenantId, string $where = ''): array
+    {
+        $all  = [];
+        $page = 1;
+
+        do {
+            $params = ['includeArchived' => 'false', 'page' => $page];
+            if ($where !== '') {
+                $params['where'] = $where;
+            }
+
+            $response = Http::withToken($bearer)
+                ->withHeaders(['Xero-tenant-id' => $tenantId])
+                ->get(self::API_BASE . '/Contacts', $params);
+
+            if ($response->failed()) {
+                Log::error('Xero Contacts fetch failed', ['body' => $response->body()]);
+                throw new \RuntimeException('Failed to fetch Contacts from Xero: ' . $response->body());
+            }
+
+            $batch = $response->json('Contacts') ?? [];
+            $all   = array_merge($all, $batch);
+            $page++;
+        } while (count($batch) === 100);
+
+        return $all;
+    }
+
+    /**
+     * Sync only Xero Customers → local clients table.
+     * Also removes any previously-imported non-customer contacts from the clients table.
      *
-     * Returns a summary array ['created' => int, 'merged' => int, 'already_linked' => int, 'skipped' => int].
+     * Returns ['created', 'merged', 'already_linked', 'skipped', 'removed'].
      */
     public function syncClients(?int $actorId = null): array
     {
         $bearer = $this->getBearerToken();
         $token  = XeroToken::current();
 
-        $response = Http::withToken($bearer)
-            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
-            ->get(self::API_BASE . '/Contacts', ['includeArchived' => 'false']);
+        $contacts = $this->fetchAllXeroContacts($bearer, $token->tenant_id, 'IsCustomer=true');
 
-        if ($response->failed()) {
-            Log::error('Xero Contacts fetch failed', ['body' => $response->body()]);
-            throw new \RuntimeException('Failed to fetch Contacts from Xero: ' . $response->body());
-        }
+        // Remove any previously-imported Xero contacts that are not customers
+        $customerXeroIds = array_column($contacts, 'ContactID');
+        $removed = $this->purgeNonCustomerImports($customerXeroIds);
 
-        $contacts      = $response->json('Contacts') ?? [];
         $created       = 0;
         $merged        = 0;
         $alreadyLinked = 0;
@@ -202,7 +227,92 @@ class XeroService
             }
         }
 
-        return compact('created', 'merged', 'already_linked', 'skipped');
+        return ['created' => $created, 'merged' => $merged, 'already_linked' => $alreadyLinked, 'skipped' => $skipped, 'removed' => $removed];
+    }
+
+    /**
+     * Delete local clients that were auto-created by Xero sync but are not in the given customer ID list.
+     * Safe: only deletes records with a 'xero_client_created' history entry (not manually-merged ones).
+     */
+    private function purgeNonCustomerImports(array $customerXeroIds): int
+    {
+        $xeroCreatedClientIds = ClientHistory::where('action', 'xero_client_created')
+            ->pluck('client_id');
+
+        $toDelete = Client::whereNotNull('xero_contact_id')
+            ->whereNotIn('xero_contact_id', $customerXeroIds)
+            ->whereIn('id', $xeroCreatedClientIds)
+            ->get();
+
+        foreach ($toDelete as $client) {
+            $client->delete();
+        }
+
+        return $toDelete->count();
+    }
+
+    /**
+     * Sync only Xero Suppliers → local suppliers table.
+     *
+     * Returns ['created', 'already_linked', 'skipped'].
+     */
+    public function syncSuppliers(?int $actorId = null): array
+    {
+        $bearer = $this->getBearerToken();
+        $token  = XeroToken::current();
+
+        $contacts      = $this->fetchAllXeroContacts($bearer, $token->tenant_id, 'IsSupplier=true');
+        $created       = 0;
+        $alreadyLinked = 0;
+        $skipped       = 0;
+
+        foreach ($contacts as $contact) {
+            try {
+                $result = $this->upsertSupplier($contact);
+                match ($result) {
+                    'created'        => $created++,
+                    'already_linked' => $alreadyLinked++,
+                    default          => $skipped++,
+                };
+            } catch (\Throwable $e) {
+                Log::warning('Failed to sync Xero Supplier', [
+                    'contact_id' => $contact['ContactID'] ?? null,
+                    'error'      => $e->getMessage(),
+                ]);
+                $skipped++;
+            }
+        }
+
+        return ['created' => $created, 'already_linked' => $alreadyLinked, 'skipped' => $skipped];
+    }
+
+    /**
+     * Upsert a single Xero contact into the local suppliers table.
+     *
+     * @return string 'created' | 'already_linked' | 'skipped'
+     */
+    private function upsertSupplier(array $contact): string
+    {
+        $xeroContactId = $contact['ContactID'] ?? null;
+        $name          = trim($contact['Name'] ?? '');
+
+        if (!$xeroContactId || !$name) {
+            return 'skipped';
+        }
+
+        $existing = Supplier::where('xero_contact_id', $xeroContactId)->first();
+        if ($existing) {
+            return 'already_linked';
+        }
+
+        Supplier::create([
+            'company_name'    => $name,
+            'email'           => $this->nullableString($contact['EmailAddress'] ?? null),
+            'phone'           => $this->nullableString($contact['Phones'][0]['PhoneNumber'] ?? null),
+            'xero_contact_id' => $xeroContactId,
+        ]);
+
+        return 'created';
     }
 
     /**

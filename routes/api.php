@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\EstimateController;
+use App\Http\Controllers\Api\JothikaController;
 use App\Http\Controllers\Api\XeroController;
 use App\Http\Controllers\Api\HistoryEntryController;
 use App\Http\Controllers\Api\ProjectController;
@@ -25,6 +26,8 @@ use App\Http\Controllers\Api\ProfitabilityController;
 use App\Http\Controllers\Api\ClientFinancialController;
 use App\Http\Controllers\Api\TaskEfficiencyController;
 use App\Http\Controllers\MattermostAuthController;
+use App\Http\Controllers\Api\SSOController;
+use App\Http\Controllers\Api\OAuthClientController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -55,6 +58,18 @@ Route::get('users/search/exist', [UserController::class, 'exist']);
 Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Public avatar viewing
 Route::get('/zoho/callback', [\App\Http\Controllers\Api\ZohoMailController::class, 'handleCallback']);
 Route::get('/xero/callback', [XeroController::class, 'callback']);
+
+// ─── SSO / OAuth 2.0 ──────────────────────────────────────────────────────────
+// Public endpoints (no auth required)
+Route::prefix('oauth')->group(function () {
+    Route::get('/authorize',   [SSOController::class, 'validateAuthorize']); // validate request, return client info
+    Route::post('/token',      [SSOController::class, 'token']);             // exchange code / refresh token
+    Route::post('/revoke',     [SSOController::class, 'revoke']);            // revoke token
+    Route::get('/jwks',        [SSOController::class, 'jwks']);              // public keys
+    Route::get('/userinfo',    [SSOController::class, 'userinfo']);          // resource owner info (SSO JWT bearer)
+});
+// OIDC discovery (also accessible via /.well-known in web routes)
+Route::get('/openid-configuration', [SSOController::class, 'discovery']);
 
 // Protected API routes (require bearer token)
 Route::middleware('auth:sanctum')->group(function () {
@@ -166,6 +181,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('clients/{client}/contacts/{contact}', [App\Http\Controllers\Api\ClientController::class, 'destroyContact']);
     Route::post('clients/{client}/merge', [App\Http\Controllers\Api\ClientController::class, 'mergeClients']);
 
+    // Suppliers
+    Route::get('suppliers', [App\Http\Controllers\Api\SupplierController::class, 'index']);
+    Route::delete('suppliers/{supplier}', [App\Http\Controllers\Api\SupplierController::class, 'destroy']);
+
     // Zoho Mail Integration
     Route::prefix('zoho')->group(function () {
         Route::get('/auth-url', [\App\Http\Controllers\Api\ZohoMailController::class, 'getAuthUrl']);
@@ -189,6 +208,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth-url', [XeroController::class, 'getAuthUrl']);
         Route::post('/sync', [XeroController::class, 'sync']);
         Route::post('/sync-clients', [XeroController::class, 'syncClients']);
+        Route::post('/sync-suppliers', [XeroController::class, 'syncSuppliers']);
         Route::post('/sync-invoices', [XeroController::class, 'syncInvoices']);
     });
 
@@ -205,11 +225,38 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/clients/{client}/invoice-summary', [ClientFinancialController::class, 'getInvoiceSummary']);
     Route::get('/financial/aggregation', [ClientFinancialController::class, 'getFinancialAggregation']);
 
+    // Project Finance / Expenses
+    Route::get('/projects/{project}/expenses', [\App\Http\Controllers\Api\ProjectExpenseController::class, 'index']);
+    Route::post('/projects/{project}/expenses', [\App\Http\Controllers\Api\ProjectExpenseController::class, 'store']);
+    Route::get('/projects/{project}/expenses/{expense}', [\App\Http\Controllers\Api\ProjectExpenseController::class, 'show']);
+    Route::post('/projects/{project}/expenses/{expense}', [\App\Http\Controllers\Api\ProjectExpenseController::class, 'update']); // multipart/form-data uses POST
+    Route::delete('/projects/{project}/expenses/{expense}', [\App\Http\Controllers\Api\ProjectExpenseController::class, 'destroy']);
+    Route::post('/projects/{project}/expenses/{expense}/approve', [\App\Http\Controllers\Api\ProjectExpenseController::class, 'approve']);
+    Route::post('/projects/{project}/expenses/{expense}/reject', [\App\Http\Controllers\Api\ProjectExpenseController::class, 'reject']);
+
+    // Jothika Integration (Reimbursement System)
+    Route::prefix('jothika')->group(function () {
+        Route::get('/token/status', [JothikaController::class, 'tokenStatus']);
+        Route::post('/token', [JothikaController::class, 'storeToken']);
+        Route::delete('/token', [JothikaController::class, 'revokeToken']);
+        Route::post('/reimbursement', [JothikaController::class, 'createReimbursement']);
+        Route::post('/reimbursement/create-from-expense', [JothikaController::class, 'createReimbursementFromExpense']);
+    });
+
     // Task Efficiency Tracking
     Route::get('/projects/{project}/efficiency', [TaskEfficiencyController::class, 'getProjectEfficiency']);
     Route::get('/users/{user}/efficiency', [TaskEfficiencyController::class, 'getUserEfficiency']);
     Route::get('/users/{user}/efficiency-trends', [TaskEfficiencyController::class, 'getUserEfficiencyTrends']);
     Route::get('/departments/{department}/efficiency', [TaskEfficiencyController::class, 'getDepartmentEfficiency']);
+
+    // SSO — user approves/denies the consent screen (requires logged-in Sanctum session)
+    Route::post('/oauth/authorize', [SSOController::class, 'approve']);
+
+    // SSO — OAuth client management (admin only)
+    Route::middleware('role:admin')->prefix('oauth')->group(function () {
+        Route::apiResource('clients', OAuthClientController::class)->parameter('clients', 'oauthClient');
+        Route::post('/clients/{oauthClient}/regenerate-secret', [OAuthClientController::class, 'regenerateSecret']);
+    });
 });
 
 // 2FA Verification during login

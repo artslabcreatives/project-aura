@@ -145,6 +145,27 @@ class XeroController extends Controller
     }
 
     /**
+     * Trigger a manual sync of Xero Suppliers → local suppliers table.
+     */
+    public function syncSuppliers(Request $request): JsonResponse
+    {
+        if (!in_array($request->user()->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can sync Xero suppliers.'], 403);
+        }
+
+        try {
+            $summary = $this->xeroService->syncSuppliers($request->user()->id);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Xero suppliers synced successfully.',
+            ...$summary,
+        ]);
+    }
+
+    /**
      * Trigger a manual sync of Xero Quotes → local Estimates.
      * Returns a summary of the sync operation.
      */

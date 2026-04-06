@@ -219,7 +219,7 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 	const location = useLocation();
 
 	// Skip authentication for public routes
-	const publicPaths = ['/set-password', '/reset-password'];
+	const publicPaths = ['/set-password', '/reset-password', '/sso/authorize', '/oauth/authorize'];
 	const isPublicRoute = publicPaths.some(path => location.pathname.startsWith(path));
 
 	if (isPublicRoute) {
@@ -266,6 +266,8 @@ import TaskEfficiency from "./pages/TaskEfficiency";
 import DepartmentEfficiency from "./pages/DepartmentEfficiency";
 import { PublicMattermostChat } from "./pages/PublicMattermostChat";
 import { ReminderPoller } from "./components/ReminderPoller";
+import SSOAuthorize from "./pages/SSOAuthorize";
+import SSOClients from "./pages/SSOClients";
 
 const Dashboard = () => {
 	const { currentUser } = useUser();
@@ -290,10 +292,9 @@ const App = () => (
 							{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
 							<Route path="/chat" element={<PublicMattermostChat />} />
 
-							{/* Public route for setting password from invite */}
-							<Route path="/set-password" element={<SetPassword />} />
-							<Route path="/reset-password" element={<ResetPasswordPage />} />
-
+							{/* SSO authorize consent page — manages its own auth */}
+							<Route path="/sso/authorize" element={<SSOAuthorize />} />
+							<Route path="/oauth/authorize" element={<SSOAuthorize />} />
 							{/* Regular routes */}
 							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
 							<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
@@ -347,6 +348,11 @@ const App = () => (
 								</ProtectedRoute>
 							} />
 							<Route path="/emails" element={<AppLayout><Emails /></AppLayout>} />
+							<Route path="/sso/clients" element={
+								<ProtectedRoute allowedRoles={['admin']}>
+									<AppLayout><SSOClients /></AppLayout>
+								</ProtectedRoute>
+							} />
 
 							{/* Mattermost embedded routes (with /mattermost prefix) */}
 							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />

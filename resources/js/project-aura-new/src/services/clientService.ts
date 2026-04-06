@@ -1,10 +1,26 @@
 import { api } from './api';
 import { Client, ClientContact, ClientHistory } from '@/types/client';
 
+export interface PaginationMeta {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
 export const clientService = {
     getAll: async (search?: string): Promise<Client[]> => {
         const { data } = await api.get('/clients', {
             params: { search }
+        });
+        return data;
+    },
+
+    getPaginated: async (search?: string, page = 1, perPage = 15): Promise<{ data: Client[]; meta: PaginationMeta }> => {
+        const { data } = await api.get('/clients', {
+            params: { search: search || undefined, page, per_page: perPage }
         });
         return data;
     },

@@ -960,6 +960,307 @@
                 }
             }
         },
+        "/change-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Change password (for first login or regular password change)",
+                "operationId": "33cde1dae105c834f2e6b4791447f88e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "new_password",
+                                    "new_password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "currentpassword123"
+                                    },
+                                    "new_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "minLength": 8,
+                                        "example": "newpassword123"
+                                    },
+                                    "new_password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newpassword123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password changed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password changed successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Current password is incorrect"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/set-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Set password using invite token (for new users)",
+                "operationId": "f30e4604a2e02f727c8d03b1eafb00cc",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "token",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "newuser@example.com"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "example": "abc123..."
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newpassword123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newpassword123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password set successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password set successfully"
+                                        },
+                                        "user": {
+                                            "type": "object"
+                                        },
+                                        "token": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or expired token"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/user/seen-welcome-video": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Mark welcome video as seen",
+                "operationId": "de0d4f8ae05a9a61652efb2f9cbffca6",
+                "responses": {
+                    "200": {
+                        "description": "Welcome video marked as seen",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Welcome video marked as seen"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/clients": {
+            "get": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "List all clients",
+                "operationId": "6536f8d22d25758c3e14dbbe8e228af0",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of clients"
+                    }
+                }
+            }
+        },
+        "/clients/{client}/financial-dashboard": {
+            "get": {
+                "tags": [
+                    "Client Finance"
+                ],
+                "summary": "Get client financial dashboard",
+                "operationId": "63c0b5e100c548484c1dd045c8475d74",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client financial dashboard data"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Client not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/clients/{client}/invoice-summary": {
+            "get": {
+                "tags": [
+                    "Client Finance"
+                ],
+                "summary": "Get client invoice summary",
+                "operationId": "97a5fb0a084ddec15510eb076f027e35",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client invoice summary"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/financial/aggregation": {
+            "get": {
+                "tags": [
+                    "Client Finance"
+                ],
+                "summary": "Get financial aggregation across all clients",
+                "operationId": "7957a45874d5a173f04a901269da5933",
+                "responses": {
+                    "200": {
+                        "description": "Financial aggregation data"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden - Admin/HR only"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/departments": {
             "get": {
                 "tags": [
@@ -1208,6 +1509,421 @@
                     },
                     "404": {
                         "description": "Department not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/estimates": {
+            "get": {
+                "tags": [
+                    "Estimates"
+                ],
+                "summary": "List all estimates",
+                "operationId": "4aaf6d714b6672006a4bddecd4c14131",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "client_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of estimates"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Estimates"
+                ],
+                "summary": "Create a new estimate and auto-generate a Suggested project",
+                "operationId": "706e7568d7b35b845ce86d016db4e2f1",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "title"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "example": "Website Redesign Estimate"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "client_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "estimated_hours": {
+                                        "type": "integer",
+                                        "example": 80,
+                                        "nullable": true
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5000,
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "draft",
+                                            "sent",
+                                            "approved",
+                                            "accepted",
+                                            "rejected"
+                                        ],
+                                        "example": "draft"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "issue_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    },
+                                    "valid_until": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "example": "USD",
+                                        "nullable": true
+                                    },
+                                    "tax_rate": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 10,
+                                        "nullable": true
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "description": {
+                                                    "type": "string"
+                                                },
+                                                "quantity": {
+                                                    "type": "number"
+                                                },
+                                                "unit_price": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Estimate created with auto-generated Suggested project"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/estimates/{id}": {
+            "get": {
+                "tags": [
+                    "Estimates"
+                ],
+                "summary": "Get estimate by ID",
+                "operationId": "255ccad51418c9878814a6a666ffa4a1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Estimate details"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Estimate not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Estimates"
+                ],
+                "summary": "Update an estimate",
+                "operationId": "051b571c9352a6366e7129701f74cd62",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "client_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "estimated_hours": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "draft",
+                                            "sent",
+                                            "approved",
+                                            "accepted",
+                                            "rejected"
+                                        ]
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "issue_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    },
+                                    "valid_until": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "tax_rate": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "description": {
+                                                    "type": "string"
+                                                },
+                                                "quantity": {
+                                                    "type": "number"
+                                                },
+                                                "unit_price": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Estimate updated"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Estimate not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Estimates"
+                ],
+                "summary": "Delete an estimate",
+                "operationId": "7402e8f114e663f0b025bb69b18fa78c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Estimate deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Estimate not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/estimates/{id}/send": {
+            "post": {
+                "tags": [
+                    "Estimates"
+                ],
+                "summary": "Mark a draft estimate as sent",
+                "operationId": "a62a883823b6951ca395b17bc7eab723",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Estimate marked as sent"
+                    },
+                    "422": {
+                        "description": "Estimate is not in draft status"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Estimate not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/estimates/{id}/approve": {
+            "post": {
+                "tags": [
+                    "Estimates"
+                ],
+                "summary": "Approve a sent estimate",
+                "operationId": "3ad4290f1840ddbf01a9f5d43835b55c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Estimate approved"
+                    },
+                    "422": {
+                        "description": "Estimate is not in sent status"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Estimate not found"
                     }
                 },
                 "security": [
@@ -1545,6 +2261,260 @@
                 ]
             }
         },
+        "/api/jothika/token": {
+            "post": {
+                "tags": [
+                    "Jothika Integration"
+                ],
+                "summary": "Store Jothika API token for current user",
+                "operationId": "a9e0886a1596b55f166d63de22227389",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "token"
+                                ],
+                                "properties": {
+                                    "token": {
+                                        "description": "Jothika API token",
+                                        "type": "string"
+                                    },
+                                    "expires_at": {
+                                        "description": "Token expiration time (optional)",
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token stored successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "has_token": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Jothika Integration"
+                ],
+                "summary": "Revoke/disconnect Jothika token for current user",
+                "operationId": "d0996a9d7c15e860f568106115579396",
+                "responses": {
+                    "200": {
+                        "description": "Token revoked successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/jothika/token/status": {
+            "get": {
+                "tags": [
+                    "Jothika Integration"
+                ],
+                "summary": "Check if current user has a valid Jothika token",
+                "operationId": "9e3c27cd55513cd1231fc9765c142ef1",
+                "responses": {
+                    "200": {
+                        "description": "Token status",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "has_token": {
+                                            "type": "boolean"
+                                        },
+                                        "is_valid": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/jothika/reimbursement/create-from-expense": {
+            "post": {
+                "tags": [
+                    "Jothika Integration"
+                ],
+                "summary": "Create reimbursement in Jothika from project expense",
+                "operationId": "afdfcbb3a2e4408627bde41f82279434",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "expense_id",
+                                    "project_id"
+                                ],
+                                "properties": {
+                                    "expense_id": {
+                                        "description": "Project expense ID",
+                                        "type": "integer"
+                                    },
+                                    "project_id": {
+                                        "description": "Project ID",
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reimbursement created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "jothika_id": {
+                                            "type": "integer"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Expense not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/jothika/reimbursement": {
+            "post": {
+                "tags": [
+                    "Jothika Integration"
+                ],
+                "summary": "Create a custom reimbursement in Jothika",
+                "operationId": "e8abcad6e5db085bddd0b613eb5515d2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "amount",
+                                    "currency",
+                                    "description",
+                                    "expense_date"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "description": "Expense amount",
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "currency": {
+                                        "description": "Currency code (USD, LKR, etc.)",
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "description": "Expense description",
+                                        "type": "string"
+                                    },
+                                    "expense_date": {
+                                        "description": "Date of expense (YYYY-MM-DD)",
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "client_name": {
+                                        "description": "Client name (optional)",
+                                        "type": "string"
+                                    },
+                                    "is_cost_of_sales": {
+                                        "description": "Is this cost of sales? (default: true)",
+                                        "type": "boolean"
+                                    },
+                                    "reference": {
+                                        "description": "Reference ID (optional)",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reimbursement created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "jothika_id": {
+                                            "type": "integer"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
         "/notifications": {
             "get": {
                 "tags": [
@@ -1677,6 +2647,255 @@
                 ]
             }
         },
+        "/projects/{project}/profitability": {
+            "get": {
+                "tags": [
+                    "Profitability"
+                ],
+                "summary": "Get project profitability",
+                "operationId": "4c90a61033370794b9eb9a498f4116bc",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Project profitability data"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Project not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/clients/{client}/profitability": {
+            "get": {
+                "tags": [
+                    "Profitability"
+                ],
+                "summary": "Get client profitability across all projects",
+                "operationId": "52b4d984dd35a07fe258ce2662040651",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client profitability data"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/tasks/{task}/time-log": {
+            "post": {
+                "tags": [
+                    "Profitability"
+                ],
+                "summary": "Log time for a task",
+                "operationId": "d1937157267786c07269efb11fc75754",
+                "parameters": [
+                    {
+                        "name": "task",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "started_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-03T10:00:00Z"
+                                    },
+                                    "ended_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-03T12:00:00Z",
+                                        "nullable": true
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Worked on implementation",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Time log created"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Task not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/tasks/{task}/time-log/{timeLog}": {
+            "patch": {
+                "tags": [
+                    "Profitability"
+                ],
+                "summary": "End a time log for a task",
+                "operationId": "18c8fccec0fd1b5a6ce81a919dcaba36",
+                "parameters": [
+                    {
+                        "name": "task",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "timeLog",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "ended_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-03T12:00:00Z"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Completed the implementation",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Time log updated"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Time log not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/tasks/{task}/time-logs": {
+            "get": {
+                "tags": [
+                    "Profitability"
+                ],
+                "summary": "Get all time logs for a task",
+                "operationId": "8e956d3aecb01a118fa4058b9620a67b",
+                "parameters": [
+                    {
+                        "name": "task",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of time logs"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/user/active-timers": {
+            "get": {
+                "tags": [
+                    "Profitability"
+                ],
+                "summary": "Get all active timers for the current user",
+                "operationId": "c83cd7fc4f7f3a0572e9b5f06b3cca1d",
+                "responses": {
+                    "200": {
+                        "description": "List of active time logs with task info"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/projects": {
             "get": {
                 "tags": [
@@ -1777,6 +2996,28 @@
                                     "project_group_id": {
                                         "type": "integer",
                                         "example": 1
+                                    },
+                                    "client_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "estimated_hours": {
+                                        "type": "integer",
+                                        "example": 160,
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "on-hold",
+                                            "completed",
+                                            "cancelled",
+                                            "suggested"
+                                        ],
+                                        "example": "active",
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -1804,6 +3045,9 @@
                                             "type": "object"
                                         },
                                         "group": {
+                                            "type": "object"
+                                        },
+                                        "client": {
                                             "type": "object"
                                         },
                                         "stages": {
@@ -1870,6 +3114,9 @@
                                             "type": "object"
                                         },
                                         "group": {
+                                            "type": "object"
+                                        },
+                                        "client": {
                                             "type": "object"
                                         },
                                         "stages": {
@@ -4861,6 +6108,197 @@
                 ]
             }
         },
+        "/tasks/{id}/early-start": {
+            "post": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Move a task early and notify department team lead",
+                "operationId": "7258bd3be7065443307656902cc5b2da",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "project_stage_id"
+                                ],
+                                "properties": {
+                                    "project_stage_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Task moved early"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Task not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/projects/{project}/efficiency": {
+            "get": {
+                "tags": [
+                    "Task Efficiency"
+                ],
+                "summary": "Get project task efficiency metrics",
+                "operationId": "dc751b77a93b03f1661c64feb9278091",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Project efficiency metrics"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/users/{user}/efficiency": {
+            "get": {
+                "tags": [
+                    "Task Efficiency"
+                ],
+                "summary": "Get user task efficiency metrics",
+                "operationId": "27549d9d5eb680c8d79d15490e27603a",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User efficiency metrics"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/users/{user}/efficiency-trends": {
+            "get": {
+                "tags": [
+                    "Task Efficiency"
+                ],
+                "summary": "Get user efficiency trends over time",
+                "operationId": "35788d52be0e762d10b39be5b4cd5d9a",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "days",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User efficiency trends"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/departments/{department}/efficiency": {
+            "get": {
+                "tags": [
+                    "Task Efficiency"
+                ],
+                "summary": "Get department-wide efficiency metrics",
+                "operationId": "454325ddb2fbe9922e70d23b2c2084eb",
+                "parameters": [
+                    {
+                        "name": "department",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Department efficiency metrics"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/users": {
             "get": {
                 "tags": [
@@ -5156,6 +6594,93 @@
                     }
                 }
             }
+        },
+        "/users/{user}/avatar": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get user's profile image from Mattermost",
+                "operationId": "7b3a5b6fbd895dc0e17d276d8c29c8dc",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User's profile image",
+                        "content": {
+                            "image/jpeg": {}
+                        }
+                    },
+                    "404": {
+                        "description": "User not found or no image"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Upload user avatar to Mattermost",
+                "operationId": "4db645c4b637edc8aacc074ab1722f03",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "avatar": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Avatar uploaded to Mattermost"
+                    },
+                    "400": {
+                        "description": "Invalid file or Mattermost error"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "User not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -5173,12 +6698,28 @@
             "description": "Task completion analytics and reporting endpoints"
         },
         {
+            "name": "Jothika Integration",
+            "description": "Jothika reimbursement system integration"
+        },
+        {
             "name": "Authentication",
             "description": "Authentication"
         },
         {
+            "name": "Clients",
+            "description": "Clients"
+        },
+        {
+            "name": "Client Finance",
+            "description": "Client Finance"
+        },
+        {
             "name": "Departments",
             "description": "Departments"
+        },
+        {
+            "name": "Estimates",
+            "description": "Estimates"
         },
         {
             "name": "Feedback",
@@ -5191,6 +6732,10 @@
         {
             "name": "Notifications",
             "description": "Notifications"
+        },
+        {
+            "name": "Profitability",
+            "description": "Profitability"
         },
         {
             "name": "Projects",
@@ -5231,6 +6776,10 @@
         {
             "name": "Tasks",
             "description": "Tasks"
+        },
+        {
+            "name": "Task Efficiency",
+            "description": "Task Efficiency"
         },
         {
             "name": "Users",
