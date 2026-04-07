@@ -57,6 +57,8 @@ class AuraAIServer extends Server
         \App\Mcp\Tools\SendReminderTool::class,
         \App\Mcp\Tools\GenerateDailyReportTool::class,
         \App\Mcp\Tools\AutoReallocateTasksTool::class,
+        // Finance/Estimate tools
+        \App\Mcp\Tools\AttachEstimatePOTool::class,
     ];
 
     /**

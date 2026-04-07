@@ -55,6 +55,9 @@ class Project extends Model
         'profit_margin_percentage',
         'budget_allocated',
         'is_internal_project',
+        'manual_reminder_date',
+        'manual_reminder_frequency_days',
+        'manual_reminder_days',
     ];
 
     protected $casts = [
@@ -74,6 +77,10 @@ class Project extends Model
         'profit_margin_percentage' => 'decimal:2',
         'budget_allocated' => 'decimal:2',
         'is_internal_project' => 'boolean',
+        'manual_reminder_date' => 'date',
+        'manual_reminder_frequency_days' => 'integer',
+        'manual_reminder_days' => 'array',
+        'last_automated_reminder_sent_at' => 'datetime',
     ];
 
     protected $attributes = [

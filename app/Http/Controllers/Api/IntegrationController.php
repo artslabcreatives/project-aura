@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\AutomatedReminderSetting;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,28 +23,67 @@ class IntegrationController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $cutoff = Carbon::today()->addDays(7);
+        $setting = AutomatedReminderSetting::where('type', 'grace_period_expiry')->first();
+        $defaultDaysBefore = $setting && is_array($setting->days_before) ? $setting->days_before : [7, 3, 1];
+        $cutoff = Carbon::today()->addDays(max($defaultDaysBefore));
 
         $projects = Project::query()
             ->where('is_locked_by_po', true)
             ->whereNotNull('grace_period_expires_at')
-            ->where('grace_period_expires_at', '<=', $cutoff)
-            ->with('gracePeriodApprover:id,name,email')
+            ->where(function ($query) use ($cutoff) {
+                // Determine the largest cutoff value for general filtering
+                $query->whereNotNull('manual_reminder_date')
+                      ->where('manual_reminder_date', '<=', Carbon::today())
+                      ->orWhere(function ($q) use ($cutoff) {
+                          $q->whereNull('manual_reminder_date')
+                            ->where('grace_period_expires_at', '<=', $cutoff);
+                      });
+            })
             ->get();
 
-        $data = $projects->map(function (Project $project) {
+        $data = [];
+
+        foreach ($projects as $project) {
+            $lastSent = $project->last_automated_reminder_sent_at;
+            
+            // Skip if already sent today
+            if ($lastSent && $lastSent->isToday()) {
+                continue;
+            }
+
+            $shouldSend = false;
             $daysRemaining = Carbon::today()->diffInDays($project->grace_period_expires_at, false);
 
-            return [
-                'project_id'      => $project->id,
-                'project_name'    => $project->name,
-                'project_code'    => $project->project_code,
-                'expires_at'      => $project->grace_period_expires_at->toDateString(),
-                'days_remaining'  => $daysRemaining,
-                'recipient_email' => 'shashithrashmikapiyathilaka@gmail.com',
-                'recipient_name' => 'admin',
-            ];
-        });
+            if ($project->manual_reminder_date) {
+                if ($project->manual_reminder_date <= Carbon::today()) {
+                    $shouldSend = true;
+                }
+            } else {
+                $triggerDays = $project->manual_reminder_days ?? $defaultDaysBefore;
+                // If daysRemaining is exactly one of the trigger days, send it.
+                if (in_array((int)$daysRemaining, $triggerDays)) {
+                    $shouldSend = true;
+                }
+            }
+
+            if ($shouldSend) {
+                $data[] = [
+                    'project_id'      => $project->id,
+                    'project_name'    => $project->name,
+                    'project_code'    => $project->project_code,
+                    'expires_at'      => $project->grace_period_expires_at->toDateString(),
+                    'days_remaining'  => $daysRemaining,
+                    'manual_reminder_date' => $project->manual_reminder_date,
+                    'manual_reminder_days' => $project->manual_reminder_days,
+                    'recipient_email' => 'shashithrashmikapiyathilaka@gmail.com',
+                    'recipient_name' => 'admin',
+                ];
+
+                // Update last sent time
+                $project->last_automated_reminder_sent_at = Carbon::now();
+                $project->save();
+            }
+        }
 
         return response()->json(['data' => $data]);
     }

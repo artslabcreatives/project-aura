@@ -86,6 +86,10 @@ return [
             'description' => 'Assign a task to a user',
             'handler' => \App\Mcp\Tools\AssignTaskTool::class,
         ],
+        'attach_estimate_po' => [
+            'description' => 'Check if an estimate has amounts and PO number, then attach the PO to the associated project',
+            'handler' => \App\Mcp\Tools\AttachEstimatePOTool::class,
+        ],
     ],
 
     // Prompt definitions - register your prompts here or use the API

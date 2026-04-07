@@ -257,6 +257,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('clients', OAuthClientController::class)->parameter('clients', 'oauthClient');
         Route::post('/clients/{oauthClient}/regenerate-secret', [OAuthClientController::class, 'regenerateSecret']);
     });
+
+    // Automated Reminder Settings
+    Route::get('/automated-reminder-settings', [App\Http\Controllers\Api\AutomatedReminderSettingController::class, 'index']);
+    Route::patch('/automated-reminder-settings/{setting}', [App\Http\Controllers\Api\AutomatedReminderSettingController::class, 'updateSetting']);
+    Route::patch('/projects/{project}/reminder-override', [App\Http\Controllers\Api\AutomatedReminderSettingController::class, 'updateProjectOverride']);
+    Route::get('/automated-reminder-settings/audit-logs', [App\Http\Controllers\Api\AutomatedReminderSettingController::class, 'auditLogs']);
 });
 
 // 2FA Verification during login
