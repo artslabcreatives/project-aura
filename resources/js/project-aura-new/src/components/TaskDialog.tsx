@@ -9,6 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { format, isPast, isToday, isValid } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,7 @@ import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-s
 import { Project } from "@/types/project";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Link as LinkIcon, Upload, Loader2, ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { X, Plus, Link as LinkIcon, Upload, Loader2, ChevronRight, ChevronLeft, Check, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { attachmentService } from "@/services/attachmentService";
@@ -114,7 +115,7 @@ export function TaskDialog({
 	// Tag states
 	const [availableTags, setAvailableTags] = useState<Tag[]>([]);
 	const [tagDepartmentId, setTagDepartmentId] = useState<string>("");
-	
+
 	const [currentStep, setCurrentStep] = useState(1);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -259,7 +260,7 @@ export function TaskDialog({
 		if (!formData.title.trim()) newErrors.title = "Title is required";
 		if (!formData.project) newErrors.project = "Project is required";
 		if (formData.assigneeIds.length === 0) newErrors.assignee = "Assignee is required";
-		
+
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
 	};
@@ -267,7 +268,7 @@ export function TaskDialog({
 	const validateStep2 = () => {
 		const newErrors: Record<string, string> = {};
 		if (!noEndDate && !formData.dueDate) newErrors.dueDate = "End date is required";
-		
+
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
 	};
@@ -285,7 +286,6 @@ export function TaskDialog({
 	const prevStep = () => {
 		setCurrentStep(prev => Math.max(prev - 1, 1));
 	};
-
 	const allowsTaskCreation = (projectName: string) => {
 		if (!allProjects) return true;
 		const project = allProjects.find(p => p.name === projectName);
@@ -294,9 +294,39 @@ export function TaskDialog({
 		const hasPO = !!project.poDocumentUrl || !!project.poNumber;
 		const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
 		const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
-		
+
 		return project.isInternalProject || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO;
 	};
+
+	const getAssignmentRestriction = () => {
+		if (!allProjects || !formData.project) return null;
+
+		const project = allProjects.find(p => p.name === formData.project);
+		if (project) {
+			if (project.status === 'on-hold') {
+				return "Project is paused. Assignments are restricted.";
+			}
+
+			const projectDeadline = project.deadline ? new Date(project.deadline) : null;
+			if (projectDeadline && isValid(projectDeadline) && isPast(projectDeadline) && !isToday(projectDeadline) && project.status !== 'completed' && !project.isArchived) {
+				return "Project is delayed/overdue. Assignments are restricted.";
+			}
+		}
+
+		if (editTask) {
+			const dueDate = editTask.dueDate ? new Date(editTask.dueDate) : null;
+			const isTaskComplete = editTask.userStatus === "complete";
+			const isDelayed = dueDate && isValid(dueDate) && isPast(dueDate) && !isToday(dueDate) && !isTaskComplete;
+
+			if (isDelayed) {
+				return "Task is delayed/overdue. Assignments are restricted.";
+			}
+		}
+
+		return null;
+	};
+
+	const assignmentRestriction = getAssignmentRestriction();
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -321,7 +351,6 @@ export function TaskDialog({
 		}
 		if (currentStep !== 3) return;
 
-		// Store as-is without timezone conversion
 		// Store as-is without timezone conversion
 		const dueDateTime = noEndDate
 			? null
@@ -552,9 +581,9 @@ export function TaskDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent 
-				className="sm:max-w-[700px] max-h-[95vh] p-0 flex flex-col gap-0 overflow-hidden" 
-				onPointerDownOutside={(e) => e.preventDefault()} 
+			<DialogContent
+				className="sm:max-w-[700px] max-h-[95vh] p-0 flex flex-col gap-0 overflow-hidden"
+				onPointerDownOutside={(e) => e.preventDefault()}
 				onEscapeKeyDown={(e) => e.preventDefault()}
 				onInteractOutside={(e) => e.preventDefault()}
 			>
@@ -578,7 +607,7 @@ export function TaskDialog({
 									<div className={cn(
 										"h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all",
 										currentStep === step ? "border-primary bg-primary text-primary-foreground scale-110" :
-										currentStep > step ? "border-primary bg-primary/20 text-primary" : "border-muted text-muted-foreground"
+											currentStep > step ? "border-primary bg-primary/20 text-primary" : "border-muted text-muted-foreground"
 									)}>
 										{currentStep > step ? <Check className="h-4 w-4" /> : step}
 									</div>
@@ -663,8 +692,16 @@ export function TaskDialog({
 											}}
 											options={memberOptions}
 											placeholder="Select member"
+											disabled={!!assignmentRestriction}
 										/>
-										{errors.assignee && <span className="text-xs text-destructive">{errors.assignee}</span>}
+										{assignmentRestriction ? (
+											<div className="flex items-center gap-1.5 mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-700 animate-in fade-in slide-in-from-top-1">
+												<AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+												<span>{assignmentRestriction}</span>
+											</div>
+										) : errors.assignee && (
+											<span className="text-xs text-destructive">{errors.assignee}</span>
+										)}
 										{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
 											<div className="flex items-center space-x-2 mt-2">
 												<Checkbox
@@ -687,464 +724,464 @@ export function TaskDialog({
 								<div className="grid grid-cols-2 gap-4">
 									<div className="grid gap-2">
 										<Label htmlFor="status">Status</Label>
-								<Select
-									value={useProjectStages ? formData.projectStage : formData.userStatus}
-									onValueChange={(value) => {
-										const updates: any = {};
+										<Select
+											value={useProjectStages ? formData.projectStage : formData.userStatus}
+											onValueChange={(value) => {
+												const updates: any = {};
 
-										if (useProjectStages) {
-											updates.projectStage = value;
-											// Try to map back to userStatus if possible
-											const selectedStage = availableStatuses.find(s => s.id === value);
-											if (selectedStage) {
-												const title = selectedStage.title.toLowerCase();
-												if (title === 'pending') updates.userStatus = 'pending';
-												else if (title.includes('complete')) updates.userStatus = 'complete';
-												else updates.userStatus = 'in-progress';
-											}
-										} else {
-											updates.userStatus = value as UserStatus;
-
-											// Auto-select corresponding project stage if available
-											if (allProjects && formData.project) {
-												const project = allProjects.find(p => p.name === formData.project);
-												if (project && project.stages) {
-													let mappedStage;
-													if (value === 'pending') {
-														mappedStage = project.stages.find(s => s.title.toLowerCase() === 'pending');
-													} else if (value === 'complete') {
-														mappedStage = project.stages.find(s => ['complete', 'completed'].includes(s.title.toLowerCase()));
-													} else {
-														// For in-progress, maybe don't force a stage unless we know which one?
-														// Or better, clear it to avoid mismatch?
-														// Actually keeping it undefined is safer for the backend to handle or ignore.
+												if (useProjectStages) {
+													updates.projectStage = value;
+													// Try to map back to userStatus if possible
+													const selectedStage = availableStatuses.find(s => s.id === value);
+													if (selectedStage) {
+														const title = selectedStage.title.toLowerCase();
+														if (title === 'pending') updates.userStatus = 'pending';
+														else if (title.includes('complete')) updates.userStatus = 'complete';
+														else updates.userStatus = 'in-progress';
 													}
+												} else {
+													updates.userStatus = value as UserStatus;
 
-													if (mappedStage) {
-														updates.projectStage = String(mappedStage.id);
-													} else {
-														updates.projectStage = "";
+													// Auto-select corresponding project stage if available
+													if (allProjects && formData.project) {
+														const project = allProjects.find(p => p.name === formData.project);
+														if (project && project.stages) {
+															let mappedStage;
+															if (value === 'pending') {
+																mappedStage = project.stages.find(s => s.title.toLowerCase() === 'pending');
+															} else if (value === 'complete') {
+																mappedStage = project.stages.find(s => ['complete', 'completed'].includes(s.title.toLowerCase()));
+															} else {
+																// For in-progress, maybe don't force a stage unless we know which one?
+																// Or better, clear it to avoid mismatch?
+																// Actually keeping it undefined is safer for the backend to handle or ignore.
+															}
+
+															if (mappedStage) {
+																updates.projectStage = String(mappedStage.id);
+															} else {
+																updates.projectStage = "";
+															}
+														}
 													}
 												}
+
+												setFormData(prev => ({ ...prev, ...updates }));
+											}}
+											disabled={isStageLocked}
+										>
+											<SelectTrigger id="status">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												{(useProjectStages && allProjects && formData.project
+													? allProjects.find(p => p.name === formData.project)?.stages || availableStatuses
+													: availableStatuses
+												)
+													.filter((status) => status.title !== "Specific Stage") // Hide Specific Stage from selection
+													.slice()
+													.sort((a, b) => {
+														return a.order - b.order;
+													})
+													.map((status) => (
+														<SelectItem key={status.id} value={status.id}>
+															{status.title === "Pending" && !disableBacklogRenaming
+																? "Backlog"
+																: status.title}
+														</SelectItem>
+													))}
+											</SelectContent>
+										</Select>
+									</div>
+
+									<div className="grid gap-2">
+										<Label htmlFor="priority">Priority</Label>
+										<Select
+											value={formData.priority}
+											onValueChange={(value: TaskPriority) =>
+												setFormData({ ...formData, priority: value })
 											}
-										}
+										>
+											<SelectTrigger id="priority">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="low">Low</SelectItem>
+												<SelectItem value="medium">Medium</SelectItem>
+												<SelectItem value="high">High</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
 
-										setFormData(prev => ({ ...prev, ...updates }));
-									}}
-									disabled={isStageLocked}
-								>
-									<SelectTrigger id="status">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{(useProjectStages && allProjects && formData.project
-											? allProjects.find(p => p.name === formData.project)?.stages || availableStatuses
-											: availableStatuses
-										)
-											.filter((status) => status.title !== "Specific Stage") // Hide Specific Stage from selection
-											.slice()
-											.sort((a, b) => {
-												return a.order - b.order;
-											})
-											.map((status) => (
-												<SelectItem key={status.id} value={status.id}>
-													{status.title === "Pending" && !disableBacklogRenaming
-														? "Backlog"
-														: status.title}
-												</SelectItem>
-											))}
-									</SelectContent>
-								</Select>
-							</div>
+								{/* Start Stage Selector - Show whenever we have a project stage that is "Pending" */}
+								{(() => {
+									// Determine if we should show the start stage selector
+									// Condition: We have a valid project selected, and the CURRENT projectStage is "Pending"
 
-							<div className="grid gap-2">
-								<Label htmlFor="priority">Priority</Label>
-								<Select
-									value={formData.priority}
-									onValueChange={(value: TaskPriority) =>
-										setFormData({ ...formData, priority: value })
+									if (!formData.project) return null;
+
+									// Find the relevant stages
+									let currentProjectStages: Stage[] = [];
+
+									if (allProjects) {
+										const proj = allProjects.find(p => p.name === formData.project);
+										if (proj) currentProjectStages = proj.stages;
 									}
-								>
-									<SelectTrigger id="priority">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="low">Low</SelectItem>
-										<SelectItem value="medium">Medium</SelectItem>
-										<SelectItem value="high">High</SelectItem>
-									</SelectContent>
-								</Select>
+
+									// Fallback if useProjectStages is true and availableStatuses are passed correctly
+									if (currentProjectStages.length === 0 && useProjectStages) {
+										currentProjectStages = availableStatuses;
+									}
+
+									if (currentProjectStages.length === 0) return null;
+
+									// Check if current stage is Pending
+									// We check formData.projectStage
+									const currentStageId = formData.projectStage;
+									const currentStage = currentProjectStages.find(s => String(s.id) === String(currentStageId));
+
+									// If we don't have a mapped project stage, check if userStatus is pending and we can find a pending stage
+									let isPending = false;
+									if (currentStage) {
+										isPending = currentStage.title.toLowerCase() === "pending";
+									} else if (formData.userStatus === 'pending') {
+										// If userStatus is pending, we might have just failed to map it above due to state updates delay or earlier logic
+										// But we should try to find the pending stage to show the options
+										const pendingStage = currentProjectStages.find(s => s.title.toLowerCase() === 'pending');
+										if (pendingStage) {
+											isPending = true;
+											// Verify if we should have had this set
+										}
+									}
+
+									if (!isPending) return null;
+
+									// Get available stages excluding Pending and Suggested Task
+									const startStageOptions = currentProjectStages
+										.filter(s => s.title !== "Pending" && s.title !== "Suggested Task" && s.title !== "Specific Stage")
+										.sort((a, b) => a.order - b.order);
+
+									return (
+										<div className="grid gap-2">
+											<Label htmlFor="startStage">Start Stage (Auto-move)</Label>
+											<Select
+												value={formData.startStageId || undefined}
+												onValueChange={(value) =>
+													setFormData({ ...formData, startStageId: value || "" })
+												}
+											>
+												<SelectTrigger id="startStage">
+													<SelectValue placeholder="None (Stay in Pending)" />
+												</SelectTrigger>
+												<SelectContent>
+													{startStageOptions.map((stage) => (
+														<SelectItem key={stage.id} value={String(stage.id)}>
+															{stage.title}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+											<p className="text-xs text-muted-foreground">
+												Task will automatically move to this stage when the start time arrives
+											</p>
+										</div>
+									);
+								})()}
+
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<div className="flex items-center justify-between">
+											<Label htmlFor="startDate">Start Date</Label>
+											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+												<div className="flex items-center space-x-2">
+													<Checkbox
+														id="noStartDate"
+														checked={noStartDate}
+														onCheckedChange={(checked) => setNoStartDate(checked as boolean)}
+													/>
+													<Label htmlFor="noStartDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+												</div>
+											)}
+										</div>
+										<Input
+											id="startDate"
+											type="date"
+											value={formData.startDate}
+											disabled={noStartDate}
+											onChange={(e) =>
+												setFormData({ ...formData, startDate: e.target.value })
+											}
+										/>
+									</div>
+									<div className="grid gap-2">
+										<Label htmlFor="startTime">Start Time</Label>
+										<Input
+											id="startTime"
+											type="time"
+											value={formData.startTime}
+											disabled={noStartDate}
+											onChange={(e) =>
+												setFormData({ ...formData, startTime: e.target.value })
+											}
+										/>
+									</div>
+								</div>
+
+								<div className="grid grid-cols-2 gap-4">
+									<div className="grid gap-2">
+										<div className="flex items-center justify-between">
+											<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
+											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+												<div className="flex items-center space-x-2">
+													<Checkbox
+														id="noEndDate"
+														checked={noEndDate}
+														onCheckedChange={(checked) => setNoEndDate(checked as boolean)}
+													/>
+													<Label htmlFor="noEndDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+												</div>
+											)}
+										</div>
+										<Input
+											id="dueDate"
+											type="date"
+											value={formData.dueDate}
+											disabled={noEndDate}
+											onChange={(e) =>
+												setFormData({ ...formData, dueDate: e.target.value })
+											}
+											required={!noEndDate}
+										/>
+									</div>
+									<div className="grid gap-2">
+										<Label htmlFor="dueTime">End Time</Label>
+										<Input
+											id="dueTime"
+											type="time"
+											value={formData.dueTime}
+											disabled={noEndDate}
+											onChange={(e) =>
+												setFormData({ ...formData, dueTime: e.target.value })
+											}
+										/>
+									</div>
+								</div>
 							</div>
-						</div>
+						)}
 
-						{/* Start Stage Selector - Show whenever we have a project stage that is "Pending" */}
-						{(() => {
-							// Determine if we should show the start stage selector
-							// Condition: We have a valid project selected, and the CURRENT projectStage is "Pending"
-
-							if (!formData.project) return null;
-
-							// Find the relevant stages
-							let currentProjectStages: Stage[] = [];
-
-							if (allProjects) {
-								const proj = allProjects.find(p => p.name === formData.project);
-								if (proj) currentProjectStages = proj.stages;
-							}
-
-							// Fallback if useProjectStages is true and availableStatuses are passed correctly
-							if (currentProjectStages.length === 0 && useProjectStages) {
-								currentProjectStages = availableStatuses;
-							}
-
-							if (currentProjectStages.length === 0) return null;
-
-							// Check if current stage is Pending
-							// We check formData.projectStage
-							const currentStageId = formData.projectStage;
-							const currentStage = currentProjectStages.find(s => String(s.id) === String(currentStageId));
-
-							// If we don't have a mapped project stage, check if userStatus is pending and we can find a pending stage
-							let isPending = false;
-							if (currentStage) {
-								isPending = currentStage.title.toLowerCase() === "pending";
-							} else if (formData.userStatus === 'pending') {
-								// If userStatus is pending, we might have just failed to map it above due to state updates delay or earlier logic
-								// But we should try to find the pending stage to show the options
-								const pendingStage = currentProjectStages.find(s => s.title.toLowerCase() === 'pending');
-								if (pendingStage) {
-									isPending = true;
-									// Verify if we should have had this set
-								}
-							}
-
-							if (!isPending) return null;
-
-							// Get available stages excluding Pending and Suggested Task
-							const startStageOptions = currentProjectStages
-								.filter(s => s.title !== "Pending" && s.title !== "Suggested Task" && s.title !== "Specific Stage")
-								.sort((a, b) => a.order - b.order);
-
-							return (
+						{currentStep === 3 && (
+							<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
 								<div className="grid gap-2">
-									<Label htmlFor="startStage">Start Stage (Auto-move)</Label>
-									<Select
-										value={formData.startStageId || undefined}
-										onValueChange={(value) =>
-											setFormData({ ...formData, startStageId: value || "" })
-										}
-									>
-										<SelectTrigger id="startStage">
-											<SelectValue placeholder="None (Stay in Pending)" />
-										</SelectTrigger>
-										<SelectContent>
-											{startStageOptions.map((stage) => (
-												<SelectItem key={stage.id} value={String(stage.id)}>
-													{stage.title}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									<p className="text-xs text-muted-foreground">
-										Task will automatically move to this stage when the start time arrives
-									</p>
-								</div>
-							);
-						})()}
-
-						<div className="grid grid-cols-2 gap-4">
-							<div className="grid gap-2">
-								<div className="flex items-center justify-between">
-									<Label htmlFor="startDate">Start Date</Label>
-									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
-										<div className="flex items-center space-x-2">
-											<Checkbox
-												id="noStartDate"
-												checked={noStartDate}
-												onCheckedChange={(checked) => setNoStartDate(checked as boolean)}
-											/>
-											<Label htmlFor="noStartDate" className="text-xs font-normal text-muted-foreground">No date</Label>
-										</div>
-									)}
-								</div>
-								<Input
-									id="startDate"
-									type="date"
-									value={formData.startDate}
-									disabled={noStartDate}
-									onChange={(e) =>
-										setFormData({ ...formData, startDate: e.target.value })
-									}
-								/>
-							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="startTime">Start Time</Label>
-								<Input
-									id="startTime"
-									type="time"
-									value={formData.startTime}
-									disabled={noStartDate}
-									onChange={(e) =>
-										setFormData({ ...formData, startTime: e.target.value })
-									}
-								/>
-							</div>
-						</div>
-
-						<div className="grid grid-cols-2 gap-4">
-							<div className="grid gap-2">
-								<div className="flex items-center justify-between">
-									<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
-									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
-										<div className="flex items-center space-x-2">
-											<Checkbox
-												id="noEndDate"
-												checked={noEndDate}
-												onCheckedChange={(checked) => setNoEndDate(checked as boolean)}
-											/>
-											<Label htmlFor="noEndDate" className="text-xs font-normal text-muted-foreground">No date</Label>
-										</div>
-									)}
-								</div>
-								<Input
-									id="dueDate"
-									type="date"
-									value={formData.dueDate}
-									disabled={noEndDate}
-									onChange={(e) =>
-										setFormData({ ...formData, dueDate: e.target.value })
-									}
-									required={!noEndDate}
-								/>
-							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="dueTime">End Time</Label>
-								<Input
-									id="dueTime"
-									type="time"
-									value={formData.dueTime}
-									disabled={noEndDate}
-									onChange={(e) =>
-										setFormData({ ...formData, dueTime: e.target.value })
-									}
-								/>
-							</div>
-						</div>
-					</div>
-				)}
-
-				{currentStep === 3 && (
-					<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
-						<div className="grid gap-2">
 									<div className="flex items-center justify-between">
 										<Label>Tags</Label>
-								{currentUser?.role === 'admin' && (
-									<Select value={tagDepartmentId} onValueChange={setTagDepartmentId} disabled={!!fixedDepartmentId}>
-										<SelectTrigger className="w-[180px] h-8 text-xs">
-											<SelectValue placeholder="Filter by Department" />
-										</SelectTrigger>
-										<SelectContent>
-											{departments.map((dept) => (
-												<SelectItem key={dept.id} value={dept.id}>
-													{dept.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								)}
-							</div>
+										{currentUser?.role === 'admin' && (
+											<Select value={tagDepartmentId} onValueChange={setTagDepartmentId} disabled={!!fixedDepartmentId}>
+												<SelectTrigger className="w-[180px] h-8 text-xs">
+													<SelectValue placeholder="Filter by Department" />
+												</SelectTrigger>
+												<SelectContent>
+													{departments.map((dept) => (
+														<SelectItem key={dept.id} value={dept.id}>
+															{dept.name}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										)}
+									</div>
 
-							<div className="flex flex-wrap gap-2 mb-2">
-								{tags.map(tag => (
-									<Badge key={tag} variant="secondary" className="gap-1">
-										{tag}
-										<X
-											className="h-3 w-3 cursor-pointer"
-											onClick={() => removeTag(tag)}
-										/>
-									</Badge>
-								))}
-							</div>
-							<div className="flex flex-wrap gap-2 mb-2">
-								{availableTags
-									.filter(tag => !tags.includes(tag.name))
-									.map(tag => (
-										<Badge
-											key={tag.id}
-											variant="outline"
-											className="cursor-pointer hover:bg-secondary"
-											onClick={() => addTag(tag.name)}
-										>
-											<Plus className="h-3 w-3 mr-1" />
-											{tag.name}
-										</Badge>
-									))}
-							</div>
-
-							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
-								<div className="flex gap-2">
-									<Input
-										placeholder="New tag name..."
-										value={newTag}
-										onChange={(e) => setNewTag(e.target.value)}
-										onKeyPress={(e) => {
-											if (e.key === 'Enter') {
-												e.preventDefault();
-												handleCreateTag();
-											}
-										}}
-									/>
-									<Button
-										type="button"
-										variant="outline"
-										size="icon"
-										onClick={handleCreateTag}
-										disabled={!newTag || !tagDepartmentId}
-									>
-										<Plus className="h-4 w-4" />
-									</Button>
-								</div>
-							)}
-						</div>
-
-						<div className="grid gap-2">
-							<Label>Attachments</Label>
-
-							{/* Existing attachments from server */}
-							{attachments.length > 0 && (
-								<div className="space-y-2 mb-2">
-									{attachments.map(attachment => (
-										<div
-											key={attachment.id}
-											className="flex items-center justify-between p-2 border rounded-md"
-										>
-											<div className="flex items-center gap-2">
-												{attachment.type === "link" ? (
-													<LinkIcon className="h-4 w-4 text-blue-500" />
-												) : (
-													<Upload className="h-4 w-4 text-green-500" />
-												)}
-												<a
-													href={attachment.url}
-													target="_blank"
-													rel="noopener noreferrer"
-													className="text-sm truncate max-w-[200px] hover:underline"
+									<div className="flex flex-wrap gap-2 mb-2">
+										{tags.map(tag => (
+											<Badge key={tag} variant="secondary" className="gap-1">
+												{tag}
+												<X
+													className="h-3 w-3 cursor-pointer"
+													onClick={() => removeTag(tag)}
+												/>
+											</Badge>
+										))}
+									</div>
+									<div className="flex flex-wrap gap-2 mb-2">
+										{availableTags
+											.filter(tag => !tags.includes(tag.name))
+											.map(tag => (
+												<Badge
+													key={tag.id}
+													variant="outline"
+													className="cursor-pointer hover:bg-secondary"
+													onClick={() => addTag(tag.name)}
 												>
-													{attachment.name}
-												</a>
-											</div>
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon"
-												className="h-6 w-6"
-												onClick={() => removeAttachment(attachment.id)}
-											>
-												<X className="h-3 w-3" />
-											</Button>
-										</div>
-									))}
-								</div>
-							)}
-
-							{/* Pending files to upload */}
-							{pendingFiles.length > 0 && (
-								<div className="space-y-2 mb-2">
-									{pendingFiles.map(pendingFile => (
-										<div
-											key={pendingFile.id}
-											className="flex items-center justify-between p-2 border border-dashed rounded-md bg-muted/50"
-										>
-											<div className="flex items-center gap-2">
-												<Upload className="h-4 w-4 text-orange-500" />
-												<span className="text-sm truncate max-w-[200px]">
-													{pendingFile.name}
-												</span>
-												<Badge variant="outline" className="text-xs">
-													Pending upload
+													<Plus className="h-3 w-3 mr-1" />
+													{tag.name}
 												</Badge>
-											</div>
+											))}
+									</div>
+
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+										<div className="flex gap-2">
+											<Input
+												placeholder="New tag name..."
+												value={newTag}
+												onChange={(e) => setNewTag(e.target.value)}
+												onKeyPress={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														handleCreateTag();
+													}
+												}}
+											/>
 											<Button
 												type="button"
-												variant="ghost"
+												variant="outline"
 												size="icon"
-												className="h-6 w-6"
-												onClick={() => removeAttachment(pendingFile.id)}
+												onClick={handleCreateTag}
+												disabled={!newTag || !tagDepartmentId}
 											>
-												<X className="h-3 w-3" />
+												<Plus className="h-4 w-4" />
 											</Button>
 										</div>
-									))}
+									)}
 								</div>
-							)}
 
-							{/* Pending links to add */}
-							{pendingLinks.length > 0 && (
-								<div className="space-y-2 mb-2">
-									{pendingLinks.map((link, index) => (
-										<div
-											key={`pending-link-${index}`}
-											className="flex items-center justify-between p-2 border border-dashed rounded-md bg-muted/50"
-										>
-											<div className="flex items-center gap-2">
-												<LinkIcon className="h-4 w-4 text-orange-500" />
-												<span className="text-sm truncate max-w-[200px]">
-													{link.name}
-												</span>
-												<Badge variant="outline" className="text-xs">
-													Pending
-												</Badge>
-											</div>
+								<div className="grid gap-2">
+									<Label>Attachments</Label>
+
+									{/* Existing attachments from server */}
+									{attachments.length > 0 && (
+										<div className="space-y-2 mb-2">
+											{attachments.map(attachment => (
+												<div
+													key={attachment.id}
+													className="flex items-center justify-between p-2 border rounded-md"
+												>
+													<div className="flex items-center gap-2">
+														{attachment.type === "link" ? (
+															<LinkIcon className="h-4 w-4 text-blue-500" />
+														) : (
+															<Upload className="h-4 w-4 text-green-500" />
+														)}
+														<a
+															href={attachment.url}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="text-sm truncate max-w-[200px] hover:underline"
+														>
+															{attachment.name}
+														</a>
+													</div>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														className="h-6 w-6"
+														onClick={() => removeAttachment(attachment.id)}
+													>
+														<X className="h-3 w-3" />
+													</Button>
+												</div>
+											))}
+										</div>
+									)}
+
+									{/* Pending files to upload */}
+									{pendingFiles.length > 0 && (
+										<div className="space-y-2 mb-2">
+											{pendingFiles.map(pendingFile => (
+												<div
+													key={pendingFile.id}
+													className="flex items-center justify-between p-2 border border-dashed rounded-md bg-muted/50"
+												>
+													<div className="flex items-center gap-2">
+														<Upload className="h-4 w-4 text-orange-500" />
+														<span className="text-sm truncate max-w-[200px]">
+															{pendingFile.name}
+														</span>
+														<Badge variant="outline" className="text-xs">
+															Pending upload
+														</Badge>
+													</div>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														className="h-6 w-6"
+														onClick={() => removeAttachment(pendingFile.id)}
+													>
+														<X className="h-3 w-3" />
+													</Button>
+												</div>
+											))}
+										</div>
+									)}
+
+									{/* Pending links to add */}
+									{pendingLinks.length > 0 && (
+										<div className="space-y-2 mb-2">
+											{pendingLinks.map((link, index) => (
+												<div
+													key={`pending-link-${index}`}
+													className="flex items-center justify-between p-2 border border-dashed rounded-md bg-muted/50"
+												>
+													<div className="flex items-center gap-2">
+														<LinkIcon className="h-4 w-4 text-orange-500" />
+														<span className="text-sm truncate max-w-[200px]">
+															{link.name}
+														</span>
+														<Badge variant="outline" className="text-xs">
+															Pending
+														</Badge>
+													</div>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														className="h-6 w-6"
+														onClick={() => removePendingLink(index)}
+													>
+														<X className="h-3 w-3" />
+													</Button>
+												</div>
+											))}
+										</div>
+									)}
+
+									<div className="space-y-2">
+										<div className="flex gap-2">
+											<Input
+												ref={fileInputRef}
+												type="file"
+												multiple
+												onChange={handleFileUpload}
+												className="file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+											/>
+										</div>
+
+										<div className="flex gap-2">
+											<Input
+												placeholder="Link name..."
+												value={newLinkName}
+												onChange={(e) => setNewLinkName(e.target.value)}
+											/>
+											<Input
+												placeholder="URL..."
+												value={newLinkUrl}
+												onChange={(e) => setNewLinkUrl(e.target.value)}
+											/>
 											<Button
 												type="button"
-												variant="ghost"
+												variant="outline"
 												size="icon"
-												className="h-6 w-6"
-												onClick={() => removePendingLink(index)}
+												onClick={addLink}
 											>
-												<X className="h-3 w-3" />
+												<LinkIcon className="h-4 w-4" />
 											</Button>
 										</div>
-									))}
-								</div>
-							)}
-
-							<div className="space-y-2">
-								<div className="flex gap-2">
-									<Input
-										ref={fileInputRef}
-										type="file"
-										multiple
-										onChange={handleFileUpload}
-										className="file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-									/>
-								</div>
-
-								<div className="flex gap-2">
-									<Input
-										placeholder="Link name..."
-										value={newLinkName}
-										onChange={(e) => setNewLinkName(e.target.value)}
-									/>
-									<Input
-										placeholder="URL..."
-										value={newLinkUrl}
-										onChange={(e) => setNewLinkUrl(e.target.value)}
-									/>
-									<Button
-										type="button"
-										variant="outline"
-										size="icon"
-										onClick={addLink}
-									>
-										<LinkIcon className="h-4 w-4" />
-									</Button>
+									</div>
 								</div>
 							</div>
-						</div>
+						)}
 					</div>
-				)}
-			</div>
 
 					<div className="p-6 pt-4 shrink-0 border-t mt-auto">
 						<DialogFooter className="gap-2 sm:justify-between sm:gap-0">
@@ -1155,7 +1192,7 @@ export function TaskDialog({
 							) : (
 								<Button key="cancel-btn" type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
 							)}
-							
+
 							{currentStep < 3 ? (
 								<Button key="next-btn" type="button" onClick={nextStep} className="gap-2">
 									Next <ChevronRight className="h-4 w-4" />

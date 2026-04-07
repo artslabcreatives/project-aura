@@ -165,21 +165,38 @@ class TaskController extends Controller
         // PO Requirement Enforcement (Task 5): block task creation when project
         // has no PO and no active grace period, or is manually blocked.
         $project = Project::find($validated['project_id']);
-        if ($project && !$project->allowsTaskCreation()) {
-            if ($project->is_archived) {
-                $reason = 'Cannot add tasks to an archived project.';
-            } elseif ($project->status === 'completed') {
-                $reason = 'Cannot add tasks to a completed project.';
-            } elseif ($project->is_manually_blocked) {
-                $reason = 'This project is blocked and cannot accept new tasks.';
-            } else {
-                $reason = 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.';
+        if ($project) {
+            // Check for assignment restrictions based on project status
+            if ($project->status === 'on-hold') {
+                return response()->json([
+                    'message' => 'Cannot assign tasks to a paused project.',
+                    'project_status' => $project->status,
+                ], 403);
             }
 
-            return response()->json([
-                'message' => $reason,
-                'project_status' => $project->status,
-            ], 403);
+            if ($project->deadline && $project->deadline->isPast() && !$project->deadline->isToday() && $project->status !== 'completed' && !$project->is_archived) {
+                return response()->json([
+                    'message' => 'Cannot assign tasks to a delayed project.',
+                    'project_status' => $project->status,
+                ], 403);
+            }
+
+            if (!$project->allowsTaskCreation()) {
+                if ($project->is_archived) {
+                    $reason = 'Cannot add tasks to an archived project.';
+                } elseif ($project->status === 'completed') {
+                    $reason = 'Cannot add tasks to a completed project.';
+                } elseif ($project->is_manually_blocked) {
+                    $reason = 'This project is blocked and cannot accept new tasks.';
+                } else {
+                    $reason = 'This project requires a Purchase Order (PO) before tasks can be created. Please upload a PO or request a grace period.';
+                }
+
+                return response()->json([
+                    'message' => $reason,
+                    'project_status' => $project->status,
+                ], 403);
+            }
         }
 
         $task = Task::create($validated);
@@ -322,6 +339,24 @@ class TaskController extends Controller
             'parent_id' => 'nullable|exists:tasks,id',
             'is_assignee_locked' => 'sometimes|boolean',
         ]);
+
+        // Restrict task assignment based on status
+        $isChangingAssignee = $request->has('assignee_id') || $request->has('assignee_ids');
+        if ($isChangingAssignee) {
+            $project = $task->project;
+            if ($project) {
+                if ($project->status === 'on-hold') {
+                    return response()->json(['message' => 'Task assignment is restricted for paused projects.'], 403);
+                }
+                if ($project->deadline && $project->deadline->isPast() && !$project->deadline->isToday() && $project->status !== 'completed' && !$project->is_archived) {
+                    return response()->json(['message' => 'Task assignment is restricted for delayed projects.'], 403);
+                }
+            }
+
+            if ($task->due_date && $task->due_date->isPast() && !$task->due_date->isToday() && $task->user_status !== 'complete') {
+                return response()->json(['message' => 'Task assignment is restricted for delayed tasks.'], 403);
+            }
+        }
 
         $task->fill($validated);
         
