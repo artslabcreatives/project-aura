@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { format, parseISO } from "date-fns";
-import { Settings, History, Save, AlertTriangle, Info, Plus, X } from "lucide-react";
+import { Settings, History, Save, AlertTriangle, Info, Plus, X, BellRing } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -81,10 +81,10 @@ export const AutomatedReminderSettings = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <Card className="border-l-4 border-l-indigo-500 bg-card/60 backdrop-blur-sm">
+            <Card className="border-l-4 border-l-primary bg-card/60 backdrop-blur-sm">
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <Settings className="w-5 h-5 text-indigo-500" />
+                        <Settings className="w-5 h-5 text-primary" />
                         <CardTitle>Global Automated Reminder Settings</CardTitle>
                     </div>
                     <CardDescription>
@@ -117,7 +117,7 @@ export const AutomatedReminderSettings = () => {
                                             </div>
                                             <div className="flex flex-wrap gap-1">
                                                 {Array.isArray(setting.days_before) && setting.days_before.map((day) => (
-                                                    <Badge key={day} variant="secondary" className="text-[10px]">
+                                                    <Badge key={day} variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">
                                                         {day}d before
                                                     </Badge>
                                                 ))}
@@ -137,10 +137,10 @@ export const AutomatedReminderSettings = () => {
                 </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-violet-500 bg-card/60 backdrop-blur-sm">
+            <Card className="border-l-4 border-l-primary bg-card/60 backdrop-blur-sm">
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-violet-500" />
+                        <BellRing className="w-5 h-5 text-primary" />
                         <CardTitle>Project Manual Overrides</CardTitle>
                     </div>
                     <CardDescription>
@@ -172,9 +172,9 @@ export const AutomatedReminderSettings = () => {
                                     </TableCell>
                                     <TableCell>
                                         {project.manual_reminder_date ? (
-                                            <Badge variant="outline" className="bg-blue-500/10 text-blue-500">Fixed Date</Badge>
+                                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">Fixed Date</Badge>
                                         ) : project.manual_reminder_days ? (
-                                            <Badge variant="outline" className="bg-amber-500/10 text-amber-500">Custom Sequence</Badge>
+                                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">Custom Sequence</Badge>
                                         ) : (
                                             <Badge variant="secondary">Global Default</Badge>
                                         )}
@@ -187,7 +187,7 @@ export const AutomatedReminderSettings = () => {
                                         ) : project.manual_reminder_days ? (
                                             <div className="flex flex-wrap gap-1">
                                                 {project.manual_reminder_days.map(day => (
-                                                    <Badge key={day} variant="outline" className="text-[10px]">{day}d</Badge>
+                                                    <Badge key={day} variant="outline" className="text-[10px] border-primary/30 text-primary/80">{day}d</Badge>
                                                 ))}
                                             </div>
                                         ) : (
@@ -206,10 +206,10 @@ export const AutomatedReminderSettings = () => {
                 </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-purple-500 bg-card/60 backdrop-blur-sm">
+            <Card className="border-l-4 border-l-primary bg-card/60 backdrop-blur-sm">
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <History className="w-5 h-5 text-purple-500" />
+                        <History className="w-5 h-5 text-primary" />
                         <CardTitle>Audit Logs</CardTitle>
                     </div>
                     <CardDescription>
@@ -242,7 +242,7 @@ export const AutomatedReminderSettings = () => {
                                     </div>
                                     <div>
                                         <p className="mb-1 opacity-50">New Value</p>
-                                        <pre className="p-2 rounded bg-green-500/10 text-green-500 font-mono lowercase">
+                                        <pre className="p-2 rounded bg-primary/10 text-primary font-mono lowercase">
                                             {JSON.stringify(log.details.new, null, 2)}
                                         </pre>
                                     </div>
