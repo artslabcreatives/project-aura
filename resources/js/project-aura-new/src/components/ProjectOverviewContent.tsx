@@ -43,6 +43,7 @@ import { GracePeriodDialog } from "@/components/GracePeriodDialog";
 import { ProvisionalPODialog } from "@/components/ProvisionalPODialog";
 import { InvoiceViewDialog } from "@/components/InvoiceViewDialog";
 import { CampaignReportSection } from "@/components/CampaignReportSection";
+import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectProfitability } from "@/components/ProjectProfitability";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 
@@ -687,6 +688,9 @@ export function ProjectOverviewContent({
 					handleProjectChange({ ...project, budget_allocated: budgetAllocated ?? undefined })
 				}
 			/>
+
+			{/* Project Reports Section */}
+			<ProjectReportsTab project={project} />
 
 			<div className="grid grid-cols-1 md:grid-cols-5 gap-6">
 				<Card className="h-full border-none shadow-md bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 flex flex-col">

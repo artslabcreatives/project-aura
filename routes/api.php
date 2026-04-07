@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\TaskEfficiencyController;
 use App\Http\Controllers\MattermostAuthController;
 use App\Http\Controllers\Api\SSOController;
 use App\Http\Controllers\Api\OAuthClientController;
+use App\Http\Controllers\Api\ReportController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -263,6 +264,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/automated-reminder-settings/{setting}', [App\Http\Controllers\Api\AutomatedReminderSettingController::class, 'updateSetting']);
     Route::patch('/projects/{project}/reminder-override', [App\Http\Controllers\Api\AutomatedReminderSettingController::class, 'updateProjectOverride']);
     Route::get('/automated-reminder-settings/audit-logs', [App\Http\Controllers\Api\AutomatedReminderSettingController::class, 'auditLogs']);
+
+    // Report Management System
+    Route::get('/reports', [ReportController::class, 'index']);
+    Route::post('/reports', [ReportController::class, 'store']);
+    Route::get('/reports/{report}', [ReportController::class, 'show']);
+    Route::post('/reports/{report}', [ReportController::class, 'update']); // Use POST for multipart
+    Route::post('/reports/{report}/tl-approve', [ReportController::class, 'tlApprove']);
+    Route::post('/reports/{report}/hr-approve', [ReportController::class, 'hrApprove']);
+    Route::post('/reports/{report}/reject', [ReportController::class, 'reject']);
+    Route::post('/reports/{report}/comment', [ReportController::class, 'addComment']);
 });
 
 // 2FA Verification during login

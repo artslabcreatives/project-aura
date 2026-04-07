@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock, Calendar, Info } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -49,6 +49,14 @@ import {
 	SelectValue 
 } from "@/components/ui/select";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
+import { ProjectReportsTab } from "@/components/ProjectReportsTab";
+import { 
+	Dialog, 
+	DialogContent, 
+	DialogHeader, 
+	DialogTitle, 
+	DialogDescription 
+} from "@/components/ui/dialog";
 
 export default function ProjectKanbanFixed() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -161,6 +169,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
 	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
+	const [isReportsOpen, setIsReportsOpen] = useState(false);
 	const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 	const [reviewTask, setReviewTask] = useState<Task | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
@@ -196,14 +205,20 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 
 				if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 
-				if (currentUser?.role === 'team-lead') {
+				if (currentUser?.role === 'team-lead' || currentUser?.role === 'user' || currentUser?.role === 'account-manager') {
 					const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
 					const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
 					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
 					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
 					const hasSpecialPermission = isDigitalDept && isDesignProject;
 					const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
-					if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) { setProject(null); if (!isBackground) setIsLoading(false); return; }
+					
+					// Staff and AM should be able to see their own projects and their department projects
+					if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) { 
+						setProject(null); 
+						if (!isBackground) setIsLoading(false); 
+						return; 
+					}
 				}
 				setProject(currentProject);
 				setDepartments(departmentsData);
@@ -906,14 +921,19 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							</div>
 						</div>
 						<div className="flex items-center gap-3">
-							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager' || currentUser?.role === 'user') && (
 								<>
 									<Button variant="outline" onClick={() => navigate(`/project/${project.id}/overview`)}>
 										Project Overview
 									</Button>
-									<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
-										View History
+									<Button variant="outline" onClick={() => setIsReportsOpen(true)} className="bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400">
+										<FileText className="mr-2 h-4 w-4" /> Reports
 									</Button>
+									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+										<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
+											View History
+										</Button>
+									)}
 									{!project.isArchived && project.status !== 'on-hold' && (
 										<>
 											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
@@ -1031,6 +1051,19 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				onDeleteStage={handleDeleteStage}
 				onReorderStages={handleReorderStages}
 			/>
+
+			{/* Reports Dialog */}
+			<Dialog open={isReportsOpen} onOpenChange={setIsReportsOpen}>
+				<DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col p-0">
+					<DialogHeader className="p-6 pb-0">
+						<DialogTitle>Project Reports - {project.name}</DialogTitle>
+						<DialogDescription>Submit and track reports for this project.</DialogDescription>
+					</DialogHeader>
+					<div className="flex-1 overflow-auto p-6 pt-2">
+						<ProjectReportsTab project={project} />
+					</div>
+				</DialogContent>
+			</Dialog>
 			<StageDialog
 				open={isStageDialogOpen}
 				onOpenChange={setIsStageDialogOpen}

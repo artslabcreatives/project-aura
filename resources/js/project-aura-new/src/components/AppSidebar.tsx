@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell, Mail, FileText, TrendingUp, BarChart3, Shield } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell, Mail, FileText, ClipboardList, TrendingUp, BarChart3, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -83,6 +83,7 @@ const mainMenuItems = [
 	{ title: "Clients", url: "/clients", icon: Building2, roles: ["admin", "hr"] },
 	{ title: "Estimates", url: "/estimates", icon: FileText, roles: ["admin", "team-lead", "account-manager"] },
 	{ title: "Emails", url: "/emails", icon: Mail, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
+	{ title: "Reports", url: "/reports", icon: ClipboardList, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "SSO Applications", url: "/sso/clients", icon: Shield, roles: ["admin"] },
 ];
 

@@ -13,9 +13,9 @@ class ProjectExpenseController extends Controller
 {
     /**
      * Roles that can approve expenses without needing team-lead approval.
-     * team_lead can approve their own team's submissions.
+     * team-lead can approve their own team's submissions.
      */
-    private const APPROVER_ROLES = ['admin', 'hr', 'team_lead'];
+    private const APPROVER_ROLES = ['admin', 'hr', 'team-lead'];
 
     /**
      * List expenses for a project.

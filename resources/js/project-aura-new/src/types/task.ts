@@ -90,6 +90,7 @@ export interface User {
 	email: string;
 	role: UserRole;
 	department: string; // Department ID
+	department_id?: number | string; // Numeric ID from backend
 	avatar?: string;
 	preferences?: {
 		notifications?: {

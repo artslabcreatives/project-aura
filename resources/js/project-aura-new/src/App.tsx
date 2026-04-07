@@ -268,6 +268,7 @@ import { PublicMattermostChat } from "./pages/PublicMattermostChat";
 import { ReminderPoller } from "./components/ReminderPoller";
 import SSOAuthorize from "./pages/SSOAuthorize";
 import SSOClients from "./pages/SSOClients";
+import ReportManagement from "./pages/ReportManagement";
 
 const Dashboard = () => {
 	const { currentUser } = useUser();
@@ -323,6 +324,11 @@ const App = () => (
 								</ProtectedRoute>
 							} />
 							<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
+							<Route path="/reports" element={
+								<ProtectedRoute allowedRoles={['admin', 'hr', 'team-lead', 'user', 'account-manager']}>
+									<AppLayout><ReportManagement /></AppLayout>
+								</ProtectedRoute>
+							} />
 							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
 							<Route path="/task-efficiency" element={<AppLayout><TaskEfficiency /></AppLayout>} />
 							<Route path="/department-efficiency" element={<AppLayout><DepartmentEfficiency /></AppLayout>} />
