@@ -76,69 +76,66 @@ export default function ProjectKanban() {
 		}
 	}, [tasks, searchParams]);
 
-	useEffect(() => {
-		const loadData = async () => {
-			if (!numericProjectId) return;
-			setIsLoading(true);
-			try {
-				// Optimization: Fetch independent initial data in parallel
-				const [currentProject, departmentsData] = await Promise.all([
-					projectService.getById(String(numericProjectId)),
-					departmentService.getAll()
-				]);
+	const loadData = async () => {
+		if (!numericProjectId) return;
+		setIsLoading(true);
+		try {
+			// Optimization: Fetch independent initial data in parallel
+			const [currentProject, departmentsData] = await Promise.all([
+				projectService.getById(String(numericProjectId)),
+				departmentService.getAll()
+			]);
 
-				if (!currentProject) {
+			if (!currentProject) {
+				setProject(null);
+				setIsLoading(false);
+				return;
+			}
+
+			if (currentUser?.role === 'team-lead') {
+				const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
+				const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
+				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
+				const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
+				const hasSpecialPermission = isDigitalDept && isDesignProject;
+				const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
+
+				if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) {
 					setProject(null);
 					setIsLoading(false);
 					return;
 				}
-
-				if (currentUser?.role === 'team-lead') {
-					const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
-					const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
-					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
-					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
-					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
-
-					if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) {
-						setProject(null);
-						setIsLoading(false);
-						return;
-					}
-				}
-				setProject(currentProject);
-				setDepartments(departmentsData);
-
-				// Optimization: Fetch remaining data in parallel
-				// REMOVED: const allTasksData = await taskService.getAll(); <- This was fetching ALL tasks in system, causing slowness.
-				const [tasksData, suggestedTasksData, usersData] = await Promise.all([
-					taskService.getAll({ projectId: String(currentProject.id) }),
-					projectService.getSuggestedTasks(String(currentProject.id)),
-					userService.getAll()
-				]);
-
-				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
-				setTasks(projectTasks);
-				setSuggestedTasks(suggestedTasksData);
-				// We use project tasks for allTasks to avoid the massive global fetch. 
-				// This means the "task count" in assignee dropdown will reflect project-load, not global-load, which is acceptable for performance.
-				setAllTasks(projectTasks);
-				// Filter out deactivated users
-				const activeUsers = usersData.filter(user => user.is_active !== false); // Handle undefined as active just in case, or explicitly true
-				setTeamMembers(activeUsers);
-
-			} catch (error) {
-				console.error('Error loading project data:', error);
-				toast({
-					title: 'Error',
-					description: 'Failed to load project data. Please try again.',
-					variant: 'destructive',
-				});
-			} finally {
-				setIsLoading(false);
 			}
-		};
+			setProject(currentProject);
+			setDepartments(departmentsData);
+
+			// Optimization: Fetch remaining data in parallel
+			const [tasksData, suggestedTasksData, usersData] = await Promise.all([
+				taskService.getAll({ projectId: String(currentProject.id) }),
+				projectService.getSuggestedTasks(String(currentProject.id)),
+				userService.getAll()
+			]);
+
+			const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+			setTasks(projectTasks);
+			setSuggestedTasks(suggestedTasksData);
+			setAllTasks(projectTasks);
+			const activeUsers = usersData.filter(user => user.is_active !== false);
+			setTeamMembers(activeUsers);
+
+		} catch (error) {
+			console.error('Error loading project data:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to load project data. Please try again.',
+				variant: 'destructive',
+			});
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	useEffect(() => {
 		loadData();
 	}, [numericProjectId, currentUser]);
 
@@ -667,6 +664,8 @@ export default function ProjectKanban() {
 						disableBacklogRenaming={currentUser?.role === 'user'}
 						teamMembers={teamMembers}
 						departments={departments}
+						allTasks={allTasks}
+						onRefresh={loadData}
 					/>
 				) : (
 					<TaskListView

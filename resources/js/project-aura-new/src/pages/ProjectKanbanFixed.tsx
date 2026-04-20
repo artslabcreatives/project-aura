@@ -1,6 +1,6 @@
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "@/services/api";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Task, User, UserStatus, TaskPriority } from "@/types/task";
@@ -192,97 +192,97 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 		setIsAddSubtaskDialogOpen(true);
 	};
 
-	useEffect(() => {
-		const loadData = async (isBackground = false) => {
-			if (!numericProjectId) return;
-			if (!isBackground) setIsLoading(true);
-			try {
-				// Optimization: Fetch independent initial data in parallel
-				const [currentProject, departmentsData] = await Promise.all([
-					projectService.getById(String(numericProjectId)),
-					departmentService.getAll()
-				]);
+	const loadData = useCallback(async (isBackground = false) => {
+		if (!numericProjectId) return;
+		if (!isBackground) setIsLoading(true);
+		try {
+			// Optimization: Fetch independent initial data in parallel
+			const [currentProject, departmentsData] = await Promise.all([
+				projectService.getById(String(numericProjectId)),
+				departmentService.getAll()
+			]);
 
-				if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
+			if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 
-				if (currentUser?.role === 'team-lead' || currentUser?.role === 'user' || currentUser?.role === 'account-manager') {
-					const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
-					const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
-					const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
-					const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
-					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
-					
-					// Staff and AM should be able to see their own projects and their department projects
-					if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) { 
-						setProject(null); 
-						if (!isBackground) setIsLoading(false); 
-						return; 
-					}
+			if (currentUser?.role === 'team-lead' || currentUser?.role === 'user' || currentUser?.role === 'account-manager') {
+				const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
+				const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
+				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
+				const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
+				const hasSpecialPermission = isDigitalDept && isDesignProject;
+				const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
+				
+				// Staff and AM should be able to see their own projects and their department projects
+				if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) { 
+					setProject(null); 
+					if (!isBackground) setIsLoading(false); 
+					return; 
 				}
-				setProject(currentProject);
-				setDepartments(departmentsData);
-
-				// Optimization: Fetch tasks and users in parallel
-				// Removed global taskService.getAll()
-				const [tasksData, usersData] = await Promise.all([
-					taskService.getAll({ projectId: String(currentProject.id) }),
-					userService.getAll()
-				]);
-
-				const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
-				setTasks(projectTasks);
-				setAllTasks(projectTasks); // Optimization: Use project tasks instead of full global fetch
-				setTeamMembers(usersData);
-
-				// Deep link handling
-				const taskIdParam = searchParams.get('task');
-				if (taskIdParam && projectTasks.length > 0) {
-					const foundTask = projectTasks.find(t => String(t.id) === taskIdParam);
-					if (foundTask) {
-						if (currentUser?.role === 'user') {
-							// For normal users, redirect to their specific stage view if assigned
-							const isAssigned = foundTask.assignee === currentUser.name ||
-								(foundTask.assignedUsers && foundTask.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
-
-							if (isAssigned) {
-								navigate(`/user-project/${currentProject.id}/stage/${foundTask.projectStage}?task=${foundTask.id}`);
-							} else {
-								toast({
-									title: "Access Denied",
-									description: "You do not have permission to view this task.",
-									variant: "destructive"
-								});
-							}
-						} else {
-							// Admin/TeamLead: Scroll to task on this board
-							setTimeout(() => {
-								const taskElement = document.getElementById(`task-${foundTask.id}`);
-								if (taskElement) {
-									taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-									taskElement.classList.add('ring-2', 'ring-primary', 'shadow-lg');
-									setTimeout(() => {
-										taskElement.classList.remove('ring-2', 'ring-primary', 'shadow-lg');
-									}, 3000);
-								}
-							}, 500);
-						}
-
-						// Clear param only if we stayed on this page (Admin/TeamLead or Access Denied)
-						if (currentUser?.role !== 'user' || foundTask.assignee !== currentUser.name) {
-							searchParams.delete('task');
-							setSearchParams(searchParams);
-						}
-					}
-				}
-			} catch (e) {
-				console.error(e);
-				toast({ title: 'Error', description: 'Failed to load project data.', variant: 'destructive' });
-			} finally {
-				if (!isBackground) setIsLoading(false);
 			}
-		};
+			setProject(currentProject);
+			setDepartments(departmentsData);
 
+			// Optimization: Fetch tasks and users in parallel
+			// Removed global taskService.getAll()
+			const [tasksData, usersData] = await Promise.all([
+				taskService.getAll({ projectId: String(currentProject.id) }),
+				userService.getAll()
+			]);
+
+			const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+			setTasks(projectTasks);
+			setAllTasks(projectTasks); // Optimization: Use project tasks instead of full global fetch
+			setTeamMembers(usersData);
+
+			// Deep link handling
+			const taskIdParam = searchParams.get('task');
+			if (taskIdParam && projectTasks.length > 0) {
+				const foundTask = projectTasks.find(t => String(t.id) === taskIdParam);
+				if (foundTask) {
+					if (currentUser?.role === 'user') {
+						// For normal users, redirect to their specific stage view if assigned
+						const isAssigned = foundTask.assignee === currentUser.name ||
+							(foundTask.assignedUsers && foundTask.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+
+						if (isAssigned) {
+							navigate(`/user-project/${currentProject.id}/stage/${foundTask.projectStage}?task=${foundTask.id}`);
+						} else {
+							toast({
+								title: "Access Denied",
+								description: "You do not have permission to view this task.",
+								variant: "destructive"
+							});
+						}
+					} else {
+						// Admin/TeamLead: Scroll to task on this board
+						setTimeout(() => {
+							const taskElement = document.getElementById(`task-${foundTask.id}`);
+							if (taskElement) {
+								taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+								taskElement.classList.add('ring-2', 'ring-primary', 'shadow-lg');
+								setTimeout(() => {
+									taskElement.classList.remove('ring-2', 'ring-primary', 'shadow-lg');
+								}, 3000);
+							}
+						}, 500);
+					}
+
+					// Clear param only if we stayed on this page (Admin/TeamLead or Access Denied)
+					if (currentUser?.role !== 'user' || foundTask.assignee !== currentUser.name) {
+						searchParams.delete('task');
+						setSearchParams(searchParams);
+					}
+				}
+			}
+		} catch (e) {
+			console.error(e);
+			toast({ title: 'Error', description: 'Failed to load project data.', variant: 'destructive' });
+		} finally {
+			if (!isBackground) setIsLoading(false);
+		}
+	}, [numericProjectId, currentUser, searchParams, setSearchParams, navigate, toast]);
+
+	useEffect(() => {
 		loadData();
 
 		// Real-time Updates
@@ -322,7 +322,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				window.removeEventListener('project-state-changed', handleLocalProjectStateChange);
 			};
 		}
-	}, [numericProjectId, currentUser]);
+	}, [numericProjectId, currentUser, loadData]);
 
 	const updateProjectInStorage = async (updatedProject: Project) => {
 		try {
@@ -988,13 +988,15 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								canManageTasks={currentUser?.role !== 'user' && !project.isArchived && project.status !== 'on-hold'}
 								canDragTasks={currentUser?.role !== 'user' && currentUser?.role !== 'account-manager' && !project.isArchived && project.status !== 'on-hold'}
 								disableColumnScroll={true}
-								disableBacklogRenaming={false}
+								disableBacklogRenaming={true}
 								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
 								onAddTaskToStage={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}
 								onAddSubtask={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddSubtask : undefined}
 								teamMembers={teamMembers}
 								departments={departments}
+								allTasks={allTasks}
+								onRefresh={loadData}
 							/>
 						) : (
 							<TaskListView

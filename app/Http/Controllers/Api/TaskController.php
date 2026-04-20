@@ -843,22 +843,14 @@ class TaskController extends Controller
         }
 
         $tasks = Task::whereIn('id', $taskIds)->get();
+        \Illuminate\Support\Facades\Log::info('Bulk update started', [
+            'task_ids' => $taskIds,
+            'updates' => $updates,
+            'found_tasks_count' => $tasks->count()
+        ]);
         $updatedCount = 0;
 
         foreach ($tasks as $task) {
-            // Respect existing assignment restrictions if assignee is being changed
-            if (isset($updates['assignee_id'])) {
-                $project = $task->project;
-                if ($project) {
-                    if ($project->status === 'on-hold' || ($project->deadline && $project->deadline->isPast() && !$project->deadline->isToday() && $project->status !== 'completed' && !$project->is_archived)) {
-                        continue;
-                    }
-                }
-                if ($task->due_date && $task->due_date && \Carbon\Carbon::parse($task->due_date)->isPast() && !\Carbon\Carbon::parse($task->due_date)->isToday() && $task->user_status !== 'complete') {
-                    continue;
-                }
-            }
-
             $task->fill($updates);
             $assigneeChanged = $task->isDirty('assignee_id');
 

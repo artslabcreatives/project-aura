@@ -60,33 +60,33 @@ export default function Tasks() {
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const [loading, setLoading] = useState(true);
 
+	const loadData = async () => {
+		setLoading(true);
+		try {
+			const projectsData = await projectService.getAll();
+			setAllProjects(projectsData);
+
+			const tasksData = await taskService.getAll();
+			setAllTasks(tasksData);
+
+			const usersData = await userService.getAll();
+			setTeamMembers(usersData);
+
+			const departmentsData = await departmentService.getAll();
+			setDepartments(departmentsData);
+		} catch (error) {
+			console.error("Error loading data:", error);
+			toast({
+				title: "Error",
+				description: "Failed to load data. Please try again.",
+				variant: "destructive",
+			});
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	useEffect(() => {
-		const loadData = async () => {
-			setLoading(true);
-			try {
-				const projectsData = await projectService.getAll();
-				setAllProjects(projectsData);
-
-				const tasksData = await taskService.getAll();
-				setAllTasks(tasksData);
-
-				const usersData = await userService.getAll();
-				setTeamMembers(usersData);
-
-				const departmentsData = await departmentService.getAll();
-				setDepartments(departmentsData);
-			} catch (error) {
-				console.error("Error loading data:", error);
-				toast({
-					title: "Error",
-					description: "Failed to load data. Please try again.",
-					variant: "destructive",
-				});
-			} finally {
-				setLoading(false);
-			}
-		};
-
 		loadData();
 	}, []);
 
@@ -685,6 +685,8 @@ export default function Tasks() {
 						disableBacklogRenaming={true}
 						teamMembers={teamMembers}
 						departments={departments}
+						allTasks={allTasks}
+						onRefresh={loadData}
 					/>
 				) : (
 					<TaskListView

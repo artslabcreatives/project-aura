@@ -83,6 +83,7 @@ interface KanbanBoardProps {
 	allTasks?: Task[];
 	teamMembers?: any[];
 	departments?: any[];
+	onRefresh?: () => void;
 }
 
 export function KanbanBoard({
@@ -108,6 +109,7 @@ export function KanbanBoard({
 	allTasks = [],
 	teamMembers = [],
 	departments = [],
+	onRefresh,
 }: KanbanBoardProps) {
 	const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 	const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(
@@ -343,21 +345,30 @@ export function KanbanBoard({
 	const onBulkSave = async (updates: { assigneeId?: number; dueDate?: string }) => {
 		if (!bulkEditStageId) return;
 
-		const stageTaskIds = getColumnTasks(bulkEditStageId)
-			.map(t => t.id)
-			.filter(id => selectedTaskIds.has(id));
+		// Find task details for all selected IDs by searching both primary tasks and allTasks (for subtasks)
+		const stageTaskIds = Array.from(selectedTaskIds).filter(id => {
+			const task = tasks.find(t => t.id === id) || allTasks?.find(t => t.id === id);
+			if (!task) return false;
+			
+			if (useProjectStages) {
+				return task.projectStage === bulkEditStageId;
+			} else {
+				return task.userStatus === bulkEditStageId;
+			}
+		});
 
 		if (stageTaskIds.length === 0) return;
 
 		setIsUpdating(true);
 		try {
-			await taskService.bulkUpdate(stageTaskIds, updates);
+			const result = await taskService.bulkUpdate(stageTaskIds, updates);
 			toast({
 				title: "Tasks updated",
-				description: `Successfully updated ${stageTaskIds.length} tasks.`,
+				description: `Successfully updated ${result.updated_count || stageTaskIds.length} tasks.`,
 			});
 			// Exit selection mode and clear selection
 			toggleSelectionMode(bulkEditStageId);
+			if (onRefresh) onRefresh();
 		} catch (error) {
 			console.error("Bulk update failed:", error);
 			toast({
