@@ -33,11 +33,18 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 
-const statusConfig: Record<EstimateStatus, { label: string; className: string }> = {
+const statusConfig: Record<string, { label: string; className: string }> = {
 	draft: { label: "Draft", className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
 	sent: { label: "Sent", className: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
 	approved: { label: "Approved", className: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
+	accepted: { label: "Accepted", className: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
+	invoiced: { label: "Invoiced", className: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
 	rejected: { label: "Rejected", className: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
+	deleted: { label: "Deleted", className: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
+};
+
+const getStatusConfig = (status: string) => {
+	return statusConfig[status] || { label: status.charAt(0).toUpperCase() + status.slice(1), className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" };
 };
 
 export default function Estimates() {
@@ -285,8 +292,8 @@ export default function Estimates() {
 														#{estimate.estimate_number}
 													</span>
 												)}
-												<Badge className={`${statusConfig[estimate.status].className} text-xs`}>
-													{statusConfig[estimate.status].label}
+												<Badge className={`${getStatusConfig(estimate.status).className} text-xs`}>
+													{getStatusConfig(estimate.status).label}
 												</Badge>
 												{estimate.xero_estimate_id && (
 													<Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300 text-[10px] px-1.5 py-0.5 flex items-center gap-1">

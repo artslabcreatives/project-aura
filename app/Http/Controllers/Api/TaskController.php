@@ -797,6 +797,98 @@ class TaskController extends Controller
     }
 
     #[OA\Post(
+        path: "/tasks/bulk-update",
+        summary: "Bulk update tasks (Assignee and Due Date)",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["task_ids"],
+                properties: [
+                    new OA\Property(property: "task_ids", type: "array", items: new OA\Items(type: "integer")),
+                    new OA\Property(property: "assignee_id", type: "integer", nullable: true),
+                    new OA\Property(property: "due_date", type: "string", format: "date", nullable: true)
+                ]
+            )
+        ),
+        tags: ["Tasks"],
+        responses: [
+            new OA\Response(response: 200, description: "Tasks updated"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
+    public function bulkUpdate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'task_ids' => 'required|array',
+            'task_ids.*' => 'exists:tasks,id',
+            'assignee_id' => 'nullable|exists:users,id',
+            'due_date' => 'nullable|date',
+        ]);
+
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'team-lead'])) {
+            return response()->json(['message' => 'Unauthorized. Only Admins and Team Leads can bulk update tasks.'], 403);
+        }
+
+        $taskIds = $validated['task_ids'];
+        $updates = collect($validated)->only(['assignee_id', 'due_date'])->filter(function($value) {
+            return !is_null($value);
+        })->toArray();
+
+        if (empty($updates)) {
+            return response()->json(['message' => 'No updates provided'], 422);
+        }
+
+        $tasks = Task::whereIn('id', $taskIds)->get();
+        $updatedCount = 0;
+
+        foreach ($tasks as $task) {
+            // Respect existing assignment restrictions if assignee is being changed
+            if (isset($updates['assignee_id'])) {
+                $project = $task->project;
+                if ($project) {
+                    if ($project->status === 'on-hold' || ($project->deadline && $project->deadline->isPast() && !$project->deadline->isToday() && $project->status !== 'completed' && !$project->is_archived)) {
+                        continue;
+                    }
+                }
+                if ($task->due_date && $task->due_date && \Carbon\Carbon::parse($task->due_date)->isPast() && !\Carbon\Carbon::parse($task->due_date)->isToday() && $task->user_status !== 'complete') {
+                    continue;
+                }
+            }
+
+            $task->fill($updates);
+            $assigneeChanged = $task->isDirty('assignee_id');
+
+            if ($assigneeChanged && $task->assignee_id) {
+                $task->assignedUsers()->sync([$task->assignee_id]);
+                
+                // Notify
+                if ($task->assignee_id !== $user->id && $task->assignee) {
+                    $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+                }
+            }
+
+            $task->save();
+            $updatedCount++;
+
+            try {
+                \App\Events\TaskUpdated::dispatch($task, 'update');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Bulk update broadcast failed: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'message' => 'Tasks updated successfully',
+            'updated_count' => $updatedCount,
+            'total_count' => count($taskIds)
+        ]);
+    }
+
+    #[OA\Post(
         path: "/tasks/{id}/complete",
         summary: "Complete a task with optional comments.user and attachments",
         security: [["bearerAuth" => []]],

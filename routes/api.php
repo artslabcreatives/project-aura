@@ -82,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('stages', StageController::class);
     Route::apiResource('stage-groups', StageGroupController::class);
+    Route::post('/tasks/bulk-update', [TaskController::class, 'bulkUpdate']);
     Route::apiResource('tasks', TaskController::class);
     Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);

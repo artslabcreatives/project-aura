@@ -683,6 +683,8 @@ export default function Tasks() {
 						canManageTasks={currentUser?.role !== "user"}
 						canDragTasks={false}
 						disableBacklogRenaming={true}
+						teamMembers={teamMembers}
+						departments={departments}
 					/>
 				) : (
 					<TaskListView

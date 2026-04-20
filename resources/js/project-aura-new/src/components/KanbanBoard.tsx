@@ -33,6 +33,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { TaskCompletionDialog } from "./TaskCompletionDialog";
+import { BulkEditDialog } from "./BulkEditDialog";
+import { taskService } from "@/services/taskService";
+import { useToast } from "@/hooks/use-toast";
 import {
 	isToday,
 	isThisWeek,
@@ -78,6 +81,8 @@ interface KanbanBoardProps {
 	disableBacklogRenaming?: boolean;
 	useSubtasksGrouping?: boolean;
 	allTasks?: Task[];
+	teamMembers?: any[];
+	departments?: any[];
 }
 
 export function KanbanBoard({
@@ -101,6 +106,8 @@ export function KanbanBoard({
 	disableBacklogRenaming = false,
 	useSubtasksGrouping = false,
 	allTasks = [],
+	teamMembers = [],
+	departments = [],
 }: KanbanBoardProps) {
 	const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 	const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(
@@ -111,6 +118,12 @@ export function KanbanBoard({
 	const [copied, setCopied] = useState(false);
 	const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 	const [pendingComplete, setPendingComplete] = useState<{ taskId: string; stageId: string } | null>(null);
+	const [selectionModeStageIds, setSelectionModeStageIds] = useState<Set<string>>(new Set());
+	const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+	const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
+	const [bulkEditStageId, setBulkEditStageId] = useState<string | null>(null);
+	const [isUpdating, setIsUpdating] = useState(false);
+	const { toast } = useToast();
 	const [columnSearchQueries, setColumnSearchQueries] = useState<Record<string, string>>({});
 	const [columnSearchOpen, setColumnSearchOpen] = useState<Record<string, boolean>>({});
 	const [columnDateFilters, setColumnDateFilters] = useState<Record<string, string>>({});
@@ -274,6 +287,89 @@ export function KanbanBoard({
 		}
 		setShowCompletionDialog(false);
 		setPendingComplete(null);
+	};
+
+	const toggleSelectionMode = (stageId: string) => {
+		setSelectionModeStageIds(prev => {
+			const next = new Set(prev);
+			if (next.has(stageId)) {
+				next.delete(stageId);
+				// Also clear selection for this stage's tasks
+				const stageTasks = getColumnTasks(stageId).map(t => t.id);
+				setSelectedTaskIds(current => {
+					const updated = new Set(current);
+					stageTasks.forEach(id => updated.delete(id));
+					return updated;
+				});
+			} else {
+				next.add(stageId);
+			}
+			return next;
+		});
+	};
+
+	const toggleTaskSelection = (taskId: string) => {
+		setSelectedTaskIds(prev => {
+			const next = new Set(prev);
+			if (next.has(taskId)) {
+				next.delete(taskId);
+			} else {
+				next.add(taskId);
+			}
+			return next;
+		});
+	};
+
+	const toggleSelectAll = (stageId: string) => {
+		const stageTasks = getColumnTasks(stageId).map(t => t.id);
+		const allSelected = stageTasks.every(id => selectedTaskIds.has(id));
+
+		setSelectedTaskIds(prev => {
+			const next = new Set(prev);
+			if (allSelected) {
+				stageTasks.forEach(id => next.delete(id));
+			} else {
+				stageTasks.forEach(id => next.add(id));
+			}
+			return next;
+		});
+	};
+
+	const handleBulkEdit = (stageId: string) => {
+		setBulkEditStageId(stageId);
+		setIsBulkEditDialogOpen(true);
+	};
+
+	const onBulkSave = async (updates: { assigneeId?: number; dueDate?: string }) => {
+		if (!bulkEditStageId) return;
+
+		const stageTaskIds = getColumnTasks(bulkEditStageId)
+			.map(t => t.id)
+			.filter(id => selectedTaskIds.has(id));
+
+		if (stageTaskIds.length === 0) return;
+
+		setIsUpdating(true);
+		try {
+			await taskService.bulkUpdate(stageTaskIds, updates);
+			toast({
+				title: "Tasks updated",
+				description: `Successfully updated ${stageTaskIds.length} tasks.`,
+			});
+			// Exit selection mode and clear selection
+			toggleSelectionMode(bulkEditStageId);
+		} catch (error) {
+			console.error("Bulk update failed:", error);
+			toast({
+				title: "Update failed",
+				description: "Failed to update some tasks. Please try again.",
+				variant: "destructive"
+			});
+		} finally {
+			setIsUpdating(false);
+			setIsBulkEditDialogOpen(false);
+			setBulkEditStageId(null);
+		}
 	};
 
 	const getColumnTasks = (stageId: string) => {
@@ -530,7 +626,6 @@ export function KanbanBoard({
 								{canManageStages &&
 									column.id !== "pending" &&
 									column.id !== "complete" &&
-									column.id !== "complete" &&
 									onStageEdit &&
 									onStageDelete && (
 										<DropdownMenu>
@@ -554,202 +649,262 @@ export function KanbanBoard({
 											</DropdownMenuContent>
 										</DropdownMenu>
 									)}
+
+								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+									<div className="flex items-center border-l ml-1 pl-1 gap-1">
+										{selectionModeStageIds.has(column.id) ? (
+											<>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 px-2 text-[10px] font-bold text-primary hover:bg-primary/10"
+													onClick={() => toggleSelectAll(column.id)}
+												>
+													{getColumnTasks(column.id).every(t => selectedTaskIds.has(t.id)) ? "Deselect All" : "Select All"}
+												</Button>
+												<Button
+													variant="default"
+													size="sm"
+													className="h-7 px-2 text-[10px] font-bold"
+													disabled={getColumnTasks(column.id).filter(t => selectedTaskIds.has(t.id)).length === 0}
+													onClick={() => handleBulkEdit(column.id)}
+												>
+													Edit ({getColumnTasks(column.id).filter(t => selectedTaskIds.has(t.id)).length})
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon"
+													className="h-6 w-6 text-muted-foreground hover:text-destructive"
+													onClick={() => toggleSelectionMode(column.id)}
+												>
+													<X className="h-4 w-4" />
+												</Button>
+											</>
+										) : (
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-7 px-2 text-[10px] font-bold text-muted-foreground hover:text-primary hover:bg-primary/5 group/bulk"
+												onClick={() => toggleSelectionMode(column.id)}
+												title="Bulk Edit Tasks"
+											>
+												<List className="h-3.5 w-3.5 mr-1" />
+												Bulk Edit
+											</Button>
+										)}
+									</div>
+								)}
 							</div>
 						</div>
 
 						<div className={cn("flex-1 p-4 space-y-3 min-h-[400px]", !disableColumnScroll && "overflow-y-auto")}>
-							{columnTasks.length === 0 ? (
-								<div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-									{columnSearchQueries[column.id] ? "No matching tasks" : "No tasks"}
-								</div>
-							) : (
-								useSubtasksGrouping ? (
-									Object.values(columnTasks.reduce((acc, task) => {
-										const parentId = task.parentId || task.id;
-										if (!acc[parentId]) acc[parentId] = [];
-										acc[parentId].push(task);
-										return acc;
-									}, {} as Record<string, Task[]>)).map((groupTasks) => {
-										// Check if this group represents a hierarchy (has subtasks)
-										// A group has a hierarchy if:
-										// 1. It has more than 1 item (Parent + Subtask(s))
-										// 2. OR It has 1 item which is a subtask (Parent not in this column)
-										const parentId = groupTasks[0].parentId || groupTasks[0].id;
-										const isSubtaskGroup = groupTasks.some(t => t.parentId === parentId);
+								{columnTasks.length === 0 ? (
+									<div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+										{columnSearchQueries[column.id] ? "No matching tasks" : "No tasks"}
+									</div>
+								) : (
+									useSubtasksGrouping ? (
+										Object.values(columnTasks.reduce((acc, task) => {
+											const parentId = task.parentId || task.id;
+											if (!acc[parentId]) acc[parentId] = [];
+											acc[parentId].push(task);
+											return acc;
+										}, {} as Record<string, Task[]>)).map((groupTasks) => {
+											// Check if this group represents a hierarchy (has subtasks)
+											const parentId = groupTasks[0].parentId || groupTasks[0].id;
+											const isSubtaskGroup = groupTasks.some(t => t.parentId === parentId);
 
-										if (isSubtaskGroup) {
-											// Try to find parent task details
-											const parentTask = allTasks.find(t => t.id === parentId) || tasks.find(t => t.id === parentId);
-											const parentInColumn = groupTasks.find(t => t.id === parentId);
-											const subtasks = groupTasks.filter(t => t.parentId === parentId);
+											if (isSubtaskGroup) {
+												const parentTask = allTasks.find(t => t.id === parentId) || tasks.find(t => t.id === parentId);
+												const parentInColumn = groupTasks.find(t => t.id === parentId);
+												const subtasks = groupTasks.filter(t => t.parentId === parentId);
 
-											return (
-												<div key={`group-${parentId}`} className="border rounded-md p-2 bg-card/40 dark:bg-card/20 space-y-2">
-													<div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
-														<div className="bg-primary/10 p-1 rounded">
-															<List className="h-3 w-3 text-primary" />
+												return (
+													<div key={`group-${parentId}`} className="border rounded-md p-2 bg-card/40 dark:bg-card/20 space-y-2">
+														<div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
+															<div className="bg-primary/10 p-1 rounded">
+																<List className="h-3 w-3 text-primary" />
+															</div>
+															<span className="text-xs font-semibold text-muted-foreground truncate" title={parentTask?.title}>
+																{parentTask?.title || "Parent Task"}
+															</span>
 														</div>
-														<span className="text-xs font-semibold text-muted-foreground truncate" title={parentTask?.title}>
-															{parentTask?.title || "Parent Task"}
-														</span>
-													</div>
 
-													{/* If parent is in this column, render it first */}
-													{parentInColumn && (
-														<TaskCard
-															key={parentInColumn.id}
-															task={parentInColumn}
-															onDragStart={() => handleDragStart(parentInColumn)}
-															onEdit={() => onTaskEdit(parentInColumn)}
-															onDelete={() => onTaskDelete(parentInColumn.id)}
-															onView={() => {
-																setViewTask(parentInColumn);
-																setIsViewDialogOpen(true);
-															}}
-															onReviewTask={onTaskReview ? () => onTaskReview(parentInColumn) : undefined}
-															canManage={canManageTasks}
-															canDrag={canDragTasks}
-															currentStage={column}
-															projectId={projectId}
-															onAddSubtask={onAddSubtask ? () => onAddSubtask(parentInColumn) : undefined}
-															onViewSubtask={(subtask) => {
-																setViewTask(subtask);
-																setIsViewDialogOpen(true);
-															}}
-															onTaskUpdate={onTaskUpdate}
-															allStages={stages}
-														/>
-													)}
-
-													{/* Render subtasks */}
-													<div className="space-y-2 pl-2 border-l-2 border-primary/20">
-														{subtasks.map(task => (
+														{parentInColumn && (
 															<TaskCard
-																key={task.id}
-																task={task}
-																onDragStart={() => handleDragStart(task)}
-																onEdit={() => onTaskEdit(task)}
-																onDelete={() => onTaskDelete(task.id)}
+																key={parentInColumn.id}
+																task={parentInColumn}
+																onDragStart={() => handleDragStart(parentInColumn)}
+																onEdit={() => onTaskEdit(parentInColumn)}
+																onDelete={() => onTaskDelete(parentInColumn.id)}
 																onView={() => {
-																	setViewTask(task);
+																	setViewTask(parentInColumn);
 																	setIsViewDialogOpen(true);
 																}}
-																onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+																onReviewTask={onTaskReview ? () => onTaskReview(parentInColumn) : undefined}
 																canManage={canManageTasks}
 																canDrag={canDragTasks}
 																currentStage={column}
 																projectId={projectId}
-																onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+																onAddSubtask={onAddSubtask ? () => onAddSubtask(parentInColumn) : undefined}
 																onViewSubtask={(subtask) => {
 																	setViewTask(subtask);
 																	setIsViewDialogOpen(true);
 																}}
 																onTaskUpdate={onTaskUpdate}
 																allStages={stages}
+																isSelectionMode={selectionModeStageIds.has(column.id)}
+																isSelected={selectedTaskIds.has(parentInColumn.id)}
+																onToggleSelection={toggleTaskSelection}
 															/>
-														))}
-													</div>
-												</div>
-											);
-										} else {
-											// Normal standalone tasks (or parent without subtasks in this column)
-											return groupTasks.map(task => (
-												<TaskCard
-													key={task.id}
-													task={task}
-													onDragStart={() => handleDragStart(task)}
-													onEdit={() => onTaskEdit(task)}
-													onDelete={() => onTaskDelete(task.id)}
-													onView={() => {
-														setViewTask(task);
-														setIsViewDialogOpen(true);
-													}}
-													onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
-													canManage={canManageTasks}
-													canDrag={canDragTasks}
-													currentStage={column}
-													projectId={projectId}
-													onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
-													onViewSubtask={(subtask) => {
-														setViewTask(subtask);
-														setIsViewDialogOpen(true);
-													}}
-													onTaskUpdate={onTaskUpdate}
-													allStages={stages}
-												/>
-											));
-										}
-									})
-								) : (
-									columnTasks.map((task) => (
-										<TaskCard
-											key={task.id}
-											task={task}
-											onDragStart={() => handleDragStart(task)}
-											onEdit={() => onTaskEdit(task)}
-											onDelete={() => onTaskDelete(task.id)}
-											onView={() => {
-												setViewTask(task);
-												setIsViewDialogOpen(true);
-											}}
-											onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+														)}
 
-											canManage={canManageTasks}
-											canDrag={canDragTasks}
-											currentStage={column}
-											projectId={projectId}
-											onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
-											onViewSubtask={(subtask) => {
-												setViewTask(subtask);
-												setIsViewDialogOpen(true);
-											}}
-											onTaskUpdate={onTaskUpdate}
-											allStages={stages}
-										/>
-									))
-								)
-							)}
+														<div className="space-y-2 pl-2 border-l-2 border-primary/20">
+															{subtasks.map(task => (
+																<TaskCard
+																	key={task.id}
+																	task={task}
+																	onDragStart={() => handleDragStart(task)}
+																	onEdit={() => onTaskEdit(task)}
+																	onDelete={() => onTaskDelete(task.id)}
+																	onView={() => {
+																		setViewTask(task);
+																		setIsViewDialogOpen(true);
+																	}}
+																	onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+																	canManage={canManageTasks}
+																	canDrag={canDragTasks}
+																	currentStage={column}
+																	projectId={projectId}
+																	onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+																	onViewSubtask={(subtask) => {
+																		setViewTask(subtask);
+																		setIsViewDialogOpen(true);
+																	}}
+																	onTaskUpdate={onTaskUpdate}
+																	allStages={stages}
+																	isSelectionMode={selectionModeStageIds.has(column.id)}
+																	isSelected={selectedTaskIds.has(task.id)}
+																	onToggleSelection={toggleTaskSelection}
+																/>
+															))}
+														</div>
+													</div>
+												);
+											} else {
+												return groupTasks.map(task => (
+													<TaskCard
+														key={task.id}
+														task={task}
+														onDragStart={() => handleDragStart(task)}
+														onEdit={() => onTaskEdit(task)}
+														onDelete={() => onTaskDelete(task.id)}
+														onView={() => {
+															setViewTask(task);
+															setIsViewDialogOpen(true);
+														}}
+														onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+														canManage={canManageTasks}
+														canDrag={canDragTasks}
+														currentStage={column}
+														projectId={projectId}
+														onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+														onViewSubtask={(subtask) => {
+															setViewTask(subtask);
+															setIsViewDialogOpen(true);
+														}}
+														onTaskUpdate={onTaskUpdate}
+														allStages={stages}
+														isSelectionMode={selectionModeStageIds.has(column.id)}
+														isSelected={selectedTaskIds.has(task.id)}
+														onToggleSelection={toggleTaskSelection}
+													/>
+												));
+											}
+										})
+									) : (
+										columnTasks.map((task) => (
+											<TaskCard
+												key={task.id}
+												task={task}
+												onDragStart={() => handleDragStart(task)}
+												onEdit={() => onTaskEdit(task)}
+												onDelete={() => onTaskDelete(task.id)}
+												onView={() => {
+													setViewTask(task);
+													setIsViewDialogOpen(true);
+												}}
+												onReviewTask={onTaskReview ? () => onTaskReview(task) : undefined}
+												canManage={canManageTasks}
+												canDrag={canDragTasks}
+												currentStage={column}
+												projectId={projectId}
+												onAddSubtask={onAddSubtask ? () => onAddSubtask(task) : undefined}
+												onViewSubtask={(subtask) => {
+													setViewTask(subtask);
+													setIsViewDialogOpen(true);
+												}}
+												onTaskUpdate={onTaskUpdate}
+												allStages={stages}
+												isSelectionMode={selectionModeStageIds.has(column.id)}
+												isSelected={selectedTaskIds.has(task.id)}
+												onToggleSelection={toggleTaskSelection}
+											/>
+										))
+									)
+								)}
+							</div>
 						</div>
-					</div>
-				);
+						);
 			})}
 
-			<TaskDetailsDialog
-				task={viewTask}
-				open={isViewDialogOpen}
-				onOpenChange={setIsViewDialogOpen}
-				onEdit={canManageTasks && viewTask ? () => {
-					setIsViewDialogOpen(false);
-					onTaskEdit(viewTask);
-				} : undefined}
-			/>
+						<TaskDetailsDialog
+							task={viewTask}
+							open={isViewDialogOpen}
+							onOpenChange={setIsViewDialogOpen}
+							onEdit={canManageTasks && viewTask ? () => {
+								setIsViewDialogOpen(false);
+								onTaskEdit(viewTask);
+							} : undefined}
+						/>
 
-			<TaskCompletionDialog
-				open={showCompletionDialog}
-				onOpenChange={setShowCompletionDialog}
-				onConfirm={handleConfirmation}
-				taskTitle={pendingComplete ? tasks.find(t => t.id === pendingComplete.taskId)?.title : undefined}
-			/>
+						<TaskCompletionDialog
+							open={showCompletionDialog}
+							onOpenChange={setShowCompletionDialog}
+							onConfirm={handleConfirmation}
+							taskTitle={pendingComplete ? tasks.find(t => t.id === pendingComplete.taskId)?.title : undefined}
+						/>
 
-			<AlertDialog open={!!stageToDelete} onOpenChange={(open) => !open && setStageToDelete(null)}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Stage</AlertDialogTitle>
-						<AlertDialogDescription>
-							Are you sure you want to delete this stage? Tasks in this stage will need to be moved to another stage.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							onClick={confirmDeleteStage}
-							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-						>
-							Delete
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</div>
-	);
-}
+						<AlertDialog open={!!stageToDelete} onOpenChange={(open) => !open && setStageToDelete(null)}>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Delete Stage</AlertDialogTitle>
+									<AlertDialogDescription>
+										Are you sure you want to delete this stage? Tasks in this stage will need to be moved to another stage.
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogAction
+										onClick={confirmDeleteStage}
+										className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+									>
+										Delete
+									</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+
+						{bulkEditStageId && (
+							<BulkEditDialog
+								open={isBulkEditDialogOpen}
+								onOpenChange={setIsBulkEditDialogOpen}
+								onSave={onBulkSave}
+								selectedCount={getColumnTasks(bulkEditStageId).filter(t => selectedTaskIds.has(t.id)).length}
+								teamMembers={teamMembers || []}
+								departments={departments || []}
+							/>
+						)}
+					</div>
+				);
+			}

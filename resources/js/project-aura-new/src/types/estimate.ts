@@ -1,6 +1,6 @@
 import { Client } from './client';
 
-export type EstimateStatus = 'draft' | 'sent' | 'approved' | 'rejected';
+export type EstimateStatus = 'draft' | 'sent' | 'approved' | 'accepted' | 'rejected' | 'invoiced' | 'deleted';
 
 export interface EstimateLineItem {
 	id?: number;

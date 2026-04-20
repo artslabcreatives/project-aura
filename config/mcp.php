@@ -86,6 +86,10 @@ return [
             'description' => 'Assign a task to a user',
             'handler' => \App\Mcp\Tools\AssignTaskTool::class,
         ],
+        'search_estimates' => [
+            'description' => 'Search for estimates by project name, client name, or other criteria',
+            'handler' => \App\Mcp\Tools\SearchEstimatesTool::class,
+        ],
         'attach_estimate_po' => [
             'description' => 'Check if an estimate has amounts and PO number, then attach the PO to the associated project',
             'handler' => \App\Mcp\Tools\AttachEstimatePOTool::class,

@@ -993,6 +993,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								onAddTaskToStage={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}
 								onAddSubtask={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddSubtask : undefined}
+								teamMembers={teamMembers}
+								departments={departments}
 							/>
 						) : (
 							<TaskListView

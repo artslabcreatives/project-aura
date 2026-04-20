@@ -665,6 +665,8 @@ export default function ProjectKanban() {
 						canDragTasks={currentUser?.role !== 'user'}
 						onTaskReview={task => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
 						disableBacklogRenaming={currentUser?.role === 'user'}
+						teamMembers={teamMembers}
+						departments={departments}
 					/>
 				) : (
 					<TaskListView

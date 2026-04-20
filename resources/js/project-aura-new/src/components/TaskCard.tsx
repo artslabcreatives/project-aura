@@ -21,6 +21,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
 	Popover,
 	PopoverContent,
@@ -54,9 +55,30 @@ interface TaskCardProps {
 	onViewSubtask?: (subtask: Task) => void;
 	onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
 	allStages?: Stage[];
+	isSelectionMode?: boolean;
+	isSelected?: boolean;
+	onToggleSelection?: (taskId: string) => void;
 }
 
-export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReviewTask, canManage = true, currentStage, canDrag = true, projectId, onAddSubtask, onViewSubtask, onTaskUpdate, allStages = [] }: TaskCardProps) {
+export function TaskCard({ 
+	task, 
+	onDragStart, 
+	onEdit, 
+	onDelete, 
+	onView, 
+	onReviewTask, 
+	canManage = true, 
+	currentStage, 
+	canDrag = true, 
+	projectId, 
+	onAddSubtask, 
+	onViewSubtask, 
+	onTaskUpdate, 
+	allStages = [],
+	isSelectionMode = false,
+	isSelected = false,
+	onToggleSelection
+}: TaskCardProps) {
 	const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 	const isValidDueDate = dueDate && isValid(dueDate);
 	const isCompleteStage = currentStage?.title?.toLowerCase() === "complete" || currentStage?.title?.toLowerCase() === "completed" || currentStage?.title?.toLowerCase() === "archive";
@@ -195,11 +217,26 @@ export function TaskCard({ task, onDragStart, onEdit, onDelete, onView, onReview
 			onDragStart={canDrag ? onDragStart : undefined}
 			className={cn(
 				"hover:shadow-md transition-all group relative",
-				canDrag && "cursor-move hover:scale-[1.02]",
-				!canDrag && "cursor-default",
-				isOverdue && "border-destructive/50 bg-destructive/5"
+				canDrag && !isSelectionMode && "cursor-move hover:scale-[1.02]",
+				(isSelectionMode || !canDrag) && "cursor-default",
+				isOverdue && "border-destructive/50 bg-destructive/5",
+				isSelected && "ring-2 ring-primary border-primary bg-primary/5 shadow-inner"
 			)}
+			onClick={() => {
+				if (isSelectionMode && onToggleSelection) {
+					onToggleSelection(task.id);
+				}
+			}}
 		>
+			{isSelectionMode && (
+				<div className="absolute top-2 left-2 z-20" onClick={(e) => e.stopPropagation()}>
+					<Checkbox 
+						checked={isSelected} 
+						onCheckedChange={() => onToggleSelection?.(task.id)}
+						className="h-5 w-5 bg-card border-2"
+					/>
+				</div>
+			)}
 			<CardHeader className="p-4 pb-2 relative">
 				<h4 className="font-semibold text-sm leading-tight w-full pr-2">
 					{task.title}

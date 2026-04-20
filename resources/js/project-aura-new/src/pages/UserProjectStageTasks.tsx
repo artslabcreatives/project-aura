@@ -685,6 +685,8 @@ export default function UserProjectStageTasks() {
 							disableBacklogRenaming={true}
 							useSubtasksGrouping={true}
 							allTasks={allTasks}
+							teamMembers={teamMembers}
+							departments={departments}
 						/>
 					) : (
 						<TaskListView
