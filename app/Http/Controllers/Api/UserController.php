@@ -53,9 +53,14 @@ class UserController extends Controller
         $query = User::with('department');
 
         // Apply role-based visibility rules
-        // Admin and HR can see all users. Others can only see their own department.
+        // Admin and HR can see all users.
         if ($currentUser && !in_array($currentUser->role, ['admin', 'hr'])) {
-            $query->where('department_id', $currentUser->department_id);
+            // Special rule: Digital Marketing (8) Team Leads and Account Managers can also see Design (9)
+            if ($currentUser->department_id == 8 && in_array($currentUser->role, ['team-lead', 'account-manager'])) {
+                $query->whereIn('department_id', [8, 9]);
+            } else {
+                $query->where('department_id', $currentUser->department_id);
+            }
         }
         
         if ($request->has('department_id')) {
