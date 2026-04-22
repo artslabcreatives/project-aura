@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Task, User } from "@/types/task";
 import { Project } from "@/types/project";
 import { Department } from "@/types/department";
@@ -29,6 +29,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function FilteredTasksPage() {
     const { filterType } = useParams<{ filterType: string }>();
+    const [searchParams] = useSearchParams();
+    const userId = searchParams.get("userId");
     const navigate = useNavigate();
     const { currentUser } = useUser();
 
@@ -127,8 +129,17 @@ export default function FilteredTasksPage() {
             const isCompleted = isTaskCompleted(task);
             if (isExcludedProject && !isCompleted) return false;
 
-            // Apply role-based filtering first
-            if (currentUser) {
+            // Apply user filtering
+            if (userId) {
+                const targetUser = teamMembers.find(u => String(u.id) === String(userId));
+                if (targetUser) {
+                    const isAssigned =
+                        task.assignee === targetUser.name ||
+                        (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(userId)));
+                    if (!isAssigned) return false;
+                }
+            } else if (currentUser) {
+                // Apply role-based filtering first if no specific userId is requested
                 if (currentUser.role === 'user' || currentUser.role === 'account-manager') {
                     // Regular users: show only their assigned tasks
                     const isAssigned =
@@ -180,6 +191,11 @@ export default function FilteredTasksPage() {
                         isPast(new Date(task.dueDate)) &&
                         !isToday(new Date(task.dueDate));
 
+                case 'today-workload':
+                    return !isTaskCompleted(task) &&
+                        task.dueDate &&
+                        new Date(task.dueDate) <= endOfDay(today); // Includes today and past (overdue)
+
                 case 'upcoming':
                     if (!task.dueDate) return false;
                     const dueDate = new Date(task.dueDate);
@@ -227,6 +243,10 @@ export default function FilteredTasksPage() {
             case 'overdue': return 'Overdue Tasks';
             case 'upcoming': return 'Upcoming Tasks (7 Days)';
             case 'completed': return 'Completed Tasks';
+            case 'today-workload': {
+                const targetUser = teamMembers.find(u => String(u.id) === String(userId));
+                return targetUser ? `${targetUser.name}'s Today Workload` : 'Today Workload';
+            }
             default: return 'Tasks';
         }
     };

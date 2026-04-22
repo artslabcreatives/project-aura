@@ -15,6 +15,7 @@ export const userService = {
 			is_active: u.is_active,
 			avatar: u.avatar, // Mattermost avatar URL
 			todayTaskCount: u.today_tasks_count,
+			overdueTaskCount: u.overdue_tasks_count,
 		}));
 	},
 
@@ -30,6 +31,7 @@ export const userService = {
 			is_active: data.is_active,
 			avatar: data.avatar, // Mattermost avatar URL
 			todayTaskCount: data.today_tasks_count,
+			overdueTaskCount: data.overdue_tasks_count,
 		};
 	},
 
@@ -63,6 +65,7 @@ export const userService = {
 			preferences: data.preferences,
 			is_active: data.is_active,
 			todayTaskCount: data.today_tasks_count,
+			overdueTaskCount: data.overdue_tasks_count,
 		};
 	},
 
@@ -90,6 +93,7 @@ export const userService = {
 			preferences: data.preferences,
 			is_active: data.is_active,
 			todayTaskCount: data.today_tasks_count,
+			overdueTaskCount: data.overdue_tasks_count,
 		};
 	},
 

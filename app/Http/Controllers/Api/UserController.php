@@ -10,6 +10,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use App\Models\Task;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
@@ -64,11 +66,35 @@ class UserController extends Controller
             $query->where('role', $request->role);
         }
 
-        // Add today_tasks_count: Active tasks assigned to the user due today or earlier
-        $query->withCount(['assignedTasks as today_tasks_count' => function ($query) {
-            $query->where('user_status', '!=', 'complete')
-                  ->whereDate('due_date', '<=', now()->toDateString());
-        }]);
+        $now = now()->toDateString();
+        
+        $query->select('*')->selectSub(
+            Task::where(function($sq) {
+                  $sq->whereColumn('tasks.assignee_id', 'users.id')
+                    ->orWhereExists(function($ssq) {
+                        $ssq->from('task_assignees')
+                            ->whereColumn('task_assignees.task_id', 'tasks.id')
+                            ->whereColumn('task_assignees.user_id', 'users.id');
+                    });
+              })
+              ->where('tasks.user_status', '!=', 'complete')
+              ->whereDate('tasks.due_date', '<=', $now)
+              ->whereNull('tasks.parent_id')
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('project')
+                    ->orWhereHas('project', function($ssq) {
+                        $ssq->where('is_archived', 0)
+                            ->where('status', '!=', 'on-hold');
+                    });
+              })
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('projectStage')
+                    ->orWhereHas('projectStage', function($ssq) {
+                        $ssq->whereRaw("LOWER(TRIM(title)) NOT IN ('suggested', 'suggested task', 'complete', 'completed', 'archive', 'done', 'finished', 'closed')");
+                    });
+              })
+              ->selectRaw('count(*)')
+        , 'today_tasks_count');
         
         $users = $query->get();
         return response()->json($users);
@@ -126,10 +152,34 @@ class UserController extends Controller
             ]);
         }
         
-        return response()->json($user->load('department')->loadCount(['assignedTasks as today_tasks_count' => function ($query) {
-            $query->where('user_status', '!=', 'complete')
-                  ->whereDate('due_date', '<=', now()->toDateString());
-        }]), 201);
+        $now = now()->toDateString();
+        $user->today_tasks_count = Task::where(function($sq) use ($user) {
+                  $sq->where('assignee_id', $user->id)
+                    ->orWhereExists(function($ssq) use ($user) {
+                        $ssq->from('task_assignees')
+                            ->whereColumn('task_assignees.task_id', 'tasks.id')
+                            ->where('task_assignees.user_id', $user->id);
+                    });
+              })
+              ->where('tasks.user_status', '!=', 'complete')
+              ->whereDate('tasks.due_date', '<=', $now)
+              ->whereNull('tasks.parent_id')
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('project')
+                    ->orWhereHas('project', function($ssq) {
+                        $ssq->where('is_archived', 0)
+                            ->where('status', '!=', 'on-hold');
+                    });
+              })
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('projectStage')
+                    ->orWhereHas('projectStage', function($ssq) {
+                        $ssq->whereRaw("LOWER(TRIM(title)) NOT IN ('suggested', 'suggested task', 'complete', 'completed', 'archive', 'done', 'finished', 'closed')");
+                    });
+              })
+              ->count();
+
+        return response()->json($user->load('department'), 201);
     }
 
     #[OA\Get(
@@ -153,10 +203,34 @@ class UserController extends Controller
     )]
     public function show(User $user): JsonResponse
     {
-        return response()->json($user->load(['department', 'assignedTasks'])->loadCount(['assignedTasks as today_tasks_count' => function ($query) {
-            $query->where('user_status', '!=', 'complete')
-                  ->whereDate('due_date', '<=', now()->toDateString());
-        }]));
+        $now = now()->toDateString();
+        $user->today_tasks_count = Task::where(function($sq) use ($user) {
+                  $sq->where('assignee_id', $user->id)
+                    ->orWhereExists(function($ssq) use ($user) {
+                        $ssq->from('task_assignees')
+                            ->whereColumn('task_assignees.task_id', 'tasks.id')
+                            ->where('task_assignees.user_id', $user->id);
+                    });
+              })
+              ->where('tasks.user_status', '!=', 'complete')
+              ->whereDate('tasks.due_date', '<=', $now)
+              ->whereNull('tasks.parent_id')
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('project')
+                    ->orWhereHas('project', function($ssq) {
+                        $ssq->where('is_archived', 0)
+                            ->where('status', '!=', 'on-hold');
+                    });
+              })
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('projectStage')
+                    ->orWhereHas('projectStage', function($ssq) {
+                        $ssq->whereRaw("LOWER(TRIM(title)) NOT IN ('suggested', 'suggested task', 'complete', 'completed', 'archive', 'done', 'finished', 'closed')");
+                    });
+              })
+              ->count();
+
+        return response()->json($user->load(['department', 'assignedTasks']));
     }
 
     #[OA\Put(
@@ -218,10 +292,34 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        return response()->json($user->load('department')->loadCount(['assignedTasks as today_tasks_count' => function ($query) {
-            $query->where('user_status', '!=', 'complete')
-                  ->whereDate('due_date', '<=', now()->toDateString());
-        }]));
+        $now = now()->toDateString();
+        $user->today_tasks_count = Task::where(function($sq) use ($user) {
+                  $sq->where('assignee_id', $user->id)
+                    ->orWhereExists(function($ssq) use ($user) {
+                        $ssq->from('task_assignees')
+                            ->whereColumn('task_assignees.task_id', 'tasks.id')
+                            ->where('task_assignees.user_id', $user->id);
+                    });
+              })
+              ->where('tasks.user_status', '!=', 'complete')
+              ->whereDate('tasks.due_date', '<=', $now)
+              ->whereNull('tasks.parent_id')
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('project')
+                    ->orWhereHas('project', function($ssq) {
+                        $ssq->where('is_archived', 0)
+                            ->where('status', '!=', 'on-hold');
+                    });
+              })
+              ->where(function($sq) {
+                  $sq->whereDoesntHave('projectStage')
+                    ->orWhereHas('projectStage', function($ssq) {
+                        $ssq->whereRaw("LOWER(TRIM(title)) NOT IN ('suggested', 'suggested task', 'complete', 'completed', 'archive', 'done', 'finished', 'closed')");
+                    });
+              })
+              ->count();
+
+        return response()->json($user->load('department'));
     }
 
     #[OA\Delete(

@@ -106,4 +106,5 @@ export interface User {
 	is_active?: boolean;
 	createdAt?: string;
 	todayTaskCount?: number;
+	overdueTaskCount?: number;
 }

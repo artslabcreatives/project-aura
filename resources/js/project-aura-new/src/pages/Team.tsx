@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ export default function Team() {
 	const { toast } = useToast();
 	const [loading, setLoading] = useState(true);
 	const { currentUser } = useUser();
+	const navigate = useNavigate();
 
 	// Load data from API on mount
 	useEffect(() => {
@@ -303,7 +305,12 @@ export default function Team() {
 													</AvatarFallback>
 												</Avatar>
 												<div className="flex-1">
-													<CardTitle className="text-base">{member.name}</CardTitle>
+													<CardTitle 
+														className="text-base hover:text-primary cursor-pointer transition-colors"
+														onClick={() => navigate(`/tasks/filter/today-workload?userId=${member.id}`)}
+													>
+														{member.name}
+													</CardTitle>
 													<p className="text-sm text-muted-foreground">
 														{member.email}
 													</p>
@@ -336,7 +343,10 @@ export default function Team() {
 										<CardContent>
 											<div className="flex items-center justify-between">
 												<Badge variant="outline">{member.role}</Badge>
-												<div className="text-sm text-muted-foreground">
+												<div 
+													className="text-sm text-muted-foreground hover:text-primary cursor-pointer transition-colors flex items-center gap-2"
+													onClick={() => navigate(`/tasks/filter/today-workload?userId=${member.id}`)}
+												>
 													{member.todayTaskCount || 0} tasks today
 												</div>
 											</div>
