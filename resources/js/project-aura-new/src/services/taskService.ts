@@ -183,6 +183,11 @@ export const taskService = {
 		const { data } = await api.post(`/tasks/${id}/start`);
 		return mapTask(data);
 	},
+	
+	duplicate: async (id: string): Promise<Task> => {
+		const { data } = await api.post(`/tasks/${id}/duplicate`);
+		return mapTask(data);
+	},
 
 	earlyStart: async (id: string, projectStageId: string): Promise<Task> => {
 		const { data } = await api.post(`/tasks/${id}/early-start`, { project_stage_id: projectStageId });

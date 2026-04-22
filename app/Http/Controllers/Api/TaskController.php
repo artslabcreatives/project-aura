@@ -281,6 +281,93 @@ class TaskController extends Controller
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments.user', 'assignedUsers', 'taskHistories.user']));
     }
 
+    #[OA\Post(
+        path: "/tasks/{id}/duplicate",
+        summary: "Duplicate a task",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 201, description: "Task duplicated"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Task not found"),
+            new OA\Response(response: 403, description: "Forbidden")
+        ]
+    )]
+    public function duplicate(Task $task): JsonResponse
+    {
+        $project = $task->project;
+        if ($project && !$project->allowsTaskCreation()) {
+            return response()->json([
+                'message' => 'Cannot duplicate tasks in this project state.',
+                'project_status' => $project->status
+            ], 403);
+        }
+
+        // 1. Duplicate the parent task
+        $newTask = $task->replicate();
+        $newTask->title = $task->title . ' (Copy)';
+        $newTask->user_status = 'pending';
+        
+        // Reset completion and progress fields
+        $newTask->completed_at = null;
+        $newTask->original_assignee_id = null;
+        $newTask->is_in_specific_stage = false;
+        $newTask->actual_hours_worked = 0;
+        $newTask->task_cost = 0;
+        $newTask->started_at = null;
+        $newTask->revision_comment = null;
+        
+        $newTask->save();
+
+        // 2. Sync assignees for the duplicated task
+        $originalAssignees = $task->assignedUsers()->pluck('users.id')->toArray();
+        if (!empty($originalAssignees)) {
+            $newTask->assignedUsers()->sync($originalAssignees);
+        } else if ($task->assignee_id) {
+            $newTask->assignedUsers()->sync([$task->assignee_id]);
+        }
+
+        // 3. Duplicate subtasks
+        foreach ($task->subtasks as $subtask) {
+            $newSubtask = $subtask->replicate();
+            $newSubtask->parent_id = $newTask->id;
+            $newSubtask->user_status = 'pending';
+            
+            // Reset subtask progress fields
+            $newSubtask->completed_at = null;
+            $newSubtask->actual_hours_worked = 0;
+            $newSubtask->task_cost = 0;
+            $newSubtask->started_at = null;
+            
+            $newSubtask->save();
+            
+            // Sync assignees for subtask
+            $subtaskAssignees = $subtask->assignedUsers()->pluck('users.id')->toArray();
+            if (!empty($subtaskAssignees)) {
+                $newSubtask->assignedUsers()->sync($subtaskAssignees);
+            } else if ($subtask->assignee_id) {
+                $newSubtask->assignedUsers()->sync([$subtask->assignee_id]);
+            }
+        }
+
+        try {
+            TaskUpdated::dispatch($newTask, 'create');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast TaskUpdated event for duplicated task: ' . $e->getMessage());
+        }
+
+        return response()->json($newTask->load(['project', 'assignee', 'projectStage', 'assignedUsers', 'subtasks.assignedUsers']), 201);
+    }
+
+
     #[OA\Put(
         path: "/tasks/{id}",
         summary: "Update task",

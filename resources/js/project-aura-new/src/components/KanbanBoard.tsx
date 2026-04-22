@@ -767,6 +767,7 @@ export function KanbanBoard({
 																isSelectionMode={selectionModeStageIds.has(column.id)}
 																isSelected={selectedTaskIds.has(parentInColumn.id)}
 																onToggleSelection={toggleTaskSelection}
+																onRefresh={onRefresh}
 															/>
 														)}
 
@@ -797,6 +798,7 @@ export function KanbanBoard({
 																	isSelectionMode={selectionModeStageIds.has(column.id)}
 																	isSelected={selectedTaskIds.has(task.id)}
 																	onToggleSelection={toggleTaskSelection}
+																	onRefresh={onRefresh}
 																/>
 															))}
 														</div>
@@ -829,6 +831,7 @@ export function KanbanBoard({
 														isSelectionMode={selectionModeStageIds.has(column.id)}
 														isSelected={selectedTaskIds.has(task.id)}
 														onToggleSelection={toggleTaskSelection}
+														onRefresh={onRefresh}
 													/>
 												));
 											}
@@ -860,6 +863,7 @@ export function KanbanBoard({
 												isSelectionMode={selectionModeStageIds.has(column.id)}
 												isSelected={selectedTaskIds.has(task.id)}
 												onToggleSelection={toggleTaskSelection}
+												onRefresh={onRefresh}
 											/>
 										))
 									)

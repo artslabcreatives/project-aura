@@ -3,7 +3,7 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText, Zap } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText, Zap, Copy } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +58,7 @@ interface TaskCardProps {
 	isSelectionMode?: boolean;
 	isSelected?: boolean;
 	onToggleSelection?: (taskId: string) => void;
+	onRefresh?: () => void;
 }
 
 export function TaskCard({ 
@@ -77,7 +78,8 @@ export function TaskCard({
 	allStages = [],
 	isSelectionMode = false,
 	isSelected = false,
-	onToggleSelection
+	onToggleSelection,
+	onRefresh
 }: TaskCardProps) {
 	const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 	const isValidDueDate = dueDate && isValid(dueDate);
@@ -95,6 +97,8 @@ export function TaskCard({
 	const { currentUser } = useUser();
 	const navigate = useNavigate();
 	const location = useLocation();
+
+	const [isDuplicating, setIsDuplicating] = useState(false);
 
 	const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -201,6 +205,33 @@ export function TaskCard({
 			});
 		} finally {
 			setIsEarlyStarting(false);
+		}
+	};
+
+	const handleDuplicate = async (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (isDuplicating) return;
+		
+		setIsDuplicating(true);
+		try {
+			await taskService.duplicate(task.id);
+			toast({
+				title: "Task duplicated",
+				description: `Created copy of "${task.title}"`,
+			});
+			if (onRefresh) {
+				onRefresh();
+			}
+		} catch (error: any) {
+			console.error("Duplication failed:", error);
+			const message = error.response?.data?.message || "Failed to duplicate task.";
+			toast({
+				title: "Error",
+				description: message,
+				variant: "destructive",
+			});
+		} finally {
+			setIsDuplicating(false);
 		}
 	};
 
@@ -382,6 +413,16 @@ export function TaskCard({
 								title="Edit task"
 							>
 								<Edit className="h-3.5 w-3.5" />
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon"
+								className={cn("h-7 w-7", isDuplicating && "animate-pulse")}
+								onClick={handleDuplicate}
+								disabled={isDuplicating}
+								title="Duplicate task"
+							>
+								<Copy className={cn("h-3.5 w-3.5", isDuplicating && "text-primary")} />
 							</Button>
 							{currentUser?.role !== 'account-manager' && (
 								<Button
