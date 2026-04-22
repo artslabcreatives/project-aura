@@ -105,4 +105,5 @@ export interface User {
 	hasSeenWelcomeVideo?: boolean;
 	is_active?: boolean;
 	createdAt?: string;
+	todayTaskCount?: number;
 }

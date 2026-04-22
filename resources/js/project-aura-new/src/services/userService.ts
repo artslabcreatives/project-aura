@@ -14,6 +14,7 @@ export const userService = {
 			preferences: u.preferences,
 			is_active: u.is_active,
 			avatar: u.avatar, // Mattermost avatar URL
+			todayTaskCount: u.today_tasks_count,
 		}));
 	},
 
@@ -28,6 +29,7 @@ export const userService = {
 			preferences: data.preferences,
 			is_active: data.is_active,
 			avatar: data.avatar, // Mattermost avatar URL
+			todayTaskCount: data.today_tasks_count,
 		};
 	},
 
@@ -60,6 +62,7 @@ export const userService = {
 			department: data.department_id != null ? String(data.department_id) : '',
 			preferences: data.preferences,
 			is_active: data.is_active,
+			todayTaskCount: data.today_tasks_count,
 		};
 	},
 
@@ -86,6 +89,7 @@ export const userService = {
 			department: data.department_id != null ? String(data.department_id) : '',
 			preferences: data.preferences,
 			is_active: data.is_active,
+			todayTaskCount: data.today_tasks_count,
 		};
 	},
 

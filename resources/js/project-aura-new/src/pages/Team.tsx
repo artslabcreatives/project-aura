@@ -27,13 +27,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { userService } from "@/services/userService";
 import { departmentService } from "@/services/departmentService";
-import { taskService } from "@/services/taskService";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Team() {
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
 	const [departments, setDepartments] = useState<Department[]>([]);
-	const [tasks, setTasks] = useState<Task[]>([]);
 	const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
 	const [isDepartmentDialogOpen, setIsDepartmentDialogOpen] = useState(false);
 	const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -48,10 +46,9 @@ export default function Team() {
 		const loadData = async () => {
 			setLoading(true);
 			try {
-				const [usersData, departmentsData, tasksData] = await Promise.all([
+				const [usersData, departmentsData] = await Promise.all([
 					userService.getAll(),
 					departmentService.getAll(),
-					taskService.getAll(),
 				]);
 
 				// Filter out deactivated users and System Admin accounts
@@ -62,7 +59,6 @@ export default function Team() {
 				);
 				setTeamMembers(activeMembers);
 				setDepartments(departmentsData);
-				setTasks(tasksData);
 				// Expand all departments by default
 				setExpandedDepartments(new Set(departmentsData.map((d: Department) => d.id).concat(['uncategorized'])));
 			} catch (error) {
@@ -184,26 +180,11 @@ export default function Team() {
 		});
 	};
 
-	// Get task count for a user
-	const getUserTaskCount = (userName: string) => {
-		return tasks.filter(task => task.assignee === userName).length;
-	};
-
-	// Filter team members based on current user's role
-	const filteredTeamMembers = useMemo(() => {
-		if (!currentUser) return teamMembers;
-
-		// Admin and Team-lead both see all team members
-		// Only admin can edit/delete
-		return teamMembers;
-	}, [teamMembers, currentUser]);
-
 	// Group team members by department
 	const teamMembersByDepartment = useMemo(() => {
-		const grouped = filteredTeamMembers.reduce((acc, member) => {
+		const grouped = teamMembers.reduce((acc, member) => {
 			const deptId = member.department || 'uncategorized';
 			const deptName = getDepartmentName(deptId);
-			console.log('Member:', member.name, 'DeptId:', deptId, 'DeptName:', deptName);
 			if (!acc[deptId]) {
 				acc[deptId] = {
 					id: deptId,
@@ -215,12 +196,12 @@ export default function Team() {
 			return acc;
 		}, {} as Record<string, { id: string; name: string; members: User[] }>);
 
-		return Object.values(grouped).sort((a, b) => {
+		return (Object.values(grouped) as { id: string; name: string; members: User[] }[]).sort((a, b) => {
 			if (a.id === 'uncategorized') return 1;
 			if (b.id === 'uncategorized') return -1;
 			return a.name.localeCompare(b.name);
 		});
-	}, [filteredTeamMembers, getDepartmentName]);
+	}, [teamMembers, getDepartmentName]);
 
 	if (loading) {
 		return (
@@ -356,7 +337,7 @@ export default function Team() {
 											<div className="flex items-center justify-between">
 												<Badge variant="outline">{member.role}</Badge>
 												<div className="text-sm text-muted-foreground">
-													{getUserTaskCount(member.name)} tasks
+													{member.todayTaskCount || 0} tasks today
 												</div>
 											</div>
 										</CardContent>

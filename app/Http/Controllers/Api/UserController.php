@@ -47,7 +47,14 @@ class UserController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
+        $currentUser = $request->user();
         $query = User::with('department');
+
+        // Apply role-based visibility rules
+        // Admin and HR can see all users. Others can only see their own department.
+        if ($currentUser && !in_array($currentUser->role, ['admin', 'hr'])) {
+            $query->where('department_id', $currentUser->department_id);
+        }
         
         if ($request->has('department_id')) {
             $query->where('department_id', $request->department_id);
@@ -56,6 +63,12 @@ class UserController extends Controller
         if ($request->has('role')) {
             $query->where('role', $request->role);
         }
+
+        // Add today_tasks_count: Active tasks assigned to the user due today or earlier
+        $query->withCount(['assignedTasks as today_tasks_count' => function ($query) {
+            $query->where('user_status', '!=', 'complete')
+                  ->whereDate('due_date', '<=', now()->toDateString());
+        }]);
         
         $users = $query->get();
         return response()->json($users);
@@ -113,7 +126,10 @@ class UserController extends Controller
             ]);
         }
         
-        return response()->json($user->load('department'), 201);
+        return response()->json($user->load('department')->loadCount(['assignedTasks as today_tasks_count' => function ($query) {
+            $query->where('user_status', '!=', 'complete')
+                  ->whereDate('due_date', '<=', now()->toDateString());
+        }]), 201);
     }
 
     #[OA\Get(
@@ -137,7 +153,10 @@ class UserController extends Controller
     )]
     public function show(User $user): JsonResponse
     {
-        return response()->json($user->load(['department', 'assignedTasks']));
+        return response()->json($user->load(['department', 'assignedTasks'])->loadCount(['assignedTasks as today_tasks_count' => function ($query) {
+            $query->where('user_status', '!=', 'complete')
+                  ->whereDate('due_date', '<=', now()->toDateString());
+        }]));
     }
 
     #[OA\Put(
@@ -199,7 +218,10 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        return response()->json($user->load('department'));
+        return response()->json($user->load('department')->loadCount(['assignedTasks as today_tasks_count' => function ($query) {
+            $query->where('user_status', '!=', 'complete')
+                  ->whereDate('due_date', '<=', now()->toDateString());
+        }]));
     }
 
     #[OA\Delete(
