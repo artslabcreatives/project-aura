@@ -2,49 +2,52 @@
 namespace App\Listeners;
 
 use App\Events\ProjectStatusChanged;
-use App\Models\Task;
 use Illuminate\Support\Facades\DB;
 
 class CascadeProjectStatusToTasks
 {
     public function handle(ProjectStatusChanged $event): void
     {
-        $project  = $event->project;
+        $project   = $event->project;
         $newStatus = $event->newStatus;
+        $projectId = $project->id;
 
-        DB::transaction(function () use ($project, $newStatus) {
+        DB::transaction(function () use ($projectId, $newStatus) {
             if ($newStatus === 'on-hold') {
-                // Pause: lock all tasks that are not already complete/cancelled
-                Task::where('project_id', $project->id)
-                    ->whereNotIn('user_status', ['complete', 'cancelled'])
-                    ->each(function (Task $task) {
-                        $task->update([
-                            'previous_status' => $task->user_status,
-                            'is_locked'       => true,
-                        ]);
-                    });
+                // Pause: snapshot current status then lock — single UPDATE via SQL assignment
+                DB::statement(
+                    "UPDATE tasks
+                     SET previous_status = user_status,
+                         is_locked = 1,
+                         updated_at = NOW()
+                     WHERE project_id = ?
+                       AND user_status NOT IN ('complete', 'cancelled')",
+                    [$projectId]
+                );
             } elseif ($newStatus === 'cancelled') {
-                // Cancel: mark all non-complete tasks as cancelled
-                Task::where('project_id', $project->id)
-                    ->where('user_status', '!=', 'complete')
-                    ->each(function (Task $task) {
-                        $task->update([
-                            'previous_status' => $task->user_status,
-                            'user_status'     => 'cancelled',
-                            'is_locked'       => true,
-                        ]);
-                    });
+                // Cancel: snapshot then mark all non-complete tasks cancelled
+                DB::statement(
+                    "UPDATE tasks
+                     SET previous_status = user_status,
+                         user_status = 'cancelled',
+                         is_locked = 1,
+                         updated_at = NOW()
+                     WHERE project_id = ?
+                       AND user_status != 'complete'",
+                    [$projectId]
+                );
             } elseif ($newStatus === 'active') {
-                // Resume: restore tasks from previous_status and unlock
-                Task::where('project_id', $project->id)
-                    ->where('is_locked', true)
-                    ->each(function (Task $task) {
-                        $task->update([
-                            'user_status'    => $task->previous_status ?? 'pending',
-                            'previous_status'=> null,
-                            'is_locked'      => false,
-                        ]);
-                    });
+                // Resume: restore from previous_status (fall back to 'pending') and unlock
+                DB::statement(
+                    "UPDATE tasks
+                     SET user_status = COALESCE(previous_status, 'pending'),
+                         previous_status = NULL,
+                         is_locked = 0,
+                         updated_at = NOW()
+                     WHERE project_id = ?
+                       AND is_locked = 1",
+                    [$projectId]
+                );
             }
         });
     }
