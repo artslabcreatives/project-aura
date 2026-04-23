@@ -10,7 +10,7 @@ class InvoiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Invoice::with(['project:id,name', 'client:id,name']);
+        $query = Invoice::with(['project:id,name', 'client:id,company_name']);
 
         if ($request->filled('source')) {
             $query->where('source', $request->source);
@@ -52,12 +52,12 @@ class InvoiceController extends Controller
 
         $invoice = Invoice::create($validated);
 
-        return response()->json($invoice->load(['project:id,name', 'client:id,name']), 201);
+        return response()->json($invoice->load(['project:id,name', 'client:id,company_name']), 201);
     }
 
     public function show(Invoice $invoice): JsonResponse
     {
-        return response()->json($invoice->load(['project:id,name', 'client:id,name']));
+        return response()->json($invoice->load(['project:id,name', 'client:id,company_name']));
     }
 
     public function update(Request $request, Invoice $invoice): JsonResponse
@@ -79,7 +79,7 @@ class InvoiceController extends Controller
 
         $invoice->update($validated);
 
-        return response()->json($invoice->load(['project:id,name', 'client:id,name']));
+        return response()->json($invoice->load(['project:id,name', 'client:id,company_name']));
     }
 
     public function destroy(Invoice $invoice): JsonResponse

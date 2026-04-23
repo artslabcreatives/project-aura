@@ -25,7 +25,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Tag existing xero invoice references from projects table into the invoices table
+        // Migrate existing manual invoice references from projects table into the invoices table
         // Projects that have an invoice_number are treated as manual invoices
         $projects = DB::table('projects')
             ->whereNotNull('invoice_number')
