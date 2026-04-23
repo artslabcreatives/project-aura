@@ -81,6 +81,8 @@ export function TaskDialog({
 }: TaskDialogProps) {
 	const { toast } = useToast();
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const prevEditTaskIdRef = useRef<string | undefined>(undefined);
+	const prevOpenRef = useRef<boolean>(false);
 	const projects = availableProjects || [];
 	const [formData, setFormData] = useState({
 		title: "",
@@ -160,6 +162,15 @@ export function TaskDialog({
 	}, [tagDepartmentId, open]);
 
 	useEffect(() => {
+		const openedNow = open && !prevOpenRef.current;
+		const taskIdChanged = editTask?.id !== prevEditTaskIdRef.current;
+
+		prevOpenRef.current = open;
+		prevEditTaskIdRef.current = editTask?.id;
+
+		// Only reset form when dialog first opens or the edited task changes
+		if (!openedNow && !taskIdChanged) return;
+
 		if (editTask) {
 			// Map assignedUsers to IDs
 			let ids: string[] = [];
@@ -246,7 +257,8 @@ export function TaskDialog({
 			setNoStartDate(false);
 			setNoEndDate(false);
 		}
-	}, [editTask, open, availableStatuses, useProjectStages, projects, initialStageId, teamMembers]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [editTask?.id, open]);
 
 	useEffect(() => {
 		if (open) {

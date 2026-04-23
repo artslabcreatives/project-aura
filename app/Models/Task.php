@@ -37,6 +37,8 @@ class Task extends Model
         'actual_hours_worked',
         'task_cost',
         'started_at',
+        'previous_status',
+        'is_locked',
     ];
 
     protected $casts = [
@@ -47,6 +49,7 @@ class Task extends Model
         'started_at' => 'datetime',
         'is_in_specific_stage' => 'boolean',
         'is_assignee_locked' => 'boolean',
+        'is_locked' => 'boolean',
         'hourly_rate' => 'decimal:2',
         'actual_hours_worked' => 'decimal:2',
         'task_cost' => 'decimal:2',
