@@ -61,7 +61,7 @@ export default function Estimates() {
 	const [xeroConnected, setXeroConnected] = useState<boolean | null>(null);
 	const { toast } = useToast();
 	const navigate = useNavigate();
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 
 	const fetchEstimates = async () => {
 		setLoading(true);
@@ -188,12 +188,12 @@ export default function Estimates() {
 					<p className="text-muted-foreground text-sm mt-0.5">Manage client quotations — synced from Xero</p>
 				</div>
 				<div className="flex gap-2">
-					{xeroConnected === false && (currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+					{xeroConnected === false && (activeRole === 'admin' || activeRole === 'hr') && (
 						<Button variant="outline" onClick={handleConnectXero}>
 							<ExternalLink className="h-4 w-4 mr-2" /> Connect Xero
 						</Button>
 					)}
-					{xeroConnected && (currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+					{xeroConnected && (activeRole === 'admin' || activeRole === 'hr') && (
 						<Button variant="outline" onClick={handleXeroSync} disabled={isSyncingXero}>
 							<RefreshCw className={`h-4 w-4 mr-2 ${isSyncingXero ? 'animate-spin' : ''}`} />
 							{isSyncingXero ? 'Syncing...' : 'Sync from Xero'}

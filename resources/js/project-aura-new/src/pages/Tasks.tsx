@@ -42,7 +42,7 @@ const fixedKanbanStages: Stage[] = [
 export default function Tasks() {
 	const { projectId } = useParams<{ projectId?: string }>();
 	const numericProjectId = projectId ? parseInt(projectId, 10) : null;
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 
 	const [allTasks, setAllTasks] = useState<Task[]>([]);
 	const [allProjects, setAllProjects] = useState<Project[]>([]);
@@ -392,7 +392,7 @@ export default function Tasks() {
 		});
 
 
-		if (currentUser?.role === "team-lead") {
+		if (activeRole === "team-lead") {
 			const departmentMembers = teamMembers
 				.filter((member) => member.department === currentUser.department)
 				.map((member) => member.name);
@@ -424,7 +424,7 @@ export default function Tasks() {
 
 				return isAssignedToDepartment || isProjectInDepartment || isDesignProject;
 			});
-		} else if (currentUser?.role === "account-manager") {
+		} else if (activeRole === "account-manager") {
 			// Account Manager: Strict Department Only
 			const departmentMembers = teamMembers
 				.filter((member) => member.department === currentUser.department)
@@ -657,8 +657,8 @@ export default function Tasks() {
 				selectedTag={selectedTag}
 				onTagChange={setSelectedTag}
 				availableProjects={allProjects.filter(p => !p.isArchived).filter(p => {
-					if (currentUser?.role === 'admin') return true;
-					if (currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') {
+					if (activeRole === 'admin') return true;
+					if (activeRole === 'team-lead' || activeRole === 'account-manager') {
 						return p.department?.id === currentUser.department;
 					}
 					return true;
@@ -680,7 +680,7 @@ export default function Tasks() {
 						onTaskUpdate={handleTaskUpdate}
 						onTaskEdit={handleTaskEdit}
 						onTaskDelete={handleTaskDelete}
-						canManageTasks={currentUser?.role !== "user"}
+						canManageTasks={activeRole !== "user"}
 						canDragTasks={false}
 						disableBacklogRenaming={true}
 						teamMembers={teamMembers}
@@ -697,7 +697,7 @@ export default function Tasks() {
 						onTaskUpdate={handleTaskUpdate}
 						teamMembers={teamMembers}
 						departments={departments}
-						canManage={currentUser?.role !== "user"}
+						canManage={activeRole !== "user"}
 						showProjectColumn={true}
 					/>
 				)}

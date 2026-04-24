@@ -49,7 +49,7 @@ export default function ProjectKanban() {
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const { history, addHistoryEntry, loading: historyLoading } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 
@@ -92,7 +92,7 @@ export default function ProjectKanban() {
 				return;
 			}
 
-			if (currentUser?.role === 'team-lead') {
+			if (activeRole === 'team-lead') {
 				const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
 				const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
 				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
@@ -574,10 +574,10 @@ export default function ProjectKanban() {
 						/>
 					</div>
 					<div className="flex gap-2">
-						{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+						{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 							<>
 								<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>View History</Button>
-								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+								{(activeRole === 'admin' || activeRole === 'team-lead') && (
 									<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>Manage Stages</Button>
 								)}
 								<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
@@ -658,10 +658,10 @@ export default function ProjectKanban() {
 						onTaskEdit={handleTaskEdit}
 						onTaskDelete={handleTaskDelete}
 						useProjectStages
-						canManageTasks={currentUser?.role !== 'user'}
-						canDragTasks={currentUser?.role !== 'user'}
+						canManageTasks={activeRole !== 'user'}
+						canDragTasks={activeRole !== 'user'}
 						onTaskReview={task => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-						disableBacklogRenaming={currentUser?.role === 'user'}
+						disableBacklogRenaming={activeRole === 'user'}
 						teamMembers={teamMembers}
 						departments={departments}
 						allTasks={allTasks}
@@ -687,9 +687,9 @@ export default function ProjectKanban() {
 						onTaskDelete={handleTaskDelete}
 						onTaskUpdate={handleTaskUpdate}
 						teamMembers={teamMembers}
-						canManage={currentUser?.role !== 'user'}
+						canManage={activeRole !== 'user'}
 						onTaskReview={task => { setReviewTask(task); setIsReviewTaskDialogOpen(true); }}
-						showReviewButton={currentUser?.role === 'admin' || currentUser?.role === 'team-lead'}
+						showReviewButton={activeRole === 'admin' || activeRole === 'team-lead'}
 					/>
 				)}
 			</div>

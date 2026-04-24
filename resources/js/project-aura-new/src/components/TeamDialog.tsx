@@ -20,6 +20,7 @@ import {
 import { Department } from "@/types/department";
 import { User, UserRole } from "@/types/task";
 import { Plus } from "lucide-react";
+import { useUser } from "@/hooks/use-user";
 
 interface TeamDialogProps {
   open: boolean;
@@ -40,6 +41,7 @@ export function TeamDialog({
   onAddDepartment,
   currentUser,
 }: TeamDialogProps) {
+  const { activeRole } = useUser();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -57,7 +59,7 @@ export function TeamDialog({
       });
     } else {
       // For new team member, auto-select department for team-lead/account-manager
-      if (currentUser?.role === "team-lead" || currentUser?.role === "account-manager") {
+      if (activeRole === "team-lead" || activeRole === "account-manager") {
         setFormData({
           name: "",
           email: "",
@@ -123,7 +125,7 @@ export function TeamDialog({
                   value={formData.department}
                   onValueChange={(value) => setFormData({ ...formData, department: value })}
                   required
-                  disabled={currentUser?.role === "team-lead" || currentUser?.role === "account-manager"}
+                  disabled={activeRole === "team-lead" || activeRole === "account-manager"}
                 >
                   <SelectTrigger id="department">
                     <SelectValue placeholder="Select department" />
@@ -136,13 +138,13 @@ export function TeamDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                {currentUser?.role === "admin" && (
+                {activeRole === "admin" && (
                   <Button type="button" variant="outline" size="icon" onClick={onAddDepartment}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 )}
               </div>
-              {(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && (
+              {(activeRole === "team-lead" || activeRole === "account-manager") && (
                 <p className="text-xs text-muted-foreground">
                   Team members will be added to your department
                 </p>
@@ -160,7 +162,7 @@ export function TeamDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
-                  {currentUser?.role === "admin" && (
+                  {activeRole === "admin" && (
                     <>
                       <SelectItem value="team-lead">Team Lead</SelectItem>
                       <SelectItem value="account-manager">Account Manager</SelectItem>
@@ -169,7 +171,7 @@ export function TeamDialog({
                   )}
                 </SelectContent>
               </Select>
-              {(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && (
+              {(activeRole === "team-lead" || activeRole === "account-manager") && (
                 <p className="text-xs text-muted-foreground">
                   Only users can be added by team leads
                 </p>

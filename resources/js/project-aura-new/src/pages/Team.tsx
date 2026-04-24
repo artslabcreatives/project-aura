@@ -40,7 +40,7 @@ export default function Team() {
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 	const { toast } = useToast();
 	const [loading, setLoading] = useState(true);
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const navigate = useNavigate();
 
 	// Load data from API on mount
@@ -256,13 +256,13 @@ export default function Team() {
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Team</h1>
 					<p className="text-muted-foreground mt-1">
-						{(currentUser?.role === "team-lead" || currentUser?.role === "account-manager")
+						{(activeRole === "team-lead" || activeRole === "account-manager")
 							? `Manage ${getDepartmentName(currentUser.department)} team members`
 							: "View team members and their task progress"
 						}
 					</p>
 				</div>
-				{(currentUser?.role === "admin" || currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && (
+				{(activeRole === "admin" || activeRole === "team-lead" || activeRole === "account-manager") && (
 					<Button onClick={() => setIsTeamDialogOpen(true)} className="gap-2">
 						<Plus className="h-4 w-4" />
 						Add Team Member
@@ -315,8 +315,8 @@ export default function Team() {
 														{member.email}
 													</p>
 												</div>
-												{(currentUser?.role === "admin" ||
-													((currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && member.department === currentUser.department)) && (
+												{(activeRole === "admin" ||
+													((activeRole === "team-lead" || activeRole === "account-manager") && member.department === currentUser.department)) && (
 														<div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
 															<Button
 																variant="ghost"

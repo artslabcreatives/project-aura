@@ -38,7 +38,7 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
     const [comment, setComment] = useState("");
     const [newComment, setNewComment] = useState("");
     const [processing, setProcessing] = useState(false);
-    const { currentUser } = useUser();
+    const { currentUser, activeRole } = useUser();
     const { toast } = useToast();
 
     useEffect(() => {
@@ -112,8 +112,8 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
 
         try {
             setProcessing(true);
-            const isHR = currentUser?.role === 'hr' || currentUser?.role === 'admin';
-            const isTL = currentUser?.role === 'team-lead';
+            const isHR = activeRole === 'hr' || activeRole === 'admin';
+            const isTL = activeRole === 'team-lead';
 
             if (approvalAction === 'reject') {
                 await reportService.reject(String(selectedReport.id), comment);
@@ -181,7 +181,7 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
                             Manage and track report approvals for this project.
                         </CardDescription>
                     </div>
-                    {(currentUser?.role === 'user' || currentUser?.role === 'account-manager') && (
+                    {(activeRole === 'user' || activeRole === 'account-manager') && (
                         <Button size="sm" onClick={() => { setEditingReport(null); setIsUploadOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700">
                             <Upload className="h-4 w-4 mr-2" />
                             Upload Report
@@ -200,8 +200,8 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
                         <div className="grid gap-4">
                             {reports.map((report) => {
                                 const config = getStatusConfig(report.status);
-                                const isHR = currentUser?.role === 'hr' || currentUser?.role === 'admin';
-                                const isTL = currentUser?.role === 'team-lead' && String(report.user?.department_id) === String(currentUser?.department);
+                                const isHR = activeRole === 'hr' || activeRole === 'admin';
+                                const isTL = activeRole === 'team-lead' && String(report.user?.department_id) === String(currentUser?.department);
                                 const canApprove = (isTL && report.status === 'submitted') || (isHR && report.status === 'tl_approved');
                                 const isOwner = String(report.user_id) === String(currentUser?.id);
                                 const canEdit = isOwner && report.status !== 'approved';
@@ -309,7 +309,7 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
                                             <Download className="h-4 w-4 mr-2" /> Download Report
                                         </a>
                                     </Button>
-                                    {(currentUser?.role === 'hr' || currentUser?.role === 'admin' || (currentUser?.role === 'team-lead' && selectedReport.user?.department === currentUser?.department)) && (
+                                    {(activeRole === 'hr' || activeRole === 'admin' || (activeRole === 'team-lead' && selectedReport.user?.department === currentUser?.department)) && (
                                         <div className="flex gap-2 shrink-0">
                                             <Button size="sm" variant="outline" className="text-red-600 h-9" onClick={() => { setApprovalAction('reject'); setIsApprovalOpen(true); }}>
                                                 <X className="h-4 w-4 mr-1" /> Reject

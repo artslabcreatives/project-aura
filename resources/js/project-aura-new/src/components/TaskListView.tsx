@@ -70,8 +70,8 @@ export function TaskListView({
 }: TaskListViewProps) {
   // If canUpdateStage is not explicitly set, use canManage value
   const allowStageUpdate = canUpdateStage !== undefined ? canUpdateStage : canManage;
-  const { currentUser } = useUser();
-  const canEditDate = currentUser?.role === "admin" || currentUser?.role === "team-lead" || currentUser?.role === "account-manager";
+  const { currentUser, activeRole } = useUser();
+  const canEditDate = activeRole === "admin" || activeRole === "team-lead" || activeRole === "account-manager";
   const [viewTask, setViewTask] = useState<Task | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });

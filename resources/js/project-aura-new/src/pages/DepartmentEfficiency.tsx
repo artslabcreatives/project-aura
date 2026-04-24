@@ -16,12 +16,12 @@ import {
 const SELECTABLE_ROLES = ['admin', 'hr'];
 
 export default function DepartmentEfficiency() {
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const [departments, setDepartments] = useState<Department[]>([]);
 	const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
 	const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
 
-	const canSelectDepartment = currentUser ? SELECTABLE_ROLES.includes(currentUser.role) : false;
+	const canSelectDepartment = activeRole && SELECTABLE_ROLES.includes(activeRole);
 
 	useEffect(() => {
 		if (!currentUser) {

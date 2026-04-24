@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-user";
 import { Stage } from "@/types/stage";
 import { Plus, Trash2, GripVertical, Check, X, Info, ChevronRight, ChevronLeft, UploadCloud, File as FileIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -455,7 +456,8 @@ export function ProjectDialog({
 	departments,
 	currentUser,
 }: ProjectDialogProps) {
-	const canSeeClientInfo = currentUser?.role === 'admin' || currentUser?.role === 'hr';
+	const { activeRole } = useUser();
+	const canSeeClientInfo = activeRole === 'admin' || activeRole === 'hr';
 	const { toast } = useToast();
 	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, deadline?: string, poDocument?: File, currency?: string, isInternalProject?: boolean }>({
 		name: "",
@@ -566,7 +568,7 @@ export function ProjectDialog({
 				setPhoneNumbers(editProject.phoneNumbers || []);
 			} else {
 				// For new project, auto-select department for team-lead
-				if (currentUser?.role === "team-lead" || currentUser?.role === "account-manager") {
+				if (activeRole === "team-lead" || activeRole === "account-manager") {
 					const userDepartment = departments.find(
 						dept => dept.id === currentUser.department
 					);
@@ -936,7 +938,7 @@ export function ProjectDialog({
 													setErrors(prev => ({ ...prev, department: undefined }));
 												}
 											}}
-											disabled={(currentUser?.role === "team-lead" || currentUser?.role === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
+											disabled={(activeRole === "team-lead" || activeRole === "account-manager") && departments.find(d => d.id === currentUser.department)?.name.toLowerCase() !== "digital"}
 										>
 											<SelectTrigger className={errors.department ? "border-destructive" : ""}>
 												<SelectValue placeholder="Select department" />

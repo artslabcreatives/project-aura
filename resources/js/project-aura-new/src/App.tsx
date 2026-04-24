@@ -271,9 +271,9 @@ import SSOClients from "./pages/SSOClients";
 import ReportManagement from "./pages/ReportManagement";
 
 const Dashboard = () => {
-	const { currentUser } = useUser();
+	const { activeRole } = useUser();
 
-	if (currentUser?.role === 'hr') {
+	if (activeRole === 'hr') {
 		return <HRDashboard />;
 	}
 

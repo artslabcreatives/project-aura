@@ -16,15 +16,15 @@ interface CampaignReportSectionProps {
 export function CampaignReportSection({ project, onSuccess }: CampaignReportSectionProps) {
 	const [uploading, setUploading] = useState(false);
 	const [approving, setApproving] = useState(false);
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const { toast } = useToast();
 
 	const isDigitalMarketing = project.department?.name === 'Digital Marketing';
 	if (!isDigitalMarketing) return null;
 
 	const isDigitalTeam = project.department?.name === 'Digital Marketing'; // For now, assume users in the department are digital team
-	const isHR = currentUser?.role === 'hr' || currentUser?.department === 'HR'; // Adjust based on how HR is identified
-	const isAdmin = currentUser?.role === 'admin';
+	const isHR = activeRole === 'hr' || currentUser?.department === 'HR'; // Adjust based on how HR is identified
+	const isAdmin = activeRole === 'admin';
 
 	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];

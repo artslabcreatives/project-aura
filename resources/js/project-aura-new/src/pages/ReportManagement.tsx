@@ -34,7 +34,7 @@ export default function ReportManagement() {
     const [comment, setComment] = useState("");
     const [newComment, setNewComment] = useState("");
     const [processing, setProcessing] = useState(false);
-    const { currentUser } = useUser();
+    const { currentUser, activeRole } = useUser();
     const { toast } = useToast();
 
     useEffect(() => {
@@ -65,13 +65,13 @@ export default function ReportManagement() {
     const pendingMyApproval = useMemo(() => {
         if (!currentUser) return [];
         return filteredReports.filter(report => {
-            if (currentUser.role === 'team-lead') {
+            if (activeRole === 'team-lead') {
                 return report.status === 'submitted' && String(report.user?.department_id) === String(currentUser.department);
             }
-            if (currentUser.role === 'hr' || currentUser.role === 'admin') {
+            if (activeRole === 'hr' || activeRole === 'admin') {
                 return report.status === 'tl_approved';
             }
-            if (currentUser.role === 'user' || currentUser.role === 'account-manager') {
+            if (activeRole === 'user' || activeRole === 'account-manager') {
                 return (report.status === 'submitted' || report.status === 'tl_approved') && String(report.user_id) === String(currentUser.id);
             }
             return false;
@@ -87,8 +87,8 @@ export default function ReportManagement() {
 
         try {
             setProcessing(true);
-            const isHR = currentUser?.role === 'hr' || currentUser?.role === 'admin';
-            const isTL = currentUser?.role === 'team-lead';
+            const isHR = activeRole === 'hr' || activeRole === 'admin';
+            const isTL = activeRole === 'team-lead';
 
             if (approvalAction === 'reject') {
                 await reportService.reject(String(selectedReport.id), comment);
@@ -268,8 +268,8 @@ export default function ReportManagement() {
                                             <Download className="h-4 w-4 mr-2" /> Download Report
                                         </a>
                                     </Button>
-                                    {((currentUser?.role === 'team-lead' && selectedReport.status === 'submitted' && String(selectedReport.user?.department_id) === String(currentUser?.department)) || 
-                                      ((currentUser?.role === 'hr' || currentUser?.role === 'admin') && selectedReport.status === 'tl_approved')) && (
+                                    {((activeRole === 'team-lead' && selectedReport.status === 'submitted' && String(selectedReport.user?.department_id) === String(currentUser?.department)) || 
+                                      ((activeRole === 'hr' || activeRole === 'admin') && selectedReport.status === 'tl_approved')) && (
                                         <div className="flex gap-2 shrink-0">
                                             <Button size="sm" variant="outline" className="text-red-600 h-9" onClick={() => { setApprovalAction('reject'); setIsApprovalOpen(true); }}>
                                                 <X className="h-4 w-4 mr-1" /> Reject

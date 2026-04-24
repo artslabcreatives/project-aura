@@ -91,7 +91,7 @@ function SortableStageRow({ stage, onEdit, onDelete }: { stage: Stage; onEdit: (
 
 
 function FixedStageRow({ stage }: { stage: Stage }) {
-  const { currentUser } = useUser();
+  const { currentUser, activeRole } = useUser();
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 text-muted-foreground opacity-80">
@@ -99,7 +99,7 @@ function FixedStageRow({ stage }: { stage: Stage }) {
       <div className={cn("h-4 w-4 rounded-full flex-shrink-0", stage.color)} />
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">
-          {stage.title === "Pending" && (currentUser?.role === 'admin' || currentUser?.role === 'team-lead')
+          {stage.title === "Pending" && (activeRole === 'admin' || activeRole === 'team-lead')
             ? "Backlog"
             : stage.title} (System)
         </p>

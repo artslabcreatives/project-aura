@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { tagService, Tag } from "@/services/tagService";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-user";
 
 interface PendingFile {
     id: string;
@@ -52,6 +53,7 @@ export function AddSubtaskDialog({
     currentUser,
 }: AddSubtaskDialogProps) {
     const { toast } = useToast();
+    const { activeRole } = useUser();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [formData, setFormData] = useState({
         title: "",
@@ -391,7 +393,7 @@ export function AddSubtaskDialog({
                         <div className="grid gap-2">
                             <div className="flex items-center justify-between">
                                 <Label>Tags</Label>
-                                {currentUser?.role === 'admin' && (
+                                {activeRole === 'admin' && (
                                     <Select value={tagDepartmentId} onValueChange={setTagDepartmentId}>
                                         <SelectTrigger className="w-[180px] h-8 text-xs">
                                             <SelectValue placeholder="Filter by Department" />

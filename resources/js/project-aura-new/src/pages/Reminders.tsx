@@ -47,8 +47,8 @@ import { useUser } from "@/hooks/use-user";
 import { AutomatedReminderSettings } from "@/components/AutomatedReminderSettings";
 
 const Reminders = () => {
-    const { currentUser } = useUser();
-    const isHR = currentUser?.role === 'hr' || currentUser?.role === 'admin';
+    const { currentUser, activeRole } = useUser();
+    const isHR = activeRole === 'hr' || activeRole === 'admin';
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [isDataOpen, setIsDataOpen] = useState(false);

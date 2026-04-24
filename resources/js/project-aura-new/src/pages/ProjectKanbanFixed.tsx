@@ -177,7 +177,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [preselectedStageId, setPreselectedStageId] = useState<string | undefined>(undefined);
 	const { history, addHistoryEntry } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const navigate = useNavigate();
@@ -204,7 +204,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 
 			if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 
-			if (currentUser?.role === 'team-lead' || currentUser?.role === 'user' || currentUser?.role === 'account-manager') {
+			if (activeRole === 'team-lead' || activeRole === 'user' || activeRole === 'account-manager') {
 				const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
 				const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
 				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
@@ -239,7 +239,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			if (taskIdParam && projectTasks.length > 0) {
 				const foundTask = projectTasks.find(t => String(t.id) === taskIdParam);
 				if (foundTask) {
-					if (currentUser?.role === 'user') {
+					if (activeRole === 'user') {
 						// For normal users, redirect to their specific stage view if assigned
 						const isAssigned = foundTask.assignee === currentUser.name ||
 							(foundTask.assignedUsers && foundTask.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
@@ -268,7 +268,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					}
 
 					// Clear param only if we stayed on this page (Admin/TeamLead or Access Denied)
-					if (currentUser?.role !== 'user' || foundTask.assignee !== currentUser.name) {
+					if (activeRole !== 'user' || foundTask.assignee !== currentUser.name) {
 						searchParams.delete('task');
 						setSearchParams(searchParams);
 					}
@@ -340,7 +340,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const isCampaignReportApproved = !isDigitalMarketing || project.campaign_report_status === "approved";
 
 	const handleStatusChange = async (newStatus: string) => {
-		if (newStatus === "completed" && (currentUser?.role === "hr" || currentUser?.role === "admin")) {
+		if (newStatus === "completed" && (activeRole === "hr" || activeRole === "admin")) {
 			if (!isCampaignReportApproved) {
 				toast({
 					title: "Report Required",
@@ -843,7 +843,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 										<Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-red-500 hover:bg-red-600 border-none px-2 h-5 flex items-center gap-1">
 											<Lock className="h-3 w-3" /> Awaiting PO
 										</Badge>
-										{(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+										{(activeRole === 'admin' || activeRole === 'hr') && (
 											<Button 
 												variant="outline" 
 												size="sm" 
@@ -871,7 +871,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 										Archived
 									</Badge>
 								)}
-								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'hr') && (
+								{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'hr') && (
 									<div className="flex items-center gap-1.5 ml-3">
 										<Select
 											disabled={isUpdatingStatus}
@@ -885,7 +885,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 												<SelectItem value="active" className="text-[10px] uppercase font-bold">Active</SelectItem>
 												<SelectItem value="on-hold" className="text-[10px] uppercase font-bold">On Hold</SelectItem>
 												<SelectItem value="blocked" className="text-[10px] uppercase font-bold">Blocked</SelectItem>
-												{(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+												{(activeRole === 'admin' || activeRole === 'hr') && (
 													<SelectItem value="completed" className="text-[10px] uppercase font-bold">Completed</SelectItem>
 												)}
 											</SelectContent>
@@ -921,7 +921,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							</div>
 						</div>
 						<div className="flex items-center gap-3">
-							{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager' || currentUser?.role === 'user') && (
+							{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager' || activeRole === 'user') && (
 								<>
 									<Button variant="outline" onClick={() => navigate(`/project/${project.id}/overview`)}>
 										Project Overview
@@ -929,14 +929,14 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									<Button variant="outline" onClick={() => setIsReportsOpen(true)} className="bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400">
 										<FileText className="mr-2 h-4 w-4" /> Reports
 									</Button>
-									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+									{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 										<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
 											View History
 										</Button>
 									)}
 									{!project.isArchived && project.status !== 'on-hold' && (
 										<>
-											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+											{(activeRole === 'admin' || activeRole === 'team-lead') && (
 												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
 													Manage Stages
 												</Button>
@@ -985,8 +985,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								onTaskEdit={(!project.isArchived && project.status !== 'on-hold') ? handleTaskEdit : undefined}
 								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
 								useProjectStages
-								canManageTasks={currentUser?.role !== 'user' && !project.isArchived && project.status !== 'on-hold'}
-								canDragTasks={currentUser?.role !== 'user' && currentUser?.role !== 'account-manager' && !project.isArchived && project.status !== 'on-hold'}
+								canManageTasks={activeRole !== 'user' && !project.isArchived && project.status !== 'on-hold'}
+								canDragTasks={activeRole !== 'user' && activeRole !== 'account-manager' && !project.isArchived && project.status !== 'on-hold'}
 								disableColumnScroll={true}
 								disableBacklogRenaming={true}
 								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
@@ -1006,9 +1006,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
 								onTaskUpdate={(!project.isArchived && project.status !== 'on-hold') ? handleTaskUpdate : undefined}
 								teamMembers={teamMembers}
-								canManage={currentUser?.role !== 'user' && !project.isArchived && project.status !== 'on-hold'}
+								canManage={activeRole !== 'user' && !project.isArchived && project.status !== 'on-hold'}
 								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
-								showReviewButton={(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && !project.isArchived && project.status !== 'on-hold'}
+								showReviewButton={(activeRole === 'admin' || activeRole === 'team-lead') && !project.isArchived && project.status !== 'on-hold'}
 							/>
 						)}
 					</div>
