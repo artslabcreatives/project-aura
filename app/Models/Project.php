@@ -302,6 +302,14 @@ class Project extends Model
     }
 
     /**
+     * Get the invoices for the project.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /**
      * Get the collaborators for the project (users from other departments).
      */
     public function collaborators(): BelongsToMany
