@@ -35,6 +35,34 @@ export interface ClientProfitability {
 	}>;
 }
 
+export type InvoiceSource = 'manual' | 'xero';
+
+export interface Invoice {
+	id: number;
+	source: InvoiceSource;
+	projectId?: number;
+	clientId?: number;
+	invoiceNumber?: string;
+	status?: string;
+	amount?: number;
+	currency: string;
+	issuedAt?: string;
+	dueDate?: string;
+	xeroInvoiceId?: string;
+	xeroStatus?: string;
+	description?: string;
+	createdAt: string;
+	updatedAt: string;
+	project?: {
+		id: number;
+		name: string;
+	};
+	client?: {
+		id: number;
+		companyName: string;
+	};
+}
+
 export interface InvoiceInfo {
 	projectId: number;
 	projectName: string;

@@ -469,38 +469,64 @@ class XeroService
     private function syncInvoiceToProject(array $invoice): bool
     {
         $invoiceNumber = $invoice['InvoiceNumber'] ?? null;
-        if (!$invoiceNumber) {
+        $xeroInvoiceId = $invoice['InvoiceID'] ?? null;
+        
+        if (!$invoiceNumber || !$xeroInvoiceId) {
             return false;
         }
 
-        // Try to find a matching project by invoice number or reference
-        $project = \App\Models\Project::where('invoice_number', $invoiceNumber)->first();
+        // Try to find existing Invoice by xero_invoice_id
+        $existingInvoice = \App\Models\Invoice::where('xero_invoice_id', $xeroInvoiceId)->first();
 
-        // If not found by invoice number, try to match by client and estimate reference
-        if (!$project && isset($invoice['Reference'])) {
-            $clientId = $this->resolveClientId($invoice['Contact'] ?? []);
-            if ($clientId) {
-                $project = \App\Models\Project::where('client_id', $clientId)
-                    ->whereHas('estimate', function ($query) use ($invoice) {
-                        $query->where('estimate_number', $invoice['Reference']);
-                    })
-                    ->first();
+        // Try to find a matching project by invoice number or reference
+        $project = null;
+        if ($existingInvoice && $existingInvoice->project_id) {
+            $project = $existingInvoice->project;
+        } else {
+            $project = \App\Models\Project::where('invoice_number', $invoiceNumber)->first();
+
+            // If not found by invoice number, try to match by client and estimate reference
+            if (!$project && isset($invoice['Reference'])) {
+                $clientId = $this->resolveClientId($invoice['Contact'] ?? []);
+                if ($clientId) {
+                    $project = \App\Models\Project::where('client_id', $clientId)
+                        ->whereHas('estimate', function ($query) use ($invoice) {
+                            $query->where('estimate_number', $invoice['Reference']);
+                        })
+                        ->first();
+                }
             }
         }
 
-        if (!$project) {
-            return false;
+        // Resolve client
+        $clientId = null;
+        if ($project) {
+            $clientId = $project->client_id;
+        } elseif (isset($invoice['Contact'])) {
+            $clientId = $this->resolveClientId($invoice['Contact']);
         }
 
-        // Update project with invoice information
-        $project->update([
+        // Update or create Invoice record
+        $invoiceData = [
+            'source'          => 'xero',
+            'project_id'      => $project?->id,
+            'client_id'       => $clientId,
             'invoice_number'  => $invoiceNumber,
-            'xero_invoice_id' => $invoice['InvoiceID'],
-            'invoice_total'   => (float) ($invoice['Total'] ?? 0),
-            'invoice_status'  => strtolower($invoice['Status'] ?? 'draft'),
-            'invoice_date'    => $this->parseXeroDate($invoice['DateString'] ?? null),
-            'invoice_due_date' => $this->parseXeroDate($invoice['DueDateString'] ?? null),
-        ]);
+            'status'          => strtolower($invoice['Status'] ?? 'draft'),
+            'amount'          => (float) ($invoice['Total'] ?? 0),
+            'currency'        => $invoice['CurrencyCode'] ?? 'USD',
+            'issued_at'       => $this->parseXeroDate($invoice['DateString'] ?? null),
+            'due_date'        => $this->parseXeroDate($invoice['DueDateString'] ?? null),
+            'xero_status'     => $invoice['Status'] ?? null,
+            'description'     => $invoice['Reference'] ?? null,
+        ];
+
+        if ($existingInvoice) {
+            $existingInvoice->update($invoiceData);
+        } else {
+            $invoiceData['xero_invoice_id'] = $xeroInvoiceId;
+            \App\Models\Invoice::create($invoiceData);
+        }
 
         return true;
     }
