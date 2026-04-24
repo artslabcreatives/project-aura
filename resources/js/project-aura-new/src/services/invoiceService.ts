@@ -92,7 +92,7 @@ export const invoiceService = {
 		if (filters?.page) params.append('page', String(filters.page));
 		if (filters?.perPage) params.append('per_page', String(filters.perPage));
 
-		const response = await api.get(`/api/invoices?${params.toString()}`);
+		const response = await api.get(`/invoices?${params.toString()}`);
 
 		return {
 			data: response.data.data.map(transformInvoice),
@@ -104,7 +104,7 @@ export const invoiceService = {
 	 * Get invoices for a specific project
 	 */
 	async getByProject(projectId: number): Promise<Invoice[]> {
-		const response = await api.get(`/api/invoices?project_id=${projectId}`);
+		const response = await api.get(`/invoices?project_id=${projectId}`);
 		return response.data.data.map(transformInvoice);
 	},
 
@@ -112,7 +112,7 @@ export const invoiceService = {
 	 * Get invoices for a specific client
 	 */
 	async getByClient(clientId: number): Promise<Invoice[]> {
-		const response = await api.get(`/api/invoices?client_id=${clientId}`);
+		const response = await api.get(`/invoices?client_id=${clientId}`);
 		return response.data.data.map(transformInvoice);
 	},
 
@@ -120,7 +120,7 @@ export const invoiceService = {
 	 * Get a single invoice by ID
 	 */
 	async getById(id: number): Promise<Invoice> {
-		const response = await api.get(`/api/invoices/${id}`);
+		const response = await api.get(`/invoices/${id}`);
 		return transformInvoice(response.data);
 	},
 
@@ -143,7 +143,7 @@ export const invoiceService = {
 			description: data.description,
 		};
 
-		const response = await api.post('/api/invoices', payload);
+		const response = await api.post('/invoices', payload);
 		return transformInvoice(response.data);
 	},
 
@@ -166,7 +166,7 @@ export const invoiceService = {
 		if (data.xeroStatus !== undefined) payload.xero_status = data.xeroStatus;
 		if (data.description !== undefined) payload.description = data.description;
 
-		const response = await api.put(`/api/invoices/${id}`, payload);
+		const response = await api.put(`/invoices/${id}`, payload);
 		return transformInvoice(response.data);
 	},
 
@@ -174,6 +174,6 @@ export const invoiceService = {
 	 * Delete an invoice
 	 */
 	async delete(id: number): Promise<void> {
-		await api.delete(`/api/invoices/${id}`);
+		await api.delete(`/invoices/${id}`);
 	},
 };
