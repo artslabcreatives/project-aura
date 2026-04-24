@@ -95,8 +95,8 @@ export const invoiceService = {
 		const response = await api.get(`/invoices?${params.toString()}`);
 
 		return {
-			data: response.data.data.map(transformInvoice),
-			total: response.data.total || response.data.data.length,
+			data: response.data.map(transformInvoice),
+			total: response.total || response.data.length,
 		};
 	},
 
@@ -105,7 +105,7 @@ export const invoiceService = {
 	 */
 	async getByProject(projectId: number): Promise<Invoice[]> {
 		const response = await api.get(`/invoices?project_id=${projectId}`);
-		return response.data.data.map(transformInvoice);
+		return response.data.map(transformInvoice);
 	},
 
 	/**
@@ -113,7 +113,7 @@ export const invoiceService = {
 	 */
 	async getByClient(clientId: number): Promise<Invoice[]> {
 		const response = await api.get(`/invoices?client_id=${clientId}`);
-		return response.data.data.map(transformInvoice);
+		return response.data.map(transformInvoice);
 	},
 
 	/**
@@ -121,7 +121,7 @@ export const invoiceService = {
 	 */
 	async getById(id: number): Promise<Invoice> {
 		const response = await api.get(`/invoices/${id}`);
-		return transformInvoice(response.data);
+		return transformInvoice(response);
 	},
 
 	/**
@@ -144,7 +144,7 @@ export const invoiceService = {
 		};
 
 		const response = await api.post('/invoices', payload);
-		return transformInvoice(response.data);
+		return transformInvoice(response);
 	},
 
 	/**
@@ -167,7 +167,7 @@ export const invoiceService = {
 		if (data.description !== undefined) payload.description = data.description;
 
 		const response = await api.put(`/invoices/${id}`, payload);
-		return transformInvoice(response.data);
+		return transformInvoice(response);
 	},
 
 	/**
