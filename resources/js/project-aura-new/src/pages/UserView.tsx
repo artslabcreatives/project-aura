@@ -39,7 +39,8 @@ export default function UserView() {
 				setLoading(true);
 				try {
 					const [tasksData, projectsData] = await Promise.all([
-						taskService.getAll(),
+						// Pass assigneeId so the backend filters correctly even for admin/team-lead users in user view.
+						taskService.getAll({ assigneeId: currentUser.id }),
 						projectService.getAll()
 					]);
 					setProjects(projectsData);

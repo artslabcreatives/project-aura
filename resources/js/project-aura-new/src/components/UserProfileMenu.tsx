@@ -29,13 +29,21 @@ export function UserProfileMenu() {
         return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     };
 
-    const isAdminOrLead = currentUser.role === 'admin' || currentUser.role === 'team-lead';
-
-    const roleOptions: { label: string; value: string }[] = [
+    // Admin can switch to any role; all other roles can only switch to the user view.
+    // Exclude the user's own actual role (no point switching to their own view).
+    const allRoleOptions: { label: string; value: string }[] = [
         { label: 'User', value: 'user' },
+        { label: 'Team Lead', value: 'team-lead' },
         { label: 'Account Manager', value: 'account-manager' },
-        ...(currentUser.role === 'admin' ? [{ label: 'Team Lead', value: 'team-lead' }] : []),
+        { label: 'HR', value: 'hr' },
     ];
+
+    const availableOptions = currentUser.role === 'admin'
+        ? allRoleOptions
+        : [{ label: 'User', value: 'user' }];
+
+    // Remove the option that matches the user's actual role (switching to own role is a no-op)
+    const roleOptions = availableOptions.filter(r => r.value !== currentUser.role);
 
     return (
         <DropdownMenu>
@@ -63,7 +71,7 @@ export function UserProfileMenu() {
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                 </DropdownMenuItem>
-                {isAdminOrLead && (
+                {roleOptions.length > 0 && (
                     <>
                         <DropdownMenuSeparator />
                         <DropdownMenuSub>
