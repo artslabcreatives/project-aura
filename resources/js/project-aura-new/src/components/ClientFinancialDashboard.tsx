@@ -203,7 +203,7 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 					<Card>
 						<CardHeader>
 							<CardTitle>Project Profitability</CardTitle>
-							<CardDescription>Revenue and profit breakdown by project</CardDescription>
+							<CardDescription>Revenue and profit breakdown by project (including internal projects)</CardDescription>
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-4">
@@ -212,8 +212,15 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 										key={project.id}
 										className="flex items-center justify-between border-b pb-4 last:border-0"
 									>
-										<div>
-											<p className="font-medium">{project.name}</p>
+										<div className="flex-1">
+											<div className="flex items-center gap-2">
+												<p className="font-medium">{project.name}</p>
+												{project.isInternalProject && (
+													<Badge variant="secondary" className="text-xs">
+														Internal
+													</Badge>
+												)}
+											</div>
 											<div className="flex gap-4 text-sm text-muted-foreground">
 												<span>Revenue: {formatCurrency(project.revenue)}</span>
 												<span>Cost: {formatCurrency(project.cost)}</span>

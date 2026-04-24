@@ -18,6 +18,7 @@ type RawClientFinancialDashboard = {
 			cost: number;
 			profit: number | null;
 			profit_margin: number | null;
+			is_internal_project?: boolean;
 		}>;
 	};
 	invoices: {
@@ -84,6 +85,7 @@ const mapClientFinancialDashboard = (raw: RawClientFinancialDashboard): ClientFi
 			cost: project.cost,
 			profit: normalizeNumber(project.profit),
 			profitMargin: normalizeNumber(project.profit_margin),
+			isInternalProject: project.is_internal_project,
 		})),
 	},
 	invoices: {

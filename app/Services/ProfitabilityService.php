@@ -112,11 +112,14 @@ class ProfitabilityService
     }
 
     /**
-     * Calculate profitability for all client projects.
+     * Calculate profitability for all client projects (including internal projects).
      */
     public function getClientProfitability(int $clientId): array
     {
-        $projects = Project::where('client_id', $clientId)
+        $projects = Project::where(function($query) use ($clientId) {
+                $query->where('client_id', $clientId)
+                      ->orWhere('is_internal_project', true);
+            })
             ->with('estimate')
             ->get();
 
@@ -148,6 +151,7 @@ class ProfitabilityService
                     'cost' => $project->total_cost ?? $this->calculateProjectCost($project),
                     'profit' => $project->actual_profit,
                     'profit_margin' => $project->profit_margin_percentage,
+                    'is_internal_project' => $project->is_internal_project ?? false,
                 ];
             }),
         ];

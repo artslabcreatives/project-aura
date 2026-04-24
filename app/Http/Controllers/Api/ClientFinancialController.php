@@ -84,11 +84,14 @@ class ClientFinancialController extends Controller
     }
 
     /**
-     * Get invoice aggregation data for a client.
+     * Get invoice aggregation data for a client (including internal projects).
      */
     protected function getInvoiceData(int $clientId): array
     {
-        $projects = Project::where('client_id', $clientId)
+        $projects = Project::where(function($query) use ($clientId) {
+                $query->where('client_id', $clientId)
+                      ->orWhere('is_internal_project', true);
+            })
             ->with('estimate')
             ->get();
 
@@ -147,11 +150,14 @@ class ClientFinancialController extends Controller
     }
 
     /**
-     * Get project status breakdown for a client.
+     * Get project status breakdown for a client (including internal projects).
      */
     protected function getProjectStatusBreakdown(int $clientId): array
     {
-        $statusCounts = Project::where('client_id', $clientId)
+        $statusCounts = Project::where(function($query) use ($clientId) {
+                $query->where('client_id', $clientId)
+                      ->orWhere('is_internal_project', true);
+            })
             ->select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->pluck('count', 'status')

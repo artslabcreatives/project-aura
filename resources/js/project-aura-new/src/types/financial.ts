@@ -31,6 +31,7 @@ export interface ClientProfitability {
 		cost: number;
 		profit: number;
 		profitMargin: number;
+		isInternalProject?: boolean;
 	}>;
 }
 
