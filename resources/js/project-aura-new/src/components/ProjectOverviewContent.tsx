@@ -325,15 +325,15 @@ export function ProjectOverviewContent({
 								</Badge>
 								{(activeRole === "admin" ||
 									activeRole === "hr") && (
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-6 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-										onClick={() => setIsPOUploadOpen(true)}
-									>
-										Upload PO
-									</Button>
-								)}
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-6 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+											onClick={() => setIsPOUploadOpen(true)}
+										>
+											Upload PO
+										</Button>
+									)}
 							</div>
 						) : project.poDocumentUrl ? (
 							<div className="flex items-center gap-2">
@@ -350,11 +350,10 @@ export function ProjectOverviewContent({
 										<Button
 											variant="outline"
 											size="sm"
-											className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${
-												!isCampaignReportApproved
+											className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
 													? "opacity-50 cursor-not-allowed"
 													: ""
-											}`}
+												}`}
 											onClick={() => {
 												if (isCampaignReportApproved) {
 													setIsInvoiceViewOpen(true);
@@ -371,14 +370,14 @@ export function ProjectOverviewContent({
 											View Invoice
 										</Button>
 										{project.isPhysicalInvoice && (
-											<Badge 
-												variant="outline" 
+											<Badge
+												variant="outline"
 												className={cn(
 													"h-6 text-[9px] font-bold uppercase border-none text-white flex items-center gap-1 px-2 cursor-pointer hover:opacity-90 transition-opacity",
 													project.courierDeliveryStatus === 'delivered' ? "bg-emerald-500" :
-													project.courierDeliveryStatus === 'shipped' ? "bg-amber-500" :
-													project.courierDeliveryStatus === 'returned' ? "bg-rose-500" :
-													"bg-indigo-500"
+														project.courierDeliveryStatus === 'shipped' ? "bg-amber-500" :
+															project.courierDeliveryStatus === 'returned' ? "bg-rose-500" :
+																"bg-indigo-500"
 												)}
 												onClick={() => setIsInvoiceViewOpen(true)}
 											>
@@ -394,11 +393,10 @@ export function ProjectOverviewContent({
 								<Button
 									variant="outline"
 									size="sm"
-									className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${
-										!isCampaignReportApproved
+									className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
 											? "opacity-50 cursor-not-allowed"
 											: ""
-									}`}
+										}`}
 									onClick={() => {
 										if (isCampaignReportApproved) {
 											setIsInvoiceViewOpen(true);
@@ -423,9 +421,8 @@ export function ProjectOverviewContent({
 								disabled={isUpdatingStatus}
 							>
 								<SelectTrigger
-									className={`w-[130px] h-8 text-xs font-semibold capitalize border-none text-white focus:ring-0 ${
-										statusColors[project.status || "active"]
-									}`}
+									className={`w-[130px] h-8 text-xs font-semibold capitalize border-none text-white focus:ring-0 ${statusColors[project.status || "active"]
+										}`}
 								>
 									{isUpdatingStatus ? (
 										<Loader2 className="h-3 w-3 animate-spin mr-2" />
@@ -447,19 +444,17 @@ export function ProjectOverviewContent({
 							</Select>
 						) : (
 							<Badge
-								className={`${
-									statusColors[project.status || "active"]
-								} hover:${
-									statusColors[project.status || "active"]
-								} text-white capitalize px-3 py-1`}
+								className={`${statusColors[project.status || "active"]
+									} hover:${statusColors[project.status || "active"]
+									} text-white capitalize px-3 py-1`}
 							>
 								{project.status === "on-hold"
 									? "On Hold"
 									: project.status === "suggested"
-									? "Suggested"
-									: project.status === "blocked"
-									? "Blocked"
-									: project.status || "Active"}
+										? "Suggested"
+										: project.status === "blocked"
+											? "Blocked"
+											: project.status || "Active"}
 							</Badge>
 						)}
 						{isBlocked && (
@@ -547,43 +542,39 @@ export function ProjectOverviewContent({
 			{/* Grace Period Banner */}
 			{hasGracePeriod && !hasPO && !project.isInternalProject && (
 				<div
-					className={`flex items-start gap-3 rounded-lg border p-4 ${
-						gracePeriodExpired
+					className={`flex items-start gap-3 rounded-lg border p-4 ${gracePeriodExpired
 							? "border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800"
 							: "border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800"
-					}`}
+						}`}
 				>
 					<ShieldCheck
-						className={`h-5 w-5 shrink-0 mt-0.5 ${
-							gracePeriodExpired ? "text-red-500" : "text-blue-500"
-						}`}
+						className={`h-5 w-5 shrink-0 mt-0.5 ${gracePeriodExpired ? "text-red-500" : "text-blue-500"
+							}`}
 					/>
 					<div className="flex-1">
 						<p
-							className={`font-semibold ${
-								gracePeriodExpired
+							className={`font-semibold ${gracePeriodExpired
 									? "text-red-800 dark:text-red-300"
 									: "text-blue-800 dark:text-blue-300"
-							}`}
+								}`}
 						>
 							{gracePeriodExpired
 								? "Grace Period Expired"
 								: "Grace Period Active"}
 						</p>
 						<p
-							className={`text-sm mt-0.5 ${
-								gracePeriodExpired
+							className={`text-sm mt-0.5 ${gracePeriodExpired
 									? "text-red-700 dark:text-red-400"
 									: "text-blue-700 dark:text-blue-400"
-							}`}
+								}`}
 						>
 							{gracePeriodExpired
 								? `The authorized grace period expired on ${new Date(
-										project.gracePeriodExpiresAt!
-								  ).toLocaleDateString()}. A PO is now required.`
+									project.gracePeriodExpiresAt!
+								).toLocaleDateString()}. A PO is now required.`
 								: `Work may proceed without PO until ${new Date(
-										project.gracePeriodExpiresAt!
-								  ).toLocaleDateString()}.`}
+									project.gracePeriodExpiresAt!
+								).toLocaleDateString()}.`}
 							{project.gracePeriodNotes &&
 								` Note: ${project.gracePeriodNotes}`}
 						</p>
@@ -616,43 +607,38 @@ export function ProjectOverviewContent({
 			{/* Provisional PO Banner */}
 			{hasProvisionalPO && !hasPO && (
 				<div
-					className={`flex items-start gap-3 rounded-lg border p-4 ${
-						provisionalPOExpired
+					className={`flex items-start gap-3 rounded-lg border p-4 ${provisionalPOExpired
 							? "border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800"
 							: "border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800"
-					}`}
+						}`}
 				>
 					<FileText
-						className={`h-5 w-5 shrink-0 mt-0.5 ${
-							provisionalPOExpired
+						className={`h-5 w-5 shrink-0 mt-0.5 ${provisionalPOExpired
 								? "text-orange-500"
 								: "text-green-500"
-						}`}
+							}`}
 					/>
 					<div className="flex-1">
 						<p
-							className={`font-semibold ${
-								provisionalPOExpired
+							className={`font-semibold ${provisionalPOExpired
 									? "text-orange-800 dark:text-orange-300"
 									: "text-green-800 dark:text-green-300"
-							}`}
+								}`}
 						>
 							{provisionalPOExpired
 								? "Provisional PO Expired"
 								: "Provisional PO Active"}
 						</p>
 						<p
-							className={`text-sm mt-0.5 ${
-								provisionalPOExpired
+							className={`text-sm mt-0.5 ${provisionalPOExpired
 									? "text-orange-700 dark:text-orange-400"
 									: "text-green-700 dark:text-green-400"
-							}`}
+								}`}
 						>
 							PO Reference:{" "}
 							<strong>{project.provisionalPoNumber}</strong>
 							{project.provisionalPoExpiresAt &&
-								` · ${
-									provisionalPOExpired ? "Expired" : "Expires"
+								` · ${provisionalPOExpired ? "Expired" : "Expires"
 								} ${new Date(
 									project.provisionalPoExpiresAt
 								).toLocaleDateString()}`}
@@ -677,7 +663,7 @@ export function ProjectOverviewContent({
 			/>
 
 			{/* Project Profitability Section */}
-			{canSeeClientInfo && project.client && !project.isInternalProject && (
+			{canSeeClientInfo && project.client && (
 				<ProjectProfitability projectId={project.id} />
 			)}
 
@@ -806,8 +792,8 @@ export function ProjectOverviewContent({
 							<div className="text-3xl font-black tracking-tighter">
 								{project.deadline
 									? new Date(
-											project.deadline
-									  ).toLocaleDateString()
+										project.deadline
+									).toLocaleDateString()
 									: "N/A"}
 							</div>
 						)}
@@ -997,7 +983,7 @@ export function ProjectOverviewContent({
 						</label>
 						<div className="flex flex-wrap gap-1">
 							{project.phoneNumbers &&
-							project.phoneNumbers.length > 0 ? (
+								project.phoneNumbers.length > 0 ? (
 								project.phoneNumbers.map((phone) => (
 									<Badge
 										key={phone}

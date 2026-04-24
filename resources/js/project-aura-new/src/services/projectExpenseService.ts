@@ -3,8 +3,7 @@ import { ProjectExpense, ProjectExpensesResponse } from '@/types/projectExpense'
 
 export const projectExpenseService = {
 	async list(projectId: number): Promise<ProjectExpensesResponse> {
-		const res = await api.get(`/projects/${projectId}/expenses`);
-		return res.data;
+		return await api.get<ProjectExpensesResponse>(`/projects/${projectId}/expenses`);
 	},
 
 	async create(
@@ -30,10 +29,7 @@ export const projectExpenseService = {
 		if (data.is_reimbursable != null) form.append('is_reimbursable', data.is_reimbursable ? '1' : '0');
 		if (data.receipt) form.append('receipt', data.receipt);
 
-		const res = await api.post(`/projects/${projectId}/expenses`, form, {
-			headers: { 'Content-Type': 'multipart/form-data' },
-		});
-		return res.data;
+		return await api.post<ProjectExpense>(`/projects/${projectId}/expenses`, form);
 	},
 
 	async update(
@@ -62,20 +58,15 @@ export const projectExpenseService = {
 		if (data.reimbursement_noted != null) form.append('reimbursement_noted', data.reimbursement_noted ? '1' : '0');
 		if (data.receipt) form.append('receipt', data.receipt);
 
-		const res = await api.post(`/projects/${projectId}/expenses/${expenseId}`, form, {
-			headers: { 'Content-Type': 'multipart/form-data' },
-		});
-		return res.data;
+		return await api.post<ProjectExpense>(`/projects/${projectId}/expenses/${expenseId}`, form);
 	},
 
 	async approve(projectId: number, expenseId: number): Promise<ProjectExpense> {
-		const res = await api.post(`/projects/${projectId}/expenses/${expenseId}/approve`);
-		return res.data;
+		return await api.post<ProjectExpense>(`/projects/${projectId}/expenses/${expenseId}/approve`, {});
 	},
 
 	async reject(projectId: number, expenseId: number, reason?: string): Promise<ProjectExpense> {
-		const res = await api.post(`/projects/${projectId}/expenses/${expenseId}/reject`, { reason });
-		return res.data;
+		return await api.post<ProjectExpense>(`/projects/${projectId}/expenses/${expenseId}/reject`, { reason });
 	},
 
 	async delete(projectId: number, expenseId: number): Promise<void> {

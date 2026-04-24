@@ -27,14 +27,22 @@ class ApiClient {
 		const url = `${this.baseUrl}${endpoint}`;
 		const token = getToken();
 
+		// Don't set Content-Type for FormData - browser will set it with boundary
+		const isFormData = options?.body instanceof FormData;
+		const headers: Record<string, string> = {
+			'Accept': 'application/json',
+			...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+			...options?.headers,
+		};
+
+		// Only set Content-Type for non-FormData requests
+		if (!isFormData && !headers['Content-Type']) {
+			headers['Content-Type'] = 'application/json';
+		}
+
 		const config: RequestInit = {
 			...options,
-			headers: {
-				'Content-Type': 'application/json',
-				'Accept': 'application/json',
-				...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-				...options?.headers,
-			},
+			headers,
 		};
 
 		try {
@@ -79,24 +87,27 @@ class ApiClient {
 		return this.request<T>(endpoint, { method: 'GET' });
 	}
 
-	async post<T>(endpoint: string, data: any): Promise<T> {
+	async post<T>(endpoint: string, data: any, options?: RequestInit): Promise<T> {
 		return this.request<T>(endpoint, {
 			method: 'POST',
-			body: JSON.stringify(data),
+			body: data instanceof FormData ? data : JSON.stringify(data),
+			...options,
 		});
 	}
 
-	async put<T>(endpoint: string, data: any): Promise<T> {
+	async put<T>(endpoint: string, data: any, options?: RequestInit): Promise<T> {
 		return this.request<T>(endpoint, {
 			method: 'PUT',
-			body: JSON.stringify(data),
+			body: data instanceof FormData ? data : JSON.stringify(data),
+			...options,
 		});
 	}
 
-	async patch<T>(endpoint: string, data: any): Promise<T> {
+	async patch<T>(endpoint: string, data: any, options?: RequestInit): Promise<T> {
 		return this.request<T>(endpoint, {
 			method: 'PATCH',
-			body: JSON.stringify(data),
+			body: data instanceof FormData ? data : JSON.stringify(data),
+			...options,
 		});
 	}
 
