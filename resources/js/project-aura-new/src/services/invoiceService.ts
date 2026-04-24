@@ -76,7 +76,7 @@ export interface CreateInvoiceData {
 	description?: string;
 }
 
-export interface UpdateInvoiceData extends Partial<CreateInvoiceData> {}
+export interface UpdateInvoiceData extends Partial<CreateInvoiceData> { }
 
 export const invoiceService = {
 	/**
@@ -84,7 +84,7 @@ export const invoiceService = {
 	 */
 	async getAll(filters?: InvoiceFilters): Promise<{ data: Invoice[]; total: number }> {
 		const params = new URLSearchParams();
-		
+
 		if (filters?.source) params.append('source', filters.source);
 		if (filters?.projectId) params.append('project_id', String(filters.projectId));
 		if (filters?.clientId) params.append('client_id', String(filters.clientId));
@@ -93,7 +93,7 @@ export const invoiceService = {
 		if (filters?.perPage) params.append('per_page', String(filters.perPage));
 
 		const response = await api.get(`/api/invoices?${params.toString()}`);
-		
+
 		return {
 			data: response.data.data.map(transformInvoice),
 			total: response.data.total || response.data.data.length,
@@ -152,7 +152,7 @@ export const invoiceService = {
 	 */
 	async update(id: number, data: UpdateInvoiceData): Promise<Invoice> {
 		const payload: any = {};
-		
+
 		if (data.source) payload.source = data.source;
 		if (data.projectId !== undefined) payload.project_id = data.projectId;
 		if (data.clientId !== undefined) payload.client_id = data.clientId;

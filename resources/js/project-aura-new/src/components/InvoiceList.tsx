@@ -6,12 +6,12 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
-import { 
-	FileText, 
-	DollarSign, 
-	Calendar, 
-	Building2, 
-	FolderOpen, 
+import {
+	FileText,
+	DollarSign,
+	Calendar,
+	Building2,
+	FolderOpen,
 	AlertCircle,
 	Filter,
 	RefreshCw,
@@ -27,11 +27,11 @@ interface InvoiceListProps {
 	onInvoiceClick?: (invoice: Invoice) => void;
 }
 
-export function InvoiceList({ 
-	projectId, 
-	clientId, 
+export function InvoiceList({
+	projectId,
+	clientId,
 	showFilters = true,
-	onInvoiceClick 
+	onInvoiceClick
 }: InvoiceListProps) {
 	const [invoices, setInvoices] = useState<Invoice[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -96,7 +96,7 @@ export function InvoiceList({
 	const getStatusBadge = (status?: string, xeroStatus?: string) => {
 		const displayStatus = xeroStatus || status || 'pending';
 		const statusLower = displayStatus.toLowerCase();
-		
+
 		if (statusLower.includes('paid') || statusLower.includes('authorised')) {
 			return <Badge className="bg-green-500">{displayStatus}</Badge>;
 		}
@@ -152,7 +152,7 @@ export function InvoiceList({
 						{showFilters && (
 							<Select
 								value={filters.source || 'all'}
-								onValueChange={(value) => 
+								onValueChange={(value) =>
 									setFilters({ ...filters, source: value === 'all' ? undefined : value as InvoiceSource })
 								}
 							>
@@ -194,7 +194,7 @@ export function InvoiceList({
 										</span>
 										{getStatusBadge(invoice.status, invoice.xeroStatus)}
 									</div>
-									
+
 									<div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
 										{invoice.project && (
 											<div className="flex items-center gap-1">
@@ -221,7 +221,7 @@ export function InvoiceList({
 											</div>
 										)}
 									</div>
-									
+
 									{invoice.description && (
 										<p className="text-xs text-muted-foreground mt-1 line-clamp-1">
 											{invoice.description}
