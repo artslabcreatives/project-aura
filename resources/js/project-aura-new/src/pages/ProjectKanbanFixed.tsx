@@ -39,7 +39,7 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { POUploadDialog } from "@/components/POUploadDialog";
+import { POSelectDialog } from "@/components/POSelectDialog";
 import { POViewDialog } from "@/components/POViewDialog";
 import { 
 	Select, 
@@ -166,7 +166,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
 	const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 	const [isReviewTaskDialogOpen, setIsReviewTaskDialogOpen] = useState(false);
-	const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
+	const [isPOSelectOpen, setIsPOSelectOpen] = useState(false);
 	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
 	const [isReportsOpen, setIsReportsOpen] = useState(false);
@@ -872,9 +872,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 												variant="outline" 
 												size="sm" 
 												className="h-5 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-												onClick={() => setIsPOUploadOpen(true)}
+												onClick={() => setIsPOSelectOpen(true)}
 											>
-												Upload PO
+												Select PO
 											</Button>
 										)}
 									</div>
@@ -1133,9 +1133,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				</AlertDialogContent>
 			</AlertDialog>
 
-			<POUploadDialog
-				open={isPOUploadOpen}
-				onOpenChange={setIsPOUploadOpen}
+			<POSelectDialog
+				open={isPOSelectOpen}
+				onOpenChange={setIsPOSelectOpen}
 				project={project}
 				onSuccess={(updatedProject) => setProject(updatedProject)}
 			/>

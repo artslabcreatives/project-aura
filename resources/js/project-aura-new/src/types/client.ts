@@ -24,6 +24,7 @@ export interface Client {
     contacts?: ClientContact[];
     contacts_count?: number;
     projects?: Project[];
+    xero_contact_id?: string;
     created_at?: string;
     updated_at?: string;
 }

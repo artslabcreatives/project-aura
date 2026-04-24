@@ -36,7 +36,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { POUploadDialog } from "@/components/POUploadDialog";
+import { POSelectDialog } from "@/components/POSelectDialog";
 import { POViewDialog } from "@/components/POViewDialog";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import { GracePeriodDialog } from "@/components/GracePeriodDialog";
@@ -67,7 +67,7 @@ export function ProjectOverviewContent({
 }: ProjectOverviewContentProps) {
 	const [project, setProject] = useState<Project>(initialProject);
 	const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-	const [isPOUploadOpen, setIsPOUploadOpen] = useState(false);
+	const [isPOSelectOpen, setIsPOSelectOpen] = useState(false);
 	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
 	const [isEditingDeadline, setIsEditingDeadline] = useState(false);
@@ -330,9 +330,9 @@ export function ProjectOverviewContent({
 											variant="outline"
 											size="sm"
 											className="h-6 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-											onClick={() => setIsPOUploadOpen(true)}
+											onClick={() => setIsPOSelectOpen(true)}
 										>
-											Upload PO
+											Select PO
 										</Button>
 									)}
 							</div>
@@ -522,9 +522,9 @@ export function ProjectOverviewContent({
 								size="sm"
 								variant="outline"
 								className="border-amber-400 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900"
-								onClick={() => setIsPOUploadOpen(true)}
+								onClick={() => setIsPOSelectOpen(true)}
 							>
-								Upload PO
+								Select PO
 							</Button>
 							<Button
 								size="sm"
@@ -1017,9 +1017,9 @@ export function ProjectOverviewContent({
 			</Card>
 
 			{/* Dialogs */}
-			<POUploadDialog
-				open={isPOUploadOpen}
-				onOpenChange={setIsPOUploadOpen}
+			<POSelectDialog
+				open={isPOSelectOpen}
+				onOpenChange={setIsPOSelectOpen}
 				project={project}
 				onSuccess={handleProjectChange}
 			/>

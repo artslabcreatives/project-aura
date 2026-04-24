@@ -218,6 +218,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/sync-clients', [XeroController::class, 'syncClients']);
         Route::post('/sync-suppliers', [XeroController::class, 'syncSuppliers']);
         Route::post('/sync-invoices', [XeroController::class, 'syncInvoices']);
+        Route::get('/purchase-orders', [XeroController::class, 'getPurchaseOrders']);
     });
 
     // Profitability & Financial Tracking

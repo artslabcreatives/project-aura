@@ -149,6 +149,8 @@ class ProjectController extends Controller
             $path = $request->file('po_document')->store('purchase-orders', 's3');
             $validated['po_document'] = $path;
             $validated['is_locked_by_po'] = false;
+        } elseif ($request->filled('po_number')) {
+            $validated['is_locked_by_po'] = false;
         }
 
         if ($request->hasFile('invoice_document')) {
@@ -327,6 +329,8 @@ class ProjectController extends Controller
         if ($request->hasFile('po_document')) {
             $path = $request->file('po_document')->store('purchase-orders', 's3');
             $validated['po_document'] = $path;
+            $validated['is_locked_by_po'] = false;
+        } elseif ($request->filled('po_number')) {
             $validated['is_locked_by_po'] = false;
         }
 

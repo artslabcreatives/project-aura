@@ -767,4 +767,93 @@ class XeroService
             'token_is_expired' => $token->isExpired(),
         ];
     }
+
+    /**
+     * Fetch available Xero Purchase Orders and Quotes from Xero that are not yet linked to any local project.
+     * Optionally filtered by Xero Contact ID.
+     */
+    public function getAvailablePurchaseOrders(?string $xeroContactId = null): array
+    {
+        $bearer = $this->getBearerToken();
+        $token  = XeroToken::current();
+
+        $allCandidates = [];
+
+        // 1. Fetch Purchase Orders (Authorised and Billed)
+        $poWhere = '(Status=="AUTHORISED" OR Status=="BILLED")';
+        if ($xeroContactId) {
+            $poWhere .= " AND Contact.ContactID == GUID(\"$xeroContactId\")";
+        }
+
+        $poResponse = Http::withToken($bearer)
+            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+            ->get(self::API_BASE . '/PurchaseOrders', ['where' => $poWhere]);
+
+        if ($poResponse->successful()) {
+            $pos = $poResponse->json('PurchaseOrders') ?? [];
+            foreach ($pos as $po) {
+                $allCandidates[] = [
+                    'PurchaseOrderID'     => $po['PurchaseOrderID'],
+                    'PurchaseOrderNumber' => $po['PurchaseOrderNumber'],
+                    'DateString'          => $po['DateString'] ?? $po['Date'] ?? null,
+                    'Status'              => $po['Status'],
+                    'Total'               => $po['Total'],
+                    'CurrencyCode'        => $po['CurrencyCode'],
+                    'Contact'             => $po['Contact'],
+                    'Reference'           => $po['Reference'] ?? '',
+                    'Type'                => 'Purchase Order',
+                ];
+            }
+        } else {
+            Log::error('Xero PurchaseOrders fetch failed in getAvailablePurchaseOrders', [
+                'status' => $poResponse->status(),
+                'body' => $poResponse->body(),
+                'where' => $poWhere
+            ]);
+        }
+
+        // 2. Fetch Quotes (Sent, Accepted and Invoiced) - Often used as POs by users
+        $quoteWhere = '(Status=="SENT" OR Status=="ACCEPTED" OR Status=="INVOICED")';
+        if ($xeroContactId) {
+            $quoteWhere .= " AND Contact.ContactID == GUID(\"$xeroContactId\")";
+        }
+
+        $quoteResponse = Http::withToken($bearer)
+            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+            ->get(self::API_BASE . '/Quotes', ['where' => $quoteWhere]);
+
+        if ($quoteResponse->successful()) {
+            $quotes = $quoteResponse->json('Quotes') ?? [];
+            foreach ($quotes as $quote) {
+                $allCandidates[] = [
+                    'PurchaseOrderID'     => $quote['QuoteID'], // Map to ID
+                    'PurchaseOrderNumber' => $quote['QuoteNumber'], // Map to Number
+                    'DateString'          => $quote['DateString'] ?? $quote['Date'] ?? null,
+                    'Status'              => $quote['Status'],
+                    'Total'               => $quote['Total'],
+                    'CurrencyCode'        => $quote['CurrencyCode'],
+                    'Contact'             => $quote['Contact'],
+                    'Reference'           => $quote['Reference'] ?? '',
+                    'Type'                => 'Quote',
+                ];
+            }
+        } else {
+            Log::error('Xero Quotes fetch failed in getAvailablePurchaseOrders', [
+                'status' => $quoteResponse->status(),
+                'body' => $quoteResponse->body(),
+                'where' => $quoteWhere
+            ]);
+        }
+
+        // Filter out candidates already linked to projects by their number
+        $usedNumbers = \App\Models\Project::whereNotNull('po_number')
+            ->pluck('po_number')
+            ->toArray();
+
+        $available = array_filter($allCandidates, function ($candidate) use ($usedNumbers) {
+            return !in_array($candidate['PurchaseOrderNumber'], $usedNumbers);
+        });
+
+        return array_values($available);
+    }
 }

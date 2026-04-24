@@ -208,4 +208,19 @@ class XeroController extends Controller
             ...$summary,
         ]);
     }
+
+    /**
+     * Fetch available Xero Purchase Orders (authorised and not linked to any project).
+     * Optional 'xero_contact_id' query param to filter by client.
+     */
+    public function getPurchaseOrders(Request $request): JsonResponse
+    {
+        try {
+            $xeroContactId = $request->query('xero_contact_id');
+            $pos = $this->xeroService->getAvailablePurchaseOrders($xeroContactId);
+            return response()->json($pos);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
 }
