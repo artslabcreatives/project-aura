@@ -232,6 +232,17 @@ class StageController extends Controller
     )]
     public function destroy(Stage $stage): JsonResponse
     {
+        if ($stage->type === 'user') {
+            $count = Stage::where('type', 'user')
+                ->where('user_id', $stage->user_id)
+                ->count();
+            if ($count <= 3) {
+                return response()->json([
+                    'message' => 'User stages require a minimum of 3 stages (Pending, Active, Completed). Cannot delete.',
+                ], 422);
+            }
+        }
+
         $stage->delete();
         return response()->json(null, 204);
     }

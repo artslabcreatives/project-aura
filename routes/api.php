@@ -175,6 +175,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Reminders
     Route::apiResource('reminders', App\Http\Controllers\Api\ReminderController::class);
+    Route::patch('/reminders/{reminder}/override', [\App\Http\Controllers\Api\ReminderOverrideController::class, 'override']);
+    Route::delete('/reminders/{reminder}/override', [\App\Http\Controllers\Api\ReminderOverrideController::class, 'revert']);
+
+    // Invoices
+    Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
 
     // Clients
     Route::get('clients/history', [App\Http\Controllers\Api\ClientHistoryController::class, 'index']);

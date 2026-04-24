@@ -322,6 +322,7 @@ class ProjectController extends Controller
 
         $wasArchived = $project->is_archived;
         $hadPoDocument = (bool) $project->po_document;
+        $oldStatus = $project->status;
 
         if ($request->hasFile('po_document')) {
             $path = $request->file('po_document')->store('purchase-orders', 's3');
@@ -349,7 +350,12 @@ class ProjectController extends Controller
         }
 
         $project->update($validated);
-        
+
+        // Dispatch status cascade event if status changed
+        if (isset($validated['status']) && $validated['status'] !== $oldStatus) {
+            \App\Events\ProjectStatusChanged::dispatch($project, $oldStatus, $validated['status']);
+        }
+
         $action = 'update';
         if (isset($validated['is_archived'])) {
             if ($validated['is_archived'] && !$wasArchived) {

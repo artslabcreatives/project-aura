@@ -10,6 +10,9 @@ interface UserContextType {
 	isAuthenticated: boolean;
 	logout: () => Promise<void>;
 	refreshUser: () => Promise<void>;
+	effectiveRole: string | null;
+	switchRole: (role: string) => void;
+	clearRoleSwitch: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -19,6 +22,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
+	const [effectiveRole, setEffectiveRole] = useState<string | null>(() => {
+		return sessionStorage.getItem('effectiveRole');
+	});
+
+	const switchRole = (role: string) => {
+		sessionStorage.setItem('effectiveRole', role);
+		setEffectiveRole(role);
+	};
+
+	const clearRoleSwitch = () => {
+		sessionStorage.removeItem('effectiveRole');
+		setEffectiveRole(null);
+	};
 
 	const fetchAuthenticatedUser = async () => {
 		// Check if we have a token first
@@ -104,6 +120,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 			setCurrentUser(null);
 			setIsAuthenticated(false);
 			setTeamMembers([]);
+			clearRoleSwitch();
 		}
 	};
 
@@ -159,7 +176,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	}, [isAuthenticated]);
 
 	return (
-		<UserContext.Provider value={{ currentUser, teamMembers, isLoading, isAuthenticated, logout, refreshUser }}>
+		<UserContext.Provider value={{ currentUser, teamMembers, isLoading, isAuthenticated, logout, refreshUser, effectiveRole, switchRole, clearRoleSwitch }}>
 			{children}
 		</UserContext.Provider>
 	);
