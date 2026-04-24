@@ -81,7 +81,7 @@ const mainMenuItems = [
 	{ title: "Department Efficiency", url: "/department-efficiency", icon: BarChart3, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Reminders", url: "/reminders", icon: Bell, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Clients", url: "/clients", icon: Building2, roles: ["admin", "hr"] },
-	{ title: "Estimates", url: "/estimates", icon: FileText, roles: ["admin", "team-lead", "account-manager"] },
+	{ title: "Estimates", url: "/estimates", icon: FileText, roles: ["admin", "team-lead", "account-manager", "hr"] },
 	{ title: "Emails", url: "/emails", icon: Mail, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Reports", url: "/reports", icon: ClipboardList, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "SSO Applications", url: "/sso/clients", icon: Shield, roles: ["admin"] },

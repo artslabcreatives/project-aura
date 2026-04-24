@@ -41,6 +41,7 @@ import { ClientDialog } from "@/components/ClientDialog";
 import { ContactDialog } from "@/components/ContactDialog";
 import { EstimateDialog } from "@/components/EstimateDialog";
 import { ClientFinancialDashboardComponent } from "@/components/ClientFinancialDashboard";
+import { InvoiceList } from "@/components/InvoiceList";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -641,6 +642,37 @@ export default function ClientProfile() {
 					</Card>
 				</div>
 			</div>
+
+			{/* All Invoices - Unified View */}
+			{id !== 'internal' && typeof client?.id === 'number' && (
+				<div className="mt-8">
+					<Card>
+						<CardHeader>
+							<div className="flex items-center justify-between">
+								<div>
+									<CardTitle className="flex items-center gap-2">
+										<FileText className="h-5 w-5" />
+										All Invoices
+									</CardTitle>
+									<CardDescription>
+										Manual and Xero invoices for {client.company_name}
+									</CardDescription>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent>
+							<InvoiceList
+								clientId={client.id}
+								showFilters={true}
+								onInvoiceClick={(invoice) => {
+									console.log('Invoice clicked:', invoice);
+									// TODO: Open invoice detail modal or navigate
+								}}
+							/>
+						</CardContent>
+					</Card>
+				</div>
+			)}
 
 			{/* Financial Dashboard */}
 			{id !== 'internal' && typeof client?.id === 'number' && (

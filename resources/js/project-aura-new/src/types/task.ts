@@ -67,6 +67,8 @@ export interface Task {
 	subtasks?: Task[]; // Subtasks
 	parentId?: string | null; // Parent task ID
 	isAssigneeLocked?: boolean; // If true, auto-reassignment is disabled
+	isLocked?: boolean; // If true, task is locked due to project status (on-hold/cancelled)
+	previousStatus?: UserStatus; // Saved status before project was paused/cancelled
 }
 
 export interface AssignedUser {

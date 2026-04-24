@@ -3,7 +3,7 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText, Zap, Copy } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText, Zap, Copy, Lock } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -61,20 +61,20 @@ interface TaskCardProps {
 	onRefresh?: () => void;
 }
 
-export function TaskCard({ 
-	task, 
-	onDragStart, 
-	onEdit, 
-	onDelete, 
-	onView, 
-	onReviewTask, 
-	canManage = true, 
-	currentStage, 
-	canDrag = true, 
-	projectId, 
-	onAddSubtask, 
-	onViewSubtask, 
-	onTaskUpdate, 
+export function TaskCard({
+	task,
+	onDragStart,
+	onEdit,
+	onDelete,
+	onView,
+	onReviewTask,
+	canManage = true,
+	currentStage,
+	canDrag = true,
+	projectId,
+	onAddSubtask,
+	onViewSubtask,
+	onTaskUpdate,
 	allStages = [],
 	isSelectionMode = false,
 	isSelected = false,
@@ -183,7 +183,7 @@ export function TaskCard({
 		toast({ title: "Link copied", description: "Task link copied to clipboard" });
 		setIsShareOpen(false);
 	};
-	
+
 	const handleEarlyStartConfirm = async (stageId: string) => {
 		setIsEarlyStarting(true);
 		try {
@@ -211,7 +211,7 @@ export function TaskCard({
 	const handleDuplicate = async (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (isDuplicating) return;
-		
+
 		setIsDuplicating(true);
 		try {
 			await taskService.duplicate(task.id);
@@ -261,8 +261,8 @@ export function TaskCard({
 		>
 			{isSelectionMode && (
 				<div className="absolute top-2 left-2 z-20" onClick={(e) => e.stopPropagation()}>
-					<Checkbox 
-						checked={isSelected} 
+					<Checkbox
+						checked={isSelected}
 						onCheckedChange={() => onToggleSelection?.(task.id)}
 						className="h-5 w-5 bg-card border-2"
 					/>
@@ -518,6 +518,24 @@ export function TaskCard({
 					>
 						{task.priority}
 					</Badge>
+					{task.isLocked && (
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Badge
+										variant="outline"
+										className="text-xs bg-orange-500/10 text-orange-700 border-orange-500/20 flex items-center gap-1"
+									>
+										<Lock className="h-3 w-3" />
+										Locked
+									</Badge>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Task is locked due to project status{task.previousStatus ? ` (was: ${task.previousStatus})` : ''}</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					)}
 				</div>
 
 				{task.tags && task.tags.length > 0 && (
@@ -616,7 +634,7 @@ export function TaskCard({
 											const isAdminOrTL = activeRole === 'admin' || activeRole === 'team-lead';
 											const isSubtaskAssignee = subtask.assignee === currentUser?.name || subtask.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
 											const isParentAssignee = task.assignee === currentUser?.name || task.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
-											
+
 											if (!isAdminOrTL && !isSubtaskAssignee && !isParentAssignee) return;
 
 											// Toggle status

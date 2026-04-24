@@ -64,6 +64,8 @@ function mapTask(raw: any): Task {
 		subtasks: raw.subtasks?.map(mapTask) || [],
 		parentId: raw.parent_id ? String(raw.parent_id) : null,
 		isAssigneeLocked: raw.is_assignee_locked === true || raw.is_assignee_locked === 1,
+		isLocked: raw.is_locked === true || raw.is_locked === 1,
+		previousStatus: raw.previous_status || undefined,
 	};
 }
 
@@ -183,7 +185,7 @@ export const taskService = {
 		const { data } = await api.post(`/tasks/${id}/start`);
 		return mapTask(data);
 	},
-	
+
 	duplicate: async (id: string): Promise<Task> => {
 		const { data } = await api.post(`/tasks/${id}/duplicate`);
 		return mapTask(data);

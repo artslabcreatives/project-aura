@@ -344,12 +344,12 @@ const App = () => (
 								</ProtectedRoute>
 							} />
 							<Route path="/estimates" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager']}>
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
 									<AppLayout><Estimates /></AppLayout>
 								</ProtectedRoute>
 							} />
 							<Route path="/estimates/:estimateId" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager']}>
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
 									<AppLayout><EstimateDetail /></AppLayout>
 								</ProtectedRoute>
 							} />

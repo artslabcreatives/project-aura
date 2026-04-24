@@ -26,7 +26,7 @@ import { SearchableSelect, SearchableOption } from "@/components/ui/searchable-s
 import { Project } from "@/types/project";
 import { Department } from "@/types/department";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Link as LinkIcon, Upload, Loader2, ChevronRight, ChevronLeft, Check, AlertCircle } from "lucide-react";
+import { X, Plus, Link as LinkIcon, Upload, Loader2, ChevronRight, ChevronLeft, Check, AlertCircle, Lock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
@@ -86,6 +86,9 @@ export function TaskDialog({
 	const prevEditTaskIdRef = useRef<string | undefined>(undefined);
 	const prevOpenRef = useRef<boolean>(false);
 	const projects = availableProjects || [];
+
+	// Check if task is locked due to project status
+	const isTaskLocked = editTask?.isLocked === true;
 	const [formData, setFormData] = useState({
 		title: "",
 		description: "",
@@ -613,6 +616,20 @@ export function TaskDialog({
 									: "Add a new task to your project. Fill in the details below."}
 							</DialogDescription>
 						</DialogHeader>
+						{isTaskLocked && (
+							<div className="mt-4 flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+								<Lock className="h-4 w-4 text-orange-600 flex-shrink-0 mt-0.5" />
+								<div className="flex-1">
+									<p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+										Task is Locked
+									</p>
+									<p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+										This task is locked due to the project status. Editing is disabled until the project is reactivated.
+										{editTask?.previousStatus && ` Previous status: ${editTask.previousStatus}`}
+									</p>
+								</div>
+							</div>
+						)}
 
 						{/* Step Indicator */}
 						<div className="flex items-center justify-between mt-6">
@@ -658,6 +675,7 @@ export function TaskDialog({
 										}}
 										placeholder="Enter task title"
 										className={errors.title ? "border-destructive focus-visible:ring-destructive" : ""}
+										disabled={isTaskLocked}
 									/>
 									{errors.title && <span className="text-xs text-destructive">{errors.title}</span>}
 								</div>
@@ -671,6 +689,7 @@ export function TaskDialog({
 											setFormData({ ...formData, description: value })
 										}
 										placeholder="Enter task description"
+										disabled={isTaskLocked}
 									/>
 								</div>
 
@@ -691,7 +710,7 @@ export function TaskDialog({
 												}))
 											]}
 											placeholder="Select project"
-											disabled={projects.length === 1}
+											disabled={projects.length === 1 || isTaskLocked}
 										/>
 										{errors.project && <span className="text-xs text-destructive">{errors.project}</span>}
 									</div>
@@ -706,7 +725,7 @@ export function TaskDialog({
 											}}
 											options={memberOptions}
 											placeholder="Select member"
-											disabled={!!assignmentRestriction}
+											disabled={!!assignmentRestriction || isTaskLocked}
 										/>
 										{assignmentRestriction ? (
 											<div className="flex items-center gap-1.5 mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-700 animate-in fade-in slide-in-from-top-1">
@@ -1212,7 +1231,7 @@ export function TaskDialog({
 									Next <ChevronRight className="h-4 w-4" />
 								</Button>
 							) : (
-								<Button key="submit-btn" type="submit" disabled={isUploading} className="gap-2">
+								<Button key="submit-btn" type="submit" disabled={isUploading || isTaskLocked} className="gap-2">
 									{isUploading ? (
 										<>
 											<Loader2 className="mr-2 h-4 w-4 animate-spin" />

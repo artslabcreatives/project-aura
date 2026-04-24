@@ -6,6 +6,7 @@ import { DollarSign, Radio, TrendingUp, TrendingDown, FileText, Package } from '
 import { ClientFinancialDashboard } from '../types/financial';
 import { financialService } from '../services/financialService';
 import { echo } from '../services/echoService';
+import { InvoiceList } from './InvoiceList';
 
 interface ClientFinancialDashboardProps {
 	clientId: number;
@@ -245,75 +246,15 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 				</TabsContent>
 
 				<TabsContent value="invoices" className="space-y-4">
-					{dashboard.invoices.pendingInvoices.length > 0 && (
-						<Card>
-							<CardHeader>
-								<CardTitle>Pending Invoices</CardTitle>
-								<CardDescription>{dashboard.invoices.pendingCount} invoices awaiting payment</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="space-y-4">
-									{dashboard.invoices.pendingInvoices.map((invoice) => (
-										<div
-											key={invoice.projectId}
-											className="flex items-center justify-between border-b pb-4 last:border-0"
-										>
-											<div>
-												<p className="font-medium">{invoice.projectName}</p>
-												<p className="text-sm text-muted-foreground">
-													Invoice #{invoice.invoiceNumber}
-												</p>
-												{invoice.isPhysical && (
-													<Badge variant="outline" className="mt-1">
-														Physical - {invoice.deliveryStatus}
-													</Badge>
-												)}
-											</div>
-											<div className="text-right">
-												<p className="font-bold">
-													{formatCurrency(invoice.amount, invoice.currency)}
-												</p>
-											</div>
-										</div>
-									))}
-								</div>
-							</CardContent>
-						</Card>
-					)}
-
-					{dashboard.invoices.completedInvoices.length > 0 && (
-						<Card>
-							<CardHeader>
-								<CardTitle>Paid Invoices</CardTitle>
-								<CardDescription>{dashboard.invoices.completedCount} completed payments</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="space-y-4">
-									{dashboard.invoices.completedInvoices.map((invoice) => (
-										<div
-											key={invoice.projectId}
-											className="flex items-center justify-between border-b pb-4 last:border-0"
-										>
-											<div>
-												<p className="font-medium">{invoice.projectName}</p>
-												<p className="text-sm text-muted-foreground">
-													Invoice #{invoice.invoiceNumber}
-												</p>
-											</div>
-											<div className="text-right">
-												<p className="font-bold text-green-600">
-													{formatCurrency(invoice.amount, invoice.currency)}
-												</p>
-												<Badge variant="default" className="bg-green-500 mt-1">
-													Paid
-												</Badge>
-											</div>
-										</div>
-									))}
-								</div>
-							</CardContent>
-						</Card>
-					)}
+					{/* Unified Invoice List - Shows both Manual and Xero invoices */}
+					<InvoiceList
+						clientId={clientId}
+						showFilters={true}
+						onInvoiceClick={(invoice) => {
+							console.log('Invoice clicked:', invoice);
+							// TODO: Open invoice detail modal or navigate to invoice page
+						}}
+					/>
 				</TabsContent>
 
 				<TabsContent value="projects" className="space-y-4">

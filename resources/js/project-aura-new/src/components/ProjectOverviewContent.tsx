@@ -46,6 +46,7 @@ import { CampaignReportSection } from "@/components/CampaignReportSection";
 import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectProfitability } from "@/components/ProjectProfitability";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
+import { InvoiceList } from "@/components/InvoiceList";
 
 interface ProjectOverviewContentProps {
 	project: Project;
@@ -351,8 +352,8 @@ export function ProjectOverviewContent({
 											variant="outline"
 											size="sm"
 											className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
-													? "opacity-50 cursor-not-allowed"
-													: ""
+												? "opacity-50 cursor-not-allowed"
+												: ""
 												}`}
 											onClick={() => {
 												if (isCampaignReportApproved) {
@@ -394,8 +395,8 @@ export function ProjectOverviewContent({
 									variant="outline"
 									size="sm"
 									className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
-											? "opacity-50 cursor-not-allowed"
-											: ""
+										? "opacity-50 cursor-not-allowed"
+										: ""
 										}`}
 									onClick={() => {
 										if (isCampaignReportApproved) {
@@ -543,8 +544,8 @@ export function ProjectOverviewContent({
 			{hasGracePeriod && !hasPO && !project.isInternalProject && (
 				<div
 					className={`flex items-start gap-3 rounded-lg border p-4 ${gracePeriodExpired
-							? "border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800"
-							: "border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800"
+						? "border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800"
+						: "border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800"
 						}`}
 				>
 					<ShieldCheck
@@ -554,8 +555,8 @@ export function ProjectOverviewContent({
 					<div className="flex-1">
 						<p
 							className={`font-semibold ${gracePeriodExpired
-									? "text-red-800 dark:text-red-300"
-									: "text-blue-800 dark:text-blue-300"
+								? "text-red-800 dark:text-red-300"
+								: "text-blue-800 dark:text-blue-300"
 								}`}
 						>
 							{gracePeriodExpired
@@ -564,8 +565,8 @@ export function ProjectOverviewContent({
 						</p>
 						<p
 							className={`text-sm mt-0.5 ${gracePeriodExpired
-									? "text-red-700 dark:text-red-400"
-									: "text-blue-700 dark:text-blue-400"
+								? "text-red-700 dark:text-red-400"
+								: "text-blue-700 dark:text-blue-400"
 								}`}
 						>
 							{gracePeriodExpired
@@ -608,21 +609,21 @@ export function ProjectOverviewContent({
 			{hasProvisionalPO && !hasPO && (
 				<div
 					className={`flex items-start gap-3 rounded-lg border p-4 ${provisionalPOExpired
-							? "border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800"
-							: "border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800"
+						? "border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800"
+						: "border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800"
 						}`}
 				>
 					<FileText
 						className={`h-5 w-5 shrink-0 mt-0.5 ${provisionalPOExpired
-								? "text-orange-500"
-								: "text-green-500"
+							? "text-orange-500"
+							: "text-green-500"
 							}`}
 					/>
 					<div className="flex-1">
 						<p
 							className={`font-semibold ${provisionalPOExpired
-									? "text-orange-800 dark:text-orange-300"
-									: "text-green-800 dark:text-green-300"
+								? "text-orange-800 dark:text-orange-300"
+								: "text-green-800 dark:text-green-300"
 								}`}
 						>
 							{provisionalPOExpired
@@ -631,8 +632,8 @@ export function ProjectOverviewContent({
 						</p>
 						<p
 							className={`text-sm mt-0.5 ${provisionalPOExpired
-									? "text-orange-700 dark:text-orange-400"
-									: "text-green-700 dark:text-green-400"
+								? "text-orange-700 dark:text-orange-400"
+								: "text-green-700 dark:text-green-400"
 								}`}
 						>
 							PO Reference:{" "}
@@ -665,6 +666,18 @@ export function ProjectOverviewContent({
 			{/* Project Profitability Section */}
 			{canSeeClientInfo && project.client && (
 				<ProjectProfitability projectId={project.id} />
+			)}
+
+			{/* Project Invoices - Unified Invoice List */}
+			{canSeeClientInfo && project.client && (
+				<InvoiceList
+					projectId={project.id}
+					showFilters={true}
+					onInvoiceClick={(invoice) => {
+						console.log('Invoice clicked:', invoice);
+						// TODO: Open invoice detail modal
+					}}
+				/>
 			)}
 
 			{/* Project Finance: Expenses & Budget */}
