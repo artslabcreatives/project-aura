@@ -11,6 +11,7 @@ interface UserContextType {
 	logout: () => Promise<void>;
 	refreshUser: () => Promise<void>;
 	effectiveRole: string | null;
+	activeRole: string | null;
 	switchRole: (role: string) => void;
 	clearRoleSwitch: () => void;
 }
@@ -176,7 +177,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	}, [isAuthenticated]);
 
 	return (
-		<UserContext.Provider value={{ currentUser, teamMembers, isLoading, isAuthenticated, logout, refreshUser, effectiveRole, switchRole, clearRoleSwitch }}>
+		<UserContext.Provider value={{ currentUser, teamMembers, isLoading, isAuthenticated, logout, refreshUser, effectiveRole, activeRole: effectiveRole ?? currentUser?.role ?? null, switchRole, clearRoleSwitch }}>
 			{children}
 		</UserContext.Provider>
 	);

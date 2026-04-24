@@ -99,7 +99,7 @@ export function AppSidebar() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const { toast } = useToast();
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const { addHistoryEntry } = useHistory();
 	const [projectsOpen, setProjectsOpen] = useState(true);
 	const [archivedProjectsOpen, setArchivedProjectsOpen] = useState(false);
@@ -134,7 +134,7 @@ export function AppSidebar() {
 	const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 	const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
 
-	const userRole = currentUser?.role;
+	const userRole = activeRole ?? currentUser?.role;
 	const collaboratedProjects = useMemo(() => {
 		if (!currentUser) return [];
 		return projects.filter(project =>

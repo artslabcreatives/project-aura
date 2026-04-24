@@ -8,8 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AccountManagerView from "./AccountManagerView";
 
 export default function UserDashboard() {
-  const { currentUser } = useUser();
-  const role = currentUser?.role;
+  const { currentUser, activeRole } = useUser();
+  const role = activeRole ?? currentUser?.role;
 
   switch (role) {
     case "admin":
