@@ -3,6 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Estimate;
+use Illuminate\Support\Facades\Log;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
@@ -11,7 +12,7 @@ class SearchEstimatesTool extends Tool
 {
     protected string $name = 'search_estimates';
 
-    protected string $description = 'Search for estimates by various criteria (project name, client name, estimate number, etc.)';
+    protected string $description = 'Search for estimates by client name, project name, estimate number, or title. Use this FIRST when processing a PO to find the matching estimate before calling attach_estimate_po. Start with search_by="client_name" and the company that issued the PO. If no results, try search_by="all" with a keyword from the PO line items. Set has_project=false and has_amount=false on the first attempt to get the widest results, then narrow down by comparing the amount field to the PO total.';
 
     /**
      * @return array<string, mixed>
@@ -38,6 +39,10 @@ class SearchEstimatesTool extends Tool
 
     public function handle(Request $request): Response
     {
+        Log::channel('daily')->info('[MCP Tool] search_estimates called', [
+            'arguments' => $request->all(),
+        ]);
+
         $validated = $request->validate([
             'search_query' => 'nullable|string|max:255',
             'search_by' => 'nullable|string|max:255',  // Temporarily allow any string for sanitization

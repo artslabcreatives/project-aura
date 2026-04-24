@@ -576,13 +576,14 @@ class ProjectController extends Controller
 		]);
 
 		$email = $request->input('email');
+        $user = $request->user();
 
         $projectsQuery = Project::whereJsonContains('emails', $email)
             ->with(['department', 'stages' => function ($query) {
                 $query->where('type', 'project');
             }]);
 
-        if (in_array($user->role, ['user', 'account_manager'])) {
+        if ($user && in_array($user->role, ['user', 'account_manager'])) {
             $projectsQuery->where(function ($q) use ($user) {
                 $q->whereHas('tasks', function ($taskQuery) use ($user) {
                     $taskQuery->where('assignee_id', $user->id)

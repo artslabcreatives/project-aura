@@ -4,17 +4,18 @@ namespace App\Mcp\Tools;
 
 use App\Models\Estimate;
 use App\Models\Project;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 
 class AttachEstimatePOTool extends Tool
 {
     protected string $name = 'attach_estimate_po';
 
-    protected string $description = 'Check if an estimate has amounts and PO number, then attach the PO to the associated project';
+    protected string $description = 'Attach a PO number to the project linked to a given estimate. Call this ONLY after search_estimates has returned results and you have identified the correct estimate_id. Requires: estimate_id (integer, from search_estimates result), po_number (string, e.g. "4563172446"). Optional: provisional (boolean, default false) — set true only if the user says it is a provisional PO. Do NOT include po_document unless you have a real file path or URL.';
 
     /**
      * @return array<string, mixed>
@@ -37,6 +38,10 @@ class AttachEstimatePOTool extends Tool
 
     public function handle(Request $request): Response
     {
+        Log::channel('daily')->info('[MCP Tool] attach_estimate_po called', [
+            'arguments' => $request->all(),
+        ]);
+
         // Validate input
         $validated = $request->validate([
             'estimate_id' => 'required|integer|exists:estimates,id',
