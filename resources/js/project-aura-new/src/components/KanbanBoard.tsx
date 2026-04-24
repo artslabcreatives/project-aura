@@ -130,7 +130,7 @@ export function KanbanBoard({
 	const [columnSearchOpen, setColumnSearchOpen] = useState<Record<string, boolean>>({});
 	const [columnDateFilters, setColumnDateFilters] = useState<Record<string, string>>({});
 	const [columnCustomDateRanges, setColumnCustomDateRanges] = useState<Record<string, DateRange | undefined>>({});
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const [stageToDelete, setStageToDelete] = useState<string | null>(null);
 
 	const boardRef = useRef<HTMLDivElement>(null);
@@ -661,7 +661,7 @@ export function KanbanBoard({
 										</DropdownMenu>
 									)}
 
-								{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+								{(activeRole === 'admin' || activeRole === 'team-lead') && (
 									<div className="flex items-center border-l ml-1 pl-1 gap-1">
 										{selectionModeStageIds.has(column.id) ? (
 											<>

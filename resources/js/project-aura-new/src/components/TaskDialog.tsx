@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus, Link as LinkIcon, Upload, Loader2, ChevronRight, ChevronLeft, Check, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-user";
 import { attachmentService } from "@/services/attachmentService";
 import { tagService, Tag } from "@/services/tagService";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
@@ -80,6 +81,7 @@ export function TaskDialog({
 	disableBacklogRenaming = false,
 }: TaskDialogProps) {
 	const { toast } = useToast();
+	const { activeRole } = useUser();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const prevEditTaskIdRef = useRef<string | undefined>(undefined);
 	const prevOpenRef = useRef<boolean>(false);
@@ -132,9 +134,9 @@ export function TaskDialog({
 			if (fixedDepartmentId) {
 				setTagDepartmentId(fixedDepartmentId);
 			} else if (currentUser) {
-				if (currentUser.role === 'team-lead' || currentUser.role === 'account-manager') {
+				if (activeRole === 'team-lead' || activeRole === 'account-manager') {
 					setTagDepartmentId(currentUser.department);
-				} else if (currentUser.role === 'admin') {
+				} else if (activeRole === 'admin') {
 					// Admin defaults to their department but can change it. 
 					setTagDepartmentId(currentUser.department);
 				} else {
@@ -714,7 +716,7 @@ export function TaskDialog({
 										) : errors.assignee && (
 											<span className="text-xs text-destructive">{errors.assignee}</span>
 										)}
-										{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+										{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 											<div className="flex items-center space-x-2 mt-2">
 												<Checkbox
 													id="isAssigneeLocked"
@@ -905,7 +907,7 @@ export function TaskDialog({
 									<div className="grid gap-2">
 										<div className="flex items-center justify-between">
 											<Label htmlFor="startDate">Start Date</Label>
-											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+											{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 												<div className="flex items-center space-x-2">
 													<Checkbox
 														id="noStartDate"
@@ -944,7 +946,7 @@ export function TaskDialog({
 									<div className="grid gap-2">
 										<div className="flex items-center justify-between">
 											<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
-											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead' || currentUser?.role === 'account-manager') && (
+											{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 												<div className="flex items-center space-x-2">
 													<Checkbox
 														id="noEndDate"
@@ -987,7 +989,7 @@ export function TaskDialog({
 								<div className="grid gap-2">
 									<div className="flex items-center justify-between">
 										<Label>Tags</Label>
-										{currentUser?.role === 'admin' && (
+										{activeRole === 'admin' && (
 											<Select value={tagDepartmentId} onValueChange={setTagDepartmentId} disabled={!!fixedDepartmentId}>
 												<SelectTrigger className="w-[180px] h-8 text-xs">
 													<SelectValue placeholder="Filter by Department" />
@@ -1030,7 +1032,7 @@ export function TaskDialog({
 											))}
 									</div>
 
-									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+									{(activeRole === 'admin' || activeRole === 'team-lead') && (
 										<div className="flex gap-2">
 											<Input
 												placeholder="New tag name..."

@@ -94,7 +94,7 @@ export function TaskCard({
 	const [timeLeft, setTimeLeft] = useState<string>("");
 	const [isShareOpen, setIsShareOpen] = useState(false);
 	const { toast } = useToast();
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -131,7 +131,7 @@ export function TaskCard({
 				setTimeLeft("Starting...");
 				if (!hasStartedRef.current) {
 					// Only Admin or Team Lead should trigger auto-start
-					if (currentUser?.role === 'admin' || currentUser?.role === 'team-lead') {
+					if (activeRole === 'admin' || activeRole === 'team-lead') {
 						hasStartedRef.current = true;
 						taskService.start(task.id)
 							.then((updatedTask) => {
@@ -333,9 +333,9 @@ export function TaskCard({
 					</Button>
 					{/* Show Review Task button if in review stage */}
 					{currentStage?.isReviewStage && onReviewTask && (
-						currentUser?.role === 'admin' ||
-						currentUser?.role === 'team-lead' ||
-						(currentUser?.role === 'account-manager' && (
+						activeRole === 'admin' ||
+						activeRole === 'team-lead' ||
+						(activeRole === 'account-manager' && (
 							task.assignee === currentUser?.name ||
 							(task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser?.id)))
 						))
@@ -362,7 +362,7 @@ export function TaskCard({
 							</TooltipProvider>
 						)}
 
-					{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+					{(activeRole === 'admin' || activeRole === 'team-lead') && (
 						<Button
 							variant="ghost"
 							size="icon"
@@ -377,7 +377,7 @@ export function TaskCard({
 						</Button>
 					)}
 
-					{currentStage?.title === "Pending" && currentStage?.type === "project" && (currentUser?.role === "user" || currentUser?.role === "account-manager") && (
+					{currentStage?.title === "Pending" && currentStage?.type === "project" && (activeRole === "user" || activeRole === "account-manager") && (
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>
@@ -424,7 +424,7 @@ export function TaskCard({
 							>
 								<Copy className={cn("h-3.5 w-3.5", isDuplicating && "text-primary")} />
 							</Button>
-							{currentUser?.role !== 'account-manager' && (
+							{activeRole !== 'account-manager' && (
 								<Button
 									variant="ghost"
 									size="icon"
@@ -449,7 +449,7 @@ export function TaskCard({
 			</CardHeader>
 
 			<CardContent className="p-4 pt-2 space-y-2">
-				{timeLeft && projectId && currentStage?.title === "Pending" && (currentUser?.role === "admin" || currentUser?.role === "team-lead") && (
+				{timeLeft && projectId && currentStage?.title === "Pending" && (activeRole === "admin" || activeRole === "team-lead") && (
 					<div className="flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 p-1.5 rounded-md border border-blue-100 mb-2">
 						<Clock className="h-3.5 w-3.5" />
 						<span>Starts in: {timeLeft}</span>
@@ -591,7 +591,7 @@ export function TaskCard({
 						<div className="space-y-1">
 							{task.subtasks?.filter(st => {
 								// Admin, Team Lead, and the subtask's assignee can see completed subtasks
-								const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+								const isAdminOrTL = activeRole === 'admin' || activeRole === 'team-lead';
 								const isAssignee = st.assignee === currentUser?.name || st.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
 								if (isAdminOrTL || isAssignee) return true;
 								return st.userStatus !== 'complete';
@@ -613,7 +613,7 @@ export function TaskCard({
 										)}
 										onClick={async (e) => {
 											e.stopPropagation();
-											const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+											const isAdminOrTL = activeRole === 'admin' || activeRole === 'team-lead';
 											const isSubtaskAssignee = subtask.assignee === currentUser?.name || subtask.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
 											const isParentAssignee = task.assignee === currentUser?.name || task.assignedUsers?.some(u => String(u.id) === String(currentUser?.id));
 											
@@ -661,7 +661,7 @@ export function TaskCard({
 										{subtask.assignee.split(' ')[0]}
 									</span>
 									{/* Delete Subtask Button */}
-									{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+									{(activeRole === 'admin' || activeRole === 'team-lead') && (
 										<div className="opacity-0 group-hover/subtask:opacity-100 transition-opacity">
 											<Button
 												variant="ghost"

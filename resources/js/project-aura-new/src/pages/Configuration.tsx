@@ -17,7 +17,7 @@ import { TwoFactorSection } from "@/components/profile/TwoFactorSection";
 import { XeroIntegration } from "@/components/XeroIntegration";
 
 export default function Configuration() {
-	const { currentUser, refreshUser } = useUser();
+	const { currentUser, refreshUser, activeRole } = useUser();
 	const { toast } = useToast();
 	const [searchParams, setSearchParams] = useSearchParams();
 
@@ -256,7 +256,7 @@ export default function Configuration() {
 					>
 						<Lock className="mr-2 h-4 w-4" /> Security
 					</Button>
-					{(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+					{(activeRole === 'admin' || activeRole === 'hr') && (
 						<Button
 							variant="ghost"
 							className="justify-start hover:bg-accent/50"
@@ -478,7 +478,7 @@ export default function Configuration() {
 					</div>
 
 					{/* Integrations Section - Admin/HR Only */}
-					{(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+					{(activeRole === 'admin' || activeRole === 'hr') && (
 						<div ref={integrationsRef}>
 							<Card>
 								<CardHeader>

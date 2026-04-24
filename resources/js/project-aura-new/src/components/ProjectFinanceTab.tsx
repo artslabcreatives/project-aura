@@ -107,7 +107,7 @@ interface ProjectFinanceTabProps {
 }
 
 export function ProjectFinanceTab({ project, onBudgetUpdate }: ProjectFinanceTabProps) {
-  const { currentUser } = useUser();
+  const { currentUser, activeRole } = useUser();
   const { toast } = useToast();
 
   const [expenses, setExpenses] = useState<ProjectExpense[]>([]);
@@ -130,7 +130,7 @@ export function ProjectFinanceTab({ project, onBudgetUpdate }: ProjectFinanceTab
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isApprover = currentUser && APPROVER_ROLES.includes(currentUser.role);
+  const isApprover = currentUser && APPROVER_ROLES.includes(activeRole);
   const clientName = (project as any).client?.company_name ?? 'Client';
 
   const load = async () => {

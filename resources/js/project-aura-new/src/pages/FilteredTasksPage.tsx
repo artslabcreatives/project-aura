@@ -32,7 +32,7 @@ export default function FilteredTasksPage() {
     const [searchParams] = useSearchParams();
     const userId = searchParams.get("userId");
     const navigate = useNavigate();
-    const { currentUser } = useUser();
+    const { currentUser, activeRole } = useUser();
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -140,13 +140,13 @@ export default function FilteredTasksPage() {
                 }
             } else if (currentUser) {
                 // Apply role-based filtering first if no specific userId is requested
-                if (currentUser.role === 'user' || currentUser.role === 'account-manager') {
+                if (activeRole === 'user' || activeRole === 'account-manager') {
                     // Regular users: show only their assigned tasks
                     const isAssigned =
                         task.assignee === currentUser.name ||
                         (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
                     if (!isAssigned) return false;
-                } else if (currentUser.role === 'team-lead') {
+                } else if (activeRole === 'team-lead') {
                     // Team Lead: show only tasks in their department (matching TeamLeadView)
                     // 1. Get team members in current user's department
                     const departmentMembers = teamMembers

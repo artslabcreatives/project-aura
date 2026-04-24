@@ -74,7 +74,7 @@ export function ProjectOverviewContent({
 	const [isProvisionalPOOpen, setIsProvisionalPOOpen] = useState(false);
 	const [isInvoiceViewOpen, setIsInvoiceViewOpen] = useState(false);
 	const { toast } = useToast();
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const navigate = useNavigate();
 
 	// Sync local project state when the parent provides an updated project
@@ -141,7 +141,7 @@ export function ProjectOverviewContent({
 	const handleStatusChange = async (newStatus: string) => {
 		if (
 			newStatus === "completed" &&
-			(currentUser?.role === "hr" || currentUser?.role === "admin")
+			(activeRole === "hr" || activeRole === "admin")
 		) {
 			if (!isCampaignReportApproved) {
 				toast({
@@ -185,11 +185,11 @@ export function ProjectOverviewContent({
 	};
 
 	const canChangeStatus =
-		currentUser?.role === "admin" || currentUser?.role === "hr" || currentUser?.role === "team-lead";
+		activeRole === "admin" || activeRole === "hr" || activeRole === "team-lead";
 	const canSeeClientInfo =
-		currentUser?.role === "admin" || currentUser?.role === "hr";
+		activeRole === "admin" || activeRole === "hr";
 	const canManageFinance =
-		currentUser?.role === "admin" || currentUser?.role === "hr";
+		activeRole === "admin" || activeRole === "hr";
 	const isBlocked =
 		project.isBlocked || project.status === "blocked";
 
@@ -323,8 +323,8 @@ export function ProjectOverviewContent({
 								>
 									<Lock className="h-3 w-3" /> Awaiting PO
 								</Badge>
-								{(currentUser?.role === "admin" ||
-									currentUser?.role === "hr") && (
+								{(activeRole === "admin" ||
+									activeRole === "hr") && (
 									<Button
 										variant="outline"
 										size="sm"

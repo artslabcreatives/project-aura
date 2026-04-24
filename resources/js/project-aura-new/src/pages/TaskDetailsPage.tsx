@@ -50,7 +50,7 @@ import { TimeLogWidget } from "@/components/TimeLogWidget";
 export default function TaskDetailsPage() {
 	const { taskId } = useParams<{ taskId: string }>();
 	const navigate = useNavigate();
-	const { currentUser } = useUser();
+	const { currentUser, activeRole } = useUser();
 	const { toast } = useToast();
 	const [task, setTask] = useState<Task | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -423,7 +423,7 @@ export default function TaskDetailsPage() {
 								<div className="space-y-2">
 									{task.subtasks.filter(st => {
 										// Only Admin and Team Lead can see completed subtasks
-										const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+										const isAdminOrTL = activeRole === 'admin' || activeRole === 'team-lead';
 										if (isAdminOrTL) return true;
 										return st.userStatus !== 'complete';
 									}).map((subtask) => (
@@ -437,7 +437,7 @@ export default function TaskDetailsPage() {
 												)}
 												onClick={async (e) => {
 													e.stopPropagation();
-													const isAdminOrTL = currentUser?.role === 'admin' || currentUser?.role === 'team-lead';
+													const isAdminOrTL = activeRole === 'admin' || activeRole === 'team-lead';
 													if (!isAdminOrTL) return;
 
 													const newStatus = (subtask.userStatus === 'complete' ? 'pending' : 'complete') as UserStatus;
@@ -477,7 +477,7 @@ export default function TaskDetailsPage() {
 											</Badge>
 
 											{/* Delete Subtask Button */}
-											{(currentUser?.role === 'admin' || currentUser?.role === 'team-lead') && (
+											{(activeRole === 'admin' || activeRole === 'team-lead') && (
 												<Button
 													variant="ghost"
 													size="icon"
