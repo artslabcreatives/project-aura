@@ -171,8 +171,10 @@ export function AppSidebar() {
 			// setExpandedDepartments(new Set()); 
 
 			if ((userRole === 'user' || userRole === 'account-manager') && currentUser) {
-				// Fetch tasks for user only (client-side filter)
-				const tasksData = await taskService.getAll();
+				// Fetch only tasks assigned to the current user.
+				// Passing assigneeId ensures the backend filters correctly even for
+				// admin/team-lead users who have switched to the user view.
+				const tasksData = await taskService.getAll({ assigneeId: currentUser.id });
 				const userProjectStages = new Map<string, Set<string>>();
 				tasksData
 					.filter(task => {
