@@ -119,8 +119,18 @@ export default function ReviewNeededPage() {
             // Call API
             await taskService.update(taskId, updates);
 
-            // Optimistic update
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+            // Recursive update helper
+            const updateTaskRecursively = (list: Task[]): Task[] => {
+                return list.map(t => {
+                    if (t.id === taskId) return { ...t, ...updates };
+                    if (t.subtasks && t.subtasks.length > 0) {
+                        return { ...t, subtasks: updateTaskRecursively(t.subtasks) };
+                    }
+                    return t;
+                });
+            };
+
+            setTasks(prev => updateTaskRecursively(prev));
 
             // History
             if (currentUser && projectId) {
@@ -199,7 +209,18 @@ export default function ReviewNeededPage() {
             const localUpdates = { ...updates };
             delete localUpdates.assigneeId;
 
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...localUpdates } : t));
+            // Recursive update helper
+            const updateTaskRecursively = (list: Task[]): Task[] => {
+                return list.map(t => {
+                    if (t.id === taskId) return { ...t, ...localUpdates };
+                    if (t.subtasks && t.subtasks.length > 0) {
+                        return { ...t, subtasks: updateTaskRecursively(t.subtasks) };
+                    }
+                    return t;
+                });
+            };
+
+            setTasks(prev => updateTaskRecursively(prev));
 
             if (currentUser && projectId) {
                 // Note: 'UPDATE_TASK_STATUS' seems appropriate or generic 'UPDATE_TASK'

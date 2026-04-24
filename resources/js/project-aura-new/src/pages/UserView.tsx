@@ -122,18 +122,18 @@ export default function UserView() {
 
 	const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
 		// Update helper
-		const updateTaskInList = (list: Task[]) => {
+		const updateTaskRecursively = (list: Task[]): Task[] => {
 			return list.map(t => {
 				if (t.id === taskId) return { ...t, ...updates };
-				if (t.subtasks) {
-					return { ...t, subtasks: updateTaskInList(t.subtasks) };
+				if (t.subtasks && t.subtasks.length > 0) {
+					return { ...t, subtasks: updateTaskRecursively(t.subtasks) };
 				}
 				return t;
 			});
 		};
 
-		setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
-		setStatsTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+		setTasks(prev => updateTaskRecursively(prev));
+		setStatsTasks(prev => updateTaskRecursively(prev));
 	};
 
 	if (loading) {

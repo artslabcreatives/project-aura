@@ -226,11 +226,18 @@ export default function UserProjectStageTasks() {
 		}
 
 		// Update local state immediately for responsive UI
-		setTasks(prevTasks =>
-			prevTasks.map(task =>
-				task.id === taskId ? { ...task, ...updates } : task
-			)
-		);
+		// Recursive update helper
+		const updateTaskRecursively = (list: Task[]): Task[] => {
+			return list.map(task => {
+				if (task.id === taskId) return { ...task, ...updates };
+				if (task.subtasks && task.subtasks.length > 0) {
+					return { ...task, subtasks: updateTaskRecursively(task.subtasks) };
+				}
+				return task;
+			});
+		};
+
+		setTasks(prevTasks => updateTaskRecursively(prevTasks));
 
 		// If task is completed, remove it from view after 10 seconds
 		if (updates.userStatus === "complete") {
@@ -277,7 +284,19 @@ export default function UserProjectStageTasks() {
 	const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">, pendingFiles?: File[], pendingLinks?: { name: string; url: string }[]) => {
 		if (editingTask) {
 			const updatedTask = await taskService.update(editingTask.id, taskData as any);
-			setTasks((prev) => prev.map((task) => (task.id === editingTask.id ? updatedTask : task)));
+			
+			// Recursive update helper
+			const updateTaskRecursively = (list: Task[]): Task[] => {
+				return list.map(task => {
+					if (task.id === editingTask.id) return updatedTask;
+					if (task.subtasks && task.subtasks.length > 0) {
+						return { ...task, subtasks: updateTaskRecursively(task.subtasks) };
+					}
+					return task;
+				});
+			};
+
+			setTasks((prev) => updateTaskRecursively(prev));
 			toast({
 				title: "Task updated",
 				description: "The task has been updated successfully.",
@@ -439,7 +458,18 @@ export default function UserProjectStageTasks() {
 				});
 			}
 
-			setTasks(prev => prev.map(t => t.id === taskId ? { ...t, userStatus: 'complete' } : t));
+			// Recursive update helper
+			const updateTaskRecursively = (list: Task[]): Task[] => {
+				return list.map(t => {
+					if (t.id === taskId) return { ...t, userStatus: 'complete' };
+					if (t.subtasks && t.subtasks.length > 0) {
+						return { ...t, subtasks: updateTaskRecursively(t.subtasks) };
+					}
+					return t;
+				});
+			};
+
+			setTasks(prev => updateTaskRecursively(prev));
 
 			toast({
 				title: "Task completed",

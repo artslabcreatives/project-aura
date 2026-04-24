@@ -248,7 +248,19 @@ export default function ProjectKanban() {
 			const savedTask = await taskService.update(taskId, backendUpdates as any);
 
 			// For local state, use the returned updated task
-			setTasks(tasks.map(t => t.id === taskId ? savedTask : t));
+			// Helper to update a task recursively in a list (handling subtasks)
+			const updateTaskInList = (list: Task[]): Task[] => {
+				return list.map(t => {
+					if (t.id === taskId) return savedTask;
+					if (t.subtasks && t.subtasks.length > 0) {
+						return { ...t, subtasks: updateTaskInList(t.subtasks) };
+					}
+					return t;
+				});
+			};
+
+			setTasks(prev => updateTaskInList(prev));
+			setAllTasks(prev => updateTaskInList(prev));
 		} catch (error) {
 			console.error("Error updating task:", error);
 			toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });
@@ -299,7 +311,20 @@ export default function ProjectKanban() {
 		try {
 			if (editingTask) {
 				const updatedTask = await taskService.update(editingTask.id, task as any);
-				setTasks(tasks.map(t => t.id === editingTask.id ? updatedTask : t));
+				
+				// Helper to update a task recursively in a list (handling subtasks)
+				const updateTaskInList = (list: Task[]): Task[] => {
+					return list.map(t => {
+						if (t.id === editingTask.id) return updatedTask;
+						if (t.subtasks && t.subtasks.length > 0) {
+							return { ...t, subtasks: updateTaskInList(t.subtasks) };
+						}
+						return t;
+					});
+				};
+
+				setTasks(prev => updateTaskInList(prev));
+				setAllTasks(prev => updateTaskInList(prev));
 				addHistoryEntry({
 					action: 'UPDATE_TASK', entityId: editingTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id,
 					details: { from: editingTask, to: { ...editingTask, ...task } },
