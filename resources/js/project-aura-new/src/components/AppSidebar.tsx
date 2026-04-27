@@ -129,6 +129,8 @@ export function AppSidebar() {
 	const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 	const [projectToInvite, setProjectToInvite] = useState<Project | null>(null);
 	const [invitedProjectsOpen, setInvitedProjectsOpen] = useState(true);
+	const [projectGroupingMode, setProjectGroupingMode] = useState<'department' | 'client'>('department');
+	const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
 
 	// Loading states for skeleton animations
 	const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -675,6 +677,18 @@ export function AppSidebar() {
 		});
 	};
 
+	const toggleClientExpanded = (clientId: string) => {
+		setExpandedClients(prev => {
+			const newSet = new Set(prev);
+			if (newSet.has(clientId)) {
+				newSet.delete(clientId);
+			} else {
+				newSet.add(clientId);
+			}
+			return newSet;
+		});
+	};
+
 	interface TreeGroup extends ProjectGroup {
 		projects: Project[];
 		children: TreeGroup[];
@@ -841,6 +855,33 @@ export function AppSidebar() {
 			archived: pruneGroupsInDepartment(groupProjects(archivedList))
 		};
 	}, [projects, userRole, currentUser, departments, projectGroups]);
+
+	const projectsByClient = useMemo(() => {
+		const groupByClient = (projectList: Project[]) => {
+			const grouped: Record<string, { id: string; name: string; projects: Project[] }> = {};
+			projectList.forEach(project => {
+				const clientId = project.client?.id || 'no-client';
+				const clientName = project.client?.company_name || 'No Client';
+				if (!grouped[clientId]) {
+					grouped[clientId] = { id: String(clientId), name: clientName, projects: [] };
+				}
+				grouped[clientId].projects.push(project);
+			});
+			return Object.values(grouped).sort((a, b) => {
+				if (a.id === 'no-client') return 1;
+				if (b.id === 'no-client') return -1;
+				return a.name.localeCompare(b.name);
+			});
+		};
+
+		const activeList = projects.filter(p => !p.isArchived);
+		const archivedList = projects.filter(p => p.isArchived);
+
+		return {
+			active: groupByClient(activeList),
+			archived: groupByClient(archivedList)
+		};
+	}, [projects]);
 
 	const userDepartmentGroups = useMemo(() => {
 		const deptId = currentUser?.department;
@@ -1455,18 +1496,37 @@ export function AppSidebar() {
 											}`}
 									/>
 								</CollapsibleTrigger>
-								{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
-									<Button
-										variant="ghost"
-										size="icon"
-										className="h-6 w-6 ml-1"
-										onClick={() => setIsProjectDialogOpen(true)}
-										title="Add new project"
-										data-tour="create-project-btn"
-									>
-										<Plus className="h-4 w-4" />
-									</Button>
-								)}
+								<div className="flex items-center gap-0.5 ml-1">
+									{(userRole === 'admin' || userRole === 'team-lead') && (
+										<Button
+											variant="ghost"
+											size="icon"
+											className={`h-6 w-6 ${projectGroupingMode === 'client' ? 'text-primary bg-sidebar-accent' : ''}`}
+											onClick={(e) => {
+												e.stopPropagation();
+												setProjectGroupingMode(prev => prev === 'department' ? 'client' : 'department');
+											}}
+											title={projectGroupingMode === 'department' ? "Switch to Client view" : "Switch to Department view"}
+										>
+											{projectGroupingMode === 'department' ? <Building2 className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
+										</Button>
+									)}
+									{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-6 w-6"
+											onClick={(e) => {
+												e.stopPropagation();
+												setIsProjectDialogOpen(true);
+											}}
+											title="Add new project"
+											data-tour="create-project-btn"
+										>
+											<Plus className="h-4 w-4" />
+										</Button>
+									)}
+								</div>
 							</div>
 							<CollapsibleContent>
 								<SidebarGroupContent>
@@ -1488,6 +1548,39 @@ export function AppSidebar() {
 											<div className="px-3 py-2 text-sm text-muted-foreground">
 												No projects found
 											</div>
+										) : projectGroupingMode === 'client' ? (
+											projectsByClient.active.map((clientGroup) => (
+												<Collapsible
+													key={clientGroup.id}
+													open={expandedClients.has(clientGroup.id)}
+													onOpenChange={() => toggleClientExpanded(clientGroup.id)}
+												>
+													<SidebarMenuItem>
+														<div className="flex items-center w-full group/client-item">
+															<CollapsibleTrigger asChild>
+																<SidebarMenuButton className="flex-1">
+																	<div className="flex items-center gap-2 flex-1 w-full">
+																		<Building2 className="h-4 w-4 shrink-0" />
+																		<span className="text-sm font-medium flex-1 truncate">{clientGroup.name}</span>
+																		<span className="text-xs text-muted-foreground mr-2 shrink-0">
+																			({clientGroup.projects.length})
+																		</span>
+																	</div>
+																	<ChevronRight
+																		className={`h-4 w-4 shrink-0 transition-transform ${expandedClients.has(clientGroup.id) ? "rotate-90" : ""
+																			}`}
+																	/>
+																</SidebarMenuButton>
+															</CollapsibleTrigger>
+														</div>
+														<CollapsibleContent>
+															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+																{clientGroup.projects.map((project) => renderProjectItem(project))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
+											))
 										) : (
 											(userRole === "team-lead" || userRole === "account-manager") && departmentGroups[0]?.id === 'flat'
 										) ? (
@@ -1571,6 +1664,47 @@ export function AppSidebar() {
 														</div>
 													</SidebarMenuButton>
 												</SidebarMenuItem>
+											))
+										) : projectGroupingMode === 'client' ? (
+											projectsByClient.archived.map((clientGroup) => (
+												<Collapsible
+													key={clientGroup.id}
+													open={expandedClients.has(clientGroup.id + '-archive')}
+													onOpenChange={() => {
+														const key = clientGroup.id + '-archive';
+														setExpandedClients(prev => {
+															const newSet = new Set(prev);
+															if (newSet.has(key)) newSet.delete(key);
+															else newSet.add(key);
+															return newSet;
+														});
+													}}
+												>
+													<SidebarMenuItem>
+														<div className="flex items-center w-full group/client-item">
+															<CollapsibleTrigger asChild>
+																<SidebarMenuButton className="flex-1">
+																	<div className="flex items-center gap-2 flex-1 w-full">
+																		<Building2 className="h-4 w-4 shrink-0" />
+																		<span className="text-sm font-medium flex-1 truncate">{clientGroup.name}</span>
+																		<span className="text-xs text-muted-foreground mr-2 shrink-0">
+																			({clientGroup.projects.length})
+																		</span>
+																	</div>
+																	<ChevronRight
+																		className={`h-4 w-4 shrink-0 transition-transform ${expandedClients.has(clientGroup.id + '-archive') ? "rotate-90" : ""
+																			}`}
+																	/>
+																</SidebarMenuButton>
+															</CollapsibleTrigger>
+														</div>
+														<CollapsibleContent>
+															<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
+																{clientGroup.projects.map((project) => renderProjectItem(project))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
 											))
 										) : (userRole === "team-lead" || userRole === "account-manager") && archivedDepartmentGroups[0]?.id === 'flat' ? (
 											<>
