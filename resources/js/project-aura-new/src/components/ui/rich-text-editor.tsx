@@ -17,6 +17,7 @@ export interface RichTextEditorProps
     value: string
     onChange: (value: string) => void
     placeholder?: string
+    disabled?: boolean
 }
 
 export function RichTextEditor({
@@ -24,6 +25,7 @@ export function RichTextEditor({
     value,
     onChange,
     placeholder,
+    disabled = false,
     ...props
 }: RichTextEditorProps) {
     const editorRef = React.useRef<HTMLDivElement>(null)
@@ -68,6 +70,7 @@ export function RichTextEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    disabled={disabled}
                     onClick={(e) => { e.preventDefault(); execCommand('bold'); }}
                     title="Bold"
                     type="button"
@@ -78,6 +81,7 @@ export function RichTextEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    disabled={disabled}
                     onClick={(e) => { e.preventDefault(); execCommand('italic'); }}
                     title="Italic"
                     type="button"
@@ -88,6 +92,7 @@ export function RichTextEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    disabled={disabled}
                     onClick={(e) => { e.preventDefault(); execCommand('strikeThrough'); }}
                     title="Strikethrough"
                     type="button"
@@ -101,6 +106,7 @@ export function RichTextEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    disabled={disabled}
                     onClick={(e) => { e.preventDefault(); execCommand('insertUnorderedList'); }}
                     title="Bullet List"
                     type="button"
@@ -111,6 +117,7 @@ export function RichTextEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    disabled={disabled}
                     onClick={(e) => { e.preventDefault(); execCommand('insertOrderedList'); }}
                     title="Numbered List"
                     type="button"
@@ -124,6 +131,7 @@ export function RichTextEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    disabled={disabled}
                     onClick={(e) => { e.preventDefault(); execCommand('formatBlock', 'H3'); }}
                     title="Heading"
                     type="button"
@@ -135,6 +143,7 @@ export function RichTextEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    disabled={disabled}
                     onClick={(e) => { e.preventDefault(); execCommand('formatBlock', 'P'); }}
                     title="Paragraph"
                     type="button"
@@ -145,8 +154,11 @@ export function RichTextEditor({
 
             <div
                 ref={editorRef}
-                className="p-3 min-h-[120px] max-h-[300px] overflow-y-auto outline-none prose prose-sm max-w-none dark:prose-invert [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
-                contentEditable
+                className={cn(
+                    "p-3 min-h-[120px] max-h-[300px] overflow-y-auto outline-none prose prose-sm max-w-none dark:prose-invert [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4",
+                    disabled && "opacity-50 cursor-not-allowed bg-muted/20"
+                )}
+                contentEditable={!disabled}
                 onInput={handleInput}
                 spellCheck={false} // optional
             />

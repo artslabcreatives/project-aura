@@ -871,7 +871,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 											<Button 
 												variant="outline" 
 												size="sm" 
-												className="h-5 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+												className="h-5 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
 												onClick={() => setIsPOSelectOpen(true)}
 											>
 												Select PO
@@ -883,7 +883,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 										<Button 
 											variant="outline" 
 											size="sm" 
-											className="h-5 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+											className="h-5 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
 											onClick={() => setIsPOViewOpen(true)}
 										>
 											View PO

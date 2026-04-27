@@ -129,7 +129,7 @@ export function CampaignReportSection({ project, onSuccess }: CampaignReportSect
 										onChange={handleFileUpload}
 										disabled={uploading}
 									/>
-									<Button variant="outline" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50" disabled={uploading}>
+									<Button variant="outline" className="border-indigo-400 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" disabled={uploading}>
 										{uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
 										Upload Report
 									</Button>

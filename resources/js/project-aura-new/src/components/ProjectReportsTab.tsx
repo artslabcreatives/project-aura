@@ -226,7 +226,7 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {canApprove && (
-                                                <Button size="sm" variant="outline" className="h-8 border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setSelectedReport(report); setApprovalAction('approve'); setIsApprovalOpen(true); }}>
+                                                <Button size="sm" variant="outline" className="h-8 border-indigo-200 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setSelectedReport(report); setApprovalAction('approve'); setIsApprovalOpen(true); }}>
                                                     <CheckCircle2 className="h-4 w-4 mr-1" /> Review
                                                 </Button>
                                             )}

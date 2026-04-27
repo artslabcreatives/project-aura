@@ -329,7 +329,7 @@ export function ProjectOverviewContent({
 										<Button
 											variant="outline"
 											size="sm"
-											className="h-6 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+											className="h-6 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
 											onClick={() => setIsPOSelectOpen(true)}
 										>
 											Select PO
@@ -341,7 +341,7 @@ export function ProjectOverviewContent({
 								<Button
 									variant="outline"
 									size="sm"
-									className="h-6 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+									className="h-6 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
 									onClick={() => setIsPOViewOpen(true)}
 								>
 									View PO
@@ -351,7 +351,7 @@ export function ProjectOverviewContent({
 										<Button
 											variant="outline"
 											size="sm"
-											className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
+											className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
 												? "opacity-50 cursor-not-allowed"
 												: ""
 												}`}
@@ -394,7 +394,7 @@ export function ProjectOverviewContent({
 								<Button
 									variant="outline"
 									size="sm"
-									className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
+									className={`h-6 text-[10px] px-2 py-0 border-blue-600 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 ${!isCampaignReportApproved
 										? "opacity-50 cursor-not-allowed"
 										: ""
 										}`}
@@ -521,7 +521,7 @@ export function ProjectOverviewContent({
 							<Button
 								size="sm"
 								variant="outline"
-								className="border-amber-400 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900"
+								className="border-amber-400 text-amber-700 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900"
 								onClick={() => setIsPOSelectOpen(true)}
 							>
 								Select PO
@@ -529,7 +529,7 @@ export function ProjectOverviewContent({
 							<Button
 								size="sm"
 								variant="outline"
-								className="border-amber-400 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900"
+								className="border-amber-400 text-amber-700 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900"
 								onClick={() => setIsGracePeriodOpen(true)}
 							>
 								<ShieldCheck className="h-3.5 w-3.5 mr-1" /> Grace
@@ -593,7 +593,7 @@ export function ProjectOverviewContent({
 								<Button
 									size="sm"
 									variant="outline"
-									className="border-blue-400 text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+									className="border-blue-400 text-blue-700 hover:text-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900"
 									onClick={() => setIsProvisionalPOOpen(true)}
 								>
 									<FileText className="h-3.5 w-3.5 mr-1" />{" "}
