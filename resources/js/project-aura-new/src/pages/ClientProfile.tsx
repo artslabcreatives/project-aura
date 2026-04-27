@@ -426,12 +426,10 @@ export default function ClientProfile() {
 					</Card>
 
 					{/* Financial Overview — budgets, costs, PO income, invoices */}
-					{id !== 'internal' && typeof client?.id === 'number' && (
-						<ClientFinanceSummaryCard
-							clientId={client.id}
-							projects={client.projects ?? []}
-						/>
-					)}
+					<ClientFinanceSummaryCard
+						clientId={typeof client?.id === 'number' ? client.id : undefined}
+						projects={client.projects ?? []}
+					/>
 
 					{/* Associated Projects Card */}
 					<Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">

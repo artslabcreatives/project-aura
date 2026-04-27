@@ -81,18 +81,21 @@ export function ImportTasksReviewDialog({
 
 	useEffect(() => {
 		if (open && tasks.length > 0) {
+			const pendingStage = stages.find(s => s.title.toLowerCase().trim() === 'pending');
+			const defaultStageId = pendingStage ? String(pendingStage.id) : "";
+
 			setRows(
 				tasks.map((t, i) => ({
 					...t,
 					_id: i,
 					assigneeId: "",
-					stageId: "",
+					stageId: defaultStageId,
 				}))
 			);
 			setBulkAssigneeId("");
 			setBulkStageId("");
 		}
-	}, [open, tasks]);
+	}, [open, tasks, stages]);
 
 	const applyBulkAssignee = () => {
 		if (!bulkAssigneeId) return;
@@ -239,14 +242,14 @@ export function ImportTasksReviewDialog({
 				</div>
 
 				{/* Task rows */}
-				<ScrollArea className="flex-1 min-h-0">
+				<div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
 					<div className="px-6 py-4 space-y-4">
 						{rows.length === 0 && (
 							<p className="text-sm text-muted-foreground text-center py-8">No tasks to review. All removed.</p>
 						)}
 
 						{rows.map((row, idx) => (
-							<div key={row._id} className="border rounded-lg p-4 space-y-3 bg-card">
+							<div key={row._id} className="border rounded-lg p-4 space-y-3 bg-card shadow-sm">
 								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-bold text-muted-foreground">#{idx + 1}</span>
 									<Button
@@ -363,7 +366,7 @@ export function ImportTasksReviewDialog({
 							</div>
 						))}
 					</div>
-				</ScrollArea>
+				</div>
 
 				<Separator />
 

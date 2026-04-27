@@ -19,15 +19,66 @@ import { Project } from '@/types/project';
 import { cn } from '@/lib/utils';
 
 interface Props {
-	clientId: number;
+	/** Numeric client ID. When omitted (internal projects), stats are derived from `projects` directly. */
+	clientId?: number;
 	projects: Project[];
+}
+
+interface Stats {
+	totalRevenue: number;
+	totalCost: number;
+	totalProfit: number;
+	profitMarginPct: number;
+	totalProjects: number;
+	totalBudget: number;
+	invoiced: number;
+	paid: number;
+	outstanding: number;
+	pendingCount: number;
+}
+
+function deriveFromProjects(projects: Project[]): Stats {
+	const totalRevenue = projects.reduce((s, p) => s + (p.totalRevenue ?? 0), 0);
+	const totalCost = projects.reduce((s, p) => s + (p.totalCost ?? 0), 0);
+	const totalProfit = projects.reduce((s, p) => s + (p.actualProfit ?? (p.totalRevenue ?? 0) - (p.totalCost ?? 0)), 0);
+	const profitMarginPct = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+	const totalBudget = projects.reduce((s, p) => s + (p.budget_allocated ?? 0), 0);
+	return {
+		totalRevenue,
+		totalCost,
+		totalProfit,
+		profitMarginPct,
+		totalProjects: projects.length,
+		totalBudget,
+		invoiced: 0,
+		paid: 0,
+		outstanding: 0,
+		pendingCount: 0,
+	};
+}
+
+function deriveFromDashboard(dashboard: ClientFinancialDashboard, projects: Project[]): Stats {
+	const { profitability, invoices } = dashboard;
+	return {
+		totalRevenue: profitability.totalRevenue,
+		totalCost: profitability.totalCost,
+		totalProfit: profitability.totalProfit,
+		profitMarginPct: profitability.profitMarginPercentage,
+		totalProjects: profitability.totalProjects,
+		totalBudget: projects.reduce((s, p) => s + (p.budget_allocated ?? 0), 0),
+		invoiced: invoices.totalInvoiced,
+		paid: invoices.totalPaid,
+		outstanding: invoices.totalOutstanding,
+		pendingCount: invoices.pendingCount,
+	};
 }
 
 export function ClientFinanceSummaryCard({ clientId, projects }: Props) {
 	const [dashboard, setDashboard] = useState<ClientFinancialDashboard | null>(null);
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState(!!clientId);
 
 	useEffect(() => {
+		if (!clientId) return;
 		setLoading(true);
 		financialService
 			.getClientFinancialDashboard(clientId)
@@ -35,8 +86,6 @@ export function ClientFinanceSummaryCard({ clientId, projects }: Props) {
 			.catch(console.error)
 			.finally(() => setLoading(false));
 	}, [clientId]);
-
-	const totalBudget = projects.reduce((sum, p) => sum + (p.budget_allocated ?? 0), 0);
 
 	const fmt = (n: number) =>
 		new Intl.NumberFormat('en-US', {
@@ -67,21 +116,19 @@ export function ClientFinanceSummaryCard({ clientId, projects }: Props) {
 		);
 	}
 
-	if (!dashboard) return null;
+	const stats: Stats = clientId && dashboard
+		? deriveFromDashboard(dashboard, projects)
+		: deriveFromProjects(projects);
 
-	const { profitability, invoices } = dashboard;
-	const isProfit = profitability.totalProfit >= 0;
+	const { totalRevenue, totalCost, totalProfit, profitMarginPct, totalProjects, totalBudget,
+		invoiced, paid, outstanding, pendingCount } = stats;
 
-	const budgetPct = totalBudget > 0
-		? Math.min((profitability.totalCost / totalBudget) * 100, 100)
-		: 0;
+	const isProfit = totalProfit >= 0;
+	const hasInvoices = invoiced > 0;
 
-	const collectedPct = invoices.totalInvoiced > 0
-		? Math.min((invoices.totalPaid / invoices.totalInvoiced) * 100, 100)
-		: 0;
-
-	const budgetBarColor =
-		budgetPct > 90 ? 'bg-red-500' : budgetPct > 70 ? 'bg-orange-400' : 'bg-primary';
+	const budgetPct = totalBudget > 0 ? Math.min((totalCost / totalBudget) * 100, 100) : 0;
+	const collectedPct = invoiced > 0 ? Math.min((paid / invoiced) * 100, 100) : 0;
+	const budgetBarColor = budgetPct > 90 ? 'bg-red-500' : budgetPct > 70 ? 'bg-orange-400' : 'bg-primary';
 
 	return (
 		<Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
@@ -93,8 +140,7 @@ export function ClientFinanceSummaryCard({ clientId, projects }: Props) {
 						variant={isProfit ? 'default' : 'destructive'}
 						className="ml-auto text-xs font-normal"
 					>
-						{isProfit ? '+' : ''}
-						{profitability.profitMarginPercentage.toFixed(1)}% margin
+						{isProfit ? '+' : ''}{profitMarginPct.toFixed(1)}% margin
 					</Badge>
 				</CardTitle>
 			</CardHeader>
@@ -103,9 +149,9 @@ export function ClientFinanceSummaryCard({ clientId, projects }: Props) {
 				<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 					<StatTile
 						label="Total Revenue"
-						value={fmt(profitability.totalRevenue)}
+						value={fmt(totalRevenue)}
 						icon={<DollarSign className="h-4 w-4 text-primary" />}
-						sub={`${profitability.totalProjects} project${profitability.totalProjects !== 1 ? 's' : ''}`}
+						sub={`${totalProjects} project${totalProjects !== 1 ? 's' : ''}`}
 					/>
 					<StatTile
 						label="Budget Allocated"
@@ -115,19 +161,19 @@ export function ClientFinanceSummaryCard({ clientId, projects }: Props) {
 					/>
 					<StatTile
 						label="Total Costs"
-						value={fmt(profitability.totalCost)}
+						value={fmt(totalCost)}
 						icon={<Receipt className="h-4 w-4 text-orange-500" />}
 						sub="labor & expenses"
 					/>
 					<StatTile
 						label="Net Profit"
-						value={fmt(profitability.totalProfit)}
+						value={fmt(totalProfit)}
 						icon={
 							isProfit
 								? <TrendingUp className="h-4 w-4 text-green-500" />
 								: <TrendingDown className="h-4 w-4 text-red-500" />
 						}
-						sub={`${profitability.profitMarginPercentage.toFixed(1)}% margin`}
+						sub={`${profitMarginPct.toFixed(1)}% margin`}
 						valueClass={isProfit
 							? 'text-green-600 dark:text-green-400'
 							: 'text-red-600 dark:text-red-400'}
@@ -144,36 +190,38 @@ export function ClientFinanceSummaryCard({ clientId, projects }: Props) {
 							barClass={budgetBarColor}
 						/>
 					)}
-					{invoices.totalInvoiced > 0 && (
+					{hasInvoices && (
 						<ProgressRow
 							label="Invoice Collection"
-							right={`${fmt(invoices.totalPaid)} of ${fmt(invoices.totalInvoiced)}`}
+							right={`${fmt(paid)} of ${fmt(invoiced)}`}
 							pct={collectedPct}
 							barClass="bg-green-500"
 						/>
 					)}
 				</div>
 
-				{/* Invoice strip */}
-				<div className="grid grid-cols-3 gap-3 pt-3 border-t border-border/50">
-					<InvoiceTile
-						label="Invoiced"
-						value={fmt(invoices.totalInvoiced)}
-						icon={<FileText className="h-3.5 w-3.5 text-muted-foreground" />}
-					/>
-					<InvoiceTile
-						label="Collected"
-						value={fmt(invoices.totalPaid)}
-						icon={<CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
-					/>
-					<InvoiceTile
-						label="Outstanding"
-						value={fmt(invoices.totalOutstanding)}
-						icon={<AlertCircle className="h-3.5 w-3.5 text-orange-500" />}
-						sub={invoices.pendingCount > 0 ? `${invoices.pendingCount} pending` : undefined}
-						valueClass={invoices.totalOutstanding > 0 ? 'text-orange-600 dark:text-orange-400' : ''}
-					/>
-				</div>
+				{/* Invoice strip — only shown when invoice data is available */}
+				{hasInvoices && (
+					<div className="grid grid-cols-3 gap-3 pt-3 border-t border-border/50">
+						<InvoiceTile
+							label="Invoiced"
+							value={fmt(invoiced)}
+							icon={<FileText className="h-3.5 w-3.5 text-muted-foreground" />}
+						/>
+						<InvoiceTile
+							label="Collected"
+							value={fmt(paid)}
+							icon={<CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+						/>
+						<InvoiceTile
+							label="Outstanding"
+							value={fmt(outstanding)}
+							icon={<AlertCircle className="h-3.5 w-3.5 text-orange-500" />}
+							sub={pendingCount > 0 ? `${pendingCount} pending` : undefined}
+							valueClass={outstanding > 0 ? 'text-orange-600 dark:text-orange-400' : ''}
+						/>
+					</div>
+				)}
 			</CardContent>
 		</Card>
 	);
