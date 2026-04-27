@@ -177,6 +177,10 @@ export function ProjectFinanceTab({ project, onBudgetUpdate }: ProjectFinanceTab
 			toast({ title: 'Validation', description: 'Amount, date and type are required.', variant: 'destructive' });
 			return;
 		}
+		if (!form.receipt && !editExpense?.receipt_file_url) {
+			toast({ title: 'Validation', description: 'Receipt/Document is mandatory.', variant: 'destructive' });
+			return;
+		}
 		setSubmitting(true);
 		try {
 			if (editExpense) {
@@ -390,8 +394,8 @@ export function ProjectFinanceTab({ project, onBudgetUpdate }: ProjectFinanceTab
 						{expenses.map(expense => {
 							const statusCfg = STATUS_CONFIG[expense.status];
 							const canApproveReject = isApprover && expense.status === 'pending';
-							const canEdit = isApprover || (expense.submitted_by === currentUser?.id && expense.status === 'pending');
-							const canDelete = isApprover || (expense.submitted_by === currentUser?.id && expense.status === 'pending');
+							const canEdit = isApprover || (String(expense.submitted_by) === String(currentUser?.id) && expense.status === 'pending');
+							const canDelete = isApprover || (String(expense.submitted_by) === String(currentUser?.id) && expense.status === 'pending');
 
 							return (
 								<div key={expense.id} className="flex items-start gap-3 border rounded-lg p-3 hover:bg-muted/30 transition-colors">
@@ -560,7 +564,7 @@ export function ProjectFinanceTab({ project, onBudgetUpdate }: ProjectFinanceTab
 						</div>
 
 						<div>
-							<Label>Receipt / Document</Label>
+							<Label>Receipt / Document *</Label>
 							<div className="mt-1">
 								<input
 									ref={fileInputRef}

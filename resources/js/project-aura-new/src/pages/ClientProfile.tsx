@@ -41,6 +41,7 @@ import { ClientDialog } from "@/components/ClientDialog";
 import { ContactDialog } from "@/components/ContactDialog";
 import { EstimateDialog } from "@/components/EstimateDialog";
 import { ClientFinancialDashboardComponent } from "@/components/ClientFinancialDashboard";
+import { ClientFinanceSummaryCard } from "@/components/ClientFinanceSummaryCard";
 import { InvoiceList } from "@/components/InvoiceList";
 import {
 	DropdownMenu,
@@ -423,6 +424,14 @@ export default function ClientProfile() {
 							</div>
 						</CardContent>
 					</Card>
+
+					{/* Financial Overview — budgets, costs, PO income, invoices */}
+					{id !== 'internal' && typeof client?.id === 'number' && (
+						<ClientFinanceSummaryCard
+							clientId={client.id}
+							projects={client.projects ?? []}
+						/>
+					)}
 
 					{/* Associated Projects Card */}
 					<Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
