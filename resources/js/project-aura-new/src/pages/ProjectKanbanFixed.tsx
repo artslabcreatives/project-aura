@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/select";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import { ProjectReportsTab } from "@/components/ProjectReportsTab";
+import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { 
 	Dialog, 
 	DialogContent, 
@@ -170,6 +171,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
 	const [isReportsOpen, setIsReportsOpen] = useState(false);
+	const [isFinanceOpen, setIsFinanceOpen] = useState(false);
 	const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 	const [reviewTask, setReviewTask] = useState<Task | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
@@ -950,8 +952,11 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 									<Button variant="outline" onClick={() => navigate(`/project/${project.id}/overview`)}>
 										Project Overview
 									</Button>
-									<Button variant="outline" onClick={() => setIsReportsOpen(true)} className="bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400">
+									<Button variant="outline" onClick={() => setIsReportsOpen(true)} className="bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700">
 										<FileText className="mr-2 h-4 w-4" /> Reports
+									</Button>
+									<Button variant="outline" onClick={() => setIsFinanceOpen(true)} className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:text-green-700">
+										<DollarSign className="mr-2 h-4 w-4" /> Add Expense
 									</Button>
 									{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 										<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
@@ -1146,6 +1151,24 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				url={project.poDocumentUrl || ""}
 				poNumber={project.poNumber}
 			/>
+
+			{/* Finance Dialog */}
+			<Dialog open={isFinanceOpen} onOpenChange={setIsFinanceOpen}>
+				<DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col p-0">
+					<DialogHeader className="p-6 pb-0">
+						<DialogTitle>Project Finance - {project.name}</DialogTitle>
+						<DialogDescription>Manage budget and expenses for this project.</DialogDescription>
+					</DialogHeader>
+					<div className="flex-1 overflow-auto p-6 pt-2">
+						<ProjectFinanceTab 
+							project={project} 
+							onBudgetUpdate={(budgetAllocated) => 
+								setProject(prev => ({ ...prev, budget_allocated: budgetAllocated ?? undefined }))
+							}
+						/>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
