@@ -214,11 +214,13 @@ export const taskService = {
 			}
 		};
 	},
-	bulkUpdate: async (taskIds: string[], updates: { assigneeId?: number; dueDate?: string }): Promise<{ message: string; updated_count: number; total_count: number }> => {
+	bulkUpdate: async (taskIds: string[], updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean }): Promise<{ message: string; updated_count: number; total_count: number }> => {
 		const payload: any = {
 			task_ids: taskIds.map(id => parseInt(id)),
 			assignee_id: updates.assigneeId,
 			due_date: updates.dueDate,
+			extend_days: updates.extendDays,
+			clear_due_date: updates.clearDueDate,
 		};
 		const { data } = await api.post('/tasks/bulk-update', payload);
 		return data;

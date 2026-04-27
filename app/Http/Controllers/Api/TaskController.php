@@ -913,6 +913,8 @@ class TaskController extends Controller
             'task_ids.*' => 'exists:tasks,id',
             'assignee_id' => 'nullable|exists:users,id',
             'due_date' => 'nullable|date',
+            'extend_days' => 'nullable|integer',
+            'clear_due_date' => 'nullable|boolean',
         ]);
 
         $user = $request->user();
@@ -921,32 +923,29 @@ class TaskController extends Controller
         }
 
         $taskIds = $validated['task_ids'];
-        $updates = collect($validated)->only(['assignee_id', 'due_date'])->filter(function($value) {
-            return !is_null($value);
-        })->toArray();
-
-        if (empty($updates)) {
-            return response()->json(['message' => 'No updates provided'], 422);
-        }
-
         $tasks = Task::whereIn('id', $taskIds)->get();
-        \Illuminate\Support\Facades\Log::info('Bulk update started', [
-            'task_ids' => $taskIds,
-            'updates' => $updates,
-            'found_tasks_count' => $tasks->count()
-        ]);
         $updatedCount = 0;
 
         foreach ($tasks as $task) {
-            $task->fill($updates);
-            $assigneeChanged = $task->isDirty('assignee_id');
-
-            if ($assigneeChanged && $task->assignee_id) {
+            // Update assignee if provided
+            if (isset($validated['assignee_id'])) {
+                $task->assignee_id = $validated['assignee_id'];
                 $task->assignedUsers()->sync([$task->assignee_id]);
                 
                 // Notify
                 if ($task->assignee_id !== $user->id && $task->assignee) {
                     $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+                }
+            }
+
+            // Update due date logic
+            if ($validated['clear_due_date'] ?? false) {
+                $task->due_date = null;
+            } elseif (isset($validated['due_date'])) {
+                $task->due_date = $validated['due_date'];
+            } elseif (isset($validated['extend_days'])) {
+                if ($task->due_date) {
+                    $task->due_date = $task->due_date->addDays($validated['extend_days']);
                 }
             }
 

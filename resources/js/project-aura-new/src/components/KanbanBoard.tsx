@@ -342,7 +342,7 @@ export function KanbanBoard({
 		setIsBulkEditDialogOpen(true);
 	};
 
-	const onBulkSave = async (updates: { assigneeId?: number; dueDate?: string }) => {
+	const onBulkSave = async (updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean }) => {
 		if (!bulkEditStageId) return;
 
 		// Find task details for all selected IDs by searching both primary tasks and allTasks (for subtasks)
