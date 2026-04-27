@@ -984,7 +984,17 @@ export function ProjectDialog({
 							<div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
 								{canSeeClientInfo && (
 									<div className="grid gap-2">
-										<Label htmlFor="client">Client (Optional)</Label>
+										<div className="flex items-center gap-2">
+											<Label htmlFor="client">Client (Optional)</Label>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<Info className="h-4 w-4 text-muted-foreground cursor-help" />
+												</TooltipTrigger>
+												<TooltipContent side="right" className="max-w-[200px]">
+													<p className="text-xs">If the project is internal, set Client → Internal Project.</p>
+												</TooltipContent>
+											</Tooltip>
+										</div>
 										<SearchableSelect
 											value={formData.clientId}
 											onValueChange={(value) => setFormData({ ...formData, clientId: value, isInternalProject: value === "" })}
