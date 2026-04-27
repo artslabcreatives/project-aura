@@ -99,7 +99,7 @@ function FixedStageRow({ stage }: { stage: Stage }) {
       <div className={cn("h-4 w-4 rounded-full flex-shrink-0", stage.color)} />
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">
-          {stage.title === "Pending" && (activeRole === 'admin' || activeRole === 'team-lead')
+          {stage.title.toLowerCase().trim() === 'pending'
             ? "Backlog"
             : stage.title} (System)
         </p>

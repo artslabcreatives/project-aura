@@ -1169,7 +1169,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								canManageTasks={activeRole !== 'user' && !project.isArchived && !isProjectBlocked}
 								canDragTasks={activeRole !== 'user' && activeRole !== 'account-manager' && !project.isArchived && !isProjectBlocked}
 								disableColumnScroll={true}
-								disableBacklogRenaming={true}
+								disableBacklogRenaming={false}
 								onTaskReview={(!project.isArchived && !isProjectBlocked && !isPORequired) ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
 								onAddTaskToStage={(!project.isArchived && !isProjectBlocked && canCreateTasks) ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}

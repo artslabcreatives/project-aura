@@ -38,7 +38,8 @@ export const HistoryDialog = ({ open, onOpenChange, history, teamMembers, stages
 
 	const getStageName = (stageId: string) => {
 		const stage = stages.find(s => String(s.id) === String(stageId));
-		return stage ? stage.title : stageId;
+		const title = stage ? stage.title : stageId;
+		return title.toLowerCase().trim() === 'pending' ? 'Backlog' : title;
 	};
 
 	const renderDetails = (entry: HistoryEntry) => {

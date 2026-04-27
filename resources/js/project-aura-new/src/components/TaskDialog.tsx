@@ -869,30 +869,30 @@ export function TaskDialog({
 
 									if (currentProjectStages.length === 0) return null;
 
-									// Check if current stage is Pending
+									// Check if current stage is Backlog
 									// We check formData.projectStage
 									const currentStageId = formData.projectStage;
 									const currentStage = currentProjectStages.find(s => String(s.id) === String(currentStageId));
 
-									// If we don't have a mapped project stage, check if userStatus is pending and we can find a pending stage
-									let isPending = false;
+									// If we don't have a mapped project stage, check if userStatus is pending and we can find a backlog stage
+									let isBacklog = false;
 									if (currentStage) {
-										isPending = currentStage.title.toLowerCase() === "pending";
+										isBacklog = currentStage.title.toLowerCase() === "backlog";
 									} else if (formData.userStatus === 'pending') {
 										// If userStatus is pending, we might have just failed to map it above due to state updates delay or earlier logic
-										// But we should try to find the pending stage to show the options
-										const pendingStage = currentProjectStages.find(s => s.title.toLowerCase() === 'pending');
-										if (pendingStage) {
-											isPending = true;
+										// But we should try to find the backlog stage to show the options
+										const backlogStage = currentProjectStages.find(s => s.title.toLowerCase() === 'backlog');
+										if (backlogStage) {
+											isBacklog = true;
 											// Verify if we should have had this set
 										}
 									}
 
-									if (!isPending) return null;
+									if (!isBacklog) return null;
 
-									// Get available stages excluding Pending and Suggested Task
+									// Get available stages excluding Backlog and Suggested Task
 									const startStageOptions = currentProjectStages
-										.filter(s => s.title !== "Pending" && s.title !== "Suggested Task" && s.title !== "Specific Stage")
+										.filter(s => s.title.toLowerCase() !== "backlog" && s.title !== "Suggested Task" && s.title !== "Specific Stage")
 										.sort((a, b) => a.order - b.order);
 
 									return (
@@ -905,12 +905,12 @@ export function TaskDialog({
 												}
 											>
 												<SelectTrigger id="startStage">
-													<SelectValue placeholder="None (Stay in Pending)" />
+													<SelectValue placeholder="None (Stay in Backlog)" />
 												</SelectTrigger>
 												<SelectContent>
 													{startStageOptions.map((stage) => (
 														<SelectItem key={stage.id} value={String(stage.id)}>
-															{stage.title}
+															{stage.title.toLowerCase().trim() === 'pending' ? 'Backlog' : stage.title}
 														</SelectItem>
 													))}
 												</SelectContent>

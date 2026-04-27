@@ -229,7 +229,7 @@ export function ImportTasksReviewDialog({
 								<SelectContent>
 									{visibleStages.map((s) => (
 										<SelectItem key={s.id} value={String(s.id)} className="text-xs">
-											{s.title}
+											{s.title.toLowerCase().trim() === 'pending' ? 'Backlog' : s.title}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -356,7 +356,7 @@ export function ImportTasksReviewDialog({
 												<SelectItem value="__none__" className="text-xs text-muted-foreground">None</SelectItem>
 												{visibleStages.map((s) => (
 													<SelectItem key={s.id} value={String(s.id)} className="text-xs">
-														{s.title}
+														{s.title.toLowerCase().trim() === 'pending' ? 'Backlog' : s.title}
 													</SelectItem>
 												))}
 											</SelectContent>

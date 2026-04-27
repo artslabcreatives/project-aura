@@ -313,7 +313,7 @@ export function TaskListView({
 										<SelectContent>
 											{stages.map((stage) => (
 												<SelectItem key={stage.id} value={stage.id}>
-													{stage.title}
+													{stage.title.toLowerCase().trim() === 'pending' ? 'Backlog' : stage.title}
 												</SelectItem>
 											))}
 										</SelectContent>

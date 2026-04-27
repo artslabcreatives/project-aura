@@ -1332,7 +1332,7 @@ export function AppSidebar() {
 																						}`}
 																				>
 																					<Layers className="h-3 w-3" />
-																					<span className="text-sm">{stage.title}</span>
+																					<span className="text-sm">{stage.title.toLowerCase().trim() === 'pending' ? 'Backlog' : stage.title}</span>
 																				</NavLink>
 																			</SidebarMenuSubButton>
 																		</SidebarMenuSubItem>
