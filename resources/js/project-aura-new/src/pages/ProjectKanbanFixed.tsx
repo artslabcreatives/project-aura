@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign, Sparkles, ChevronDown } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign, Sparkles, ChevronDown, Settings, MoreVertical } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -916,7 +916,12 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				<div className="w-full">
 					<div className="flex flex-col sm:flex-row flex-wrap items-start justify-between gap-4 mb-4">
 						<div>
-							<h1 className="text-3xl font-bold flex items-center gap-3">
+							<h1 className="text-3xl font-bold flex items-center gap-2">
+								{(project.group?.name || project.department?.name) && (
+									<span className="text-muted-foreground/60 font-medium tracking-tight">
+										{project.group?.name || project.department?.name} <span className="mx-1 opacity-40">/</span>
+									</span>
+								)}
 								{project.name}
 								{project.status === 'on-hold' && (
 									<Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider bg-orange-500 hover:bg-orange-600 border-none px-2 h-5">
@@ -1015,43 +1020,59 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 						<div className="flex items-center gap-3">
 							{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager' || activeRole === 'user') && (
 								<>
-									<Button variant="outline" onClick={() => navigate(`/project/${project.id}/overview`)}>
-										Project Overview
-									</Button>
-									<Button variant="outline" onClick={() => setIsReportsOpen(true)} className="bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700">
-										<FileText className="mr-2 h-4 w-4" /> Reports
-									</Button>
-									<Button variant="outline" onClick={() => setIsFinanceOpen(true)} className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:text-green-700">
-										<DollarSign className="mr-2 h-4 w-4" /> Add Expense
-									</Button>
-									{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
-										<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
-											View History
-										</Button>
-									)}
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button variant="outline" className="rounded-xl border-muted-foreground/20">
+												<Settings className="h-4 w-4 mr-2" /> More Options
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end" className="w-56 rounded-xl p-2">
+											<DropdownMenuItem onClick={() => navigate(`/project/${project.id}/overview`)} className="rounded-lg">
+												<LayoutGrid className="mr-2 h-4 w-4 text-muted-foreground" /> Project Overview
+											</DropdownMenuItem>
+											<DropdownMenuItem onClick={() => setIsReportsOpen(true)} className="rounded-lg">
+												<FileText className="mr-2 h-4 w-4 text-indigo-500" /> Reports
+											</DropdownMenuItem>
+											<DropdownMenuItem onClick={() => setIsFinanceOpen(true)} className="rounded-lg">
+												<DollarSign className="mr-2 h-4 w-4 text-green-500" /> Finance & Expenses
+											</DropdownMenuItem>
+											
+											<div className="h-px bg-border my-1" />
+											
+											{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
+												<DropdownMenuItem onClick={() => setIsHistoryDialogOpen(true)} className="rounded-lg">
+													<MoreVertical className="mr-2 h-4 w-4 text-muted-foreground" /> View History
+												</DropdownMenuItem>
+											)}
+											
+											{!project.isArchived && project.status !== 'on-hold' && (activeRole === 'admin' || activeRole === 'team-lead') && (
+												<DropdownMenuItem onClick={() => setIsStageManagementOpen(true)} className="rounded-lg">
+													<LayoutGrid className="mr-2 h-4 w-4 text-muted-foreground" /> Manage Stages
+												</DropdownMenuItem>
+											)}
+											
+
+										</DropdownMenuContent>
+									</DropdownMenu>
+
 									{!project.isArchived && project.status !== 'on-hold' && (
 										<>
-											{(activeRole === 'admin' || activeRole === 'team-lead') && (
-												<Button variant="outline" onClick={() => setIsStageManagementOpen(true)}>
-													Manage Stages
-												</Button>
-											)}
 											{canCreateTasks ? (
 												(activeRole === 'admin' || activeRole === 'team-lead') ? (
-													<div className="flex items-center">
+													<div className="flex items-center ml-2">
 														<Button
-															className="rounded-r-none border-r-0"
+															className="rounded-xl rounded-r-none border-r-0 shadow-lg shadow-primary/20"
 															onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}
 														>
 															<Plus className="mr-2 h-4 w-4" /> Add Task
 														</Button>
 														<DropdownMenu>
 															<DropdownMenuTrigger asChild>
-																<Button className="rounded-l-none px-2 border-l border-primary-foreground/20">
+																<Button className="rounded-xl rounded-l-none px-2 border-l border-primary-foreground/20 shadow-lg shadow-primary/20">
 																	<ChevronDown className="h-4 w-4" />
 																</Button>
 															</DropdownMenuTrigger>
-															<DropdownMenuContent align="end">
+															<DropdownMenuContent align="end" className="rounded-xl">
 																<DropdownMenuItem onClick={() => setIsImportTasksOpen(true)}>
 																	<Sparkles className="mr-2 h-4 w-4 text-purple-500" />
 																	Import Tasks from File
@@ -1060,12 +1081,15 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 														</DropdownMenu>
 													</div>
 												) : (
-													<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
+													<Button
+														className="rounded-xl shadow-lg shadow-primary/20"
+														onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}
+													>
 														<Plus className="mr-2 h-4 w-4" /> Add Task
 													</Button>
 												)
 											) : (
-												<Button variant="destructive" disabled className="opacity-80">
+												<Button variant="destructive" disabled className="opacity-80 rounded-xl">
 													<Lock className="mr-2 h-4 w-4" />
 													{project.isArchived ? "Archived" : (project.status === 'completed' ? "Completed" : "PO Required")}
 												</Button>
@@ -1078,14 +1102,17 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					</div>
 
 					<div className="flex justify-start">
-						<ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as 'kanban' | 'list')}>
-							<ToggleGroupItem value="kanban" aria-label="Kanban view">
-								<LayoutGrid className="h-4 w-4 mr-2" />
-								Kanban
+						<ToggleGroup 
+							type="single" 
+							value={view} 
+							onValueChange={(v) => v && setView(v as 'kanban' | 'list')}
+							className="bg-muted/50 p-1 rounded-xl border border-border/10"
+						>
+							<ToggleGroupItem value="kanban" aria-label="Kanban view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+								<LayoutGrid className="h-4 w-4" />
 							</ToggleGroupItem>
-							<ToggleGroupItem value="list" aria-label="List view">
-								<List className="h-4 w-4 mr-2" />
-								List
+							<ToggleGroupItem value="list" aria-label="List view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+								<List className="h-4 w-4" />
 							</ToggleGroupItem>
 						</ToggleGroup>
 					</div>
