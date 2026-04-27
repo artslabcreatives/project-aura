@@ -68,10 +68,7 @@ const projectSchema = z.object({
 		.string()
 		.trim()
 		.min(1, { message: "Project name is required" })
-		.max(50, { message: "Project name must be less than 50 characters" })
-		.regex(/^[a-zA-Z0-9\s-]+$/, {
-			message: "Project name can only contain letters, numbers, spaces, and hyphens",
-		}),
+		.max(50, { message: "Project name must be less than 50 characters" }),
 	description: z
 		.string()
 		.trim()

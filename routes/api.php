@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\Api\TaskImportController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\EstimateController;
@@ -60,6 +61,9 @@ Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Pub
 Route::get('/zoho/callback', [\App\Http\Controllers\Api\ZohoMailController::class, 'handleCallback']);
 Route::get('/xero/callback', [XeroController::class, 'callback']);
 
+// n8n task import callback (public — called by n8n after AI extraction)
+Route::post('/task-import-callback', [TaskImportController::class, 'callback']);
+
 // ─── SSO / OAuth 2.0 ──────────────────────────────────────────────────────────
 // Public endpoints (no auth required)
 Route::prefix('oauth')->group(function () {
@@ -106,6 +110,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/unblock', [ProjectController::class, 'unblock']);
     Route::post('projects/{project}/campaign-report', [ProjectController::class, 'uploadCampaignReport']);
     Route::post('projects/{project}/approve-campaign-report', [ProjectController::class, 'approveCampaignReport']);
+    Route::post('projects/{project}/upload-tasks', [TaskImportController::class, 'upload']);
+    Route::get('projects/{project}/task-import/{importId}', [TaskImportController::class, 'status']);
     
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);

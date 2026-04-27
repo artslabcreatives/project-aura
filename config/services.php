@@ -64,6 +64,8 @@ return [
     ],
 
     'n8n' => [
-        'webhook_secret' => env('N8N_WEBHOOK_SECRET'),
+        'webhook_secret'           => env('N8N_WEBHOOK_SECRET'),
+        'task_import_webhook_url'  => env('N8N_TASK_IMPORT_WEBHOOK_URL'),
+        'import_callback_secret'   => env('N8N_IMPORT_CALLBACK_SECRET'),
     ],
 ];

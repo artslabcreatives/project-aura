@@ -1,13 +1,13 @@
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "@/services/api";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Project } from "@/types/project";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign, Sparkles, ChevronDown } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -28,6 +28,7 @@ import { attachmentService } from "@/services/attachmentService";
 import { stageService } from "@/services/stageService";
 import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
 import { echo } from "@/services/echoService";
+import { cn } from "@/lib/utils";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -41,6 +42,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { POSelectDialog } from "@/components/POSelectDialog";
 import { POViewDialog } from "@/components/POViewDialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
 	Select, 
 	SelectContent, 
@@ -49,6 +56,8 @@ import {
 	SelectValue 
 } from "@/components/ui/select";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
+import { ImportTasksDialog } from "@/components/ImportTasksDialog";
+import { ImportTasksReviewDialog, ImportedTask } from "@/components/ImportTasksReviewDialog";
 import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { 
@@ -158,6 +167,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const numericProjectId = initialProject.id ? parseInt(String(initialProject.id), 10) : undefined;
 	const [project, setProject] = useState<Project>(initialProject);
 	const [searchParams, setSearchParams] = useSearchParams();
+	const { toast } = useToast(); // Move toast here
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [allTasks, setAllTasks] = useState<Task[]>([]);
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -172,18 +182,62 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
 	const [isReportsOpen, setIsReportsOpen] = useState(false);
 	const [isFinanceOpen, setIsFinanceOpen] = useState(false);
+	const [isImportTasksOpen, setIsImportTasksOpen] = useState(false);
+	const [isImportReviewOpen, setIsImportReviewOpen] = useState(false);
+	const [importedTasks, setImportedTasks] = useState<ImportedTask[]>([]);
+	const importPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+	const openImportReview = useCallback((tasks: ImportedTask[]) => {
+		// Clear any running poll — Echo or poll, whichever fires first wins
+		if (importPollRef.current) {
+			clearInterval(importPollRef.current);
+			importPollRef.current = null;
+		}
+		setImportedTasks(tasks);
+		setIsImportReviewOpen(true);
+	}, []);
+
+	const startImportPolling = useCallback((importId: string) => {
+		if (importPollRef.current) clearInterval(importPollRef.current);
+
+		importPollRef.current = setInterval(async () => {
+			try {
+				const res = await api.get(`/projects/${numericProjectId}/task-import/${importId}`);
+				if (res.data?.status === 'ready' && Array.isArray(res.data.tasks)) {
+					if (res.data.tasks.length > 0) {
+						openImportReview(res.data.tasks);
+					} else {
+						clearInterval(importPollRef.current!);
+						importPollRef.current = null;
+						toast({ title: 'Import complete', description: 'No tasks were extracted from the document.', variant: 'destructive' });
+					}
+				}
+			} catch {
+				// silent — keep polling
+			}
+		}, 4000);
+
+		// Stop polling after 10 minutes regardless
+		setTimeout(() => {
+			if (importPollRef.current) {
+				clearInterval(importPollRef.current);
+				importPollRef.current = null;
+			}
+		}, 10 * 60 * 1000);
+	}, [numericProjectId, openImportReview, toast]);
+
+	const navigate = useNavigate();
+	const { open } = useSidebar();
+	const { currentUser, activeRole } = useUser();
+	const { history, addHistoryEntry } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
+
 	const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 	const [reviewTask, setReviewTask] = useState<Task | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [preselectedStageId, setPreselectedStageId] = useState<string | undefined>(undefined);
-	const { history, addHistoryEntry } = useHistory(numericProjectId ? String(numericProjectId) : undefined);
-	const { currentUser, activeRole } = useUser();
-	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
-	const navigate = useNavigate();
-	const { open } = useSidebar();
 
 	// Subtask Dialog State
 	const [isAddSubtaskDialogOpen, setIsAddSubtaskDialogOpen] = useState(false);
@@ -308,6 +362,16 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				}
 			});
 
+			channel.listen('TaskImportReady', (e: any) => {
+				console.log('[TaskImportReady] raw event:', JSON.stringify(e, null, 2));
+				if (Array.isArray(e.tasks) && e.tasks.length > 0) {
+					openImportReview(e.tasks);
+				} else {
+					if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null; }
+					toast({ title: 'Import complete', description: 'No tasks were extracted from the document.', variant: 'destructive' });
+				}
+			});
+
 			// Listen for local project state changes (from sidebar actions)
 			const handleLocalProjectStateChange = (e: Event) => {
 				const customEvent = e as CustomEvent;
@@ -397,6 +461,8 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
 	const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
 	const isProjectActive = !project.isArchived && project.status !== 'completed';
+	const isProjectBlocked = project.status === 'blocked' || project.status === 'on-hold';
+	const isPORequired = isProjectActive && !project.isInternalProject && project.isLockedByPo && !hasPO && !hasActiveGracePeriod && !hasActiveProvisionalPO;
 	const canCreateTasks = isProjectActive && (project.isInternalProject || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
 
 	const handleAddTaskToStage = (stageId: string) => {
@@ -971,12 +1037,36 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 												</Button>
 											)}
 											{canCreateTasks ? (
-												<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
-													<Plus className="mr-2 h-4 w-4" /> Add Task
-												</Button>
+												(activeRole === 'admin' || activeRole === 'team-lead') ? (
+													<div className="flex items-center">
+														<Button
+															className="rounded-r-none border-r-0"
+															onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}
+														>
+															<Plus className="mr-2 h-4 w-4" /> Add Task
+														</Button>
+														<DropdownMenu>
+															<DropdownMenuTrigger asChild>
+																<Button className="rounded-l-none px-2 border-l border-primary-foreground/20">
+																	<ChevronDown className="h-4 w-4" />
+																</Button>
+															</DropdownMenuTrigger>
+															<DropdownMenuContent align="end">
+																<DropdownMenuItem onClick={() => setIsImportTasksOpen(true)}>
+																	<Sparkles className="mr-2 h-4 w-4 text-purple-500" />
+																	Import Tasks from File
+																</DropdownMenuItem>
+															</DropdownMenuContent>
+														</DropdownMenu>
+													</div>
+												) : (
+													<Button onClick={() => { setEditingTask(null); setIsTaskDialogOpen(true); }}>
+														<Plus className="mr-2 h-4 w-4" /> Add Task
+													</Button>
+												)
 											) : (
 												<Button variant="destructive" disabled className="opacity-80">
-													<Lock className="mr-2 h-4 w-4" /> 
+													<Lock className="mr-2 h-4 w-4" />
 													{project.isArchived ? "Archived" : (project.status === 'completed' ? "Completed" : "PO Required")}
 												</Button>
 											)}
@@ -1003,25 +1093,60 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			</header>
 
 			{/* SCROLLABLE CONTENT AREA */}
-			<main className="flex-1 overflow-hidden">
-				<div className="h-full overflow-auto p-6 pb-10 bg-muted/5">
+			<main className="flex-1 overflow-hidden relative">
+				{isProjectBlocked && (
+					<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/20 backdrop-blur-[1px] pointer-events-none">
+						<div className="bg-destructive/10 text-destructive border border-destructive/20 px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300 pointer-events-auto">
+							<Lock className="h-8 w-8" />
+							<div className="text-center">
+								<p className="text-lg font-bold uppercase tracking-wider">Project Blocked</p>
+								<p className="text-xs opacity-80">This project is currently on hold or blocked.</p>
+							</div>
+						</div>
+					</div>
+				)}
+				{isPORequired && !isProjectBlocked && (
+					<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/20 backdrop-blur-[1px] pointer-events-none">
+						<div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300 pointer-events-auto">
+							<FileText className="h-8 w-8" />
+							<div className="text-center">
+								<p className="text-lg font-bold uppercase tracking-wider">PO Required</p>
+								<p className="text-xs opacity-80 mb-3">This project requires a Purchase Order to continue.</p>
+								{(activeRole === 'admin' || activeRole === 'hr') && (
+									<Button 
+										variant="outline" 
+										size="sm" 
+										className="border-orange-500 text-orange-600 hover:bg-orange-50"
+										onClick={() => setIsPOSelectOpen(true)}
+									>
+										Select PO
+									</Button>
+								)}
+							</div>
+						</div>
+					</div>
+				)}
+				<div className={cn(
+					"h-full overflow-auto p-6 pb-10 bg-muted/5 transition-all duration-500",
+					(isProjectBlocked || isPORequired) && "grayscale opacity-50 pointer-events-none select-none"
+				)}>
 					<div className="w-full">
 						{view === 'kanban' ? (
 							<KanbanBoard
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskUpdate={(!project.isArchived && project.status !== 'on-hold') ? handleTaskUpdate : undefined}
-								onTaskEdit={(!project.isArchived && project.status !== 'on-hold') ? handleTaskEdit : undefined}
-								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
+								onTaskUpdate={(!project.isArchived && !isProjectBlocked && !isPORequired) ? handleTaskUpdate : undefined}
+								onTaskEdit={(!project.isArchived && !isProjectBlocked && !isPORequired) ? handleTaskEdit : undefined}
+								onTaskDelete={(!project.isArchived && !isProjectBlocked && !isPORequired) ? handleTaskDelete : undefined}
 								useProjectStages
-								canManageTasks={activeRole !== 'user' && !project.isArchived && project.status !== 'on-hold'}
-								canDragTasks={activeRole !== 'user' && activeRole !== 'account-manager' && !project.isArchived && project.status !== 'on-hold'}
+								canManageTasks={activeRole !== 'user' && !project.isArchived && !isProjectBlocked}
+								canDragTasks={activeRole !== 'user' && activeRole !== 'account-manager' && !project.isArchived && !isProjectBlocked}
 								disableColumnScroll={true}
 								disableBacklogRenaming={true}
-								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
-								onAddTaskToStage={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddTaskToStage : undefined}
+								onTaskReview={(!project.isArchived && !isProjectBlocked && !isPORequired) ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								onAddTaskToStage={(!project.isArchived && !isProjectBlocked && canCreateTasks) ? handleAddTaskToStage : undefined}
 								projectId={String(project.id)}
-								onAddSubtask={(!project.isArchived && project.status !== 'on-hold' && canCreateTasks) ? handleAddSubtask : undefined}
+								onAddSubtask={(!project.isArchived && !isProjectBlocked && canCreateTasks) ? handleAddSubtask : undefined}
 								teamMembers={teamMembers}
 								departments={departments}
 								allTasks={allTasks}
@@ -1031,13 +1156,13 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 							<TaskListView
 								tasks={topLevelTasks}
 								stages={sortedStages}
-								onTaskEdit={(!project.isArchived && project.status !== 'on-hold') ? handleTaskEdit : undefined}
-								onTaskDelete={(!project.isArchived && project.status !== 'on-hold') ? handleTaskDelete : undefined}
-								onTaskUpdate={(!project.isArchived && project.status !== 'on-hold') ? handleTaskUpdate : undefined}
+								onTaskEdit={(!project.isArchived && !isProjectBlocked) ? handleTaskEdit : undefined}
+								onTaskDelete={(!project.isArchived && !isProjectBlocked) ? handleTaskDelete : undefined}
+								onTaskUpdate={(!project.isArchived && !isProjectBlocked) ? handleTaskUpdate : undefined}
 								teamMembers={teamMembers}
-								canManage={activeRole !== 'user' && !project.isArchived && project.status !== 'on-hold'}
-								onTaskReview={(!project.isArchived && project.status !== 'on-hold') ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
-								showReviewButton={(activeRole === 'admin' || activeRole === 'team-lead') && !project.isArchived && project.status !== 'on-hold'}
+								canManage={activeRole !== 'user' && !project.isArchived && !isProjectBlocked}
+								onTaskReview={(!project.isArchived && !isProjectBlocked) ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
+								showReviewButton={(activeRole === 'admin' || activeRole === 'team-lead') && !project.isArchived && !isProjectBlocked}
 							/>
 						)}
 					</div>
@@ -1160,15 +1285,40 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 						<DialogDescription>Manage budget and expenses for this project.</DialogDescription>
 					</DialogHeader>
 					<div className="flex-1 overflow-auto p-6 pt-2">
-						<ProjectFinanceTab 
-							project={project} 
-							onBudgetUpdate={(budgetAllocated) => 
+						<ProjectFinanceTab
+							project={project}
+							onBudgetUpdate={(budgetAllocated) =>
 								setProject(prev => ({ ...prev, budget_allocated: budgetAllocated ?? undefined }))
 							}
 						/>
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* Task Import — upload dialog */}
+			{numericProjectId && (
+				<ImportTasksDialog
+					open={isImportTasksOpen}
+					onOpenChange={setIsImportTasksOpen}
+					projectId={numericProjectId}
+					projectName={project.name}
+					onSubmitted={startImportPolling}
+				/>
+			)}
+
+			{/* Task Import — review + bulk-assign popup (auto-opens via Echo) */}
+			{numericProjectId && (
+				<ImportTasksReviewDialog
+					open={isImportReviewOpen}
+					onOpenChange={setIsImportReviewOpen}
+					tasks={importedTasks}
+					projectId={numericProjectId}
+					stages={sortedStages}
+					teamMembers={teamMembers}
+					departments={departments}
+					onTasksCreated={() => loadData(true)}
+				/>
+			)}
 		</div>
 	);
 }
