@@ -226,16 +226,28 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {canApprove && (
-                                                <Button size="sm" variant="outline" className="h-8 border-indigo-200 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setSelectedReport(report); setApprovalAction('approve'); setIsApprovalOpen(true); }}>
-                                                    <CheckCircle2 className="h-4 w-4 mr-1" /> Review
-                                                </Button>
+                                                <div className="flex items-center gap-1 border-r pr-2 mr-1">
+                                                    <Button size="sm" variant="outline" className="h-8 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={(e) => { e.stopPropagation(); setSelectedReport(report); setApprovalAction('reject'); setIsApprovalOpen(true); }} title="Reject">
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" className="h-8 border-green-200 dark:border-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={(e) => { e.stopPropagation(); setSelectedReport(report); setApprovalAction('approve'); setIsApprovalOpen(true); }} title="Approve">
+                                                        <Check className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             )}
+                                            
+                                            <Button size="sm" variant="ghost" className="h-8 text-indigo-400 hover:text-indigo-600" onClick={(e) => { e.stopPropagation(); setSelectedReport(report); setIsDetailsOpen(true); }} title="View Details & Comments">
+                                                <MessageSquare className="h-4 w-4 mr-1" />
+                                                {report.activities?.length || 0}
+                                            </Button>
+
                                             {canEdit && (
-                                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setEditingReport(report); setIsUploadOpen(true); }}>
+                                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setEditingReport(report); setIsUploadOpen(true); }} title="Edit Report">
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                             )}
-                                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild onClick={(e) => e.stopPropagation()}>
+
+                                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild onClick={(e) => e.stopPropagation()} title="Download">
                                                 <a href={report.file_url || '#'} target="_blank" rel="noreferrer">
                                                     <Download className="h-4 w-4" />
                                                 </a>
@@ -309,7 +321,8 @@ export function ProjectReportsTab({ project }: ProjectReportsTabProps) {
                                             <Download className="h-4 w-4 mr-2" /> Download Report
                                         </a>
                                     </Button>
-                                    {(activeRole === 'hr' || activeRole === 'admin' || (activeRole === 'team-lead' && selectedReport.user?.department === currentUser?.department)) && (
+                                    {((activeRole === 'team-lead' && selectedReport.status === 'submitted' && String(selectedReport.user?.department_id) === String(currentUser?.department)) || 
+                                      ((activeRole === 'hr' || activeRole === 'admin') && selectedReport.status === 'tl_approved')) && (
                                         <div className="flex gap-2 shrink-0">
                                             <Button size="sm" variant="outline" className="text-red-600 h-9" onClick={() => { setApprovalAction('reject'); setIsApprovalOpen(true); }}>
                                                 <X className="h-4 w-4 mr-1" /> Reject
