@@ -323,21 +323,6 @@ export function TaskDialog({
 			if (project.status === 'on-hold') {
 				return "Project is paused. Assignments are restricted.";
 			}
-
-			const projectDeadline = project.deadline ? new Date(project.deadline) : null;
-			if (projectDeadline && isValid(projectDeadline) && isPast(projectDeadline) && !isToday(projectDeadline) && project.status !== 'completed' && !project.isArchived) {
-				return "Project is delayed/overdue. Assignments are restricted.";
-			}
-		}
-
-		if (editTask) {
-			const dueDate = editTask.dueDate ? new Date(editTask.dueDate) : null;
-			const isTaskComplete = editTask.userStatus === "complete";
-			const isDelayed = dueDate && isValid(dueDate) && isPast(dueDate) && !isToday(dueDate) && !isTaskComplete;
-
-			if (isDelayed) {
-				return "Task is delayed/overdue. Assignments are restricted.";
-			}
 		}
 
 		return null;

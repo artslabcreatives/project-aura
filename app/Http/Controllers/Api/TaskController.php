@@ -174,12 +174,6 @@ class TaskController extends Controller
                 ], 403);
             }
 
-            if ($project->deadline && $project->deadline->isPast() && !$project->deadline->isToday() && $project->status !== 'completed' && !$project->is_archived) {
-                return response()->json([
-                    'message' => 'Cannot assign tasks to a delayed project.',
-                    'project_status' => $project->status,
-                ], 403);
-            }
 
             if (!$project->allowsTaskCreation()) {
                 if ($project->is_archived) {
@@ -435,13 +429,6 @@ class TaskController extends Controller
                 if ($project->status === 'on-hold') {
                     return response()->json(['message' => 'Task assignment is restricted for paused projects.'], 403);
                 }
-                if ($project->deadline && $project->deadline->isPast() && !$project->deadline->isToday() && $project->status !== 'completed' && !$project->is_archived) {
-                    return response()->json(['message' => 'Task assignment is restricted for delayed projects.'], 403);
-                }
-            }
-
-            if ($task->due_date && $task->due_date->isPast() && !$task->due_date->isToday() && $task->user_status !== 'complete') {
-                return response()->json(['message' => 'Task assignment is restricted for delayed tasks.'], 403);
             }
         }
 
