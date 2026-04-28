@@ -293,6 +293,10 @@ const App = () => (
 							{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
 							<Route path="/chat" element={<PublicMattermostChat />} />
 
+							{/* Public-ish routes handled by AuthWrapper skip logic */}
+							<Route path="/reset-password" element={<ResetPasswordPage />} />
+							<Route path="/set-password" element={<SetPassword />} />
+
 							{/* SSO authorize consent page — manages its own auth */}
 							<Route path="/sso/authorize" element={<SSOAuthorize />} />
 							<Route path="/oauth/authorize" element={<SSOAuthorize />} />
