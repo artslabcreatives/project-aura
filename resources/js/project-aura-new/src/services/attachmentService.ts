@@ -67,4 +67,14 @@ export const attachmentService = {
 	uploadFiles: async (taskId: string, files: File[]): Promise<TaskAttachment[]> => {
 		return uploadManager.attachFilesToTask(taskId, files);
 	},
+
+	/**
+	 * Get secure download URL
+	 */
+	download: async (attachmentId: string, mode: 'download' | 'view' = 'download'): Promise<{ url: string; name: string }> => {
+		const { data } = await api.get(`/task-attachments/${attachmentId}/download`, {
+			params: { mode }
+		});
+		return data;
+	},
 };

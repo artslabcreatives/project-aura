@@ -26,6 +26,8 @@ import {
     Clock,
     User,
     Eye,
+    X,
+    Play,
 } from 'lucide-react';
 import { DocumentUploadDialog } from '@/components/documents/DocumentUploadDialog';
 import { useToast } from '@/components/ui/use-toast';
@@ -40,6 +42,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+    Dialog,
+    DialogContent,
+} from '@/components/ui/dialog';
 
 export default function Documents() {
     const { currentUser: user } = useUser();
@@ -48,7 +54,18 @@ export default function Documents() {
     const [isLoading, setIsLoading] = useState(true);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [docToDelete, setDocToDelete] = useState<Document | null>(null);
+    const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
     const { toast } = useToast();
+
+    const isVideo = (name: string) => {
+        const ext = name.split('.').pop()?.toLowerCase();
+        return ['mp4', 'webm', 'ogg', 'mov', 'm4v'].includes(ext || '');
+    };
+
+    const isImage = (name: string) => {
+        const ext = name.split('.').pop()?.toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
+    };
 
     const isApprover = ['admin', 'hr', 'team-lead'].includes(user?.role || '');
 
@@ -123,9 +140,19 @@ export default function Documents() {
         }
     };
 
-    const handleView = async (docId: string) => {
+    const handleView = async (doc: Document) => {
+        if (isImage(doc.name) || isVideo(doc.name)) {
+            try {
+                const { url } = await documentService.download(doc.id, 'view');
+                setViewingDoc({ ...doc, url });
+            } catch (error) {
+                toast({ title: 'Could not open viewer', variant: 'destructive' });
+            }
+            return;
+        }
+        
         try {
-            const { url } = await documentService.download(docId, 'view');
+            const { url } = await documentService.download(doc.id, 'view');
             window.open(url, '_blank');
         } catch (error) {
             toast({ title: 'Could not open viewer', variant: 'destructive' });
@@ -204,9 +231,9 @@ export default function Documents() {
                                                             variant="ghost" 
                                                             size="icon"
                                                             title="View Document"
-                                                            onClick={() => handleView(doc.id)}
+                                                            onClick={() => handleView(doc)}
                                                         >
-                                                            <Eye className="h-4 w-4" />
+                                                            {isVideo(doc.name) ? <Play className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                                         </Button>
                                                         <Button 
                                                             variant="ghost" 
@@ -302,6 +329,48 @@ export default function Documents() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Document Viewer Modal */}
+            <Dialog open={!!viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)}>
+                <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden bg-black/90 border-none">
+                    <div className="relative group">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 z-10 text-white hover:bg-white/20"
+                            onClick={() => setViewingDoc(null)}
+                        >
+                            <X className="h-5 w-5" />
+                        </Button>
+                        
+                        <div className="flex flex-col items-center justify-center min-h-[400px]">
+                            {viewingDoc && isImage(viewingDoc.name) && (
+                                <img
+                                    src={viewingDoc.url}
+                                    alt={viewingDoc.name}
+                                    className="max-w-full max-h-[80vh] object-contain"
+                                />
+                            )}
+                            {viewingDoc && isVideo(viewingDoc.name) && (
+                                <video
+                                    src={viewingDoc.url}
+                                    controls
+                                    autoPlay
+                                    className="max-w-full max-h-[80vh]"
+                                />
+							)}
+                        </div>
+                        
+                        <div className="p-4 bg-black/50 backdrop-blur-sm text-white flex justify-between items-center">
+                            <p className="text-sm font-medium truncate pr-4">{viewingDoc?.name}</p>
+                            <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-white hover:bg-white/10" onClick={() => handleDownload(viewingDoc?.id!, viewingDoc?.name!)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

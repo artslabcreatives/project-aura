@@ -225,7 +225,7 @@ class TaskAttachmentController extends Controller
             new OA\Response(response: 404, description: "Attachment not found")
         ]
     )]
-    public function download(TaskAttachment $taskAttachment): JsonResponse
+    public function download(TaskAttachment $taskAttachment, Request $request): JsonResponse
     {
         $task = $taskAttachment->task;
         
@@ -248,10 +248,38 @@ class TaskAttachmentController extends Controller
                 'user_id' => auth()->id(),
             ]);
         }
+
+        $url = $taskAttachment->url;
+        
+        if ($taskAttachment->type === 'file' && !filter_var($url, FILTER_VALIDATE_URL) === false) {
+            // Try to extract path from S3 URL
+            $parsedUrl = parse_url($url);
+            $path = $parsedUrl['path'] ?? '';
+            
+            // If the path starts with the bucket name (sometimes happens in some S3 configurations)
+            // we might need to strip it. But usually, Storage::disk('s3')->url($path) 
+            // returns a URL where the path part IS the S3 key.
+            // However, it might have a leading slash.
+            $path = ltrim($path, '/');
+            
+            // Check if file exists in S3
+            if (Storage::disk('s3')->exists($path)) {
+                $mode = $request->query('mode', 'download');
+                $options = [];
+                
+                if ($mode === 'download') {
+                    $options['ResponseContentDisposition'] = 'attachment; filename="' . $taskAttachment->name . '"';
+                } else {
+                    $options['ResponseContentDisposition'] = 'inline';
+                }
+                
+                $url = Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(30), $options);
+            }
+        }
         
         return response()->json([
-            'message' => 'Download tracked',
-            'url' => $taskAttachment->url,
+            'message' => 'Download URL generated',
+            'url' => $url,
             'name' => $taskAttachment->name,
         ]);
     }

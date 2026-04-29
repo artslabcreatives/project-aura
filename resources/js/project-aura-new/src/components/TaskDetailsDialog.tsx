@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Task } from "@/types/task";
 import {
@@ -9,11 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Tag, Paperclip, Clock, X, ExternalLink, Download, AlertCircle, ArrowRight, Edit } from "lucide-react";
+import { Calendar, User, Tag, Paperclip, Clock, X, ExternalLink, Download, AlertCircle, ArrowRight, Edit, Eye, Play } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { TimeLogWidget } from "@/components/TimeLogWidget";
+import { attachmentService } from "@/services/attachmentService";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskDetailsDialogProps {
 	task: Task | null;
@@ -25,8 +28,55 @@ interface TaskDetailsDialogProps {
 
 export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEdit }: TaskDetailsDialogProps) {
 	const navigate = useNavigate();
+	const { toast } = useToast();
+	const [viewingAttachment, setViewingAttachment] = useState<{ id: string; name: string; url: string; type: string } | null>(null);
+	const [isResolvingUrl, setIsResolvingUrl] = useState(false);
 
 	if (!task) return null;
+
+	const isVideo = (name: string) => {
+		const ext = name.split('.').pop()?.toLowerCase();
+		return ['mp4', 'webm', 'ogg', 'mov', 'm4v'].includes(ext || '');
+	};
+
+	const isImage = (name: string) => {
+		const ext = name.split('.').pop()?.toLowerCase();
+		return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
+	};
+
+	const handleDownload = async (attachmentId: string, name: string) => {
+		try {
+			const { url } = await attachmentService.download(attachmentId, 'download');
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = name;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		} catch (error) {
+			toast({
+				title: "Error",
+				description: "Failed to download file.",
+				variant: "destructive"
+			});
+		}
+	};
+
+	const handleView = async (attachment: any) => {
+		setIsResolvingUrl(true);
+		try {
+			const { url } = await attachmentService.download(attachment.id, 'view');
+			setViewingAttachment({ ...attachment, url });
+		} catch (error) {
+			toast({
+				title: "Error",
+				description: "Failed to open viewer. Please try downloading instead.",
+				variant: "destructive"
+			});
+		} finally {
+			setIsResolvingUrl(false);
+		}
+	};
 
 	const priorityColors = {
 		low: "bg-priority-low/10 text-priority-low border-priority-low/20",
@@ -227,16 +277,22 @@ export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEd
 												</p>
 											</div>
 										</div>
-										<Button
-											variant="ghost"
-											size="sm"
-											asChild
-										>
-											<a
-												href={attachment.url}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="flex items-center gap-2"
+										<div className="flex gap-1">
+											{(isImage(attachment.name) || isVideo(attachment.name)) && (
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => handleView(attachment)}
+													disabled={isResolvingUrl}
+												>
+													{isVideo(attachment.name) ? <Play className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+													View
+												</Button>
+											)}
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => handleDownload(attachment.id, attachment.name)}
 											>
 												{attachment.type === "link" ? (
 													<>
@@ -249,8 +305,8 @@ export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEd
 														Download
 													</>
 												)}
-											</a>
-										</Button>
+											</Button>
+										</div>
 									</div>
 								))}
 							</div>
@@ -272,6 +328,48 @@ export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEd
 					</Button>
 				</DialogFooter>
 			</DialogContent>
+
+			{/* Attachment Viewer Modal */}
+			<Dialog open={!!viewingAttachment} onOpenChange={(open) => !open && setViewingAttachment(null)}>
+				<DialogContent className="sm:max-w-[800px] p-0 overflow-hidden bg-black/90 border-none">
+					<div className="relative group">
+						<Button
+							variant="ghost"
+							size="icon"
+							className="absolute top-2 right-2 z-10 text-white hover:bg-white/20"
+							onClick={() => setViewingAttachment(null)}
+						>
+							<X className="h-5 w-5" />
+						</Button>
+						
+						<div className="flex flex-col items-center justify-center min-h-[400px]">
+							{viewingAttachment && isImage(viewingAttachment.name) && (
+								<img
+									src={viewingAttachment.url}
+									alt={viewingAttachment.name}
+									className="max-w-full max-h-[80vh] object-contain"
+								/>
+							)}
+							{viewingAttachment && isVideo(viewingAttachment.name) && (
+								<video
+									src={viewingAttachment.url}
+									controls
+									autoPlay
+									className="max-w-full max-h-[80vh]"
+								/>
+							)}
+						</div>
+						
+						<div className="p-4 bg-black/50 backdrop-blur-sm text-white flex justify-between items-center">
+							<p className="text-sm font-medium truncate pr-4">{viewingAttachment?.name}</p>
+							<Button variant="outline" size="sm" className="bg-transparent border-white/20 text-white hover:bg-white/10" onClick={() => handleDownload(viewingAttachment?.id!, viewingAttachment?.name!)}>
+								<Download className="h-4 w-4 mr-2" />
+								Download
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</Dialog>
 	);
 }
