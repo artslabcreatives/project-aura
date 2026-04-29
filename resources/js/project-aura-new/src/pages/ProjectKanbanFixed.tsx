@@ -104,6 +104,38 @@ export default function ProjectKanbanFixed() {
 			}
 		};
 		fetchProject();
+
+		// Layout Fix: Ensure horizontal scrollbar is at the bottom of the viewport
+		const mainElement = document.querySelector('main.flex-1.p-6.overflow-y-auto');
+		const rootDiv = document.querySelector('.min-h-screen');
+		
+		if (mainElement) {
+			const el = mainElement as HTMLElement;
+			const originalOverflow = el.style.overflowY;
+			const originalPadding = el.style.padding;
+			el.style.overflowY = 'hidden';
+			el.style.padding = '0';
+
+			if (rootDiv) {
+				const rootEl = rootDiv as HTMLElement;
+				const originalHeight = rootEl.style.height;
+				const originalRootOverflow = rootEl.style.overflow;
+				rootEl.style.height = '100vh';
+				rootEl.style.overflow = 'hidden';
+
+				return () => {
+					el.style.overflowY = originalOverflow;
+					el.style.padding = originalPadding;
+					rootEl.style.height = originalHeight;
+					rootEl.style.overflow = originalRootOverflow;
+				};
+			}
+
+			return () => {
+				el.style.overflowY = originalOverflow;
+				el.style.padding = originalPadding;
+			};
+		}
 	}, [projectId]);
 
 	if (loading) {
@@ -1126,7 +1158,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			</header>
 
 			{/* SCROLLABLE CONTENT AREA */}
-			<main className="flex-1 overflow-hidden relative">
+			<main className="flex-1 flex flex-col overflow-hidden relative">
 				{isProjectBlocked && (
 					<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/20 backdrop-blur-[1px] pointer-events-none">
 						<div className="bg-destructive/10 text-destructive border border-destructive/20 px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300 pointer-events-auto">
@@ -1160,7 +1192,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					</div>
 				)}
 				<div className={cn(
-					"h-full overflow-auto p-6 pb-10 bg-muted/5 transition-all duration-500",
+					"flex-1 overflow-auto p-6 pb-12 bg-muted/5 transition-all duration-500 relative",
 					(isProjectBlocked || isPORequired) && "grayscale opacity-50 pointer-events-none select-none"
 				)}>
 					<div className="w-full">
@@ -1174,7 +1206,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								useProjectStages
 								canManageTasks={activeRole !== 'user' && !project.isArchived && !isProjectBlocked}
 								canDragTasks={activeRole !== 'user' && activeRole !== 'account-manager' && !project.isArchived && !isProjectBlocked}
-								disableColumnScroll={true}
+								disableColumnScroll={false}
 								disableBacklogRenaming={false}
 								onTaskReview={(!project.isArchived && !isProjectBlocked && !isPORequired) ? (task) => { setReviewTask(task); setIsReviewTaskDialogOpen(true); } : undefined}
 								onAddTaskToStage={(!project.isArchived && !isProjectBlocked && canCreateTasks) ? handleAddTaskToStage : undefined}

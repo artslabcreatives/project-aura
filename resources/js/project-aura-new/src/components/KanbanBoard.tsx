@@ -453,7 +453,7 @@ export function KanbanBoard({
 			ref={boardRef}
 			className={cn("grid gap-4", !disableColumnScroll && "h-full")}
 			style={{
-				gridTemplateColumns: `repeat(${visibleStages.length}, minmax(350px, 1fr))`,
+				gridTemplateColumns: `repeat(${visibleStages.length}, minmax(400px, 1fr))`,
 			}}
 		>
 			{visibleStages.map((column) => {
