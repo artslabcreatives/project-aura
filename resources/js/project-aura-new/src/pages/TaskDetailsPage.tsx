@@ -1135,7 +1135,7 @@ export default function TaskDetailsPage() {
 
 			{/* Attachment Viewer Modal */}
 			<Dialog open={!!viewingAttachment} onOpenChange={(open) => !open && setViewingAttachment(null)}>
-				<DialogContent className="sm:max-w-[800px] p-0 overflow-hidden bg-black/90 border-none">
+				<DialogContent hideCloseButton={true} className="sm:max-w-[800px] p-0 overflow-hidden bg-black/90 border-none">
 					<div className="relative group">
 						<Button
 							variant="ghost"
