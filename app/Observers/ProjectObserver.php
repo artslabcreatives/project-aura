@@ -77,7 +77,10 @@ class ProjectObserver
      */
     public function updated(Project $project): void
     {
-        //
+        if ($project->wasChanged('budget_allocated') && $project->budget_allocated !== null) {
+            $recipients = \App\Models\User::whereIn('role', ['admin', 'hr'])->get();
+            \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\FinancialNotification($project, 'budget'));
+        }
     }
 
     /**

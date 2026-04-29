@@ -320,6 +320,7 @@ class ProjectController extends Controller
             'courier_tracking_number' => 'nullable|string|max:255',
             'courier_delivery_status' => 'nullable|string|max:255',
             'is_internal_project' => 'nullable|boolean',
+            'budget_allocated' => 'nullable|numeric|min:0',
         ]);
 
         $wasArchived = $project->is_archived;
