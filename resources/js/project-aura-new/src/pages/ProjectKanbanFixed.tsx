@@ -60,6 +60,8 @@ import { ImportTasksDialog } from "@/components/ImportTasksDialog";
 import { ImportTasksReviewDialog, ImportedTask } from "@/components/ImportTasksReviewDialog";
 import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
+import { ProjectAttachmentsTab } from "@/components/ProjectAttachmentsTab";
+import { Paperclip } from "lucide-react";
 import { 
 	Dialog, 
 	DialogContent, 
@@ -182,6 +184,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
 	const [isReportsOpen, setIsReportsOpen] = useState(false);
 	const [isFinanceOpen, setIsFinanceOpen] = useState(false);
+	const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false);
 	const [isImportTasksOpen, setIsImportTasksOpen] = useState(false);
 	const [isImportReviewOpen, setIsImportReviewOpen] = useState(false);
 	const [importedTasks, setImportedTasks] = useState<ImportedTask[]>([]);
@@ -1036,6 +1039,9 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 											<DropdownMenuItem onClick={() => setIsFinanceOpen(true)} className="rounded-lg">
 												<DollarSign className="mr-2 h-4 w-4 text-green-500" /> Finance & Expenses
 											</DropdownMenuItem>
+											<DropdownMenuItem onClick={() => setIsAttachmentsOpen(true)} className="rounded-lg">
+												<Paperclip className="mr-2 h-4 w-4 text-orange-500" /> Attachments
+											</DropdownMenuItem>
 											
 											<div className="h-px bg-border my-1" />
 											
@@ -1318,6 +1324,19 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 								setProject(prev => ({ ...prev, budget_allocated: budgetAllocated ?? undefined }))
 							}
 						/>
+					</div>
+				</DialogContent>
+			</Dialog>
+			
+			{/* Attachments Dialog */}
+			<Dialog open={isAttachmentsOpen} onOpenChange={setIsAttachmentsOpen}>
+				<DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col p-0">
+					<DialogHeader className="p-6 pb-0">
+						<DialogTitle>Project Attachments - {project.name}</DialogTitle>
+						<DialogDescription>View and download all attachments associated with this project.</DialogDescription>
+					</DialogHeader>
+					<div className="flex-1 overflow-auto p-6 pt-2">
+						<ProjectAttachmentsTab project={project} tasks={tasks} />
 					</div>
 				</DialogContent>
 			</Dialog>
