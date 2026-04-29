@@ -295,6 +295,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/documents', [DocumentController::class, 'store']);
     Route::post('/documents/{document}/approve', [DocumentController::class, 'approve']);
     Route::post('/documents/{document}/reject', [DocumentController::class, 'reject']);
+    Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
 });
 

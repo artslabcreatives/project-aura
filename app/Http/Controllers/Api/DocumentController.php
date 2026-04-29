@@ -187,4 +187,40 @@ class DocumentController extends Controller
 
         return response()->json(null, 204);
     }
+
+    #[OA\Get(
+        path: "/documents/{document}/download",
+        summary: "Get a secure download URL for a document",
+        security: [["bearerAuth" => []]],
+        tags: ["Documents"],
+        responses: [
+            new OA\Response(response: 200, description: "Secure URL returned")
+        ]
+    )]
+    public function download(Document $document, Request $request): JsonResponse
+    {
+        if (!$document->file_path) {
+            return response()->json(['message' => 'File not found.'], 404);
+        }
+
+        $mode = $request->query('mode', 'download');
+        $options = [];
+
+        if ($mode === 'download') {
+            $options['ResponseContentDisposition'] = 'attachment; filename="' . $document->name . '"';
+        } else {
+            $options['ResponseContentDisposition'] = 'inline';
+        }
+
+        $url = Storage::disk('s3')->temporaryUrl(
+            $document->file_path,
+            now()->addMinutes(30),
+            $options
+        );
+
+        return response()->json([
+            'url' => $url,
+            'name' => $document->name
+        ]);
+    }
 }

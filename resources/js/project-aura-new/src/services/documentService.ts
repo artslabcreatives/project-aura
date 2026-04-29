@@ -33,4 +33,9 @@ export const documentService = {
     delete: async (id: string) => {
         await api.delete(`/documents/${id}`);
     },
+    
+    download: async (id: string, mode: 'download' | 'view' = 'download') => {
+        const response = await api.get<{ url: string; name: string }>(`/documents/${id}/download?mode=${mode}`);
+        return response.data;
+    },
 };

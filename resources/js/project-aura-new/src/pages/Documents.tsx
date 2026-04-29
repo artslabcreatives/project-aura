@@ -25,6 +25,7 @@ import {
     Trash2,
     Clock,
     User,
+    Eye,
 } from 'lucide-react';
 import { DocumentUploadDialog } from '@/components/documents/DocumentUploadDialog';
 import { useToast } from '@/components/ui/use-toast';
@@ -108,6 +109,29 @@ export default function Documents() {
         }
     };
 
+    const handleDownload = async (docId: string, name: string) => {
+        try {
+            const { url } = await documentService.download(docId, 'download');
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            toast({ title: 'Download failed', variant: 'destructive' });
+        }
+    };
+
+    const handleView = async (docId: string) => {
+        try {
+            const { url } = await documentService.download(docId, 'view');
+            window.open(url, '_blank');
+        } catch (error) {
+            toast({ title: 'Could not open viewer', variant: 'destructive' });
+        }
+    };
+
     return (
         <div className="container mx-auto py-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
@@ -176,13 +200,22 @@ export default function Documents() {
                                                         <FileText className="h-6 w-6" />
                                                     </div>
                                                     <div className="flex gap-1">
-                                                        {doc.url && (
-                                                            <Button variant="ghost" size="icon" asChild>
-                                                                <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                                                                    <Download className="h-4 w-4" />
-                                                                </a>
-                                                            </Button>
-                                                        )}
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            title="View Document"
+                                                            onClick={() => handleView(doc.id)}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            title="Download"
+                                                            onClick={() => handleDownload(doc.id, doc.name)}
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                        </Button>
                                                         {(String(doc.uploaded_by) === String(user?.id) || user?.role === 'admin') && (
                                                             <Button 
                                                                 variant="ghost" 
