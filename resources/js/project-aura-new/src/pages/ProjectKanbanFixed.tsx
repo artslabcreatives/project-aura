@@ -1192,7 +1192,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 					</div>
 				)}
 				<div className={cn(
-					"flex-1 overflow-auto p-6 pb-12 bg-muted/5 transition-all duration-500 relative",
+					"flex-1 overflow-auto pl-6 pr-12 pt-6 pb-12 bg-muted/5 transition-all duration-500 relative",
 					(isProjectBlocked || isPORequired) && "grayscale opacity-50 pointer-events-none select-none"
 				)}>
 					<div className="w-full">
