@@ -84,6 +84,7 @@ const mainMenuItems = [
 	{ title: "Estimates", url: "/estimates", icon: FileText, roles: ["admin", "team-lead", "account-manager", "hr"] },
 	{ title: "Emails", url: "/emails", icon: Mail, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Reports", url: "/reports", icon: ClipboardList, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
+	{ title: "Documents", url: "/documents", icon: FileText, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "SSO Applications", url: "/sso/clients", icon: Shield, roles: ["admin"] },
 ];
 

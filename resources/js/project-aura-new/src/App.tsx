@@ -269,6 +269,7 @@ import { ReminderPoller } from "./components/ReminderPoller";
 import SSOAuthorize from "./pages/SSOAuthorize";
 import SSOClients from "./pages/SSOClients";
 import ReportManagement from "./pages/ReportManagement";
+import Documents from "./pages/Documents";
 
 const Dashboard = () => {
 	const { activeRole } = useUser();
@@ -358,6 +359,7 @@ const App = () => (
 								</ProtectedRoute>
 							} />
 							<Route path="/emails" element={<AppLayout><Emails /></AppLayout>} />
+							<Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
 							<Route path="/sso/clients" element={
 								<ProtectedRoute allowedRoles={['admin']}>
 									<AppLayout><SSOClients /></AppLayout>

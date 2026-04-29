@@ -30,6 +30,7 @@ use App\Http\Controllers\MattermostAuthController;
 use App\Http\Controllers\Api\SSOController;
 use App\Http\Controllers\Api\OAuthClientController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\DocumentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -288,6 +289,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/reports/{report}/hr-approve', [ReportController::class, 'hrApprove']);
     Route::post('/reports/{report}/reject', [ReportController::class, 'reject']);
     Route::post('/reports/{report}/comment', [ReportController::class, 'addComment']);
+
+    // Documents
+    Route::get('/documents', [DocumentController::class, 'index']);
+    Route::post('/documents', [DocumentController::class, 'store']);
+    Route::post('/documents/{document}/approve', [DocumentController::class, 'approve']);
+    Route::post('/documents/{document}/reject', [DocumentController::class, 'reject']);
+    Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
 });
 
 // 2FA Verification during login

@@ -5,7 +5,7 @@ import { api } from '@/services/api';
 import { getToken } from '@/lib/api';
 import type { Task, TaskAttachment } from '@/types/task';
 
-export type UploadWorkflowKind = 'task-attachment' | 'task-completion';
+export type UploadWorkflowKind = 'task-attachment' | 'task-completion' | 'document-upload';
 export type UploadItemStatus = 'queued' | 'uploading' | 'processing' | 'completed' | 'failed';
 export type UploadWorkflowStatus = 'queued' | 'uploading' | 'processing' | 'completed' | 'failed';
 
@@ -145,7 +145,21 @@ interface TaskCompletionWorkflow {
 	error?: string;
 }
 
-type UploadWorkflow = TaskAttachmentWorkflow | TaskCompletionWorkflow;
+interface DocumentUploadWorkflow {
+	id: string;
+	kind: 'document-upload';
+	status: UploadWorkflowStatus;
+	itemIds: string[];
+	createdAt: number;
+	updatedAt: number;
+	payload: {
+		name: string;
+		departmentId: number;
+	};
+	error?: string;
+}
+
+type UploadWorkflow = TaskAttachmentWorkflow | TaskCompletionWorkflow | DocumentUploadWorkflow;
 
 interface UploadState {
 	items: Record<string, UploadItem>;
@@ -163,6 +177,7 @@ type ManagedUppyFile = UppyFile<Record<string, unknown>, Record<string, unknown>
 const STORAGE_KEY = 'aura.upload-manager.state.v1';
 const TASK_ATTACHMENTS_EVENT = 'aura:task-attachments-uploaded';
 const TASK_COMPLETION_EVENT = 'aura:task-completion-finished';
+const DOCUMENT_UPLOAD_EVENT = 'aura:document-uploaded';
 const RELOAD_FILE_LOST_ERROR = 'Please select the file to continue uploading.';
 const RELOAD_GHOST_ERROR = 'Please select the file to continue uploading.';
 const LEGACY_RELOAD_ERROR_PHRASES = [
@@ -475,8 +490,10 @@ class UploadManager {
 			try {
 				if (workflow.kind === 'task-attachment') {
 					await this.finalizeTaskAttachmentItem(workflow.id, item.id);
-				} else {
+				} else if (workflow.kind === 'task-completion') {
 					await this.registerCompletionUploadKey(workflow.id, item.id, uploadKey);
+				} else if (workflow.kind === 'document-upload') {
+					await this.finalizeDocumentUpload(workflow.id, item.id, uploadKey);
 				}
 			} catch (error) {
 				this.failWorkflow(item.workflowId, error);
@@ -1108,6 +1125,44 @@ class UploadManager {
 		}
 	}
 
+	private async finalizeDocumentUpload(workflowId: string, itemId: string, uploadKey: string) {
+		const workflow = this.state.workflows[workflowId];
+		const item = this.state.items[itemId];
+		if (!workflow || workflow.kind !== 'document-upload' || !item) {
+			return;
+		}
+
+		this.log('finalizing document upload', { workflowId, itemId, uploadKey });
+
+		try {
+			const { data } = await api.post('/documents', {
+				name: workflow.payload.name,
+				department_id: workflow.payload.departmentId,
+				upload_key: uploadKey,
+			});
+
+			this.log('document finalized', {
+				workflowId,
+				itemId,
+				documentId: data.id,
+			});
+
+			item.status = 'completed';
+			item.resultId = String(data.id);
+			item.progress = 100;
+			item.error = undefined;
+			item.updatedAt = Date.now();
+
+			workflow.status = 'completed';
+			workflow.updatedAt = Date.now();
+
+			this.emit();
+			this.resolveWorkflow(workflowId, data);
+		} catch (error) {
+			this.failWorkflow(workflowId, error);
+		}
+	}
+
 	private async registerCompletionUploadKey(workflowId: string, itemId: string, uploadKey: string) {
 		const workflow = this.state.workflows[workflowId];
 		if (!workflow || workflow.kind !== 'task-completion') {
@@ -1472,6 +1527,47 @@ class UploadManager {
 		files.forEach((file, index) => {
 			this.addFileToUppy(items[index], file);
 		});
+
+		await this.startOrResumeUploads();
+		return promise;
+	};
+
+	uploadDocument = async (payload: { name: string; departmentId: number; file: File }): Promise<any> => {
+		this.log('uploadDocument called', {
+			name: payload.name,
+			departmentId: payload.departmentId,
+			fileName: payload.file.name,
+			size: payload.file.size,
+		});
+
+		const workflowId = randomId('workflow');
+		const item = this.createItem('document-upload', workflowId, 'system', payload.file);
+		const workflow: DocumentUploadWorkflow = {
+			id: workflowId,
+			kind: 'document-upload',
+			status: 'queued',
+			itemIds: [item.id],
+			createdAt: Date.now(),
+			updatedAt: Date.now(),
+			payload: {
+				name: payload.name,
+				departmentId: payload.departmentId,
+			},
+		};
+
+		this.state.items[item.id] = item;
+		this.state.workflows[workflowId] = workflow;
+		this.state.expanded = true;
+		this.emit();
+
+		const promise = new Promise<any>((resolve, reject) => {
+			this.workflowResolvers.set(workflowId, {
+				resolve: (value) => resolve(value),
+				reject,
+			});
+		});
+
+		this.addFileToUppy(item, payload.file);
 
 		await this.startOrResumeUploads();
 		return promise;

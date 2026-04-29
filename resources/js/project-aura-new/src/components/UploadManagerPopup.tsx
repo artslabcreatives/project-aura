@@ -32,11 +32,16 @@ function statusLabel(item: UploadItem, isReloadRecoveryFailure: boolean) {
 }
 
 function workflowLabel(workflow: UploadWorkflow) {
-	if (workflow.kind === 'task-completion') {
-		return `Completing task #${workflow.taskId}`;
+	switch (workflow.kind) {
+		case 'task-completion':
+			return `Completing task #${workflow.taskId}`;
+		case 'document-upload':
+			return `Uploading document: ${workflow.payload.name}`;
+		case 'task-attachment':
+			return `Uploading to task #${workflow.taskId}`;
+		default:
+			return 'Uploading...';
 	}
-
-	return `Uploading to task #${workflow.taskId}`;
 }
 
 export function UploadManagerPopup() {
