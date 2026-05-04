@@ -318,7 +318,7 @@ const App = () => (
 							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
 							<Route path="/project/:projectId/overview" element={<AppLayout><ProjectOverview /></AppLayout>} />
 							<Route path="/team" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
 									<AppLayout><Team /></AppLayout>
 								</ProtectedRoute>
 							} />
@@ -382,7 +382,7 @@ const App = () => (
 							<Route path="/mattermost/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
 							<Route path="/mattermost/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
 							<Route path="/mattermost/team" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
 									<AppLayout><Team /></AppLayout>
 								</ProtectedRoute>
 							} />

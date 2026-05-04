@@ -74,7 +74,7 @@ import { Input } from "@/components/ui/input";
 const mainMenuItems = [
 	{ title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Chat", url: "/mattermost-chat", icon: MessageSquare, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
-	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead"] },
+	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
 	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },
 	{ title: "Task Efficiency", url: "/task-efficiency", icon: TrendingUp, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
@@ -161,7 +161,7 @@ export function AppSidebar() {
 			setDepartments(departmentsData);
 			setProjectGroups(projectGroupsData);
 
-			if (userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager' || userRole === 'hr') {
+			if (userRole) { // Allow all roles to fetch team data (backend handles filtering)
 				const usersData = await userService.getAll();
 				// Filter out System Admin accounts
 				setTeamMembers(usersData.filter((u: any) =>
