@@ -1,6 +1,7 @@
 import { api } from './api';
 import { uploadManager } from '@/lib/upload-manager';
 import { Task } from '@/types/task';
+import { cacheService } from './cacheService';
 
 function mapTask(raw: any): Task {
 	return {
@@ -81,12 +82,19 @@ export const taskService = {
 		if (filters?.assigneeId) params.assignee_id = filters.assigneeId;
 		if (filters?.userStatus) params.user_status = filters.userStatus;
 		const { data } = await api.get('/tasks', { params });
-		return Array.isArray(data) ? data.map(mapTask) : [];
+		const tasks = Array.isArray(data) ? data.map(mapTask) : [];
+		
+		// Cache individual tasks
+		tasks.forEach((t: Task) => cacheService.set(`task_${t.id}`, t));
+		
+		return tasks;
 	},
 
 	getById: async (id: string): Promise<Task> => {
 		const { data } = await api.get(`/tasks/${id}`);
-		return mapTask(data);
+		const task = mapTask(data);
+		cacheService.set(`task_${id}`, task);
+		return task;
 	},
 
 	create: async (task: Omit<Task, 'id' | 'createdAt' | 'project' | 'assignee' | 'assignedUsers' | 'startStageId'> & { projectId?: number; assigneeId?: number; assigneeIds?: number[]; projectStageId?: number; startStageId?: number }): Promise<Task> => {

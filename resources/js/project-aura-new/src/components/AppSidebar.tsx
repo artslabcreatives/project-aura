@@ -339,15 +339,12 @@ export function AppSidebar() {
 				is_internal_project: isInternalProject,
 			});
 
-			// Fetch fresh project details to get any auto-created system stages
-			const fetchedProject = await projectService.getById(String(newProject.id));
+			// Use the stages already returned by the create call
+			const existingSystemStages = new Map(newProject.stages.map(s => [s.title.toLowerCase().trim(), s]));
 
 			// Step 1: Create all stages without linked IDs (to get numeric IDs from backend)
 			const stageIdMap = new Map<string, number>(); // Map temp ID -> real ID
 			const createdStages = [];
-
-			// Check for automatically created system stages using the fetched project data
-			const existingSystemStages = new Map(fetchedProject.stages.map(s => [s.title.toLowerCase().trim(), s]));
 
 			for (const stage of stages) {
 				const existing = existingSystemStages.get(stage.title.toLowerCase().trim());
@@ -1020,9 +1017,8 @@ export function AppSidebar() {
 				stages: []
 			});
 
-			// 2. Fetch fresh project details to get default stages
-			const fetchedNewProject = await projectService.getById(String(newProject.id));
-			const existingSystemStages = new Map(fetchedNewProject.stages.map(s => [s.title.toLowerCase().trim(), s]));
+			// Use the stages already returned by the create call
+			const existingSystemStages = new Map(newProject.stages.map(s => [s.title.toLowerCase().trim(), s]));
 
 			// 3. Prepare to replicate stages
 			const sourceStages = projectToDuplicate.stages;

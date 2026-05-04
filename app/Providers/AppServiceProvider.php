@@ -16,6 +16,8 @@ use App\Observers\TaskAttachmentObserver;
 use App\Observers\ProjectObserver;
 use App\Observers\UserObserver;
 use App\Observers\ProjectExpenseObserver;
+use App\Observers\CacheInvalidationObserver;
+use App\Models\Stage;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,5 +41,10 @@ class AppServiceProvider extends ServiceProvider
         Project::observe(ProjectObserver::class);
         User::observe(UserObserver::class);
         ProjectExpense::observe(ProjectExpenseObserver::class);
+        
+        // Cache Invalidation
+        Project::observe(CacheInvalidationObserver::class);
+        Task::observe(CacheInvalidationObserver::class);
+        Stage::observe(CacheInvalidationObserver::class);
     }
 }

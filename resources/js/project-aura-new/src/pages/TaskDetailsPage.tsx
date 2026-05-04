@@ -50,6 +50,7 @@ import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/use-user";
+import { cacheService } from "@/services/cacheService";
 import { TimeLogWidget } from "@/components/TimeLogWidget";
 
 export default function TaskDetailsPage() {
@@ -121,8 +122,16 @@ export default function TaskDetailsPage() {
 	const loadTask = async () => {
 		if (!taskId) return;
 
-		try {
+		// Try cache first for instant load
+		const cachedTask = cacheService.get<Task>(`task_${taskId}`);
+		if (cachedTask) {
+			setTask(cachedTask);
+			setLoading(false);
+		} else {
 			setLoading(true);
+		}
+
+		try {
 			const data = await taskService.getById(taskId);
 			setTask(data);
 		} catch (err) {

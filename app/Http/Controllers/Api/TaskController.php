@@ -11,6 +11,7 @@ use App\Services\ProfitabilityService;
 use App\Services\ResumableUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use OpenApi\Attributes as OA;
 
 class TaskController extends Controller
@@ -64,40 +65,48 @@ class TaskController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
-        
-        // Global filter for user and account_manager roles
-        if (in_array($user->role, ['user', 'account_manager'])) {
-            $query->where(function($q) use ($user) {
-                $q->where('assignee_id', $user->id)
-                  ->orWhereHas('assignedUsers', function($sq) use ($user) {
-                      $sq->where('users.id', $user->id);
-                  });
-            });
-        }
-        
-        if ($request->has('project_id')) {
-            $query->where('project_id', $request->project_id);
-        }
-        
-        if ($request->has('assignee_id')) {
-            $query->where(function($q) use ($request) {
-                $q->where('assignee_id', $request->assignee_id)
-                  ->orWhereHas('assignedUsers', function($sq) use ($request) {
-                      $sq->where('users.id', $request->assignee_id);
-                  });
-            });
-        }
-        
-        if ($request->has('user_status')) {
-            $query->where('user_status', $request->user_status);
-        }
-        
-        if ($request->has('priority')) {
-            $query->where('priority', $request->priority);
-        }
-        
-        $tasks = $query->get();
+        $version = Cache::rememberForever('tasks_version', fn() => time());
+        // Tasks often have filters, so include them in the cache key
+        $filters = md5(json_encode($request->all()));
+        $cacheKey = "tasks_user_{$user->id}_{$user->role}_f{$filters}_v{$version}";
+
+        $tasks = Cache::remember($cacheKey, 3600, function() use ($request, $user) {
+            $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
+            
+            // Global filter for user and account_manager roles
+            if (in_array($user->role, ['user', 'account_manager'])) {
+                $query->where(function($q) use ($user) {
+                    $q->where('assignee_id', $user->id)
+                      ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                          $sq->where('users.id', $user->id);
+                      });
+                });
+            }
+            
+            if ($request->has('project_id')) {
+                $query->where('project_id', $request->project_id);
+            }
+            
+            if ($request->has('assignee_id')) {
+                $query->where(function($q) use ($request) {
+                    $q->where('assignee_id', $request->assignee_id)
+                      ->orWhereHas('assignedUsers', function($sq) use ($request) {
+                          $sq->where('users.id', $request->assignee_id);
+                      });
+                });
+            }
+            
+            if ($request->has('user_status')) {
+                $query->where('user_status', $request->user_status);
+            }
+            
+            if ($request->has('priority')) {
+                $query->where('priority', $request->priority);
+            }
+            
+            return $query->get();
+        });
+
         return response()->json($tasks);
     }
 
@@ -271,8 +280,16 @@ class TaskController extends Controller
     )]
     public function show(Task $task, \App\Services\TaskHistoryService $historyService): JsonResponse
     {
-        $historyService->trackTaskViewed($task);
-        return response()->json($task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments.user', 'assignedUsers', 'taskHistories.user']));
+        $user = auth()->user();
+        $version = Cache::rememberForever('tasks_version', fn() => time());
+        $cacheKey = "task_{$task->id}_v{$version}";
+
+        $taskData = Cache::remember($cacheKey, 3600, function() use ($task, $historyService) {
+            $historyService->trackTaskViewed($task);
+            return $task->load(['project', 'assignee', 'projectStage', 'attachments', 'revisionHistories', 'comments.user', 'assignedUsers', 'taskHistories.user']);
+        });
+
+        return response()->json($taskData);
     }
 
     #[OA\Post(

@@ -2,6 +2,7 @@ import { api } from './api';
 import { Project } from '@/types/project';
 import { Stage } from '@/types/stage';
 import { SuggestedTask } from '@/types/task';
+import { cacheService } from './cacheService';
 
 // Map backend stage (snake_case) to frontend Stage interface
 function mapStage(raw: any): Stage {
@@ -111,14 +112,20 @@ function mapProject(raw: any): Project {
 export const projectService = {
 	getAll: async (): Promise<Project[]> => {
 		const { data } = await api.get('/projects');
-		// Axios returns response.data already via interceptor; but our api instance returns {data:..}
-		const raw = data || data === 0 ? data : data; // defensive
-		return Array.isArray(raw) ? raw.map(mapProject) : [];
+		const raw = data || data === 0 ? data : data; 
+		const projects = Array.isArray(raw) ? raw.map(mapProject) : [];
+		
+		// Cache the individual projects too
+		projects.forEach(p => cacheService.set(`project_${p.id}`, p));
+		
+		return projects;
 	},
 
 	getById: async (id: string): Promise<Project> => {
 		const { data } = await api.get(`/projects/${id}`);
-		return mapProject(data);
+		const project = mapProject(data);
+		cacheService.set(`project_${id}`, project);
+		return project;
 	},
 
 	getByName: async (name: string): Promise<Project | null> => {
@@ -170,7 +177,9 @@ export const projectService = {
 
 		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
 		const { data } = await api.post('/projects', payload, config);
-		return mapProject(data);
+		const projectResult = mapProject(data);
+		cacheService.set(`project_${projectResult.id}`, projectResult);
+		return projectResult;
 	},
 
 	update: async (id: string, updates: any): Promise<Project> => {

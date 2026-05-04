@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 use OpenApi\Attributes as OA;
 
 class ProjectController extends Controller
@@ -42,35 +43,41 @@ class ProjectController extends Controller
     public function index(): JsonResponse
     {
         $user = auth()->user();
-        $query = Project::with(['department', 'group', 'client', 'stages' => function ($query) {
-            $query->where('type', 'project');
-        }, 'tasks', 'collaborators' => function ($query) {
-            $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
-        }]);
+        $version = Cache::rememberForever('projects_version', fn() => time());
+        $cacheKey = "projects_user_{$user->id}_{$user->role}_v{$version}";
 
-        if (in_array($user->role, ['user', 'account_manager'])) {
-            $query->where(function ($q) use ($user) {
-                $q->whereHas('tasks', function ($taskQuery) use ($user) {
+        $projects = Cache::remember($cacheKey, 3600, function() use ($user) {
+            $query = Project::with(['department', 'group', 'client', 'stages' => function ($query) {
+                $query->where('type', 'project');
+            }, 'tasks', 'collaborators' => function ($query) {
+                $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+            }]);
+
+            if (in_array($user->role, ['user', 'account_manager'])) {
+                $query->where(function ($q) use ($user) {
+                    $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                        $taskQuery->where('assignee_id', $user->id)
+                            ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                                $sq->where('users.id', $user->id);
+                            });
+                    })
+                    ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                        $collabQuery->where('users.id', $user->id);
+                    });
+                });
+
+                // Also filter the tasks relationship itself
+                $query->with(['tasks' => function ($taskQuery) use ($user) {
                     $taskQuery->where('assignee_id', $user->id)
                         ->orWhereHas('assignedUsers', function ($sq) use ($user) {
                             $sq->where('users.id', $user->id);
                         });
-                })
-                ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
-                    $collabQuery->where('users.id', $user->id);
-                });
-            });
+                }]);
+            }
 
-            // Also filter the tasks relationship itself
-            $query->with(['tasks' => function ($taskQuery) use ($user) {
-                $taskQuery->where('assignee_id', $user->id)
-                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
-                        $sq->where('users.id', $user->id);
-                    });
-            }]);
-        }
+            return $query->get();
+        });
 
-        $projects = $query->get();
         return response()->json($projects);
     }
 
@@ -227,40 +234,50 @@ class ProjectController extends Controller
     public function show(Project $project): JsonResponse
     {
         $user = auth()->user();
+        $version = Cache::rememberForever('projects_version', fn() => time());
+        $cacheKey = "project_{$project->id}_user_{$user->id}_{$user->role}_v{$version}";
 
-        // Authorization check for user and account_manager roles
-        if (in_array($user->role, ['user', 'account_manager'])) {
-            $isAssigned = $project->tasks()->where(function($q) use ($user) {
-                $q->where('assignee_id', $user->id)
-                  ->orWhereHas('assignedUsers', function($sq) use ($user) {
-                      $sq->where('users.id', $user->id);
-                  });
-            })->exists() || $project->collaborators()->where('users.id', $user->id)->exists();
+        $projectData = Cache::remember($cacheKey, 3600, function() use ($user, $project) {
+            // Authorization check for user and account_manager roles
+            if (in_array($user->role, ['user', 'account_manager'])) {
+                $isAssigned = $project->tasks()->where(function($q) use ($user) {
+                    $q->where('assignee_id', $user->id)
+                      ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                          $sq->where('users.id', $user->id);
+                      });
+                })->exists() || $project->collaborators()->where('users.id', $user->id)->exists();
 
-            if (!$isAssigned) {
-                return response()->json(['message' => 'Unauthorized'], 403);
+                if (!$isAssigned) {
+                    return ['unauthorized' => true];
+                }
             }
-        }
 
-        $project->load(['department', 'group', 'client', 'stages' => function ($query) {
-            $query->where('type', 'project');
-        }, 'collaborators' => function ($query) {
-            $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
-        }]);
-
-        // Filter tasks relationship for user and account_manager
-        if (in_array($user->role, ['user', 'account_manager'])) {
-            $project->load(['tasks' => function ($query) use ($user) {
-                $query->where('assignee_id', $user->id)
-                    ->orWhereHas('assignedUsers', function ($sq) use ($user) {
-                        $sq->where('users.id', $user->id);
-                    });
+            $project->load(['department', 'group', 'client', 'stages' => function ($query) {
+                $query->where('type', 'project');
+            }, 'collaborators' => function ($query) {
+                $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
             }]);
-        } else {
-            $project->load('tasks');
+
+            // Filter tasks relationship for user and account_manager
+            if (in_array($user->role, ['user', 'account_manager'])) {
+                $project->load(['tasks' => function ($query) use ($user) {
+                    $query->where('assignee_id', $user->id)
+                        ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                            $sq->where('users.id', $user->id);
+                        });
+                }]);
+            } else {
+                $project->load('tasks');
+            }
+
+            return $project;
+        });
+
+        if (is_array($projectData) && isset($projectData['unauthorized'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return response()->json($project);
+        return response()->json($projectData);
     }
 
     #[OA\Put(

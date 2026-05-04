@@ -29,6 +29,7 @@ import { stageService } from "@/services/stageService";
 import { AddSubtaskDialog } from "@/components/AddSubtaskDialog";
 import { echo } from "@/services/echoService";
 import { cn } from "@/lib/utils";
+import { cacheService } from "@/services/cacheService";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -78,9 +79,18 @@ export default function ProjectKanbanFixed() {
 
 	useEffect(() => {
 		const fetchProject = async () => {
-			setLoading(true);
+			if (!projectId) { setProject(null); return; }
+
+			// Try cache first for instant load
+			const cachedProject = cacheService.get<Project>(`project_${projectId}`);
+			if (cachedProject) {
+				setProject(cachedProject);
+				setLoading(false);
+			} else {
+				setLoading(true);
+			}
+
 			try {
-				if (!projectId) { setProject(null); return; }
 				const allProjects = await projectService.getAll();
 				let found = null;
 				// Check if ID (all digits)
@@ -285,6 +295,14 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 
 	const loadData = useCallback(async (isBackground = false) => {
 		if (!numericProjectId) return;
+
+		// Try cache first for instant load
+		const cachedProject = cacheService.get<Project>(`project_${numericProjectId}`);
+		if (cachedProject && !isBackground) {
+			setProject(cachedProject);
+			setIsLoading(false);
+		}
+
 		if (!isBackground) setIsLoading(true);
 		try {
 			// Optimization: Fetch independent initial data in parallel

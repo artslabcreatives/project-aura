@@ -84,11 +84,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/seen-welcome-video', [AuthController::class, 'markWelcomeVideoAsSeen']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::apiResource('departments', DepartmentController::class);
-    Route::apiResource('projects', ProjectController::class);
+    Route::apiResource('projects', ProjectController::class)->middleware('cache.headers:public;max_age=3600;etag');
     Route::apiResource('stages', StageController::class);
     Route::apiResource('stage-groups', StageGroupController::class);
     Route::post('/tasks/bulk-update', [TaskController::class, 'bulkUpdate']);
-    Route::apiResource('tasks', TaskController::class);
+    Route::apiResource('tasks', TaskController::class)->middleware('cache.headers:public;max_age=3600;etag');
     Route::post('/tasks/{task}/duplicate', [TaskController::class, 'duplicate']);
     Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);
