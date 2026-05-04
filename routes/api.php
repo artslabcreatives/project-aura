@@ -111,6 +111,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/unblock', [ProjectController::class, 'unblock']);
     Route::post('projects/{project}/campaign-report', [ProjectController::class, 'uploadCampaignReport']);
     Route::post('projects/{project}/approve-campaign-report', [ProjectController::class, 'approveCampaignReport']);
+    Route::get('projects/{project}/purchase-orders', [ProjectController::class, 'listPurchaseOrders']);
+    Route::post('projects/{project}/purchase-orders/bulk', [ProjectController::class, 'bulkAssignPurchaseOrders']);
+    Route::delete('projects/{project}/purchase-orders/{purchaseOrder}', [ProjectController::class, 'removePurchaseOrder']);
     Route::post('projects/{project}/upload-tasks', [TaskImportController::class, 'upload']);
     Route::get('projects/{project}/task-import/{importId}', [TaskImportController::class, 'status']);
     

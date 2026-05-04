@@ -864,4 +864,76 @@ class ProjectController extends Controller
 
         return response()->json($project->fresh(['department', 'group', 'client', 'stages']), 200);
     }
+
+    /**
+     * List all purchase orders assigned to a project.
+     */
+    public function listPurchaseOrders(Project $project): JsonResponse
+    {
+        return response()->json(
+            $project->purchaseOrders()->orderBy('created_at', 'desc')->get()
+        );
+    }
+
+    /**
+     * Bulk-assign one or more purchase orders to a project.
+     * Also unlocks the project's PO lock if it was awaiting a PO.
+     */
+    public function bulkAssignPurchaseOrders(Request $request, Project $project): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can assign purchase orders.'], 403);
+        }
+
+        $validated = $request->validate([
+            'purchase_orders'              => 'required|array|min:1',
+            'purchase_orders.*.po_number'  => 'required|string|max:255',
+            'purchase_orders.*.xero_po_id' => 'nullable|string|max:255',
+            'purchase_orders.*.amount'     => 'nullable|numeric|min:0',
+            'purchase_orders.*.currency'   => 'nullable|string|max:10',
+            'purchase_orders.*.status'     => 'nullable|string|max:100',
+            'purchase_orders.*.notes'      => 'nullable|string',
+        ]);
+
+        $created = [];
+        foreach ($validated['purchase_orders'] as $poData) {
+            $created[] = $project->purchaseOrders()->create($poData);
+        }
+
+        if ($project->is_locked_by_po) {
+            $project->update(['is_locked_by_po' => false]);
+        }
+
+        return response()->json([
+            'purchase_orders' => $created,
+            'project' => $project->fresh(['department', 'group', 'client', 'stages', 'purchaseOrders']),
+        ], 201);
+    }
+
+    /**
+     * Remove a single purchase order from a project.
+     */
+    public function removePurchaseOrder(Request $request, Project $project, \App\Models\ProjectPurchaseOrder $purchaseOrder): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'hr'])) {
+            return response()->json(['message' => 'Only admin or hr users can remove purchase orders.'], 403);
+        }
+
+        if ($purchaseOrder->project_id !== $project->id) {
+            return response()->json(['message' => 'Purchase order does not belong to this project.'], 404);
+        }
+
+        $purchaseOrder->delete();
+
+        // Re-lock if no POs remain and no legacy PO document
+        if (!$project->purchaseOrders()->exists() && !$project->po_number) {
+            $project->update(['is_locked_by_po' => true]);
+        }
+
+        return response()->json(null, 204);
+    }
 }

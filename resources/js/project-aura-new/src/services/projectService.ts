@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Project } from '@/types/project';
+import { Project, ProjectPurchaseOrder } from '@/types/project';
 import { Stage } from '@/types/stage';
 import { SuggestedTask } from '@/types/task';
 import { cacheService } from './cacheService';
@@ -28,6 +28,20 @@ function mapStage(raw: any): Stage {
 		isReviewStage: raw.is_review_stage ?? false,
 		linkedReviewStageId: raw.linked_review_stage_id ? String(raw.linked_review_stage_id) : undefined,
 		approvedTargetStageId: raw.approved_target_stage_id ? String(raw.approved_target_stage_id) : undefined,
+	};
+}
+
+function mapPurchaseOrder(raw: any): ProjectPurchaseOrder {
+	return {
+		id: raw.id,
+		projectId: raw.project_id,
+		poNumber: raw.po_number,
+		xeroPoId: raw.xero_po_id ?? undefined,
+		amount: raw.amount !== null ? Number(raw.amount) : undefined,
+		currency: raw.currency ?? undefined,
+		status: raw.status ?? undefined,
+		notes: raw.notes ?? undefined,
+		createdAt: raw.created_at,
 	};
 }
 
@@ -106,6 +120,9 @@ function mapProject(raw: any): Project {
 		campaign_report_approved_at: raw.campaign_report_approved_at,
 		campaign_report_document_url: raw.campaign_report_document_url,
 		isInternalProject: raw.is_internal_project,
+		purchaseOrders: Array.isArray(raw.purchase_orders)
+			? raw.purchase_orders.map(mapPurchaseOrder)
+			: undefined,
 	};
 }
 
@@ -299,5 +316,44 @@ export const projectService = {
 	approveCampaignReport: async (id: string): Promise<Project> => {
 		const { data } = await api.post(`/projects/${id}/approve-campaign-report`);
 		return mapProject(data);
+	},
+
+	/** List all purchase orders assigned to a project. */
+	listPurchaseOrders: async (id: string): Promise<ProjectPurchaseOrder[]> => {
+		const { data } = await api.get(`/projects/${id}/purchase-orders`);
+		return Array.isArray(data) ? data.map(mapPurchaseOrder) : [];
+	},
+
+	/** Bulk-assign one or more purchase orders to a project (admin/hr only). */
+	bulkAssignPurchaseOrders: async (
+		id: string,
+		purchaseOrders: Array<{
+			poNumber: string;
+			xeroPoId?: string;
+			amount?: number;
+			currency?: string;
+			status?: string;
+			notes?: string;
+		}>
+	): Promise<{ purchaseOrders: ProjectPurchaseOrder[]; project: Project }> => {
+		const { data } = await api.post(`/projects/${id}/purchase-orders/bulk`, {
+			purchase_orders: purchaseOrders.map((po) => ({
+				po_number: po.poNumber,
+				xero_po_id: po.xeroPoId,
+				amount: po.amount,
+				currency: po.currency,
+				status: po.status,
+				notes: po.notes,
+			})),
+		});
+		return {
+			purchaseOrders: data.purchase_orders.map(mapPurchaseOrder),
+			project: mapProject(data.project),
+		};
+	},
+
+	/** Remove a purchase order from a project (admin/hr only). */
+	removePurchaseOrder: async (projectId: string, purchaseOrderId: number): Promise<void> => {
+		await api.delete(`/projects/${projectId}/purchase-orders/${purchaseOrderId}`);
 	},
 };

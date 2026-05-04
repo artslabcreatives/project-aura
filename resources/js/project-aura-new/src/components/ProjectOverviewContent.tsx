@@ -24,6 +24,9 @@ import {
 	BanIcon,
 	Truck,
 	Info,
+	ClipboardList,
+	Trash2,
+	Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +50,8 @@ import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectProfitability } from "@/components/ProjectProfitability";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { InvoiceList } from "@/components/InvoiceList";
+import { BulkPOAssignDialog } from "@/components/BulkPOAssignDialog";
+import { ProjectPurchaseOrder } from "@/types/project";
 
 interface ProjectOverviewContentProps {
 	project: Project;
@@ -70,10 +75,14 @@ export function ProjectOverviewContent({
 	const [isPOSelectOpen, setIsPOSelectOpen] = useState(false);
 	const [isPOViewOpen, setIsPOViewOpen] = useState(false);
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
+	const [isAddInvoiceOpen, setIsAddInvoiceOpen] = useState(false);
 	const [isEditingDeadline, setIsEditingDeadline] = useState(false);
 	const [isGracePeriodOpen, setIsGracePeriodOpen] = useState(false);
 	const [isProvisionalPOOpen, setIsProvisionalPOOpen] = useState(false);
 	const [isInvoiceViewOpen, setIsInvoiceViewOpen] = useState(false);
+	const [isBulkPOOpen, setIsBulkPOOpen] = useState(false);
+	const [projectPOs, setProjectPOs] = useState<ProjectPurchaseOrder[]>(project.purchaseOrders || []);
+	const [isRemovingPO, setIsRemovingPO] = useState<number | null>(null);
 	const { toast } = useToast();
 	const { currentUser, activeRole } = useUser();
 	const navigate = useNavigate();
@@ -81,6 +90,9 @@ export function ProjectOverviewContent({
 	// Sync local project state when the parent provides an updated project
 	useEffect(() => {
 		setProject(initialProject);
+		if (initialProject.purchaseOrders) {
+			setProjectPOs(initialProject.purchaseOrders);
+		}
 	}, [initialProject]);
 
 	const handleProjectChange = (updated: Project) => {
@@ -235,6 +247,28 @@ export function ProjectOverviewContent({
 				description: "Failed to issue provisional PO.",
 				variant: "destructive",
 			});
+		}
+	};
+
+	const handleBulkPOSuccess = (updatedProject: Project, newPOs: ProjectPurchaseOrder[]) => {
+		handleProjectChange(updatedProject);
+		setProjectPOs((prev) => [...newPOs, ...prev]);
+	};
+
+	const handleRemovePO = async (po: ProjectPurchaseOrder) => {
+		setIsRemovingPO(po.id);
+		try {
+			await projectService.removePurchaseOrder(String(project.id), po.id);
+			setProjectPOs((prev) => prev.filter((p) => p.id !== po.id));
+			// Re-lock project if no POs and no legacy PO
+			if (projectPOs.length === 1 && !project.poNumber) {
+				handleProjectChange({ ...project, isLockedByPo: true });
+			}
+			toast({ title: "Purchase Order Removed" });
+		} catch {
+			toast({ title: "Error", description: "Failed to remove purchase order.", variant: "destructive" });
+		} finally {
+			setIsRemovingPO(null);
 		}
 	};
 
@@ -657,6 +691,92 @@ export function ProjectOverviewContent({
 				</div>
 			)}
 
+			{/* Purchase Orders Section */}
+			{canManageFinance && (
+				<Card className="border-none shadow-md">
+					<CardHeader>
+						<div className="flex items-center justify-between">
+							<CardTitle className="flex items-center gap-2 text-base">
+								<ClipboardList className="h-5 w-5 text-primary" />
+								Purchase Orders ({projectPOs.length + (project.poNumber ? 1 : 0)})
+							</CardTitle>
+							<Button variant="outline" size="sm" onClick={() => setIsBulkPOOpen(true)}>
+								<Plus className="h-4 w-4 mr-1" />
+								Assign POs
+							</Button>
+						</div>
+					</CardHeader>
+					<CardContent>
+						{projectPOs.length === 0 && !project.poNumber ? (
+							<p className="text-sm text-muted-foreground text-center py-4">
+								No purchase orders linked yet.
+							</p>
+						) : (
+							<div className="space-y-2">
+								{/* Legacy single PO (po_number field) */}
+								{project.poNumber && (
+									<div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+										<div className="flex flex-col gap-0.5">
+											<span className="font-semibold text-sm">{project.poNumber}</span>
+											<span className="text-xs text-muted-foreground">Primary PO</span>
+										</div>
+										{project.poDocumentUrl && (
+											<Button
+												variant="ghost"
+												size="sm"
+												className="text-xs"
+												onClick={() => setIsPOViewOpen(true)}
+											>
+												View
+											</Button>
+										)}
+									</div>
+								)}
+								{/* POs from project_purchase_orders table */}
+								{projectPOs.map((po) => (
+									<div key={po.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+										<div className="flex flex-col gap-0.5">
+											<span className="font-semibold text-sm">{po.poNumber}</span>
+											<div className="flex items-center gap-2">
+												{po.amount !== undefined && (
+													<span className="text-xs text-muted-foreground">
+														{po.currency || "USD"} {Number(po.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+													</span>
+												)}
+												{po.status && (
+													<span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
+														{po.status}
+													</span>
+												)}
+												{po.xeroPoId && (
+													<span className="text-[10px] bg-blue-500/10 text-blue-700 px-1.5 py-0.5 rounded-full">
+														Xero
+													</span>
+												)}
+											</div>
+											{po.notes && (
+												<span className="text-xs text-muted-foreground">{po.notes}</span>
+											)}
+										</div>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7 text-destructive hover:text-destructive"
+											disabled={isRemovingPO === po.id}
+											onClick={() => handleRemovePO(po)}
+										>
+											{isRemovingPO === po.id
+												? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+												: <Trash2 className="h-3.5 w-3.5" />}
+										</Button>
+									</div>
+								))}
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			)}
+
 			{/* Campaign Report Section for Digital Marketing Projects */}
 			<CampaignReportSection
 				project={project}
@@ -675,8 +795,8 @@ export function ProjectOverviewContent({
 					showFilters={true}
 					onInvoiceClick={(invoice) => {
 						console.log('Invoice clicked:', invoice);
-						// TODO: Open invoice detail modal
 					}}
+					onAddInvoice={canManageFinance ? () => setIsAddInvoiceOpen(true) : undefined}
 				/>
 			)}
 
@@ -1061,6 +1181,21 @@ export function ProjectOverviewContent({
 				url={project.invoiceDocumentUrl || ""}
 				project={project}
 				onSuccess={handleProjectChange}
+			/>
+
+			<InvoiceUploadDialog
+				open={isAddInvoiceOpen}
+				onOpenChange={setIsAddInvoiceOpen}
+				project={project}
+				onSuccess={handleProjectChange}
+				completeProject={false}
+			/>
+
+			<BulkPOAssignDialog
+				open={isBulkPOOpen}
+				onOpenChange={setIsBulkPOOpen}
+				project={project}
+				onSuccess={handleBulkPOSuccess}
 			/>
 		</div>
 	);

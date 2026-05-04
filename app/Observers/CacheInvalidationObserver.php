@@ -35,7 +35,7 @@ class CacheInvalidationObserver
     {
         $className = class_basename($model);
         
-        if ($className === 'Project' || $className === 'Stage') {
+        if ($className === 'Project' || $className === 'Stage' || $className === 'ProjectPurchaseOrder') {
             // Use increment to ensure the version always changes, even in the same second
             if (!Cache::has('projects_version')) {
                 Cache::forever('projects_version', 1);

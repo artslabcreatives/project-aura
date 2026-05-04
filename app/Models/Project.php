@@ -163,7 +163,7 @@ class Project extends Model
             return true; // Internal projects don't need PO/Docs
         }
 
-        if (!$this->is_locked_by_po) {
+        if (!$this->is_locked_by_po || $this->purchaseOrders()->exists()) {
             return true; // Official PO has been received
         }
 
@@ -307,6 +307,14 @@ class Project extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Get the purchase orders assigned to this project.
+     */
+    public function purchaseOrders(): HasMany
+    {
+        return $this->hasMany(ProjectPurchaseOrder::class);
     }
 
     /**

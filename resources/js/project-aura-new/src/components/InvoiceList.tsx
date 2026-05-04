@@ -13,10 +13,9 @@ import {
 	Building2,
 	FolderOpen,
 	AlertCircle,
-	Filter,
 	RefreshCw,
 	Download,
-	Eye
+	Plus,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
@@ -25,13 +24,15 @@ interface InvoiceListProps {
 	clientId?: number;
 	showFilters?: boolean;
 	onInvoiceClick?: (invoice: Invoice) => void;
+	onAddInvoice?: () => void;
 }
 
 export function InvoiceList({
 	projectId,
 	clientId,
 	showFilters = true,
-	onInvoiceClick
+	onInvoiceClick,
+	onAddInvoice,
 }: InvoiceListProps) {
 	const [invoices, setInvoices] = useState<Invoice[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -165,6 +166,12 @@ export function InvoiceList({
 									<SelectItem value="xero">Xero Only</SelectItem>
 								</SelectContent>
 							</Select>
+						)}
+						{onAddInvoice && (
+							<Button variant="outline" size="sm" onClick={onAddInvoice}>
+								<Plus className="h-4 w-4 mr-1" />
+								Add Invoice
+							</Button>
 						)}
 						<Button variant="outline" size="sm" onClick={loadInvoices}>
 							<RefreshCw className="h-4 w-4" />

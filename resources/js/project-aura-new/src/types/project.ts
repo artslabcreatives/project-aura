@@ -3,6 +3,18 @@ import { Stage } from "./stage";
 import { ProjectGroup } from "./project-group";
 import { Client } from "./client";
 
+export interface ProjectPurchaseOrder {
+	id: number;
+	projectId: number;
+	poNumber: string;
+	xeroPoId?: string;
+	amount?: number;
+	currency?: string;
+	status?: string;
+	notes?: string;
+	createdAt?: string;
+}
+
 export interface Project {
 	id?: number;
 	name: string;
@@ -52,4 +64,5 @@ export interface Project {
 	profitMarginPercentage?: number;
 	budget_allocated?: number;
 	isInternalProject?: boolean;
+	purchaseOrders?: ProjectPurchaseOrder[];
 }
