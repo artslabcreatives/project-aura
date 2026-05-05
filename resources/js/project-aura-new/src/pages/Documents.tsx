@@ -45,6 +45,7 @@ import {
 import {
     Dialog,
     DialogContent,
+    DialogTitle,
 } from '@/components/ui/dialog';
 
 export default function Documents() {
@@ -333,6 +334,7 @@ export default function Documents() {
             {/* Document Viewer Modal */}
             <Dialog open={!!viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)}>
                 <DialogContent hideCloseButton={true} className="sm:max-w-[800px] p-0 overflow-hidden bg-black/90 border-none">
+                    <DialogTitle className="sr-only">Document Viewer</DialogTitle>
                     <div className="relative group">
                         <Button
                             variant="ghost"

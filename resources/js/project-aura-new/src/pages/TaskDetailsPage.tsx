@@ -45,6 +45,7 @@ import {
 import {
 	Dialog,
 	DialogContent,
+	DialogTitle,
 } from "@/components/ui/dialog";
 import { format, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -1145,6 +1146,7 @@ export default function TaskDetailsPage() {
 			{/* Attachment Viewer Modal */}
 			<Dialog open={!!viewingAttachment} onOpenChange={(open) => !open && setViewingAttachment(null)}>
 				<DialogContent hideCloseButton={true} className="sm:max-w-[800px] p-0 overflow-hidden bg-black/90 border-none">
+					<DialogTitle className="sr-only">Attachment Viewer</DialogTitle>
 					<div className="relative group">
 						<Button
 							variant="ghost"
