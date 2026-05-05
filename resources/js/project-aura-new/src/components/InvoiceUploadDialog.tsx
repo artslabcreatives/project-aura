@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
 import { Project } from "@/types/project";
+import { Invoice } from "@/types/financial";
 import { Loader2, UploadCloud, File as FileIcon, X, Mail, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -18,6 +19,7 @@ interface InvoiceUploadDialogProps {
 	onSuccess: (updatedProject: Project) => void;
 	/** When false, adds an invoice without completing the project. Defaults to true. */
 	completeProject?: boolean;
+	invoice?: Invoice;
 }
 
 export function InvoiceUploadDialog({
@@ -26,6 +28,7 @@ export function InvoiceUploadDialog({
 	project,
 	onSuccess,
 	completeProject = true,
+	invoice,
 }: InvoiceUploadDialogProps) {
 	const { toast } = useToast();
 	const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -41,62 +44,105 @@ export function InvoiceUploadDialog({
 	const [invoiceType, setInvoiceType] = useState<string>("Complete");
 	const [customInvoiceType, setCustomInvoiceType] = useState("");
 
-	const handleUpload = async (e: React.FormEvent) => {
+	// Initialize form when invoice prop changes or dialog opens
+	useEffect(() => {
+		if (open) {
+			if (invoice) {
+				setInvoiceNumber(invoice.invoiceNumber || "");
+				setAmount(invoice.amount?.toString() || "");
+				setCurrency(invoice.currency || project.currency || "LKR");
+				setDueDate(invoice.dueDate?.split('T')[0] || "");
+				setIsPhysicalInvoice(!!invoice.isPhysicalInvoice);
+				setCourierTrackingNumber(invoice.courierTrackingNumber || "");
+				
+				const knownTypes = ["Advance", "Milestone", "Complete"];
+				if (invoice.invoiceType && knownTypes.includes(invoice.invoiceType)) {
+					setInvoiceType(invoice.invoiceType);
+					setCustomInvoiceType("");
+				} else if (invoice.invoiceType) {
+					setInvoiceType("custom");
+					setCustomInvoiceType(invoice.invoiceType);
+				}
+				setInvoiceDocument(undefined);
+			} else {
+				resetForm();
+			}
+		}
+	}, [invoice, project, open]);
+
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsUploading(true);
 		try {
 			let updatedProject = project;
 
-			if (completeProject) {
-				// Update project status to completed and set legacy invoice fields
-				updatedProject = await projectService.update(String(project.id), {
-					status: 'completed',
-					invoice_number: invoiceNumber,
-					invoice_document: invoiceDocument,
+			if (invoice) {
+				// Update existing invoice
+				await invoiceService.update(invoice.id, {
+					invoiceNumber: invoiceNumber,
+					invoiceType: invoiceType === 'custom' ? customInvoiceType : invoiceType,
+					invoiceDocument: invoiceDocument, // Only if new file selected
 					isPhysicalInvoice: isPhysicalInvoice,
 					courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
+					amount: amount ? parseFloat(amount) : undefined,
+					currency: currency,
+					dueDate: dueDate || undefined,
 				});
-			}
+			} else {
+				// Create new invoice
+				if (completeProject) {
+					// Update project status to completed and set legacy invoice fields
+					updatedProject = await projectService.update(String(project.id), {
+						status: 'completed',
+						invoice_number: invoiceNumber,
+						invoice_document: invoiceDocument,
+						isPhysicalInvoice: isPhysicalInvoice,
+						courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
+					});
+				}
 
-			// Create Invoice record in the unified invoices table
-			await invoiceService.create({
-				source: 'manual',
-				projectId: project.id,
-				clientId: project.clientId,
-				invoiceNumber: invoiceNumber,
-				invoiceType: invoiceType === 'custom' ? customInvoiceType : invoiceType,
-				invoiceDocument: invoiceDocument,
-				isPhysicalInvoice: isPhysicalInvoice,
-				courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
-				status: isPhysicalInvoice ? 'pending' : 'sent',
-				amount: amount ? parseFloat(amount) : undefined,
-				currency: currency || project.currency || 'LKR',
-				issuedAt: new Date().toISOString().split('T')[0],
-				dueDate: dueDate || undefined,
-				description: `Invoice for project: ${project.name}`,
-			});
+				// Create Invoice record in the unified invoices table
+				await invoiceService.create({
+					source: 'manual',
+					projectId: project.id,
+					clientId: project.clientId,
+					invoiceNumber: invoiceNumber,
+					invoiceType: invoiceType === 'custom' ? customInvoiceType : invoiceType,
+					invoiceDocument: invoiceDocument,
+					isPhysicalInvoice: isPhysicalInvoice,
+					courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
+					status: isPhysicalInvoice ? 'pending' : 'sent',
+					amount: amount ? parseFloat(amount) : undefined,
+					currency: currency || project.currency || 'LKR',
+					issuedAt: new Date().toISOString().split('T')[0],
+					dueDate: dueDate || undefined,
+					description: `Invoice for project: ${project.name}`,
+				});
 
-			// Simulate sending email only if NOT physical and completing the project
-			if (completeProject && !isPhysicalInvoice) {
-				setIsSendingEmail(true);
-				await new Promise(resolve => setTimeout(resolve, 1500));
-				setIsSendingEmail(false);
+				// Simulate sending email only if NOT physical and completing the project
+				if (completeProject && !isPhysicalInvoice) {
+					setIsSendingEmail(true);
+					await new Promise(resolve => setTimeout(resolve, 1500));
+					setIsSendingEmail(false);
+				}
 			}
 
 			onSuccess(updatedProject);
 			onOpenChange(false);
 			resetForm();
 			toast({
-				title: completeProject ? "Invoice Uploaded" : "Invoice Added",
-				description: completeProject
-					? (isPhysicalInvoice
-						? "Invoice has been uploaded. Tracking info is available in the invoice viewer."
-						: "Invoice has been uploaded and email sent to the client.")
-					: "Invoice has been added to this project.",
+				title: invoice ? "Invoice Updated" : (completeProject ? "Invoice Uploaded" : "Invoice Added"),
+				description: invoice 
+					? "Invoice details have been updated."
+					: (completeProject
+						? (isPhysicalInvoice
+							? "Invoice has been uploaded. Tracking info is available in the invoice viewer."
+							: "Invoice has been uploaded and email sent to the client.")
+						: "Invoice has been added to this project."),
 			});
 		} catch (error) {
-			console.error("Failed to upload invoice:", error);
-			const errorData = error.response?.data;
+			console.error("Failed to save invoice:", error);
+			const errorData = (error as any).response?.data;
 			const message = errorData?.errors 
 				? Object.values(errorData.errors).flat().join(', ') 
 				: (errorData?.message || "Failed to save invoice.");
@@ -119,7 +165,7 @@ export function InvoiceUploadDialog({
 		setCustomInvoiceType("");
 	};
 
-	const canSubmit = invoiceNumber.trim() !== "" && !!invoiceDocument;
+	const canSubmit = invoiceNumber.trim() !== "" && (!!invoice || !!invoiceDocument);
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
@@ -128,13 +174,15 @@ export function InvoiceUploadDialog({
 				onPointerDownOutside={(e) => e.preventDefault()}
 				onInteractOutside={(e) => e.preventDefault()}
 			>
-				<form onSubmit={handleUpload}>
+				<form onSubmit={handleSubmit}>
 					<DialogHeader>
-						<DialogTitle>{completeProject ? "Upload Invoice" : "Add Invoice"}</DialogTitle>
+						<DialogTitle>{invoice ? "Edit Invoice" : (completeProject ? "Upload Invoice" : "Add Invoice")}</DialogTitle>
 						<DialogDescription>
-							{completeProject
-								? `Complete the project by uploading the final invoice. Linked to PO: ${project.poNumber || "N/A"}.`
-								: `Add an additional invoice record to ${project.name}.`}
+							{invoice 
+								? `Updating details for invoice ${invoice.invoiceNumber}.`
+								: (completeProject
+									? `Complete the project by uploading the final invoice. Linked to PO: ${project.poNumber || "N/A"}.`
+									: `Add an additional invoice record to ${project.name}.`)}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-4">
@@ -251,7 +299,9 @@ export function InvoiceUploadDialog({
 						)}
 
 						<div className="grid gap-2">
-							<Label htmlFor="invoiceDocument">Upload Invoice Document *</Label>
+							<Label htmlFor="invoiceDocument">
+								{invoice ? "Replace Invoice Document (Optional)" : "Upload Invoice Document *"}
+							</Label>
 							<div
 								className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors
 								${isDragging ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50'}`}
@@ -315,11 +365,11 @@ export function InvoiceUploadDialog({
 						</Button>
 						<Button type="submit" disabled={isUploading || isSendingEmail || !canSubmit}>
 							{isUploading ? (
-								<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
+								<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
 							) : isSendingEmail ? (
 								<><Mail className="mr-2 h-4 w-4 animate-pulse" />Sending Email...</>
 							) : (
-								completeProject ? "Upload & Complete" : "Add Invoice"
+								invoice ? "Update Invoice" : (completeProject ? "Upload & Complete" : "Add Invoice")
 							)}
 						</Button>
 					</DialogFooter>

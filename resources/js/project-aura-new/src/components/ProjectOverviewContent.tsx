@@ -51,8 +51,19 @@ import { ProjectProfitability } from "@/components/ProjectProfitability";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { InvoiceList } from "@/components/InvoiceList";
 import { BulkPOAssignDialog } from "@/components/BulkPOAssignDialog";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ProjectPurchaseOrder } from "@/types/project";
 import { Invoice } from "@/types/financial";
+import { invoiceService } from "@/services/invoiceService";
 
 interface ProjectOverviewContentProps {
 	project: Project;
@@ -83,6 +94,8 @@ export function ProjectOverviewContent({
 	const [isInvoiceViewOpen, setIsInvoiceViewOpen] = useState(false);
 	const [isBulkPOOpen, setIsBulkPOOpen] = useState(false);
 	const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
+	const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | undefined>();
+	const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | undefined>();
 	const [projectPOs, setProjectPOs] = useState<ProjectPurchaseOrder[]>(project.purchaseOrders || []);
 	const [isRemovingPO, setIsRemovingPO] = useState<number | null>(null);
 	const { toast } = useToast();
@@ -145,6 +158,20 @@ export function ProjectOverviewContent({
 			return "Backlog";
 		}
 		return title;
+	};
+
+	const handleDeleteInvoice = async () => {
+		if (!invoiceToDelete) return;
+		try {
+			await invoiceService.delete(invoiceToDelete.id);
+			toast({ title: "Invoice Deleted", description: "The invoice has been removed." });
+			setInvoiceToDelete(undefined);
+			// Refresh project data
+			handleProjectChange(project);
+		} catch (error) {
+			console.error("Failed to delete invoice:", error);
+			toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
+		}
 	};
 
 	const isDigitalMarketing =
@@ -799,7 +826,17 @@ export function ProjectOverviewContent({
 						setSelectedInvoice(invoice);
 						setIsInvoiceViewOpen(true);
 					}}
-					onAddInvoice={canManageFinance ? () => setIsAddInvoiceOpen(true) : undefined}
+					onAddInvoice={canManageFinance ? () => {
+						setInvoiceToEdit(undefined);
+						setIsAddInvoiceOpen(true);
+					} : undefined}
+					onEditInvoice={canManageFinance ? (invoice) => {
+						setInvoiceToEdit(invoice);
+						setIsAddInvoiceOpen(true);
+					} : undefined}
+					onDeleteInvoice={canManageFinance ? (invoice) => {
+						setInvoiceToDelete(invoice);
+					} : undefined}
 				/>
 			)}
 
@@ -1201,11 +1238,36 @@ export function ProjectOverviewContent({
 
 			<InvoiceUploadDialog
 				open={isAddInvoiceOpen}
-				onOpenChange={setIsAddInvoiceOpen}
+				onOpenChange={(open) => {
+					setIsAddInvoiceOpen(open);
+					if (!open) setInvoiceToEdit(undefined);
+				}}
 				project={project}
-				onSuccess={handleProjectChange}
+				invoice={invoiceToEdit}
+				onSuccess={(updated) => {
+					handleProjectChange(updated);
+					// If we were editing, the list will refresh because handleProjectChange triggers a reload
+				}}
 				completeProject={false}
 			/>
+
+			<AlertDialog open={!!invoiceToDelete} onOpenChange={(open) => { if (!open) setInvoiceToDelete(undefined); }}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This will permanently delete invoice {invoiceToDelete?.invoiceNumber || "this invoice"}.
+							This action cannot be undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={handleDeleteInvoice} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<BulkPOAssignDialog
 				open={isBulkPOOpen}

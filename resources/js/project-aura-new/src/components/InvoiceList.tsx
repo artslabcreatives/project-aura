@@ -17,6 +17,8 @@ import {
 	Download,
 	Plus,
 	Eye,
+	Edit2,
+	Trash2,
 } from 'lucide-react';
 
 interface InvoiceListProps {
@@ -25,6 +27,8 @@ interface InvoiceListProps {
 	showFilters?: boolean;
 	onInvoiceClick?: (invoice: Invoice) => void;
 	onAddInvoice?: () => void;
+	onEditInvoice?: (invoice: Invoice) => void;
+	onDeleteInvoice?: (invoice: Invoice) => void;
 }
 
 export function InvoiceList({
@@ -33,6 +37,8 @@ export function InvoiceList({
 	showFilters = true,
 	onInvoiceClick,
 	onAddInvoice,
+	onEditInvoice,
+	onDeleteInvoice,
 }: InvoiceListProps) {
 	const [invoices, setInvoices] = useState<Invoice[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -180,7 +186,6 @@ export function InvoiceList({
 							>
 								<div className="flex-1">
 									<div className="flex items-center gap-2 mb-2">
-										{getSourceBadge(invoice.source)}
 										<span className="font-semibold text-sm">
 											{invoice.invoiceNumber || `#${invoice.id}`}
 										</span>
@@ -231,8 +236,32 @@ export function InvoiceList({
 											{invoice.currency}
 										</p>
 									</div>
-									<div className="p-2 rounded-full hover:bg-primary/10 transition-colors">
+									<div 
+										className="p-2 rounded-full hover:bg-primary/10 transition-colors"
+										onClick={(e) => {
+											e.stopPropagation();
+											onInvoiceClick?.(invoice);
+										}}
+									>
 										<Eye className="h-4 w-4 text-primary" />
+									</div>
+									<div 
+										className="p-2 rounded-full hover:bg-amber-500/10 transition-colors"
+										onClick={(e) => {
+											e.stopPropagation();
+											onEditInvoice?.(invoice);
+										}}
+									>
+										<Edit2 className="h-4 w-4 text-amber-500" />
+									</div>
+									<div 
+										className="p-2 rounded-full hover:bg-rose-500/10 transition-colors"
+										onClick={(e) => {
+											e.stopPropagation();
+											onDeleteInvoice?.(invoice);
+										}}
+									>
+										<Trash2 className="h-4 w-4 text-rose-500" />
 									</div>
 								</div>
 							</div>
