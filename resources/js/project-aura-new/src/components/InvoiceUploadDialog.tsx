@@ -31,7 +31,7 @@ export function InvoiceUploadDialog({
 	const [invoiceNumber, setInvoiceNumber] = useState("");
 	const [invoiceDocument, setInvoiceDocument] = useState<File | undefined>();
 	const [amount, setAmount] = useState("");
-	const [currency, setCurrency] = useState(project.currency || "USD");
+	const [currency, setCurrency] = useState(project.currency || "LKR");
 	const [dueDate, setDueDate] = useState("");
 	const [isUploading, setIsUploading] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
@@ -70,7 +70,7 @@ export function InvoiceUploadDialog({
 				courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
 				status: isPhysicalInvoice ? 'pending' : 'sent',
 				amount: amount ? parseFloat(amount) : undefined,
-				currency: currency || project.currency || 'USD',
+				currency: currency || project.currency || 'LKR',
 				issuedAt: new Date().toISOString().split('T')[0],
 				dueDate: dueDate || undefined,
 				description: `Invoice for project: ${project.name}`,
@@ -107,7 +107,7 @@ export function InvoiceUploadDialog({
 		setInvoiceNumber("");
 		setInvoiceDocument(undefined);
 		setAmount("");
-		setCurrency(project.currency || "USD");
+		setCurrency(project.currency || "LKR");
 		setDueDate("");
 		setIsPhysicalInvoice(false);
 		setCourierTrackingNumber("");
@@ -191,13 +191,15 @@ export function InvoiceUploadDialog({
 							</div>
 							<div className="grid gap-2">
 								<Label htmlFor="currency">Currency</Label>
-								<Input
-									id="currency"
-									value={currency}
-									onChange={(e) => setCurrency(e.target.value)}
-									placeholder="USD"
-									maxLength={10}
-								/>
+								<Select value={currency} onValueChange={setCurrency}>
+									<SelectTrigger id="currency">
+										<SelectValue placeholder="LKR" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="LKR">LKR</SelectItem>
+										<SelectItem value="USD">USD</SelectItem>
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
 

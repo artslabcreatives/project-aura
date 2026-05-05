@@ -465,7 +465,7 @@ export function ProjectDialog({
 		poNumber: "",
 		deadline: "",
 		poDocument: undefined,
-		currency: "USD",
+		currency: "LKR",
 		isInternalProject: true,
 	});
 	const [clients, setClients] = useState<ClientType[]>([]);
@@ -579,11 +579,11 @@ export function ProjectDialog({
 				]);
 				setEmails([]);
 				setPhoneNumbers([]);
-				setFormData(prev => ({ ...prev, currency: "USD" }));
+				setFormData(prev => ({ ...prev, currency: "LKR" }));
 			}
 		} else {
 			setGroupId("");
-			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", deadline: "", poDocument: undefined, currency: "USD", isInternalProject: true });
+			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", deadline: "", poDocument: undefined, currency: "LKR", isInternalProject: true });
 			setStages([]);
 			setEmails([]);
 			setPhoneNumbers([]);
@@ -905,8 +905,8 @@ export function ProjectDialog({
 												<SelectValue placeholder="Select currency" />
 											</SelectTrigger>
 											<SelectContent>
+												<SelectItem value="LKR">LKR (Rs)</SelectItem>
 												<SelectItem value="USD">USD ($)</SelectItem>
-												<SelectItem value="LKR">LKR (Rs.)</SelectItem>
 											</SelectContent>
 										</Select>
 									</div>

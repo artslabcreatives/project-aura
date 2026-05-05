@@ -84,7 +84,7 @@ class Project extends Model
     ];
 
     protected $attributes = [
-        'currency' => 'USD',
+        'currency' => 'LKR',
     ];
 
     protected $appends = [

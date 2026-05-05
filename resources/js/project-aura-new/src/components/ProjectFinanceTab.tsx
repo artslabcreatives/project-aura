@@ -340,20 +340,20 @@ export function ProjectFinanceTab({ project, onBudgetUpdate }: ProjectFinanceTab
 							<div>
 								<p className="text-muted-foreground text-xs mb-0.5">Allocated</p>
 								<p className="font-semibold text-lg">
-									{budget?.allocated ? `${project.currency ?? 'USD'} ${parseFloat(budget.allocated).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+									{budget?.allocated ? `${project.currency ?? 'LKR'} ${parseFloat(budget.allocated).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
 								</p>
 							</div>
 							<div>
 								<p className="text-muted-foreground text-xs mb-0.5">Spent (approved)</p>
 								<p className={`font-semibold text-lg ${budgetOverrun ? 'text-destructive' : ''}`}>
-									{project.currency ?? 'USD'} {parseFloat(budget?.spent ?? '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}
+									{project.currency ?? 'LKR'} {parseFloat(budget?.spent ?? '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}
 								</p>
 							</div>
 							<div>
 								<p className="text-muted-foreground text-xs mb-0.5">Remaining</p>
 								<p className={`font-semibold text-lg ${budgetOverrun ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
 									{budget?.remaining != null
-										? `${project.currency ?? 'USD'} ${parseFloat(budget.remaining).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+										? `${project.currency ?? 'LKR'} ${parseFloat(budget.remaining).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 										: '—'}
 								</p>
 							</div>

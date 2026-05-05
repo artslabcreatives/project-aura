@@ -17,7 +17,6 @@ import {
 	Download,
 	Plus,
 } from 'lucide-react';
-import { Plus } from 'lucide-react';
 
 interface InvoiceListProps {
 	projectId?: number;
@@ -65,7 +64,7 @@ export function InvoiceList({
 		if (amount === undefined) return 'N/A';
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
-			currency: currency || 'USD',
+			currency: currency || 'LKR',
 		}).format(amount);
 	};
 
