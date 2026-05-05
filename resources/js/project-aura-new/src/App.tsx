@@ -7,15 +7,15 @@ import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useLocation } 
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import SimpleLayout from "@/components/SimpleLayout";
-import UserDashboard from "./pages/UserDashboard";
-import Tasks from "./pages/Tasks";
-import Team from "./pages/Team";
-import NotFound from "./pages/NotFound";
-import ProjectKanbanFixed from "./pages/ProjectKanbanFixed";
-import ProjectOverview from "./pages/ProjectOverview";
-import Emails from "./pages/Emails";
-import UserProjectStageTasks from "./pages/UserProjectStageTasks";
-import FilteredTasksPage from "./pages/FilteredTasksPage";
+const UserDashboard = lazy(() => import("./pages/UserDashboard"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const Team = lazy(() => import("./pages/Team"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const ProjectKanbanFixed = lazy(() => import("./pages/ProjectKanbanFixed"));
+const ProjectOverview = lazy(() => import("./pages/ProjectOverview"));
+const Emails = lazy(() => import("./pages/Emails"));
+const UserProjectStageTasks = lazy(() => import("./pages/UserProjectStageTasks"));
+const FilteredTasksPage = lazy(() => import("./pages/FilteredTasksPage"));
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { Login } from "@/components/Login";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ import { VideoGuideModal } from "@/components/VideoGuideModal";
 import { api } from "@/lib/api";
 
 import { Bug } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { ReportIssueDialog } from "@/components/ReportIssueDialog";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { UserProfileMenu } from "@/components/UserProfileMenu";
@@ -249,27 +249,27 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 	return <>{children}</>;
 };
 
-import TaskDetailsPage from "./pages/TaskDetailsPage";
-import ReviewNeededPage from "./pages/ReviewNeededPage";
-import HRDashboard from "./pages/HRDashboard";
-import Profile from "./pages/Profile";
-import Configuration from "./pages/Configuration";
-import { SetPassword } from "./pages/SetPassword";
-import { MattermostChat } from "./pages/MattermostChat";
-import { ResetPasswordPage } from "./pages/ResetPasswordPage";
-import Reminders from "./pages/Reminders";
-import Clients from "./pages/Clients";
-import ClientProfile from "./pages/ClientProfile";
-import Estimates from "./pages/Estimates";
-import EstimateDetail from "./pages/EstimateDetail";
-import TaskEfficiency from "./pages/TaskEfficiency";
-import DepartmentEfficiency from "./pages/DepartmentEfficiency";
-import { PublicMattermostChat } from "./pages/PublicMattermostChat";
+const TaskDetailsPage = lazy(() => import("./pages/TaskDetailsPage"));
+const ReviewNeededPage = lazy(() => import("./pages/ReviewNeededPage"));
+const HRDashboard = lazy(() => import("./pages/HRDashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Configuration = lazy(() => import("./pages/Configuration"));
+const SetPassword = lazy(() => import("./pages/SetPassword").then(m => ({ default: m.SetPassword })));
+const MattermostChat = lazy(() => import("./pages/MattermostChat").then(m => ({ default: m.MattermostChat })));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
+const Reminders = lazy(() => import("./pages/Reminders"));
+const Clients = lazy(() => import("./pages/Clients"));
+const ClientProfile = lazy(() => import("./pages/ClientProfile"));
+const Estimates = lazy(() => import("./pages/Estimates"));
+const EstimateDetail = lazy(() => import("./pages/EstimateDetail"));
+const TaskEfficiency = lazy(() => import("./pages/TaskEfficiency"));
+const DepartmentEfficiency = lazy(() => import("./pages/DepartmentEfficiency"));
+const PublicMattermostChat = lazy(() => import("./pages/PublicMattermostChat").then(m => ({ default: m.PublicMattermostChat })));
 import { ReminderPoller } from "./components/ReminderPoller";
-import SSOAuthorize from "./pages/SSOAuthorize";
-import SSOClients from "./pages/SSOClients";
-import ReportManagement from "./pages/ReportManagement";
-import Documents from "./pages/Documents";
+const SSOAuthorize = lazy(() => import("./pages/SSOAuthorize"));
+const SSOClients = lazy(() => import("./pages/SSOClients"));
+const ReportManagement = lazy(() => import("./pages/ReportManagement"));
+const Documents = lazy(() => import("./pages/Documents"));
 
 const Dashboard = () => {
 	const { activeRole } = useUser();
@@ -290,112 +290,114 @@ const App = () => (
 				<UploadManagerPopup />
 				<BrowserRouter>
 					<AuthWrapper>
-						<Routes>
-							{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
-							<Route path="/chat" element={<PublicMattermostChat />} />
+						<Suspense fallback={<Loading />}>
+							<Routes>
+								{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
+								<Route path="/chat" element={<PublicMattermostChat />} />
 
-							{/* Public-ish routes handled by AuthWrapper skip logic */}
-							<Route path="/reset-password" element={<ResetPasswordPage />} />
-							<Route path="/set-password" element={<SetPassword />} />
+								{/* Public-ish routes handled by AuthWrapper skip logic */}
+								<Route path="/reset-password" element={<ResetPasswordPage />} />
+								<Route path="/set-password" element={<SetPassword />} />
 
-							{/* SSO authorize consent page — manages its own auth */}
-							<Route path="/sso/authorize" element={<SSOAuthorize />} />
-							<Route path="/oauth/authorize" element={<SSOAuthorize />} />
-							{/* Regular routes */}
-							<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-							<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
-							<Route path="/tasks" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
-									<AppLayout><Tasks /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/tasks/filter/:filterType" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
-									<AppLayout><FilteredTasksPage /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
-							<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
-							<Route path="/project/:projectId/overview" element={<AppLayout><ProjectOverview /></AppLayout>} />
-							<Route path="/team" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
-									<AppLayout><Team /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
-							<Route path="/review-needed" element={
-								<ProtectedRoute allowedRoles={['account-manager']}>
-									<AppLayout><ReviewNeededPage /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
-							<Route path="/reports" element={
-								<ProtectedRoute allowedRoles={['admin', 'hr', 'team-lead', 'user', 'account-manager']}>
-									<AppLayout><ReportManagement /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
-							<Route path="/task-efficiency" element={<AppLayout><TaskEfficiency /></AppLayout>} />
-							<Route path="/department-efficiency" element={<AppLayout><DepartmentEfficiency /></AppLayout>} />
-							<Route path="/reminders" element={<AppLayout><Reminders /></AppLayout>} />
-							<Route path="/clients" element={
-								<ProtectedRoute allowedRoles={['admin', 'hr']}>
-									<AppLayout><Clients /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/clients/:id" element={
-								<ProtectedRoute allowedRoles={['admin', 'hr']}>
-									<AppLayout><ClientProfile /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/estimates" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
-									<AppLayout><Estimates /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/estimates/:estimateId" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
-									<AppLayout><EstimateDetail /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/emails" element={<AppLayout><Emails /></AppLayout>} />
-							<Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
-							<Route path="/sso/clients" element={
-								<ProtectedRoute allowedRoles={['admin']}>
-									<AppLayout><SSOClients /></AppLayout>
-								</ProtectedRoute>
-							} />
+								{/* SSO authorize consent page — manages its own auth */}
+								<Route path="/sso/authorize" element={<SSOAuthorize />} />
+								<Route path="/oauth/authorize" element={<SSOAuthorize />} />
+								{/* Regular routes */}
+								<Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
+								<Route path="/mattermost-chat" element={<AppLayout><MattermostChat /></AppLayout>} />
+								<Route path="/tasks" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+										<AppLayout><Tasks /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/tasks/filter/:filterType" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
+										<AppLayout><FilteredTasksPage /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
+								<Route path="/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
+								<Route path="/project/:projectId/overview" element={<AppLayout><ProjectOverview /></AppLayout>} />
+								<Route path="/team" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
+										<AppLayout><Team /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
+								<Route path="/review-needed" element={
+									<ProtectedRoute allowedRoles={['account-manager']}>
+										<AppLayout><ReviewNeededPage /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
+								<Route path="/reports" element={
+									<ProtectedRoute allowedRoles={['admin', 'hr', 'team-lead', 'user', 'account-manager']}>
+										<AppLayout><ReportManagement /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/configuration" element={<AppLayout><Configuration /></AppLayout>} />
+								<Route path="/task-efficiency" element={<AppLayout><TaskEfficiency /></AppLayout>} />
+								<Route path="/department-efficiency" element={<AppLayout><DepartmentEfficiency /></AppLayout>} />
+								<Route path="/reminders" element={<AppLayout><Reminders /></AppLayout>} />
+								<Route path="/clients" element={
+									<ProtectedRoute allowedRoles={['admin', 'hr']}>
+										<AppLayout><Clients /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/clients/:id" element={
+									<ProtectedRoute allowedRoles={['admin', 'hr']}>
+										<AppLayout><ClientProfile /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/estimates" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
+										<AppLayout><Estimates /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/estimates/:estimateId" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
+										<AppLayout><EstimateDetail /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/emails" element={<AppLayout><Emails /></AppLayout>} />
+								<Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
+								<Route path="/sso/clients" element={
+									<ProtectedRoute allowedRoles={['admin']}>
+										<AppLayout><SSOClients /></AppLayout>
+									</ProtectedRoute>
+								} />
 
-							{/* Mattermost embedded routes (with /mattermost prefix) */}
-							<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />
-							<Route path="/mattermost/reminders" element={<AppLayout><Reminders /></AppLayout>} />
-							<Route path="/mattermost/tasks" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
-									<AppLayout><Tasks /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/mattermost/tasks/filter/:filterType" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
-									<AppLayout><FilteredTasksPage /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/mattermost/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
-							<Route path="/mattermost/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
-							<Route path="/mattermost/team" element={
-								<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
-									<AppLayout><Team /></AppLayout>
-								</ProtectedRoute>
-							} />
-							<Route path="/mattermost/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
-							<Route path="/mattermost/review-needed" element={
-								<ProtectedRoute allowedRoles={['account-manager']}>
-									<AppLayout><ReviewNeededPage /></AppLayout>
-								</ProtectedRoute>
-							} />
+								{/* Mattermost embedded routes (with /mattermost prefix) */}
+								<Route path="/mattermost" element={<AppLayout><Dashboard /></AppLayout>} />
+								<Route path="/mattermost/reminders" element={<AppLayout><Reminders /></AppLayout>} />
+								<Route path="/mattermost/tasks" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead']}>
+										<AppLayout><Tasks /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/mattermost/tasks/filter/:filterType" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'user']}>
+										<AppLayout><FilteredTasksPage /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/mattermost/tasks/:taskId" element={<AppLayout><TaskDetailsPage /></AppLayout>} />
+								<Route path="/mattermost/project/:projectId" element={<AppLayout><ProjectKanbanFixed /></AppLayout>} />
+								<Route path="/mattermost/team" element={
+									<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
+										<AppLayout><Team /></AppLayout>
+									</ProtectedRoute>
+								} />
+								<Route path="/mattermost/user-project/:projectId/stage/:stageId" element={<AppLayout><UserProjectStageTasks /></AppLayout>} />
+								<Route path="/mattermost/review-needed" element={
+									<ProtectedRoute allowedRoles={['account-manager']}>
+										<AppLayout><ReviewNeededPage /></AppLayout>
+									</ProtectedRoute>
+								} />
 
-							{/* Catch-all for 404 */}
-							<Route path="*" element={<NotFound />} />
-						</Routes>
+								{/* Catch-all for 404 */}
+								<Route path="*" element={<NotFound />} />
+							</Routes>
+						</Suspense>
 					</AuthWrapper>
 				</BrowserRouter>
 			</TooltipProvider>
