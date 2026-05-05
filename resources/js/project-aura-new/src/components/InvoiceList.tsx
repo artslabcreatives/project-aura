@@ -17,7 +17,7 @@ import {
 	Download,
 	Plus,
 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Plus } from 'lucide-react';
 
 interface InvoiceListProps {
 	projectId?: number;
@@ -147,25 +147,11 @@ export function InvoiceList({
 							Invoices ({invoices.length})
 						</CardTitle>
 						<CardDescription>
-							Unified view of manual and Xero invoices
+							View and manage manual invoices
 						</CardDescription>
 					</div>
 					<div className="flex items-center gap-2">
-						{showFilters && (
-							<Select
-								value={filters.source || 'all'}
-								onValueChange={(value) =>
-									setFilters({ ...filters, source: value === 'all' ? undefined : value as InvoiceSource })
-								}
-							>
-								<SelectTrigger className="w-36">
-									<SelectValue placeholder="Manual Only" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="manual">Manual Only</SelectItem>
-								</SelectContent>
-							</Select>
-						)}
+
 						{onAddInvoice && (
 							<Button variant="outline" size="sm" onClick={onAddInvoice}>
 								<Plus className="h-4 w-4 mr-1" />
