@@ -56,7 +56,7 @@ class ProjectController extends Controller
                 ->with([
                     'department:id,name',
                     'group:id,name,department_id',
-                    'client:id,name',
+                    'client:id,company_name',
                     'stages' => function ($query) {
                         $query->select(['id', 'title', 'project_id', 'color', 'type', 'order'])
                               ->where('type', 'project');
