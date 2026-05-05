@@ -32,11 +32,27 @@ class ApiClient {
 		const headers: Record<string, string> = {
 			'Accept': 'application/json',
 			...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-			...options?.headers,
 		};
 
-		// Only set Content-Type for non-FormData requests
-		if (!isFormData && !headers['Content-Type']) {
+		if (options?.headers) {
+			const extraHeaders = options.headers;
+			if (extraHeaders instanceof Headers) {
+				extraHeaders.forEach((value, key) => {
+					headers[key] = value;
+				});
+			} else if (Array.isArray(extraHeaders)) {
+				extraHeaders.forEach(([key, value]) => {
+					headers[key] = value;
+				});
+			} else {
+				Object.assign(headers, extraHeaders as Record<string, string>);
+			}
+		}
+
+		// Don't set Content-Type for FormData - browser will set it with boundary
+		if (isFormData) {
+			delete headers['Content-Type'];
+		} else if (!headers['Content-Type']) {
 			headers['Content-Type'] = 'application/json';
 		}
 

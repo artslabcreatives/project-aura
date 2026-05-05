@@ -20,9 +20,7 @@ export const reportService = {
         if (data.description) formData.append('description', data.description);
         formData.append('report_file', data.report_file);
 
-        const response = await api.post('/reports', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post('/reports', formData);
         return response.data;
     },
 
@@ -32,9 +30,7 @@ export const reportService = {
         if (data.description) formData.append('description', data.description);
         if (data.report_file) formData.append('report_file', data.report_file);
 
-        const response = await api.post(`/reports/${id}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post(`/reports/${id}`, formData);
         return response.data;
     },
 

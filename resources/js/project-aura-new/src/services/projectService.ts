@@ -197,8 +197,7 @@ export const projectService = {
 			};
 		}
 
-		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
-		const { data } = await api.post('/projects', payload, config);
+		const { data } = await api.post('/projects', payload);
 		const projectResult = mapProject(data);
 		cacheService.set(`project_${projectResult.id}`, projectResult);
 		return projectResult;
@@ -270,9 +269,8 @@ export const projectService = {
 			};
 		}
 
-		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
 		const method = isFormData ? 'post' : 'put';
-		const { data } = await api[method](`/projects/${id}`, payload, config);
+		const { data } = await api[method](`/projects/${id}`, payload);
 		return mapProject(data);
 	},
 
@@ -312,9 +310,7 @@ export const projectService = {
 	uploadCampaignReport: async (id: string, file: File): Promise<Project> => {
 		const formData = new FormData();
 		formData.append('report', file);
-		const { data } = await api.post(`/projects/${id}/campaign-report`, formData, {
-			headers: { 'Content-Type': 'multipart/form-data' }
-		});
+		const { data } = await api.post(`/projects/${id}/campaign-report`, formData);
 		return mapProject(data);
 	},
 

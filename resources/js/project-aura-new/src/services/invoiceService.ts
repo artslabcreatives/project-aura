@@ -170,8 +170,7 @@ export const invoiceService = {
 			};
 		}
 
-		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
-		const response = await api.post<any>('/invoices', payload, config);
+		const response = await api.post<any>('/invoices', payload);
 		return transformInvoice(response as any);
 	},
 
