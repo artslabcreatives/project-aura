@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
 import { Project } from "@/types/project";
-import { Loader2, UploadCloud, File as FileIcon, X, Mail } from "lucide-react";
+import { Loader2, UploadCloud, File as FileIcon, X, Mail, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface InvoiceUploadDialogProps {
 	open: boolean;
@@ -37,6 +38,8 @@ export function InvoiceUploadDialog({
 	const [isSendingEmail, setIsSendingEmail] = useState(false);
 	const [isPhysicalInvoice, setIsPhysicalInvoice] = useState(false);
 	const [courierTrackingNumber, setCourierTrackingNumber] = useState("");
+	const [invoiceType, setInvoiceType] = useState<string>("Complete");
+	const [customInvoiceType, setCustomInvoiceType] = useState("");
 
 	const handleUpload = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -61,6 +64,7 @@ export function InvoiceUploadDialog({
 				projectId: project.id,
 				clientId: project.clientId,
 				invoiceNumber: invoiceNumber,
+				invoiceType: invoiceType === 'custom' ? customInvoiceType : invoiceType,
 				invoiceDocument: invoiceDocument,
 				isPhysicalInvoice: isPhysicalInvoice,
 				courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
@@ -107,6 +111,8 @@ export function InvoiceUploadDialog({
 		setDueDate("");
 		setIsPhysicalInvoice(false);
 		setCourierTrackingNumber("");
+		setInvoiceType("Complete");
+		setCustomInvoiceType("");
 	};
 
 	const canSubmit = invoiceNumber.trim() !== "" && !!invoiceDocument;
@@ -138,6 +144,37 @@ export function InvoiceUploadDialog({
 								required
 							/>
 						</div>
+						
+						<div className="grid gap-2">
+							<Label>Invoice Type</Label>
+							<Select value={invoiceType} onValueChange={setInvoiceType}>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Select Purpose" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="Advance">Advance</SelectItem>
+									<SelectItem value="Milestone">Milestone</SelectItem>
+									<SelectItem value="Complete">Complete</SelectItem>
+									<SelectItem value="custom">Custom...</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						{invoiceType === 'custom' && (
+							<div className="grid gap-2 animate-in fade-in slide-in-from-top-1">
+								<Label htmlFor="customInvoiceType">Custom Purpose</Label>
+								<div className="relative">
+									<Input
+										id="customInvoiceType"
+										value={customInvoiceType}
+										onChange={(e) => setCustomInvoiceType(e.target.value)}
+										placeholder="e.g. Deposit, Retainer"
+										className="pr-10"
+									/>
+									<Plus className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+								</div>
+							</div>
+						)}
 
 						<div className="grid grid-cols-2 gap-2">
 							<div className="grid gap-2">

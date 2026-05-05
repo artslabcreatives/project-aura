@@ -8,6 +8,7 @@ type RawInvoice = {
 	project_id?: number;
 	client_id?: number;
 	invoice_number?: string;
+	invoice_type?: string;
 	status?: string;
 	amount?: number;
 	currency: string;
@@ -35,6 +36,7 @@ const transformInvoice = (raw: RawInvoice): Invoice => ({
 	projectId: raw.project_id,
 	clientId: raw.client_id,
 	invoiceNumber: raw.invoice_number,
+	invoiceType: raw.invoice_type,
 	status: raw.status,
 	amount: raw.amount,
 	currency: raw.currency,
@@ -66,6 +68,7 @@ export interface CreateInvoiceData {
 	projectId?: number;
 	clientId?: number;
 	invoiceNumber?: string;
+	invoiceType?: string;
 	status?: string;
 	amount?: number;
 	currency?: string;
@@ -137,6 +140,7 @@ export const invoiceService = {
 			if (data.projectId) payload.append('project_id', String(data.projectId));
 			if (data.clientId) payload.append('client_id', String(data.clientId));
 			if (data.invoiceNumber) payload.append('invoice_number', data.invoiceNumber);
+			if (data.invoiceType) payload.append('invoice_type', data.invoiceType);
 			if (data.status) payload.append('status', data.status);
 			if (data.amount !== undefined) payload.append('amount', String(data.amount));
 			if (data.currency) payload.append('currency', data.currency);
@@ -152,6 +156,7 @@ export const invoiceService = {
 				project_id: data.projectId,
 				client_id: data.clientId,
 				invoice_number: data.invoiceNumber,
+				invoice_type: data.invoiceType,
 				status: data.status,
 				amount: data.amount,
 				currency: data.currency,
@@ -180,6 +185,7 @@ export const invoiceService = {
 		if (data.projectId !== undefined) payload.project_id = data.projectId;
 		if (data.clientId !== undefined) payload.client_id = data.clientId;
 		if (data.invoiceNumber !== undefined) payload.invoice_number = data.invoiceNumber;
+		if (data.invoiceType !== undefined) payload.invoice_type = data.invoiceType;
 		if (data.status !== undefined) payload.status = data.status;
 		if (data.amount !== undefined) payload.amount = data.amount;
 		if (data.currency !== undefined) payload.currency = data.currency;

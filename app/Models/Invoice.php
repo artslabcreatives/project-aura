@@ -14,6 +14,7 @@ class Invoice extends Model
         'project_id',
         'client_id',
         'invoice_number',
+        'invoice_type',
         'invoice_document',
         'is_physical_invoice',
         'courier_tracking_number',

@@ -43,6 +43,7 @@ export interface Invoice {
 	projectId?: number;
 	clientId?: number;
 	invoiceNumber?: string;
+	invoiceType?: string;
 	status?: string;
 	amount?: number;
 	currency: string;
