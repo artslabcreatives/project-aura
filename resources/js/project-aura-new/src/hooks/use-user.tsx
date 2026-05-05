@@ -64,11 +64,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
 			setCurrentUser(user);
 			setIsAuthenticated(true);
 			return user;
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Failed to fetch authenticated user:', error);
-			removeToken();
-			setCurrentUser(null);
-			setIsAuthenticated(false);
+			
+			// Only clear token if it's explicitly an authentication error (401)
+			// error.response is for axios, error.status is for our fetch client
+			const status = error.response?.status || error.status;
+			
+			if (status === 401) {
+				console.warn('Session expired (401). Clearing token.');
+				removeToken();
+				setCurrentUser(null);
+				setIsAuthenticated(false);
+			}
 			throw error;
 		}
 	};
