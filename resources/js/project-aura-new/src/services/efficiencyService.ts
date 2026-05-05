@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { normalizeNumber } from '@/lib/utils';
 import { DepartmentEfficiency, UserEfficiency } from '@/types/efficiency';
 
 type RawUserEfficiency = {
@@ -37,16 +38,16 @@ const mapUserEfficiency = (raw: RawUserEfficiency): UserEfficiency => ({
 	userId: raw.user_id,
 	userName: raw.user_name,
 	totalTasks: raw.total_tasks,
-	totalHoursWorked: raw.total_hours_worked,
-	totalHoursEstimated: raw.total_hours_estimated,
-	averageEfficiency: raw.average_efficiency,
+	totalHoursWorked: normalizeNumber(raw.total_hours_worked),
+	totalHoursEstimated: normalizeNumber(raw.total_hours_estimated),
+	averageEfficiency: normalizeNumber(raw.average_efficiency),
 	tasks: raw.tasks.map((task) => ({
 		taskId: task.task_id,
 		taskName: task.task_name,
 		projectName: task.project_name ?? 'No project linked',
-		estimatedHours: task.estimated_hours,
-		userHoursWorked: task.user_hours_worked,
-		efficiencyPercentage: task.efficiency_percentage,
+		estimatedHours: normalizeNumber(task.estimated_hours),
+		userHoursWorked: normalizeNumber(task.user_hours_worked),
+		efficiencyPercentage: normalizeNumber(task.efficiency_percentage),
 	})),
 });
 
@@ -54,13 +55,13 @@ const mapDepartmentEfficiency = (raw: RawDepartmentEfficiency): DepartmentEffici
 	departmentId: raw.department_id,
 	totalUsers: raw.total_users,
 	totalTasks: raw.total_tasks,
-	totalHoursWorked: raw.total_hours_worked,
-	totalHoursEstimated: raw.total_hours_estimated,
-	averageEfficiency: raw.average_efficiency,
+	totalHoursWorked: normalizeNumber(raw.total_hours_worked),
+	totalHoursEstimated: normalizeNumber(raw.total_hours_estimated),
+	averageEfficiency: normalizeNumber(raw.average_efficiency),
 	users: raw.users.map((user) => ({
 		userId: user.user_id,
 		userName: user.user_name,
-		efficiency: user.efficiency,
+		efficiency: normalizeNumber(user.efficiency),
 		tasksCompleted: user.tasks_completed,
 	})),
 });

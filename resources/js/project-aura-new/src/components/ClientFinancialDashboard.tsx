@@ -115,6 +115,11 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 		}).format(amount);
 	};
 
+	const safeToFixed = (value: any, digits: number) => {
+		const num = Number(value);
+		return isNaN(num) ? (0).toFixed(digits) : num.toFixed(digits);
+	};
+
 	return (
 		<div className="space-y-4">
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -150,7 +155,7 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 							{formatCurrency(dashboard.profitability.totalProfit)}
 						</div>
 						<p className="text-xs text-muted-foreground">
-							{dashboard.profitability.profitMarginPercentage.toFixed(2)}% margin
+							{safeToFixed(dashboard.profitability.profitMarginPercentage, 2)}% margin
 						</p>
 					</CardContent>
 				</Card>
@@ -235,7 +240,7 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 												{formatCurrency(project.profit)}
 											</p>
 											<p className="text-sm text-muted-foreground">
-												{project.profitMargin?.toFixed(2)}% margin
+												{safeToFixed(project.profitMargin, 2)}% margin
 											</p>
 										</div>
 									</div>
@@ -273,7 +278,7 @@ export function ClientFinancialDashboardComponent({ clientId }: ClientFinancialD
 										<div className="flex items-center gap-4">
 											<span className="text-sm text-muted-foreground">{count} projects</span>
 											<span className="font-bold">
-												{dashboard.projectStatus.statusPercentages[status].toFixed(1)}%
+												{safeToFixed(dashboard.projectStatus.statusPercentages[status], 1)}%
 											</span>
 										</div>
 									</div>

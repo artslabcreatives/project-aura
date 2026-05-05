@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { normalizeNumber } from '@/lib/utils';
 import { ClientFinancialDashboard } from '@/types/financial';
 
 type RawClientFinancialDashboard = {
@@ -66,7 +67,7 @@ const mapInvoice = (invoice: RawClientFinancialDashboard['invoices']['pending_in
 	isPaid: invoice.is_paid,
 });
 
-const normalizeNumber = (value: number | null | undefined) => value ?? 0;
+
 
 const mapClientFinancialDashboard = (raw: RawClientFinancialDashboard): ClientFinancialDashboard => ({
 	clientId: raw.client_id,
@@ -74,24 +75,24 @@ const mapClientFinancialDashboard = (raw: RawClientFinancialDashboard): ClientFi
 	profitability: {
 		clientId: raw.profitability.client_id,
 		totalProjects: raw.profitability.total_projects,
-		totalRevenue: raw.profitability.total_revenue,
-		totalCost: raw.profitability.total_cost,
-		totalProfit: raw.profitability.total_profit,
-		profitMarginPercentage: raw.profitability.profit_margin_percentage,
+		totalRevenue: normalizeNumber(raw.profitability.total_revenue),
+		totalCost: normalizeNumber(raw.profitability.total_cost),
+		totalProfit: normalizeNumber(raw.profitability.total_profit),
+		profitMarginPercentage: normalizeNumber(raw.profitability.profit_margin_percentage),
 		projects: raw.profitability.projects.map((project) => ({
 			id: project.id,
 			name: project.name,
-			revenue: project.revenue,
-			cost: project.cost,
+			revenue: normalizeNumber(project.revenue),
+			cost: normalizeNumber(project.cost),
 			profit: normalizeNumber(project.profit),
 			profitMargin: normalizeNumber(project.profit_margin),
 			isInternalProject: project.is_internal_project,
 		})),
 	},
 	invoices: {
-		totalInvoiced: raw.invoices.total_invoiced,
-		totalPaid: raw.invoices.total_paid,
-		totalOutstanding: raw.invoices.total_outstanding,
+		totalInvoiced: normalizeNumber(raw.invoices.total_invoiced),
+		totalPaid: normalizeNumber(raw.invoices.total_paid),
+		totalOutstanding: normalizeNumber(raw.invoices.total_outstanding),
 		pendingCount: raw.invoices.pending_count,
 		completedCount: raw.invoices.completed_count,
 		pendingInvoices: raw.invoices.pending_invoices.map(mapInvoice),
@@ -100,7 +101,9 @@ const mapClientFinancialDashboard = (raw: RawClientFinancialDashboard): ClientFi
 	projectStatus: {
 		totalProjects: raw.project_status.total_projects,
 		statusCounts: raw.project_status.status_counts,
-		statusPercentages: raw.project_status.status_percentages,
+		statusPercentages: Object.fromEntries(
+			Object.entries(raw.project_status.status_percentages).map(([k, v]) => [k, normalizeNumber(v)])
+		),
 	},
 });
 
