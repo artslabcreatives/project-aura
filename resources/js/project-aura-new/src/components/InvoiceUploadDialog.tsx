@@ -61,6 +61,9 @@ export function InvoiceUploadDialog({
 				projectId: project.id,
 				clientId: project.clientId,
 				invoiceNumber: invoiceNumber,
+				invoiceDocument: invoiceDocument,
+				isPhysicalInvoice: isPhysicalInvoice,
+				courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
 				status: isPhysicalInvoice ? 'pending' : 'sent',
 				amount: amount ? parseFloat(amount) : undefined,
 				currency: currency || project.currency || 'USD',
@@ -106,7 +109,7 @@ export function InvoiceUploadDialog({
 		setCourierTrackingNumber("");
 	};
 
-	const canSubmit = invoiceNumber.trim() !== "" && (completeProject ? !!invoiceDocument : true);
+	const canSubmit = invoiceNumber.trim() !== "" && !!invoiceDocument;
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
@@ -170,102 +173,98 @@ export function InvoiceUploadDialog({
 								onChange={(e) => setDueDate(e.target.value)}
 							/>
 						</div>
+						
+						<div className="grid gap-2">
+							<Label htmlFor="poNumberDisplay">Linked PO Number</Label>
+							<Input
+								id="poNumberDisplay"
+								value={project.poNumber || "No PO linked"}
+								disabled
+								className="bg-muted"
+							/>
+						</div>
+						<div className="flex items-center space-x-2 py-1">
+							<Checkbox
+								id="isPhysicalInvoice"
+								checked={isPhysicalInvoice}
+								onCheckedChange={(checked) => setIsPhysicalInvoice(!!checked)}
+							/>
+							<Label htmlFor="isPhysicalInvoice" className="text-sm font-medium leading-none">
+								This is a physical invoice (Courier required)
+							</Label>
+						</div>
 
-						{completeProject && (
-							<>
-								<div className="grid gap-2">
-									<Label htmlFor="poNumberDisplay">Linked PO Number</Label>
-									<Input
-										id="poNumberDisplay"
-										value={project.poNumber || "No PO linked"}
-										disabled
-										className="bg-muted"
-									/>
-								</div>
-								<div className="flex items-center space-x-2 py-1">
-									<Checkbox
-										id="isPhysicalInvoice"
-										checked={isPhysicalInvoice}
-										onCheckedChange={(checked) => setIsPhysicalInvoice(!!checked)}
-									/>
-									<Label htmlFor="isPhysicalInvoice" className="text-sm font-medium leading-none">
-										This is a physical invoice (Courier required)
-									</Label>
-								</div>
-
-								{isPhysicalInvoice && (
-									<div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
-										<Label htmlFor="courierTrackingNumber">Courier Tracking Number</Label>
-										<Input
-											id="courierTrackingNumber"
-											value={courierTrackingNumber}
-											onChange={(e) => setCourierTrackingNumber(e.target.value)}
-											placeholder="Enter Tracking Number"
-											required={isPhysicalInvoice}
-										/>
-									</div>
-								)}
-
-								<div className="grid gap-2">
-									<Label htmlFor="invoiceDocument">Upload Invoice Document *</Label>
-									<div
-										className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors
-                                        ${isDragging ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50'}`}
-										onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-										onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-										onDrop={(e) => {
-											e.preventDefault();
-											setIsDragging(false);
-											const file = e.dataTransfer.files?.[0];
-											if (file) setInvoiceDocument(file);
-										}}
-									>
-										<div className="space-y-1 text-center">
-											{invoiceDocument ? (
-												<div className="flex flex-col items-center">
-													<FileIcon className="mx-auto h-12 w-12 text-primary" />
-													<p className="mt-2 text-sm font-medium">{invoiceDocument.name}</p>
-													<p className="text-xs text-muted-foreground">{(invoiceDocument.size / 1024 / 1024).toFixed(2)} MB</p>
-													<Button
-														type="button"
-														variant="ghost"
-														size="sm"
-														className="mt-2 text-destructive hover:text-destructive"
-														onClick={() => setInvoiceDocument(undefined)}
-													>
-														<X className="h-4 w-4 mr-1" /> Remove
-													</Button>
-												</div>
-											) : (
-												<>
-													<UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
-													<div className="flex justify-center text-sm text-muted-foreground">
-														<label
-															htmlFor="invoiceDocument"
-															className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none"
-														>
-															<span>Upload a file</span>
-															<Input
-																id="invoiceDocument"
-																type="file"
-																className="sr-only"
-																accept=".pdf,.png,.jpg,.jpeg"
-																onChange={(e) => {
-																	const file = e.target.files?.[0];
-																	if (file) setInvoiceDocument(file);
-																}}
-															/>
-														</label>
-														<p className="pl-1">or drag and drop</p>
-													</div>
-													<p className="text-xs text-muted-foreground">PDF, PNG, JPG up to 10MB</p>
-												</>
-											)}
-										</div>
-									</div>
-								</div>
-							</>
+						{isPhysicalInvoice && (
+							<div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+								<Label htmlFor="courierTrackingNumber">Courier Tracking Number</Label>
+								<Input
+									id="courierTrackingNumber"
+									value={courierTrackingNumber}
+									onChange={(e) => setCourierTrackingNumber(e.target.value)}
+									placeholder="Enter Tracking Number"
+									required={isPhysicalInvoice}
+								/>
+							</div>
 						)}
+
+						<div className="grid gap-2">
+							<Label htmlFor="invoiceDocument">Upload Invoice Document *</Label>
+							<div
+								className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors
+								${isDragging ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50'}`}
+								onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+								onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+								onDrop={(e) => {
+									e.preventDefault();
+									setIsDragging(false);
+									const file = e.dataTransfer.files?.[0];
+									if (file) setInvoiceDocument(file);
+								}}
+							>
+								<div className="space-y-1 text-center">
+									{invoiceDocument ? (
+										<div className="flex flex-col items-center">
+											<FileIcon className="mx-auto h-12 w-12 text-primary" />
+											<p className="mt-2 text-sm font-medium">{invoiceDocument.name}</p>
+											<p className="text-xs text-muted-foreground">{(invoiceDocument.size / 1024 / 1024).toFixed(2)} MB</p>
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												className="mt-2 text-destructive hover:text-destructive"
+												onClick={() => setInvoiceDocument(undefined)}
+											>
+												<X className="h-4 w-4 mr-1" /> Remove
+											</Button>
+										</div>
+									) : (
+										<>
+											<UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
+											<div className="flex justify-center text-sm text-muted-foreground">
+												<label
+													htmlFor="invoiceDocument"
+													className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none"
+												>
+													<span>Upload a file</span>
+													<Input
+														id="invoiceDocument"
+														type="file"
+														className="sr-only"
+														accept=".pdf,.png,.jpg,.jpeg"
+														onChange={(e) => {
+															const file = e.target.files?.[0];
+															if (file) setInvoiceDocument(file);
+														}}
+													/>
+												</label>
+												<p className="pl-1">or drag and drop</p>
+											</div>
+											<p className="text-xs text-muted-foreground">PDF, PNG, JPG up to 10MB</p>
+										</>
+									)}
+								</div>
+							</div>
+						</div>
 					</div>
 					<DialogFooter className="flex flex-col sm:flex-row gap-2">
 						<Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

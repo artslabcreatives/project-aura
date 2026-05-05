@@ -92,7 +92,7 @@ export const invoiceService = {
 		if (filters?.page) params.append('page', String(filters.page));
 		if (filters?.perPage) params.append('per_page', String(filters.perPage));
 
-		const response = await api.get(`/invoices?${params.toString()}`);
+		const response = await api.get<any>(`/invoices?${params.toString()}`);
 
 		return {
 			data: response.data.map(transformInvoice),
@@ -104,7 +104,7 @@ export const invoiceService = {
 	 * Get invoices for a specific project
 	 */
 	async getByProject(projectId: number): Promise<Invoice[]> {
-		const response = await api.get(`/invoices?project_id=${projectId}`);
+		const response = await api.get<any>(`/invoices?project_id=${projectId}`);
 		return response.data.map(transformInvoice);
 	},
 
@@ -112,7 +112,7 @@ export const invoiceService = {
 	 * Get invoices for a specific client
 	 */
 	async getByClient(clientId: number): Promise<Invoice[]> {
-		const response = await api.get(`/invoices?client_id=${clientId}`);
+		const response = await api.get<any>(`/invoices?client_id=${clientId}`);
 		return response.data.map(transformInvoice);
 	},
 
@@ -120,31 +120,54 @@ export const invoiceService = {
 	 * Get a single invoice by ID
 	 */
 	async getById(id: number): Promise<Invoice> {
-		const response = await api.get(`/invoices/${id}`);
-		return transformInvoice(response);
+		const response = await api.get<any>(`/invoices/${id}`);
+		return transformInvoice(response as any);
 	},
 
 	/**
 	 * Create a new invoice
 	 */
-	async create(data: CreateInvoiceData): Promise<Invoice> {
-		const payload = {
-			source: data.source,
-			project_id: data.projectId,
-			client_id: data.clientId,
-			invoice_number: data.invoiceNumber,
-			status: data.status,
-			amount: data.amount,
-			currency: data.currency,
-			issued_at: data.issuedAt,
-			due_date: data.dueDate,
-			xero_invoice_id: data.xeroInvoiceId,
-			xero_status: data.xeroStatus,
-			description: data.description,
-		};
+	async create(data: any): Promise<Invoice> {
+		const isFormData = data.invoiceDocument instanceof File;
+		let payload: any;
 
-		const response = await api.post('/invoices', payload);
-		return transformInvoice(response);
+		if (isFormData) {
+			payload = new FormData();
+			payload.append('source', data.source);
+			if (data.projectId) payload.append('project_id', String(data.projectId));
+			if (data.clientId) payload.append('client_id', String(data.clientId));
+			if (data.invoiceNumber) payload.append('invoice_number', data.invoiceNumber);
+			if (data.status) payload.append('status', data.status);
+			if (data.amount !== undefined) payload.append('amount', String(data.amount));
+			if (data.currency) payload.append('currency', data.currency);
+			if (data.issuedAt) payload.append('issued_at', data.issuedAt);
+			if (data.dueDate) payload.append('due_date', data.dueDate);
+			if (data.description) payload.append('description', data.description);
+			if (data.invoiceDocument) payload.append('invoice_document', data.invoiceDocument);
+			if (data.isPhysicalInvoice !== undefined) payload.append('is_physical_invoice', data.isPhysicalInvoice ? '1' : '0');
+			if (data.courierTrackingNumber) payload.append('courier_tracking_number', data.courierTrackingNumber);
+		} else {
+			payload = {
+				source: data.source,
+				project_id: data.projectId,
+				client_id: data.clientId,
+				invoice_number: data.invoiceNumber,
+				status: data.status,
+				amount: data.amount,
+				currency: data.currency,
+				issued_at: data.issuedAt,
+				due_date: data.dueDate,
+				xero_invoice_id: data.xeroInvoiceId,
+				xero_status: data.xeroStatus,
+				description: data.description,
+				is_physical_invoice: data.isPhysicalInvoice,
+				courier_tracking_number: data.courierTrackingNumber,
+			};
+		}
+
+		const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined;
+		const response = await api.post<any>('/invoices', payload, config);
+		return transformInvoice(response as any);
 	},
 
 	/**
@@ -166,8 +189,8 @@ export const invoiceService = {
 		if (data.xeroStatus !== undefined) payload.xero_status = data.xeroStatus;
 		if (data.description !== undefined) payload.description = data.description;
 
-		const response = await api.put(`/invoices/${id}`, payload);
-		return transformInvoice(response);
+		const response = await api.put<any>(`/invoices/${id}`, payload);
+		return transformInvoice(response as any);
 	},
 
 	/**

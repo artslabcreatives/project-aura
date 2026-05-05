@@ -14,6 +14,9 @@ class Invoice extends Model
         'project_id',
         'client_id',
         'invoice_number',
+        'invoice_document',
+        'is_physical_invoice',
+        'courier_tracking_number',
         'status',
         'amount',
         'currency',
@@ -26,6 +29,7 @@ class Invoice extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'is_physical_invoice' => 'boolean',
         'issued_at' => 'datetime',
         'due_date' => 'date',
     ];

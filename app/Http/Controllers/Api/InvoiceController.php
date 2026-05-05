@@ -40,6 +40,9 @@ class InvoiceController extends Controller
             'project_id'     => 'nullable|exists:projects,id',
             'client_id'      => 'nullable|exists:clients,id',
             'invoice_number' => 'nullable|string|max:255',
+            'invoice_document' => 'nullable|file|max:10240',
+            'is_physical_invoice' => 'nullable|boolean',
+            'courier_tracking_number' => 'nullable|string|max:255',
             'status'         => 'nullable|string|max:100',
             'amount'         => 'nullable|numeric|min:0',
             'currency'       => 'nullable|string|max:10',
@@ -49,6 +52,11 @@ class InvoiceController extends Controller
             'xero_status'    => 'nullable|string|max:100',
             'description'    => 'nullable|string',
         ]);
+
+        if ($request->hasFile('invoice_document')) {
+            $path = $request->file('invoice_document')->store('invoices', 's3');
+            $validated['invoice_document'] = $path;
+        }
 
         $invoice = Invoice::create($validated);
 
@@ -67,6 +75,9 @@ class InvoiceController extends Controller
             'project_id'     => 'nullable|exists:projects,id',
             'client_id'      => 'nullable|exists:clients,id',
             'invoice_number' => 'nullable|string|max:255',
+            'invoice_document' => 'nullable|file|max:10240',
+            'is_physical_invoice' => 'nullable|boolean',
+            'courier_tracking_number' => 'nullable|string|max:255',
             'status'         => 'nullable|string|max:100',
             'amount'         => 'nullable|numeric|min:0',
             'currency'       => 'nullable|string|max:10',
@@ -76,6 +87,11 @@ class InvoiceController extends Controller
             'xero_status'    => 'nullable|string|max:100',
             'description'    => 'nullable|string',
         ]);
+
+        if ($request->hasFile('invoice_document')) {
+            $path = $request->file('invoice_document')->store('invoices', 's3');
+            $validated['invoice_document'] = $path;
+        }
 
         $invoice->update($validated);
 

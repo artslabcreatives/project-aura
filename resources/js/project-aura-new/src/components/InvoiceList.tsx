@@ -40,6 +40,7 @@ export function InvoiceList({
 	const [filters, setFilters] = useState<InvoiceFilters>({
 		projectId,
 		clientId,
+		source: 'manual',
 	});
 
 	const loadInvoices = async () => {
@@ -158,12 +159,10 @@ export function InvoiceList({
 								}
 							>
 								<SelectTrigger className="w-36">
-									<SelectValue placeholder="All Sources" />
+									<SelectValue placeholder="Manual Only" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="all">All Sources</SelectItem>
 									<SelectItem value="manual">Manual Only</SelectItem>
-									<SelectItem value="xero">Xero Only</SelectItem>
 								</SelectContent>
 							</Select>
 						)}
