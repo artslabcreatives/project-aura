@@ -96,7 +96,11 @@ export function InvoiceUploadDialog({
 			});
 		} catch (error) {
 			console.error("Failed to upload invoice:", error);
-			toast({ title: "Error", description: "Failed to save invoice.", variant: "destructive" });
+			const errorData = error.response?.data;
+			const message = errorData?.errors 
+				? Object.values(errorData.errors).flat().join(', ') 
+				: (errorData?.message || "Failed to save invoice.");
+			toast({ title: "Error", description: message, variant: "destructive" });
 		} finally {
 			setIsUploading(false);
 			setIsSendingEmail(false);

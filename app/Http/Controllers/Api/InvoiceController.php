@@ -35,7 +35,9 @@ class InvoiceController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        \Illuminate\Support\Facades\Log::info('Invoice store request:', $request->all());
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'source'         => 'required|in:manual,xero',
             'project_id'     => 'nullable|exists:projects,id',
             'client_id'      => 'nullable|exists:clients,id',
@@ -53,6 +55,13 @@ class InvoiceController extends Controller
             'xero_status'    => 'nullable|string|max:100',
             'description'    => 'nullable|string',
         ]);
+
+        if ($validator->fails()) {
+            \Illuminate\Support\Facades\Log::error('Invoice validation failed:', $validator->errors()->toArray());
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $validated = $validator->validated();
 
         if ($request->hasFile('invoice_document')) {
             $path = $request->file('invoice_document')->store('invoices', 's3');
