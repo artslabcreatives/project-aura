@@ -18,17 +18,17 @@ export function ExportButtons({ type, id }: ExportButtonsProps) {
 
 			switch (type) {
 				case 'client-financial':
-					const clientResponse = await api.get(`/api/clients/${id}/financial-dashboard`);
+					const clientResponse = await api.get<any>(`/clients/${id}/financial-dashboard`);
 					data = clientResponse.data;
 					filename = `client-${id}-financial-report.csv`;
 					break;
 				case 'project-profitability':
-					const projectResponse = await api.get(`/api/projects/${id}/profitability`);
+					const projectResponse = await api.get<any>(`/projects/${id}/profitability`);
 					data = projectResponse.data;
 					filename = `project-${id}-profitability.csv`;
 					break;
 				case 'department-efficiency':
-					const deptResponse = await api.get(`/api/departments/${id}/efficiency`);
+					const deptResponse = await api.get<any>(`/departments/${id}/efficiency`);
 					data = deptResponse.data;
 					filename = `department-${id}-efficiency.csv`;
 					break;

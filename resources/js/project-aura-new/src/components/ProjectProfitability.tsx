@@ -45,7 +45,7 @@ export function ProjectProfitability({ projectId }: ProjectProfitabilityProps) {
 			try {
 				setLoading(true);
 				setError(null);
-				const response = await api.get(`/api/projects/${projectId}/profitability`);
+				const response = await api.get<any>(`/projects/${projectId}/profitability`);
 				setData(response.data);
 			} catch (err: any) {
 				console.error('Failed to fetch profitability:', err);

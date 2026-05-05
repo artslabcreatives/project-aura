@@ -160,7 +160,7 @@ export function ProjectFinanceTab({ project, onBudgetUpdate }: ProjectFinanceTab
 		const val = budgetInput === '' ? null : parseFloat(budgetInput);
 		try {
 			await import('@/lib/api').then(({ api }) =>
-				api.put(`/api/projects/${project.id}`, { budget_allocated: val })
+				api.put(`/projects/${project.id}`, { budget_allocated: val })
 			);
 			setBudget(prev => prev ? { ...prev, allocated: val !== null ? String(val) : null } : prev);
 			onBudgetUpdate?.(val);
