@@ -27,6 +27,11 @@ type RawInvoice = {
 		id: number;
 		company_name: string;
 	};
+	invoice_document?: string;
+	invoice_document_url?: string;
+	is_physical_invoice?: boolean | number;
+	courier_tracking_number?: string;
+	courier_delivery_status?: string;
 };
 
 // Transform snake_case API response to camelCase
@@ -52,6 +57,10 @@ const transformInvoice = (raw: RawInvoice): Invoice => ({
 		id: raw.client.id,
 		companyName: raw.client.company_name,
 	} : undefined,
+	invoiceDocument: raw.invoice_document_url || raw.invoice_document,
+	isPhysicalInvoice: Boolean(raw.is_physical_invoice),
+	courierTrackingNumber: raw.courier_tracking_number,
+	courierDeliveryStatus: raw.courier_delivery_status,
 });
 
 export interface InvoiceFilters {
@@ -77,6 +86,10 @@ export interface CreateInvoiceData {
 	xeroInvoiceId?: string;
 	xeroStatus?: string;
 	description?: string;
+	invoiceDocument?: File | string;
+	isPhysicalInvoice?: boolean;
+	courierTrackingNumber?: string;
+	courierDeliveryStatus?: string;
 }
 
 export interface UpdateInvoiceData extends Partial<CreateInvoiceData> { }
@@ -193,6 +206,9 @@ export const invoiceService = {
 		if (data.xeroInvoiceId !== undefined) payload.xero_invoice_id = data.xeroInvoiceId;
 		if (data.xeroStatus !== undefined) payload.xero_status = data.xeroStatus;
 		if (data.description !== undefined) payload.description = data.description;
+		if (data.isPhysicalInvoice !== undefined) payload.is_physical_invoice = data.isPhysicalInvoice;
+		if (data.courierTrackingNumber !== undefined) payload.courier_tracking_number = data.courierTrackingNumber;
+		if (data.courierDeliveryStatus !== undefined) payload.courier_delivery_status = data.courierDeliveryStatus;
 
 		const response = await api.put<any>(`/invoices/${id}`, payload);
 		return transformInvoice(response as any);

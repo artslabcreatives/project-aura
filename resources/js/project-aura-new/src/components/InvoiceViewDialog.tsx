@@ -10,13 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Invoice } from "@/types/financial";
+import { invoiceService } from "@/services/invoiceService";
 
 interface InvoiceViewDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    url: string;
-    project: Project;
-    onSuccess?: (updatedProject: Project) => void;
+    url?: string;
+    project?: Project;
+    invoice?: Invoice;
+    onSuccess?: (updatedData: any) => void;
 }
 
 const DELIVERY_STATUSES = [
@@ -26,33 +29,52 @@ const DELIVERY_STATUSES = [
     { value: "returned", label: "Returned", icon: RotateCcw, color: "text-rose-500", bgColor: "bg-rose-500" },
 ];
 
-export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess }: InvoiceViewDialogProps) {
+export function InvoiceViewDialog({ open, onOpenChange, url: propUrl, project, invoice, onSuccess }: InvoiceViewDialogProps) {
     const { toast } = useToast();
-    const [status, setStatus] = useState<string>(project.courierDeliveryStatus || "pending");
+    
+    // Determine data source
+    const displayInvoiceNumber = invoice?.invoiceNumber || project?.invoiceNumber || "N/A";
+    const displayUrl = invoice?.invoiceDocument || propUrl || project?.invoiceDocumentUrl || "";
+    const displayCreatedAt = invoice?.createdAt || (project as any)?.createdAt;
+    const isPhysicalInvoice = invoice?.isPhysicalInvoice ?? project?.isPhysicalInvoice ?? false;
+    const trackingNo = invoice?.courierTrackingNumber || project?.courierTrackingNumber || "";
+    const deliveryStatus = invoice?.courierDeliveryStatus || project?.courierDeliveryStatus || "pending";
+    const poNo = project?.poNumber || "N/A";
+    const clientName = invoice?.client?.companyName || project?.client?.company_name || "N/A";
+
+    const [status, setStatus] = useState<string>(deliveryStatus);
     const [isUpdating, setIsUpdating] = useState(false);
-    const [isPhysical, setIsPhysical] = useState(project.isPhysicalInvoice || false);
-    const [trackingNumber, setTrackingNumber] = useState(project.courierTrackingNumber || "");
+    const [isPhysical, setIsPhysical] = useState(isPhysicalInvoice);
+    const [trackingNumber, setTrackingNumber] = useState(trackingNo);
     const [showEditTracking, setShowEditTracking] = useState(false);
 
-    // Update local state when project prop changes
+    // Update local state when source props change
     useEffect(() => {
-        setStatus(project.courierDeliveryStatus || "pending");
-        setIsPhysical(project.isPhysicalInvoice || false);
-        setTrackingNumber(project.courierTrackingNumber || "");
-    }, [project]);
+        setStatus(deliveryStatus);
+        setIsPhysical(isPhysicalInvoice);
+        setTrackingNumber(trackingNo);
+    }, [invoice, project, deliveryStatus, isPhysicalInvoice, trackingNo]);
 
-    if (!url) return null;
+    if (!displayUrl) return null;
 
-    const isPDF = url.toLowerCase().includes('.pdf') || url.includes('data:application/pdf');
+    const isPDF = displayUrl.toLowerCase().includes('.pdf') || displayUrl.includes('data:application/pdf');
 
     const handleStatusChange = async (newStatus: string) => {
         setIsUpdating(true);
         try {
-            const updatedProject = await projectService.update(String(project.id), {
-                courierDeliveryStatus: newStatus,
-            });
-            setStatus(newStatus);
-            if (onSuccess) onSuccess(updatedProject);
+            if (invoice) {
+                const updatedInvoice = await invoiceService.update(invoice.id, {
+                    courierDeliveryStatus: newStatus,
+                });
+                setStatus(newStatus);
+                if (onSuccess) onSuccess(updatedInvoice);
+            } else if (project) {
+                const updatedProject = await projectService.update(String(project.id), {
+                    courierDeliveryStatus: newStatus,
+                });
+                setStatus(newStatus);
+                if (onSuccess) onSuccess(updatedProject);
+            }
             toast({
                 title: "Status Updated",
                 description: `Delivery status changed to ${newStatus}.`,
@@ -72,11 +94,19 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
     const handleUpdateTrackingDetails = async () => {
         setIsUpdating(true);
         try {
-            const updatedProject = await projectService.update(String(project.id), {
-                isPhysicalInvoice: isPhysical,
-                courierTrackingNumber: trackingNumber,
-            });
-            if (onSuccess) onSuccess(updatedProject);
+            if (invoice) {
+                const updatedInvoice = await invoiceService.update(invoice.id, {
+                    isPhysicalInvoice: isPhysical,
+                    courierTrackingNumber: trackingNumber,
+                });
+                if (onSuccess) onSuccess(updatedInvoice);
+            } else if (project) {
+                const updatedProject = await projectService.update(String(project.id), {
+                    isPhysicalInvoice: isPhysical,
+                    courierTrackingNumber: trackingNumber,
+                });
+                if (onSuccess) onSuccess(updatedProject);
+            }
             setShowEditTracking(false);
             toast({
                 title: "Tracking Details Updated",
@@ -106,8 +136,8 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
                 <DialogHeader className="p-4 border-b flex flex-row items-center justify-between space-y-0 bg-background z-10 shrink-0">
                     <div className="flex flex-col">
                         <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                            Invoice: {project.invoiceNumber || "N/A"}
-                            {project.isPhysicalInvoice && (
+                            Invoice: {displayInvoiceNumber}
+                            {isPhysical && (
                                 <span className={cn(
                                     "text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider",
                                     DELIVERY_STATUSES.find(s => s.value === status)?.bgColor || "bg-muted",
@@ -118,7 +148,7 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
                             )}
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Created on {(project as any).createdAt ? new Date((project as any).createdAt).toLocaleDateString() : 'N/A'}
+                            Created on {displayCreatedAt ? new Date(displayCreatedAt).toLocaleDateString() : 'N/A'}
                         </DialogDescription>
                     </div>
 
@@ -127,13 +157,13 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
                             variant="outline"
                             size="sm"
                             className="h-8 gap-2"
-                            onClick={() => window.open(url, '_blank')}
+                            onClick={() => window.open(displayUrl, '_blank')}
                         >
                             <ExternalLink className="h-4 w-4" />
                             Open
                         </Button>
                         <a 
-                            href={url} 
+                            href={displayUrl} 
                             download 
                             className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 gap-2"
                         >
@@ -156,14 +186,14 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
                     <div className="flex-1 bg-muted/20 relative flex items-center justify-center p-4 overflow-hidden border-r">
                         {isPDF ? (
                             <iframe 
-                                src={`${url}#view=FitH`}
+                                src={`${displayUrl}#view=FitH`}
                                 className="w-full h-full rounded-lg shadow-2xl border bg-white"
                                 title="Invoice Document Viewer"
                             />
                         ) : (
                             <div className="w-full h-full overflow-auto flex items-center justify-center">
                                 <img 
-                                    src={url} 
+                                    src={displayUrl} 
                                     alt="Invoice Document" 
                                     className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white"
                                 />
@@ -180,14 +210,14 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
                                     <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                                         <MapPin className="h-4 w-4 text-primary" /> Delivery Status
                                     </h3>
-                                    {project.isPhysicalInvoice && (
+                                    {isPhysical && (
                                         <div className="text-[10px] font-medium text-muted-foreground italic">
                                             Handled via Courier
                                         </div>
                                     )}
                                 </div>
 
-                                {project.isPhysicalInvoice ? (
+                                {isPhysical ? (
                                     <div className="space-y-6">
                                         {/* Status Stepper */}
                                         <div className="relative space-y-4">
@@ -256,13 +286,13 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
                                         {/* Tracking Number Display */}
                                         <div className="bg-muted px-4 py-3 rounded-xl">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm font-mono font-bold tracking-tight">{project.courierTrackingNumber || "N/A"}</span>
+                                                <span className="text-sm font-mono font-bold tracking-tight">{trackingNumber || "N/A"}</span>
                                                 <div className="flex gap-1">
                                                     <Button 
                                                         variant="ghost" 
                                                         size="icon" 
                                                         className="h-6 w-6 text-primary hover:text-primary/80"
-                                                        onClick={() => window.open(`https://www.google.com/search?q=${project.courierTrackingNumber}`, '_blank')}
+                                                        onClick={() => window.open(`https://www.google.com/search?q=${trackingNumber}`, '_blank')}
                                                         title="Track on Google"
                                                     >
                                                         <ExternalLink className="h-3.5 w-3.5" />
@@ -359,11 +389,11 @@ export function InvoiceViewDialog({ open, onOpenChange, url, project, onSuccess 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <div className="text-[10px] font-bold text-muted-foreground uppercase">PO Number</div>
-                                            <div className="text-xs font-medium">{project.poNumber || "N/A"}</div>
+                                            <div className="text-xs font-medium">{poNo}</div>
                                         </div>
                                         <div className="space-y-1 text-right">
                                             <div className="text-[10px] font-bold text-muted-foreground uppercase">Client</div>
-                                            <div className="text-xs font-medium line-clamp-1">{project.client?.company_name || "N/A"}</div>
+                                            <div className="text-xs font-medium line-clamp-1">{clientName}</div>
                                         </div>
                                     </div>
                                 </div>

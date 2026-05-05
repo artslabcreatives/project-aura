@@ -16,6 +16,7 @@ import {
 	RefreshCw,
 	Download,
 	Plus,
+	Eye,
 } from 'lucide-react';
 
 interface InvoiceListProps {
@@ -220,14 +221,19 @@ export function InvoiceList({
 									)}
 								</div>
 
-								<div className="text-right ml-4">
-									<div className="flex items-center gap-1 text-lg font-bold">
-										<DollarSign className="h-4 w-4" />
-										{formatCurrency(invoice.amount, invoice.currency)}
+								<div className="flex items-center gap-4 ml-4">
+									<div className="text-right">
+										<div className="flex items-center gap-1 text-lg font-bold">
+											<DollarSign className="h-4 w-4" />
+											{formatCurrency(invoice.amount, invoice.currency)}
+										</div>
+										<p className="text-xs text-muted-foreground">
+											{invoice.currency}
+										</p>
 									</div>
-									<p className="text-xs text-muted-foreground">
-										{invoice.currency}
-									</p>
+									<div className="p-2 rounded-full hover:bg-primary/10 transition-colors">
+										<Eye className="h-4 w-4 text-primary" />
+									</div>
 								</div>
 							</div>
 						))}

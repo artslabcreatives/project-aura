@@ -52,6 +52,7 @@ import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { InvoiceList } from "@/components/InvoiceList";
 import { BulkPOAssignDialog } from "@/components/BulkPOAssignDialog";
 import { ProjectPurchaseOrder } from "@/types/project";
+import { Invoice } from "@/types/financial";
 
 interface ProjectOverviewContentProps {
 	project: Project;
@@ -81,6 +82,7 @@ export function ProjectOverviewContent({
 	const [isProvisionalPOOpen, setIsProvisionalPOOpen] = useState(false);
 	const [isInvoiceViewOpen, setIsInvoiceViewOpen] = useState(false);
 	const [isBulkPOOpen, setIsBulkPOOpen] = useState(false);
+	const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
 	const [projectPOs, setProjectPOs] = useState<ProjectPurchaseOrder[]>(project.purchaseOrders || []);
 	const [isRemovingPO, setIsRemovingPO] = useState<number | null>(null);
 	const { toast } = useToast();
@@ -794,7 +796,8 @@ export function ProjectOverviewContent({
 					projectId={project.id}
 					showFilters={true}
 					onInvoiceClick={(invoice) => {
-						console.log('Invoice clicked:', invoice);
+						setSelectedInvoice(invoice);
+						setIsInvoiceViewOpen(true);
 					}}
 					onAddInvoice={canManageFinance ? () => setIsAddInvoiceOpen(true) : undefined}
 				/>
@@ -1177,10 +1180,23 @@ export function ProjectOverviewContent({
 
 			<InvoiceViewDialog
 				open={isInvoiceViewOpen}
-				onOpenChange={setIsInvoiceViewOpen}
-				url={project.invoiceDocumentUrl || ""}
+				onOpenChange={(open) => {
+					setIsInvoiceViewOpen(open);
+					if (!open) setSelectedInvoice(undefined);
+				}}
+				url={selectedInvoice ? undefined : (project.invoiceDocumentUrl || "")}
 				project={project}
-				onSuccess={handleProjectChange}
+				invoice={selectedInvoice}
+				onSuccess={(updated) => {
+					if (selectedInvoice) {
+						// If standalone invoice was updated, we might want to refresh the list
+						// The InvoiceList handles its own refresh on filters change, 
+						// but here we can just trigger handleProjectChange to refresh everything
+						handleProjectChange(project);
+					} else {
+						handleProjectChange(updated as Project);
+					}
+				}}
 			/>
 
 			<InvoiceUploadDialog

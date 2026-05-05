@@ -62,6 +62,10 @@ export interface Invoice {
 		id: number;
 		companyName: string;
 	};
+	invoiceDocument?: string;
+	isPhysicalInvoice?: boolean;
+	courierTrackingNumber?: string;
+	courierDeliveryStatus?: string;
 }
 
 export interface InvoiceInfo {
