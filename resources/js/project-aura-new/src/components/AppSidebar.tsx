@@ -147,11 +147,29 @@ export function AppSidebar() {
 		);
 	}, [projects, currentUser, userRole]);
 
-	const fetchData = async () => {
+	const fetchData = async (isBackground = false) => {
 		if (!currentUser) return;
 		try {
-			setIsLoadingProjects(true);
-			setIsLoadingDepartments(true);
+			// 1. Try to load from cache first if not a background update
+			if (!isBackground) {
+				const cachedProjects = projectService.getAllCached();
+				const cachedDepartments = departmentService.getAllCached();
+				const cachedGroups = projectGroupService.getAllCached();
+
+				if (cachedProjects && cachedDepartments && cachedGroups) {
+					console.log('Sidebar: Using cached data for instant load');
+					setProjects(cachedProjects);
+					setDepartments(cachedDepartments);
+					setProjectGroups(cachedGroups);
+					setIsLoadingProjects(false);
+					setIsLoadingDepartments(false);
+					// We still continue to fetch fresh data in the background
+				} else {
+					setIsLoadingProjects(true);
+					setIsLoadingDepartments(true);
+				}
+			}
+
 			const [projectsData, departmentsData, projectGroupsData] = await Promise.all([
 				projectService.getAll(),
 				departmentService.getAll(),
@@ -282,14 +300,22 @@ export function AppSidebar() {
 		}));
 
 		channels.forEach(({ channel }) => {
+			let refreshTimeout: any = null;
+			const debouncedFetch = () => {
+				if (refreshTimeout) clearTimeout(refreshTimeout);
+				refreshTimeout = setTimeout(() => {
+					fetchData(true); // Background refresh
+				}, 1000); // 1 second debounce
+			};
+
 			channel.listen('TaskUpdated', (e: any) => {
 				console.log('Real-time task update received:', e);
-				fetchData();
+				debouncedFetch();
 			});
 
 			channel.listen('ProjectUpdated', (e: any) => {
 				console.log('Real-time project update received:', e);
-				fetchData();
+				debouncedFetch();
 			});
 		});
 

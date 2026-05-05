@@ -1,5 +1,6 @@
 import { api } from './api';
 import { Department } from '@/types/department';
+import { cacheService } from './cacheService';
 
 function mapDepartment(raw: any): Department {
 	return {
@@ -11,7 +12,13 @@ function mapDepartment(raw: any): Department {
 export const departmentService = {
 	getAll: async (): Promise<Department[]> => {
 		const { data } = await api.get('/departments');
-		return Array.isArray(data) ? data.map(mapDepartment) : [];
+		const departments = Array.isArray(data) ? data.map(mapDepartment) : [];
+		cacheService.set('departments_all', departments);
+		return departments;
+	},
+
+	getAllCached: (): Department[] | null => {
+		return cacheService.get<Department[]>('departments_all');
 	},
 
 	getById: async (id: string): Promise<Department> => {

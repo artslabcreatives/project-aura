@@ -1,5 +1,6 @@
 import { api } from './api';
 import { ProjectGroup } from '@/types/project-group';
+import { cacheService } from './cacheService';
 
 export const projectGroupService = {
     getAll: async (departmentId?: string): Promise<ProjectGroup[]> => {
@@ -8,12 +9,22 @@ export const projectGroupService = {
             url += `?department_id=${departmentId}`;
         }
         const { data } = await api.get(url);
-        return Array.isArray(data) ? data.map((raw: any) => ({
+        const groups = Array.isArray(data) ? data.map((raw: any) => ({
             id: String(raw.id),
             name: raw.name,
             departmentId: String(raw.department_id),
             parentId: raw.parent_id ? String(raw.parent_id) : null,
         })) : [];
+        
+        if (!departmentId) {
+            cacheService.set('project_groups_all', groups);
+        }
+        
+        return groups;
+    },
+
+    getAllCached: (): ProjectGroup[] | null => {
+        return cacheService.get<ProjectGroup[]>('project_groups_all');
     },
 
     create: async (name: string, departmentId: string, parentId?: string | null): Promise<ProjectGroup> => {

@@ -132,10 +132,15 @@ export const projectService = {
 		const raw = data || data === 0 ? data : data; 
 		const projects = Array.isArray(raw) ? raw.map(mapProject) : [];
 		
-		// Cache the individual projects too
+		// Cache the individual projects and the full list
 		projects.forEach(p => cacheService.set(`project_${p.id}`, p));
+		cacheService.set('projects_all', projects);
 		
 		return projects;
+	},
+
+	getAllCached: (): Project[] | null => {
+		return cacheService.get<Project[]>('projects_all');
 	},
 
 	getById: async (id: string): Promise<Project> => {
