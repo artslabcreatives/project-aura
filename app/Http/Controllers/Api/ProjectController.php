@@ -47,11 +47,31 @@ class ProjectController extends Controller
         $cacheKey = "projects_user_{$user->id}_{$user->role}_v{$version}";
 
         $projects = Cache::remember($cacheKey, 3600, function() use ($user) {
-            $query = Project::with(['department', 'group', 'client', 'stages' => function ($query) {
-                $query->where('type', 'project');
-            }, 'tasks', 'collaborators' => function ($query) {
-                $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
-            }]);
+            $query = Project::query()
+                ->select([
+                    'id', 'name', 'status', 'is_archived', 'department_id', 
+                    'client_id', 'project_group_id', 'deadline', 
+                    'is_internal_project', 'project_code'
+                ])
+                ->with([
+                    'department:id,name',
+                    'group:id,name,department_id',
+                    'client:id,name',
+                    'stages' => function ($query) {
+                        $query->select(['id', 'title', 'project_id', 'color', 'type', 'order'])
+                              ->where('type', 'project');
+                    },
+                    'collaborators' => function ($query) {
+                        $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+                    }
+                ])
+                ->withExists(['tasks as has_overdue_tasks' => function ($query) {
+                    $query->where('due_date', '<', now())
+                        ->where('user_status', '!=', 'complete')
+                        ->whereHas('projectStage', function ($q) {
+                            $q->whereNotIn('title', ['completed', 'complete', 'archive']);
+                        });
+                }]);
 
             if (in_array($user->role, ['user', 'account_manager'])) {
                 $query->where(function ($q) use ($user) {
@@ -66,13 +86,15 @@ class ProjectController extends Controller
                     });
                 });
 
-                // Also filter the tasks relationship itself
-                $query->with(['tasks' => function ($taskQuery) use ($user) {
+                // For these roles, we only count the tasks that are relevant to them
+                $query->withCount(['tasks' => function ($taskQuery) use ($user) {
                     $taskQuery->where('assignee_id', $user->id)
                         ->orWhereHas('assignedUsers', function ($sq) use ($user) {
                             $sq->where('users.id', $user->id);
                         });
                 }]);
+            } else {
+                $query->withCount('tasks');
             }
 
             return $query->get();

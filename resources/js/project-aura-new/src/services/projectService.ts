@@ -57,7 +57,7 @@ function mapProject(raw: any): Project {
 		: [];
 
 	const now = new Date();
-	let hasOverdueTasks = false;
+	let hasOverdueTasks = !!raw.has_overdue_tasks;
 	if (raw.status !== 'on-hold' && Array.isArray(raw.tasks)) {
 		hasOverdueTasks = raw.tasks.some((t: any) => {
 			if (!t.due_date || t.user_status === 'complete') return false;
