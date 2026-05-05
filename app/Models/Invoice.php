@@ -28,6 +28,35 @@ class Invoice extends Model
         'description',
     ];
 
+    protected $appends = ['invoice_document_url'];
+
+    /**
+     * Get the full URL to the invoice document.
+     */
+    public function getInvoiceDocumentUrlAttribute()
+    {
+        return $this->getStoreUrl($this->invoice_document);
+    }
+
+    /**
+     * Helper to get temporary or plain URL from S3.
+     */
+    protected function getStoreUrl($path)
+    {
+        if (!$path) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl(
+                $path, 
+                now()->addMinutes(1440)
+            );
+        } catch (\Exception $e) {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+        }
+    }
+
     protected $casts = [
         'amount' => 'decimal:2',
         'is_physical_invoice' => 'boolean',
