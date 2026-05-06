@@ -15,8 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface InvoiceUploadDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	project: Project;
-	onSuccess: (updatedProject: Project) => void;
+	project?: Project;
+	clientId?: number;
+	projects?: Project[];
+	onSuccess: (updatedProject?: Project) => void;
 	/** When false, adds an invoice without completing the project. Defaults to true. */
 	completeProject?: boolean;
 	invoice?: Invoice;
@@ -26,6 +28,8 @@ export function InvoiceUploadDialog({
 	open,
 	onOpenChange,
 	project,
+	clientId,
+	projects = [],
 	onSuccess,
 	completeProject = true,
 	invoice,
@@ -34,7 +38,7 @@ export function InvoiceUploadDialog({
 	const [invoiceNumber, setInvoiceNumber] = useState("");
 	const [invoiceDocument, setInvoiceDocument] = useState<File | undefined>();
 	const [amount, setAmount] = useState("");
-	const [currency, setCurrency] = useState(project.currency || "LKR");
+	const [currency, setCurrency] = useState(project?.currency || "LKR");
 	const [dueDate, setDueDate] = useState("");
 	const [isUploading, setIsUploading] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
@@ -43,6 +47,7 @@ export function InvoiceUploadDialog({
 	const [courierTrackingNumber, setCourierTrackingNumber] = useState("");
 	const [invoiceType, setInvoiceType] = useState<string>("Complete");
 	const [customInvoiceType, setCustomInvoiceType] = useState("");
+	const [selectedProjectId, setSelectedProjectId] = useState<string>(project?.id ? String(project.id) : "");
 
 	// Initialize form when invoice prop changes or dialog opens
 	useEffect(() => {
@@ -50,10 +55,11 @@ export function InvoiceUploadDialog({
 			if (invoice) {
 				setInvoiceNumber(invoice.invoiceNumber || "");
 				setAmount(invoice.amount?.toString() || "");
-				setCurrency(invoice.currency || project.currency || "LKR");
+				setCurrency(invoice.currency || project?.currency || "LKR");
 				setDueDate(invoice.dueDate?.split('T')[0] || "");
 				setIsPhysicalInvoice(!!invoice.isPhysicalInvoice);
 				setCourierTrackingNumber(invoice.courierTrackingNumber || "");
+				setSelectedProjectId(invoice.projectId ? String(invoice.projectId) : "");
 				
 				const knownTypes = ["Advance", "Milestone", "Complete"];
 				if (invoice.invoiceType && knownTypes.includes(invoice.invoiceType)) {
@@ -72,6 +78,9 @@ export function InvoiceUploadDialog({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		const targetProjectId = selectedProjectId || (project?.id ? String(project.id) : undefined);
+		const targetClientId = clientId || project?.clientId;
+
 		setIsUploading(true);
 		try {
 			let updatedProject = project;
@@ -79,6 +88,8 @@ export function InvoiceUploadDialog({
 			if (invoice) {
 				// Update existing invoice
 				await invoiceService.update(invoice.id, {
+					projectId: targetProjectId ? parseInt(targetProjectId) : undefined,
+					clientId: targetClientId,
 					invoiceNumber: invoiceNumber,
 					invoiceType: invoiceType === 'custom' ? customInvoiceType : invoiceType,
 					invoiceDocument: invoiceDocument, // Only if new file selected
@@ -90,9 +101,9 @@ export function InvoiceUploadDialog({
 				});
 			} else {
 				// Create new invoice
-				if (completeProject) {
+				if (completeProject && targetProjectId) {
 					// Update project status to completed and set legacy invoice fields
-					updatedProject = await projectService.update(String(project.id), {
+					updatedProject = await projectService.update(targetProjectId, {
 						status: 'completed',
 						invoice_number: invoiceNumber,
 						invoice_document: invoiceDocument,
@@ -104,8 +115,8 @@ export function InvoiceUploadDialog({
 				// Create Invoice record in the unified invoices table
 				await invoiceService.create({
 					source: 'manual',
-					projectId: project.id,
-					clientId: project.clientId,
+					projectId: targetProjectId ? parseInt(targetProjectId) : undefined,
+					clientId: targetClientId,
 					invoiceNumber: invoiceNumber,
 					invoiceType: invoiceType === 'custom' ? customInvoiceType : invoiceType,
 					invoiceDocument: invoiceDocument,
@@ -113,10 +124,10 @@ export function InvoiceUploadDialog({
 					courierTrackingNumber: isPhysicalInvoice ? courierTrackingNumber : undefined,
 					status: isPhysicalInvoice ? 'pending' : 'sent',
 					amount: amount ? parseFloat(amount) : undefined,
-					currency: currency || project.currency || 'LKR',
+					currency: currency || project?.currency || 'LKR',
 					issuedAt: new Date().toISOString().split('T')[0],
 					dueDate: dueDate || undefined,
-					description: `Invoice for project: ${project.name}`,
+					description: `Invoice ${invoiceNumber} for ${project?.name || 'Client'}`,
 				});
 
 				// Simulate sending email only if NOT physical and completing the project
@@ -157,12 +168,13 @@ export function InvoiceUploadDialog({
 		setInvoiceNumber("");
 		setInvoiceDocument(undefined);
 		setAmount("");
-		setCurrency(project.currency || "LKR");
+		setCurrency(project?.currency || "LKR");
 		setDueDate("");
 		setIsPhysicalInvoice(false);
 		setCourierTrackingNumber("");
 		setInvoiceType("Complete");
 		setCustomInvoiceType("");
+		setSelectedProjectId(project?.id ? String(project.id) : "");
 	};
 
 	const canSubmit = invoiceNumber.trim() !== "" && (!!invoice || !!invoiceDocument);
@@ -176,13 +188,13 @@ export function InvoiceUploadDialog({
 			>
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
-						<DialogTitle>{invoice ? "Edit Invoice" : (completeProject ? "Upload Invoice" : "Add Invoice")}</DialogTitle>
+						<DialogTitle>{invoice ? "Edit Invoice" : (completeProject && project ? "Upload Invoice" : "Add Invoice")}</DialogTitle>
 						<DialogDescription>
 							{invoice 
 								? `Updating details for invoice ${invoice.invoiceNumber}.`
-								: (completeProject
+								: (completeProject && project
 									? `Complete the project by uploading the final invoice. Linked to PO: ${project.poNumber || "N/A"}.`
-									: `Add an additional invoice record to ${project.name}.`)}
+									: `Add an invoice record for ${project?.name || 'this client'}.`)}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-4">
@@ -265,11 +277,28 @@ export function InvoiceUploadDialog({
 							/>
 						</div>
 						
+						{!project && projects.length > 0 && (
+							<div className="grid gap-2">
+								<Label htmlFor="projectSelect">Project (Optional)</Label>
+								<Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+									<SelectTrigger id="projectSelect">
+										<SelectValue placeholder="Select Project" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">None (General Client Invoice)</SelectItem>
+										{projects.map((p) => (
+											<SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						)}
+
 						<div className="grid gap-2">
 							<Label htmlFor="poNumberDisplay">Linked PO Number</Label>
 							<Input
 								id="poNumberDisplay"
-								value={project.poNumber || "No PO linked"}
+								value={project?.poNumber || (selectedProjectId && selectedProjectId !== 'none' ? projects.find(p => String(p.id) === selectedProjectId)?.poNumber : "") || "No PO linked"}
 								disabled
 								className="bg-muted"
 							/>

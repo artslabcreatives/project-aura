@@ -43,6 +43,11 @@ import { EstimateDialog } from "@/components/EstimateDialog";
 import { ClientFinancialDashboardComponent } from "@/components/ClientFinancialDashboard";
 import { ClientFinanceSummaryCard } from "@/components/ClientFinanceSummaryCard";
 import { InvoiceList } from "@/components/InvoiceList";
+import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
+import { InvoiceViewDialog } from "@/components/InvoiceViewDialog";
+import { Invoice } from "@/types/financial";
+import { invoiceService } from "@/services/invoiceService";
+import { useUser } from "@/hooks/use-user";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -108,6 +113,27 @@ export default function ClientProfile() {
 	const [contactToDelete, setContactToDelete] = useState<ClientContact | null>(null);
 	const [isDeletingClient, setIsDeletingClient] = useState(false);
 	const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+	const [isInvoiceViewOpen, setIsInvoiceViewOpen] = useState(false);
+	const [isAddInvoiceOpen, setIsAddInvoiceOpen] = useState(false);
+	const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
+	const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | undefined>();
+	const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | undefined>();
+	const { currentUser, activeRole } = useUser();
+	const canManageFinance = activeRole === "admin" || activeRole === "hr";
+
+	const handleDeleteInvoice = async () => {
+		if (!invoiceToDelete) return;
+		try {
+			await invoiceService.delete(invoiceToDelete.id);
+			toast({ title: "Invoice Deleted", description: "The invoice has been removed." });
+			setInvoiceToDelete(undefined);
+			// Refresh client data to update financial summaries
+			fetchClient();
+		} catch (error) {
+			console.error("Failed to delete invoice:", error);
+			toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
+		}
+	};
 
 	const toggleGroup = (groupId: string) => {
 		setExpandedGroupId(prev => prev === groupId ? null : groupId);
@@ -662,7 +688,7 @@ export default function ClientProfile() {
 										All Invoices
 									</CardTitle>
 									<CardDescription>
-										Manual and Xero invoices for {client.company_name}
+										Invoices for {client.company_name}
 									</CardDescription>
 								</div>
 							</div>
@@ -672,9 +698,20 @@ export default function ClientProfile() {
 								clientId={client.id}
 								showFilters={true}
 								onInvoiceClick={(invoice) => {
-									console.log('Invoice clicked:', invoice);
-									// TODO: Open invoice detail modal or navigate
+									setSelectedInvoice(invoice);
+									setIsInvoiceViewOpen(true);
 								}}
+								onAddInvoice={canManageFinance ? () => {
+									setInvoiceToEdit(undefined);
+									setIsAddInvoiceOpen(true);
+								} : undefined}
+								onEditInvoice={canManageFinance ? (invoice) => {
+									setInvoiceToEdit(invoice);
+									setIsAddInvoiceOpen(true);
+								} : undefined}
+								onDeleteInvoice={canManageFinance ? (invoice) => {
+									setInvoiceToDelete(invoice);
+								} : undefined}
 							/>
 						</CardContent>
 					</Card>
@@ -748,6 +785,42 @@ export default function ClientProfile() {
 				projects={client?.projects || []}
 				defaultClientId={typeof client?.id === 'number' ? client.id : undefined}
 			/>
+
+			<InvoiceViewDialog
+				open={isInvoiceViewOpen}
+				onOpenChange={setIsInvoiceViewOpen}
+				invoice={selectedInvoice}
+			/>
+
+			<InvoiceUploadDialog
+				open={isAddInvoiceOpen}
+				onOpenChange={setIsAddInvoiceOpen}
+				clientId={typeof client.id === 'number' ? client.id : undefined}
+				projects={client.projects || []}
+				onSuccess={() => {
+					fetchClient();
+					setIsAddInvoiceOpen(false);
+				}}
+				completeProject={false}
+				invoice={invoiceToEdit}
+			/>
+
+			<AlertDialog open={!!invoiceToDelete} onOpenChange={(open) => !open && setInvoiceToDelete(undefined)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete this invoice? This action cannot be undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={handleDeleteInvoice} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

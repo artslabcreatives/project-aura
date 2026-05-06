@@ -46,14 +46,18 @@ export function InvoiceList({
 	const [filters, setFilters] = useState<InvoiceFilters>({
 		projectId,
 		clientId,
-		source: 'manual',
 	});
 
 	const loadInvoices = async () => {
 		try {
 			setLoading(true);
 			setError(null);
-			const { data } = await invoiceService.getAll(filters);
+			const activeFilters = {
+				...filters,
+				projectId: filters.projectId ?? projectId,
+				clientId: filters.clientId ?? clientId,
+			};
+			const { data } = await invoiceService.getAll(activeFilters);
 			setInvoices(data);
 		} catch (err: any) {
 			console.error('Failed to load invoices:', err);
@@ -153,7 +157,7 @@ export function InvoiceList({
 							Invoices ({invoices.length})
 						</CardTitle>
 						<CardDescription>
-							View and manage manual invoices
+							View and manage invoices
 						</CardDescription>
 					</div>
 					<div className="flex items-center gap-2">

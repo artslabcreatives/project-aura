@@ -820,7 +820,7 @@ export function ProjectOverviewContent({
 			{/* Project Invoices - Unified Invoice List */}
 			{canSeeClientInfo && project.client && (
 				<InvoiceList
-					projectId={project.id}
+					clientId={project.clientId}
 					showFilters={true}
 					onInvoiceClick={(invoice) => {
 						setSelectedInvoice(invoice);
