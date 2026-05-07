@@ -5,7 +5,7 @@ import { api } from '@/services/api';
 import { getToken } from '@/lib/api';
 import type { Task, TaskAttachment } from '@/types/task';
 
-export type UploadWorkflowKind = 'task-attachment' | 'task-completion' | 'document-upload';
+export type UploadWorkflowKind = 'task-attachment' | 'task-completion' | 'document-upload' | 'project-attachment';
 export type UploadItemStatus = 'queued' | 'uploading' | 'processing' | 'completed' | 'failed';
 export type UploadWorkflowStatus = 'queued' | 'uploading' | 'processing' | 'completed' | 'failed';
 
@@ -127,6 +127,18 @@ interface TaskAttachmentWorkflow {
 	error?: string;
 }
 
+interface ProjectAttachmentWorkflow {
+	id: string;
+	kind: 'project-attachment';
+	projectId: string;
+	status: UploadWorkflowStatus;
+	itemIds: string[];
+	createdAt: number;
+	updatedAt: number;
+	results: any[];
+	error?: string;
+}
+
 interface TaskCompletionWorkflow {
 	id: string;
 	kind: 'task-completion';
@@ -159,7 +171,7 @@ interface DocumentUploadWorkflow {
 	error?: string;
 }
 
-type UploadWorkflow = TaskAttachmentWorkflow | TaskCompletionWorkflow | DocumentUploadWorkflow;
+type UploadWorkflow = TaskAttachmentWorkflow | ProjectAttachmentWorkflow | TaskCompletionWorkflow | DocumentUploadWorkflow;
 
 interface UploadState {
 	items: Record<string, UploadItem>;
@@ -177,6 +189,7 @@ type ManagedUppyFile = UppyFile<Record<string, unknown>, Record<string, unknown>
 const STORAGE_KEY = 'aura.upload-manager.state.v1';
 const TASK_ATTACHMENTS_EVENT = 'aura:task-attachments-uploaded';
 const TASK_COMPLETION_EVENT = 'aura:task-completion-finished';
+const PROJECT_ATTACHMENTS_EVENT = 'aura:project-attachments-uploaded';
 const DOCUMENT_UPLOAD_EVENT = 'aura:document-uploaded';
 const RELOAD_FILE_LOST_ERROR = 'Please select the file to continue uploading.';
 const RELOAD_GHOST_ERROR = 'Please select the file to continue uploading.';
@@ -490,6 +503,8 @@ class UploadManager {
 			try {
 				if (workflow.kind === 'task-attachment') {
 					await this.finalizeTaskAttachmentItem(workflow.id, item.id);
+				} else if (workflow.kind === 'project-attachment') {
+					await this.finalizeProjectAttachmentItem(workflow.id, item.id);
 				} else if (workflow.kind === 'task-completion') {
 					await this.registerCompletionUploadKey(workflow.id, item.id, uploadKey);
 				} else if (workflow.kind === 'document-upload') {
@@ -1125,6 +1140,47 @@ class UploadManager {
 		}
 	}
 
+	private async finalizeProjectAttachmentItem(workflowId: string, itemId: string) {
+		const workflow = this.state.workflows[workflowId];
+		const item = this.state.items[itemId];
+		if (!workflow || workflow.kind !== 'project-attachment' || !item?.uploadKey) {
+			return;
+		}
+
+		const { data } = await api.post(`/projects/${workflow.projectId}/attachments`, {
+			name: item.fileName,
+			upload_key: item.uploadKey,
+			type: 'file',
+		});
+		
+		this.log('project attachment finalized', {
+			workflowId,
+			itemId,
+			attachment: data,
+		});
+
+		workflow.results = [...workflow.results.filter((result) => result.id !== data.id), data];
+		workflow.updatedAt = Date.now();
+		item.status = 'completed';
+		item.resultId = data.id;
+		item.progress = 100;
+		item.error = undefined;
+		item.updatedAt = Date.now();
+		this.emit();
+
+		const allCompleted = workflow.itemIds.every((workflowItemId) => this.state.items[workflowItemId]?.status === 'completed');
+		if (allCompleted) {
+			workflow.status = 'completed';
+			workflow.error = undefined;
+			workflow.updatedAt = Date.now();
+			this.emit();
+			window.dispatchEvent(new CustomEvent(PROJECT_ATTACHMENTS_EVENT, {
+				detail: { projectId: workflow.projectId, attachments: workflow.results },
+			}));
+			this.resolveWorkflow(workflowId, workflow.results);
+		}
+	}
+
 	private async finalizeDocumentUpload(workflowId: string, itemId: string, uploadKey: string) {
 		const workflow = this.state.workflows[workflowId];
 		const item = this.state.items[itemId];
@@ -1273,6 +1329,15 @@ class UploadManager {
 				}
 			}
 
+			if (workflow.kind === 'project-attachment') {
+				workflow.itemIds.forEach((itemId) => {
+					const item = this.state.items[itemId];
+					if (item?.uploadKey && item.status !== 'completed') {
+						void this.finalizeProjectAttachmentItem(workflow.id, itemId);
+					}
+				});
+			}
+
 			if (workflow.kind === 'task-attachment') {
 				workflow.itemIds.forEach((itemId) => {
 					const item = this.state.items[itemId];
@@ -1336,6 +1401,17 @@ class UploadManager {
 			const hasAllUploadKeys = workflow.itemIds.every((itemId) => Boolean(workflow.uploadKeys[itemId]));
 			if (hasAllUploadKeys) {
 				await this.finalizeTaskCompletionWorkflow(workflowId);
+				return;
+			}
+		}
+
+		if (workflow.kind === 'project-attachment') {
+			const uploadedItems = workflow.itemIds
+				.map((itemId) => this.state.items[itemId])
+				.filter((item): item is UploadItem => Boolean(item?.uploadKey && item.status !== 'completed'));
+
+			if (uploadedItems.length > 0) {
+				await Promise.all(uploadedItems.map((item) => this.finalizeProjectAttachmentItem(workflow.id, item.id)));
 				return;
 			}
 		}
@@ -1460,6 +1536,51 @@ class UploadManager {
 		const promise = new Promise<TaskAttachment[]>((resolve, reject) => {
 			this.workflowResolvers.set(workflowId, {
 				resolve: (value) => resolve(value as TaskAttachment[]),
+				reject,
+			});
+		});
+
+		files.forEach((file, index) => {
+			this.addFileToUppy(items[index], file);
+		});
+
+		await this.startOrResumeUploads();
+		return promise;
+	};
+
+	attachFilesToProject = async (projectId: string, files: File[]): Promise<any[]> => {
+		if (files.length === 0) {
+			return [];
+		}
+
+		this.log('attachFilesToProject called', {
+			projectId,
+			files: files.map((file) => ({ name: file.name, size: file.size, type: file.type })),
+		});
+
+		const workflowId = randomId('workflow');
+		const items = files.map((file) => this.createItem('project-attachment', workflowId, projectId, file));
+		const workflow: ProjectAttachmentWorkflow = {
+			id: workflowId,
+			kind: 'project-attachment',
+			projectId,
+			status: 'queued',
+			itemIds: items.map((item) => item.id),
+			createdAt: Date.now(),
+			updatedAt: Date.now(),
+			results: [],
+		};
+
+		items.forEach((item) => {
+			this.state.items[item.id] = item;
+		});
+		this.state.workflows[workflowId] = workflow;
+		this.state.expanded = true;
+		this.emit();
+
+		const promise = new Promise<any[]>((resolve, reject) => {
+			this.workflowResolvers.set(workflowId, {
+				resolve: (value) => resolve(value as any[]),
 				reject,
 			});
 		});

@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Project, ProjectPurchaseOrder } from '@/types/project';
+import { Project, ProjectPurchaseOrder, ProjectAttachment } from '@/types/project';
 import { Stage } from '@/types/stage';
 import { SuggestedTask } from '@/types/task';
 import { cacheService } from './cacheService';
@@ -42,6 +42,16 @@ function mapPurchaseOrder(raw: any): ProjectPurchaseOrder {
 		status: raw.status ?? undefined,
 		notes: raw.notes ?? undefined,
 		createdAt: raw.created_at,
+	};
+}
+
+function mapAttachment(raw: any): ProjectAttachment {
+	return {
+		id: String(raw.id),
+		name: raw.name,
+		url: raw.url,
+		type: raw.type,
+		uploadedAt: raw.uploaded_at || raw.created_at,
 	};
 }
 
@@ -123,6 +133,9 @@ function mapProject(raw: any): Project {
 		purchaseOrders: Array.isArray(raw.purchase_orders)
 			? raw.purchase_orders.map(mapPurchaseOrder)
 			: undefined,
+		attachments: Array.isArray(raw.attachments)
+			? raw.attachments.map(mapAttachment)
+			: undefined,
 	};
 }
 
@@ -144,7 +157,7 @@ export const projectService = {
 	},
 
 	getById: async (id: string): Promise<Project> => {
-		const { data } = await api.get(`/projects/${id}`);
+		const { data } = await api.get(`/projects/${id}`, { params: { _t: Date.now() } });
 		const project = mapProject(data);
 		cacheService.set(`project_${id}`, project);
 		return project;

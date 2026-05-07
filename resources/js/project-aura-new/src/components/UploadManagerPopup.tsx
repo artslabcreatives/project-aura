@@ -39,6 +39,8 @@ function workflowLabel(workflow: UploadWorkflow) {
 			return `Uploading document: ${workflow.payload.name}`;
 		case 'task-attachment':
 			return `Uploading to task #${workflow.taskId}`;
+		case 'project-attachment':
+			return `Uploading project resources`;
 		default:
 			return 'Uploading...';
 	}

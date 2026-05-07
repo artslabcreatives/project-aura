@@ -117,6 +117,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/upload-tasks', [TaskImportController::class, 'upload']);
     Route::get('projects/{project}/task-import/{importId}', [TaskImportController::class, 'status']);
     
+    // Project Attachments
+    Route::post("projects/{project}/attachments", [\App\Http\Controllers\Api\ProjectAttachmentController::class, "store"]);
+    Route::delete("project-attachments/{attachment}", [\App\Http\Controllers\Api\ProjectAttachmentController::class, "destroy"]);
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
     Route::apiResource('users', UserController::class);

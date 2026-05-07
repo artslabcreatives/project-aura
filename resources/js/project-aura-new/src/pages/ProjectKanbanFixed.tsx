@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign, Sparkles, ChevronDown, Settings, MoreVertical } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign, Sparkles, ChevronDown, Settings, MoreVertical, Link as LinkIcon } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -62,6 +62,7 @@ import { ImportTasksReviewDialog, ImportedTask } from "@/components/ImportTasksR
 import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { ProjectAttachmentsTab } from "@/components/ProjectAttachmentsTab";
+import { ProjectLevelAttachmentsDialog } from "@/components/ProjectLevelAttachmentsDialog";
 import { Paperclip } from "lucide-react";
 import { 
 	Dialog, 
@@ -227,6 +228,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isReportsOpen, setIsReportsOpen] = useState(false);
 	const [isFinanceOpen, setIsFinanceOpen] = useState(false);
 	const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false);
+const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const [isImportTasksOpen, setIsImportTasksOpen] = useState(false);
 	const [isImportReviewOpen, setIsImportReviewOpen] = useState(false);
 	const [importedTasks, setImportedTasks] = useState<ImportedTask[]>([]);
@@ -390,6 +392,20 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 			if (!isBackground) setIsLoading(false);
 		}
 	}, [numericProjectId, currentUser, searchParams, setSearchParams, navigate, toast]);
+
+	useEffect(() => {
+		const handleProjectAttachments = (e: any) => {
+			const { projectId: eventProjectId } = e.detail;
+			if (String(eventProjectId) === String(numericProjectId)) {
+				loadData(true);
+			}
+		};
+
+		window.addEventListener('aura:project-attachments-uploaded', handleProjectAttachments);
+		return () => {
+			window.removeEventListener('aura:project-attachments-uploaded', handleProjectAttachments);
+		};
+	}, [numericProjectId, loadData]);
 
 	useEffect(() => {
 		loadData();
@@ -1090,8 +1106,11 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 											<DropdownMenuItem onClick={() => setIsFinanceOpen(true)} className="rounded-lg">
 												<DollarSign className="mr-2 h-4 w-4 text-green-500" /> Finance & Expenses
 											</DropdownMenuItem>
+											<DropdownMenuItem onClick={() => setIsProjectAttachmentsOpen(true)} className="rounded-lg">
+												<LinkIcon className="mr-2 h-4 w-4 text-primary" /> Project Attachments
+											</DropdownMenuItem>
 											<DropdownMenuItem onClick={() => setIsAttachmentsOpen(true)} className="rounded-lg">
-												<Paperclip className="mr-2 h-4 w-4 text-orange-500" /> Attachments
+												<Paperclip className="mr-2 h-4 w-4 text-orange-500" /> Task Attachments
 											</DropdownMenuItem>
 											
 											<div className="h-px bg-border my-1" />
@@ -1379,18 +1398,26 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				</DialogContent>
 			</Dialog>
 			
-			{/* Attachments Dialog */}
+			{/* Task Attachments Dialog */}
 			<Dialog open={isAttachmentsOpen} onOpenChange={setIsAttachmentsOpen}>
 				<DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col p-0">
 					<DialogHeader className="p-6 pb-0">
-						<DialogTitle>Project Attachments - {project.name}</DialogTitle>
-						<DialogDescription>View and download all attachments associated with this project.</DialogDescription>
+						<DialogTitle>Task Attachments - {project.name}</DialogTitle>
+						<DialogDescription>View and download all attachments associated with this project's tasks.</DialogDescription>
 					</DialogHeader>
 					<div className="flex-1 overflow-auto p-6 pt-2">
 						<ProjectAttachmentsTab project={project} tasks={tasks} />
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* Project Attachments Dialog */}
+			<ProjectLevelAttachmentsDialog
+				open={isProjectAttachmentsOpen}
+				onOpenChange={setIsProjectAttachmentsOpen}
+				project={project}
+				onProjectUpdate={(updatedProject) => loadData(true)}
+			/>
 
 			{/* Task Import — upload dialog */}
 			{numericProjectId && (

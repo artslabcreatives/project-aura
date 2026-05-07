@@ -188,7 +188,7 @@ class ProjectController extends Controller
         }
 
         $project = Project::create($validated);
-        \Illuminate\Support\Facades\Cache::increment("projects_version");
+        \Illuminate\Support\Facades\Cache::forget("projects_version");
 
         // Notify Admins
         try {
@@ -279,7 +279,7 @@ class ProjectController extends Controller
                 $query->where('type', 'project');
             }, 'collaborators' => function ($query) {
                 $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
-            }]);
+            }, "attachments"]);
 
             // Filter tasks relationship for user and account_manager
             if (in_array($user->role, ['user', 'account_manager'])) {
@@ -395,7 +395,7 @@ class ProjectController extends Controller
         }
 
         $project->update($validated);
-        \Illuminate\Support\Facades\Cache::increment("projects_version");
+        \Illuminate\Support\Facades\Cache::forget("projects_version");
 
         // Dispatch status cascade event if status changed
         if (isset($validated['status']) && $validated['status'] !== $oldStatus) {

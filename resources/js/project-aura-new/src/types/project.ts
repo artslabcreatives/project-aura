@@ -15,6 +15,14 @@ export interface ProjectPurchaseOrder {
 	createdAt?: string;
 }
 
+export interface ProjectAttachment {
+	id: string;
+	name: string;
+	url: string;
+	type: 'file' | 'link';
+	uploadedAt: string;
+}
+
 export interface Project {
 	id?: number;
 	name: string;
@@ -65,4 +73,5 @@ export interface Project {
 	budget_allocated?: number;
 	isInternalProject?: boolean;
 	purchaseOrders?: ProjectPurchaseOrder[];
+	attachments?: ProjectAttachment[];
 }

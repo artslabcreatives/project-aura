@@ -326,4 +326,12 @@ class Project extends Model
             ->withPivot('invited_by')
             ->withTimestamps();
     }
+
+    /**
+     * Get the attachments for the project.
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ProjectAttachment::class);
+    }
 }

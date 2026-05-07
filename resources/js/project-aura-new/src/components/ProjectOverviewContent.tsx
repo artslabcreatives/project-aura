@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Project } from "@/types/project";
 import { Task } from "@/types/task";
 import { projectService } from "@/services/projectService";
+import { projectAttachmentService } from "@/services/projectAttachmentService";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -26,9 +27,14 @@ import {
 	Info,
 	ClipboardList,
 	Trash2,
+Link as LinkIcon,
+Upload,
+X,
 	Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 import {
@@ -97,6 +103,10 @@ export function ProjectOverviewContent({
 	const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | undefined>();
 	const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | undefined>();
 	const [projectPOs, setProjectPOs] = useState<ProjectPurchaseOrder[]>(project.purchaseOrders || []);
+const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+const [newLinkName, setNewLinkName] = useState("");
+const [newLinkUrl, setNewLinkUrl] = useState("");
+const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isRemovingPO, setIsRemovingPO] = useState<number | null>(null);
 	const { toast } = useToast();
 	const { currentUser, activeRole } = useUser();
@@ -173,6 +183,61 @@ export function ProjectOverviewContent({
 			toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
 		}
 	};
+
+const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+const files = e.target.files;
+if (!files || files.length === 0) return;
+
+setIsUploadingAttachment(true);
+try {
+for (const file of Array.from(files)) {
+await projectAttachmentService.uploadFile(String(project.id), file);
+}
+toast({ title: "Success", description: "Files uploaded successfully." });
+
+const updatedProject = await projectService.getById(String(project.id));
+handleProjectChange(updatedProject);
+} catch (error) {
+console.error("Failed to upload files:", error);
+toast({ title: "Upload failed", description: "Could not upload files.", variant: "destructive" });
+} finally {
+setIsUploadingAttachment(false);
+if (fileInputRef.current) fileInputRef.current.value = "";
+}
+};
+
+const handleAddLink = async () => {
+if (!newLinkName || !newLinkUrl) return;
+
+setIsUploadingAttachment(true);
+try {
+await projectAttachmentService.addLink(String(project.id), newLinkName, newLinkUrl);
+toast({ title: "Success", description: "Link added successfully." });
+setNewLinkName("");
+setNewLinkUrl("");
+
+const updatedProject = await projectService.getById(String(project.id));
+handleProjectChange(updatedProject);
+} catch (error) {
+console.error("Failed to add link:", error);
+toast({ title: "Error", description: "Could not add link.", variant: "destructive" });
+} finally {
+setIsUploadingAttachment(false);
+}
+};
+
+const handleRemoveAttachment = async (id: string) => {
+try {
+await projectAttachmentService.delete(id);
+toast({ title: "Success", description: "Attachment removed." });
+
+const updatedProject = await projectService.getById(String(project.id));
+handleProjectChange(updatedProject);
+} catch (error) {
+console.error("Failed to remove attachment:", error);
+toast({ title: "Error", description: "Could not remove attachment.", variant: "destructive" });
+}
+};
 
 	const isDigitalMarketing =
 		project.department?.name === "Digital Marketing";
@@ -1176,8 +1241,124 @@ export function ProjectOverviewContent({
 				</CardContent>
 			</Card>
 
-			{/* Dialogs */}
+			{/* Project Attachments: Links & Files */}
+			<Card className="mt-8 border-none shadow-md">
+				<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b mb-4">
+					<CardTitle className="text-base font-semibold flex items-center gap-2">
+						<LinkIcon className="h-5 w-5 text-primary" />
+						Files & Links
+					</CardTitle>
+					<div className="flex items-center gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							className="h-8 gap-2 font-semibold"
+							onClick={() => fileInputRef.current?.click()}
+							disabled={isUploadingAttachment}
+						>
+							{isUploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+							Upload File
+						</Button>
+						<input
+							type="file"
+							ref={fileInputRef}
+							className="hidden"
+							multiple
+							onChange={handleFileUpload}
+						/>
+					</div>
+				</CardHeader>
+				<CardContent className="space-y-6">
+					{/* Add Link Section */}
+					<div className="flex gap-2 items-end bg-muted/20 p-4 rounded-lg border border-dashed">
+						<div className="grid gap-1.5 flex-1">
+							<Label htmlFor="linkName" className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Link Name</Label>
+							<Input
+								id="linkName"
+								placeholder="e.g. Design Folder"
+								value={newLinkName}
+								onChange={(e) => setNewLinkName(e.target.value)}
+								className="h-9 bg-background border-muted-foreground/20 focus:border-primary transition-colors"
+							/>
+						</div>
+						<div className="grid gap-1.5 flex-[2]">
+							<Label htmlFor="linkUrl" className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">URL</Label>
+							<Input
+								id="linkUrl"
+								placeholder="https://..."
+								value={newLinkUrl}
+								onChange={(e) => setNewLinkUrl(e.target.value)}
+								className="h-9 bg-background border-muted-foreground/20 focus:border-primary transition-colors"
+							/>
+						</div>
+						<Button
+							size="sm"
+							className="h-9 font-bold px-4"
+							onClick={handleAddLink}
+							disabled={!newLinkName || !newLinkUrl || isUploadingAttachment}
+						>
+							<Plus className="h-4 w-4 mr-1" /> Add Link
+						</Button>
+					</div>
+
+					{/* Attachments List */}
+					<div className="space-y-2">
+						{project.attachments && project.attachments.length > 0 ? (
+							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+								{project.attachments.map((attachment) => (
+									<div
+										key={attachment.id}
+										className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 group hover:border-primary/50 hover:bg-background transition-all duration-200 hover:shadow-md"
+									>
+										<div className="flex items-center gap-3 overflow-hidden">
+											<div className={cn(
+												"p-2.5 rounded-lg",
+												attachment.type === 'link' ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400" : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+											)}>
+												{attachment.type === 'link' ? <LinkIcon className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+											</div>
+											<div className="overflow-hidden">
+												<p className="text-sm font-bold truncate" title={attachment.name}>
+													{attachment.name}
+												</p>
+												<a
+													href={attachment.url}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="text-[10px] text-muted-foreground hover:text-primary truncate block font-mono opacity-70 group-hover:opacity-100 transition-opacity"
+												>
+													{attachment.url}
+												</a>
+											</div>
+										</div>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all duration-200"
+											onClick={() => handleRemoveAttachment(attachment.id)}
+										>
+											<Trash2 className="h-4 w-4" />
+										</Button>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-center py-16 border-2 border-dashed rounded-xl bg-muted/10 flex flex-col items-center justify-center">
+								<div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+									<LinkIcon className="h-6 w-6 text-muted-foreground/40" />
+								</div>
+								<p className="text-sm font-bold text-muted-foreground">No files or links added yet.</p>
+								<p className="text-xs text-muted-foreground/60 mt-1 max-w-[200px] mx-auto text-center">
+									Centralize all project resources like Figma links, Drive folders, and documents.
+								</p>
+							</div>
+						)}
+					</div>
+				</CardContent>
+			</Card>
+{/* Dialogs */}
 			<POSelectDialog
+ 
 				open={isPOSelectOpen}
 				onOpenChange={setIsPOSelectOpen}
 				project={project}
