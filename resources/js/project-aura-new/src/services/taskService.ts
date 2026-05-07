@@ -9,7 +9,7 @@ function mapTask(raw: any): Task {
 		title: raw.title,
 		description: raw.description ?? '',
 		project: raw.project ? raw.project.name : '',
-		projectId: raw.project ? raw.project.id : undefined,
+		projectId: raw.project_id || (raw.project ? raw.project.id : undefined),
 		assignee: raw.assignee ? raw.assignee.name : '',
 		// Map multiple assignees
 		assignedUsers: raw.assigned_users?.map((u: any) => ({
@@ -81,6 +81,7 @@ export const taskService = {
 		if (filters?.projectId) params.project_id = filters.projectId;
 		if (filters?.assigneeId) params.assignee_id = filters.assigneeId;
 		if (filters?.userStatus) params.user_status = filters.userStatus;
+		params._t = Date.now(); // Cache busting
 		const { data } = await api.get('/tasks', { params });
 		const tasks = Array.isArray(data) ? data.map(mapTask) : [];
 		

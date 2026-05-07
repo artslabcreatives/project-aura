@@ -338,7 +338,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				userService.getAll()
 			]);
 
-			const projectTasks = tasksData.filter(t => t.projectId === currentProject.id);
+			const projectTasks = tasksData.filter(t => String(t.projectId) === String(currentProject.id));
 			setTasks(projectTasks);
 			setAllTasks(projectTasks); // Optimization: Use project tasks instead of full global fetch
 			setTeamMembers(usersData);
@@ -686,6 +686,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 				}
 
 				setTasks([...tasks, newTask]);
+				setAllTasks([...allTasks, newTask]);
 				addHistoryEntry({ action: 'CREATE_TASK', entityId: newTask.id, entityType: 'task', projectId: String(project.id), userId: currentUser.id, details: { title: newTask.title } });
 				toast({ title: 'Task created', description: 'Task created successfully.' });
 				setIsTaskDialogOpen(false); setEditingTask(null);
