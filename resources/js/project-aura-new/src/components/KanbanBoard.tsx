@@ -477,32 +477,37 @@ export function KanbanBoard({
 						}}
 					>
 						<div className={cn(
-							"p-3 font-medium text-sm flex items-center justify-between border-b bg-background/50 backdrop-blur-sm rounded-t-lg",
+							"p-3 font-medium text-sm flex items-center justify-between border-b bg-background/50 backdrop-blur-sm rounded-t-lg group/column-header relative",
 							column.isReviewStage && "bg-indigo-50/50 dark:bg-indigo-950/20",
 							disableColumnScroll && "sticky top-0 z-10 bg-background/80 backdrop-blur-md shadow-sm"
 						)}>
-							<div className="flex items-center gap-2">
-								<div className={cn("h-2 w-2 rounded-full", column.color)} />
+							<div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+								<div className={cn("h-2 w-2 rounded-full shrink-0", column.color)} />
 								{!columnSearchOpen[column.id] && (
-									<span>
+									<span className="truncate whitespace-nowrap">
 										{(column.title.toLowerCase().trim() === 'pending' && !disableBacklogRenaming)
 											? 'Backlog'
 											: column.title}
 									</span>
 								)}
 								{!columnSearchOpen[column.id] && (
-									<Badge variant="secondary" className="ml-2 text-xs font-normal">
+									<Badge variant="secondary" className="ml-1 text-xs font-normal shrink-0">
 										{columnTasks.length}
 									</Badge>
 								)}
 								{column.isReviewStage && !columnSearchOpen[column.id] && (
-									<Badge variant="outline" className="ml-1 text-[10px] h-5 border-indigo-200 text-indigo-700 bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:bg-indigo-950/30">
+									<Badge variant="outline" className="ml-1 text-[10px] h-5 border-indigo-200 text-indigo-700 bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:bg-indigo-950/30 shrink-0">
 										Review
 									</Badge>
 								)}
 							</div>
 
-							<div className="flex items-center gap-1">
+							<div className={cn(
+								"flex items-center gap-1 transition-all duration-200 z-30",
+								!columnSearchOpen[column.id] && !selectionModeStageIds.has(column.id) 
+									? "opacity-0 group-hover/column-header:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 bg-background/90 backdrop-blur-sm p-1 rounded-md border shadow-sm" 
+									: "opacity-100 relative"
+							)}>
 								{(column.title === "Suggested Task" || column.title === "Suggested") && (
 									<TooltipProvider>
 										<Tooltip delayDuration={300}>
