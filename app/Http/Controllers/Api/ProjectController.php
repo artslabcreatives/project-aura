@@ -43,7 +43,7 @@ class ProjectController extends Controller
     public function index(): JsonResponse
     {
         $user = auth()->user();
-        $version = Cache::rememberForever('projects_version', fn() => time());
+        $version = Cache::rememberForever('projects_version', fn() => microtime(true));
         $cacheKey = "projects_user_{$user->id}_{$user->role}_v{$version}";
 
         $projects = Cache::remember($cacheKey, 3600, function() use ($user) {
@@ -257,7 +257,7 @@ class ProjectController extends Controller
     public function show(Project $project): JsonResponse
     {
         $user = auth()->user();
-        $version = Cache::rememberForever('projects_version', fn() => time());
+        $version = Cache::rememberForever('projects_version', fn() => microtime(true));
         $cacheKey = "project_{$project->id}_user_{$user->id}_{$user->role}_v{$version}";
 
         $projectData = Cache::remember($cacheKey, 3600, function() use ($user, $project) {
