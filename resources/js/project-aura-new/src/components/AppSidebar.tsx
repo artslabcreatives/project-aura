@@ -429,8 +429,7 @@ export function AppSidebar() {
 				}
 			}
 
-			const projectsData = await projectService.getAll();
-			setProjects(projectsData);
+setProjects(prev => [newProject, ...prev]);
 
 			addHistoryEntry({
 				action: 'CREATE_PROJECT',
@@ -561,8 +560,7 @@ export function AppSidebar() {
 			}
 
 			const projectsData = await projectService.getAll();
-			setProjects(projectsData);
-
+setProjects(prev => prev.map(p => String(p.id) === String(updatedProject.id) ? updatedProject : p));
 			addHistoryEntry({
 				action: 'UPDATE_PROJECT',
 				entityId: updatedProject.id?.toString() || name,
@@ -692,23 +690,17 @@ export function AppSidebar() {
 				group: targetGroupId ? { id: targetGroupId } as any : null,
 			});
 
-			// Refresh projects from server to ensure sync
-			const projectsData = await projectService.getAll();
-			setProjects(projectsData);
-
-			toast({ title: "Project group updated" });
-		} catch (error) {
-			console.error("Failed to assign group:", error);
-			// Rollback on error
-			const projectsData = await projectService.getAll();
-			setProjects(projectsData);
-			
-			toast({
-				title: "Failed to update group",
-				description: "An error occurred while updating the project group.",
-				variant: "destructive",
-			});
-		}
+toast({ title: "Project group updated" });
+} catch (error) {
+console.error("Failed to assign group:", error);
+const projectsData = await projectService.getAll();
+setProjects(projectsData);
+toast({
+title: "Failed to update group",
+description: "An error occurred while updating the project group.",
+variant: "destructive",
+});
+}
 	};
 
 	const handleUpdateGroup = async (groupId: string, name: string) => {

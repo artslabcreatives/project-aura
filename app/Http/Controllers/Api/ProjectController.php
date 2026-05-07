@@ -188,6 +188,7 @@ class ProjectController extends Controller
         }
 
         $project = Project::create($validated);
+        \Illuminate\Support\Facades\Cache::increment("projects_version");
 
         // Notify Admins
         try {
@@ -394,6 +395,7 @@ class ProjectController extends Controller
         }
 
         $project->update($validated);
+        \Illuminate\Support\Facades\Cache::increment("projects_version");
 
         // Dispatch status cascade event if status changed
         if (isset($validated['status']) && $validated['status'] !== $oldStatus) {
