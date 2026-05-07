@@ -8,7 +8,7 @@ export const projectGroupService = {
         if (departmentId) {
             url += `?department_id=${departmentId}`;
         }
-        const { data } = await api.get(url);
+        const { data } = await api.get(url, { params: { _t: Date.now() } });
         const groups = Array.isArray(data) ? data.map((raw: any) => ({
             id: String(raw.id),
             name: raw.name,

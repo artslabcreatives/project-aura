@@ -355,6 +355,7 @@ export function AppSidebar() {
 				emails,
 				phoneNumbers,
 				department,
+				group: groupId ? { id: groupId } : undefined,
 				client_id: clientId ? parseInt(clientId) : undefined,
 				estimated_hours: estimatedHours,
 				status,
@@ -479,6 +480,7 @@ export function AppSidebar() {
 				emails,
 				phoneNumbers,
 				department,
+				group: groupId ? { id: groupId } : null,
 				client_id: clientId ? parseInt(clientId) : null,
 				estimated_hours: estimatedHours,
 				status,
@@ -488,6 +490,34 @@ export function AppSidebar() {
 				currency,
 				is_internal_project: isInternalProject,
 			});
+
+			// Optimistic update for projects list
+			setProjects(prev => prev.map(p => {
+				if (String(p.id) === String(projectToEdit.id)) {
+					const groupInfo = groupId ? { 
+						id: groupId, 
+						name: projectGroups.find(g => g.id === groupId)?.name || '',
+						departmentId: department?.id || p.department?.id || ''
+					} : undefined;
+					return { 
+						...p, 
+						name, 
+						description, 
+						emails, 
+						phoneNumbers, 
+						department, 
+						group: groupInfo,
+						clientId,
+						estimatedHours,
+						status,
+						poNumber,
+						deadline,
+						currency,
+						isInternalProject
+					};
+				}
+				return p;
+			}));
 
 			// Create any newly added stages (id not numeric)
 			const newStages = stages.filter(s => !/^[0-9]+$/.test(String(s.id)));
@@ -560,6 +590,9 @@ export function AppSidebar() {
 	const handleProjectDelete = async () => {
 		if (!currentUser || !projectToDelete) return;
 		try {
+			// Optimistic update
+			setProjects(prev => prev.filter(p => String(p.id) !== String(projectToDelete.id)));
+
 			await projectService.delete(String(projectToDelete.id));
 			const projectsData = await projectService.getAll();
 			setProjects(projectsData);
@@ -642,17 +675,34 @@ export function AppSidebar() {
 				setProjectGroups(prev => [...prev, newGroup]);
 			}
 
-			const updatedProject = await projectService.update(String(project.id), {
+			// Optimistic update for projects list
+			setProjects(prev => prev.map(p => {
+				if (String(p.id) === String(project.id)) {
+					const groupInfo = targetGroupId ? { 
+						id: targetGroupId, 
+						name: newGroupName || projectGroups.find(g => g.id === targetGroupId)?.name || '',
+						departmentId: project.department?.id || ''
+					} : undefined;
+					return { ...p, group: groupInfo };
+				}
+				return p;
+			}));
+
+			await projectService.update(String(project.id), {
 				group: targetGroupId ? { id: targetGroupId } as any : null,
 			});
 
-			// Refresh projects
+			// Refresh projects from server to ensure sync
 			const projectsData = await projectService.getAll();
 			setProjects(projectsData);
 
 			toast({ title: "Project group updated" });
 		} catch (error) {
 			console.error("Failed to assign group:", error);
+			// Rollback on error
+			const projectsData = await projectService.getAll();
+			setProjects(projectsData);
+			
 			toast({
 				title: "Failed to update group",
 				description: "An error occurred while updating the project group.",
@@ -663,18 +713,26 @@ export function AppSidebar() {
 
 	const handleUpdateGroup = async (groupId: string, name: string) => {
 		try {
+			// Optimistic update
+			setProjectGroups(prev => prev.map(g => g.id === groupId ? { ...g, name } : g));
+
 			await projectGroupService.update(groupId, name);
 			const groups = await projectGroupService.getAll();
 			setProjectGroups(groups);
 			toast({ title: "Group updated" });
 		} catch (error) {
 			console.error("Failed to update group:", error);
+			const groups = await projectGroupService.getAll();
+			setProjectGroups(groups);
 			toast({ title: "Error", description: "Failed to update group.", variant: "destructive" });
 		}
 	};
 
 	const handleDeleteGroup = async (groupId: string) => {
 		try {
+			// Optimistic update
+			setProjectGroups(prev => prev.filter(g => g.id !== groupId));
+
 			await projectGroupService.delete(groupId);
 			const groups = await projectGroupService.getAll();
 			setProjectGroups(groups);
@@ -684,6 +742,8 @@ export function AppSidebar() {
 			toast({ title: "Group deleted" });
 		} catch (error: any) {
 			console.error("Failed to delete group:", error);
+			const groups = await projectGroupService.getAll();
+			setProjectGroups(groups);
 			const message = error.response?.data?.message || "Failed to delete group.";
 			toast({ title: "Error", description: message, variant: "destructive" });
 		}

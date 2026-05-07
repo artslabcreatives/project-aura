@@ -128,7 +128,7 @@ function mapProject(raw: any): Project {
 
 export const projectService = {
 	getAll: async (): Promise<Project[]> => {
-		const { data } = await api.get('/projects');
+		const { data } = await api.get('/projects', { params: { _t: Date.now() } });
 		const raw = data || data === 0 ? data : data; 
 		const projects = Array.isArray(raw) ? raw.map(mapProject) : [];
 		

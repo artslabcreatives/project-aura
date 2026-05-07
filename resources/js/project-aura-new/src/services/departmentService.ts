@@ -11,7 +11,7 @@ function mapDepartment(raw: any): Department {
 
 export const departmentService = {
 	getAll: async (): Promise<Department[]> => {
-		const { data } = await api.get('/departments');
+		const { data } = await api.get('/departments', { params: { _t: Date.now() } });
 		const departments = Array.isArray(data) ? data.map(mapDepartment) : [];
 		cacheService.set('departments_all', departments);
 		return departments;
