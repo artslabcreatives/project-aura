@@ -132,6 +132,12 @@ export function AppSidebar() {
 	const [invitedProjectsOpen, setInvitedProjectsOpen] = useState(true);
 	const [projectGroupingMode, setProjectGroupingMode] = useState<'department' | 'client'>('department');
 	const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+	const [isRenameGroupDialogOpen, setIsRenameGroupDialogOpen] = useState(false);
+	const [groupToRename, setGroupToRename] = useState<ProjectGroup | null>(null);
+	const [renameGroupName, setRenameGroupName] = useState("");
+	const [isRenameProjectDialogOpen, setIsRenameProjectDialogOpen] = useState(false);
+	const [projectToRename, setProjectToRename] = useState<Project | null>(null);
+	const [renameProjectName, setRenameProjectName] = useState("");
 
 	// Loading states for skeleton animations
 	const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -506,9 +512,9 @@ setProjects(prev => [newProject, ...prev]);
 						phoneNumbers, 
 						department, 
 						group: groupInfo,
-						clientId,
+						clientId: clientId ? parseInt(clientId, 10) : undefined,
 						estimatedHours,
-						status,
+						status: status as 'active' | 'on-hold' | 'completed' | 'cancelled' | 'suggested' | 'blocked',
 						poNumber,
 						deadline,
 						currency,
@@ -616,6 +622,28 @@ setProjects(prev => prev.map(p => String(p.id) === String(updatedProject.id) ? u
 				description: 'Failed to delete project. Please try again.',
 				variant: 'destructive',
 			});
+		}
+	};
+	
+	const handleRenameProject = async () => {
+		if (!projectToRename || !renameProjectName.trim()) return;
+		try {
+			// Optimistic update
+			setProjects(prev => prev.map(p => p.id === projectToRename.id ? { ...p, name: renameProjectName } : p));
+			
+			await projectService.update(String(projectToRename.id), { name: renameProjectName });
+			
+			// Notify other components
+			window.dispatchEvent(new CustomEvent('project-state-changed', {
+				detail: { projectId: projectToRename.id, name: renameProjectName }
+			}));
+			
+			toast({ title: "Project renamed successfully" });
+			setIsRenameProjectDialogOpen(false);
+			setProjectToRename(null);
+		} catch (error) {
+			console.error('Failed to rename project:', error);
+			toast({ title: "Failed to rename project", variant: "destructive" });
 		}
 	};
 
@@ -1009,18 +1037,60 @@ variant: "destructive",
 			onOpenChange={() => toggleProjectGroupExpanded(group.id)}
 		>
 			<SidebarMenuItem>
-				<CollapsibleTrigger asChild>
-					<SidebarMenuButton className="w-full">
-						<div className="flex items-center gap-2 flex-1">
-							<FolderKanban className="h-4 w-4" />
-							<span className="text-sm font-medium">{group.name}</span>
+				<div className="relative group/group-item w-full">
+					<CollapsibleTrigger asChild>
+						<SidebarMenuButton className="w-full pr-8">
+							<div className="flex items-center gap-2 flex-1">
+								<FolderKanban className="h-4 w-4" />
+								<span className="text-sm font-medium">{group.name}</span>
+							</div>
+							<ChevronRight
+								className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
+									}`}
+							/>
+						</SidebarMenuButton>
+					</CollapsibleTrigger>
+					
+					{(userRole === 'admin' || userRole === 'team-lead') && (
+						<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/group-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-6 w-6 hover:bg-sidebar-accent"
+										onClick={(e) => e.stopPropagation()}
+									>
+										<MoreHorizontal className="h-3 w-3" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start" side="right" className="w-48">
+									<DropdownMenuItem
+										onClick={(e) => {
+											e.stopPropagation();
+											setGroupToRename(group);
+											setRenameGroupName(group.name);
+											setIsRenameGroupDialogOpen(true);
+										}}
+									>
+										<Pencil className="mr-2 h-4 w-4" />
+										<span>Rename Folder</span>
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										className="text-destructive focus:text-destructive"
+										onClick={(e) => {
+											e.stopPropagation();
+											handleDeleteGroup(group.id);
+										}}
+									>
+										<Trash2 className="mr-2 h-4 w-4" />
+										<span>Delete Folder</span>
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
 						</div>
-						<ChevronRight
-							className={`h-4 w-4 transition-transform ${expandedProjectGroups.has(group.id) ? "rotate-90" : ""
-								}`}
-						/>
-					</SidebarMenuButton>
-				</CollapsibleTrigger>
+					)}
+				</div>
 				<CollapsibleContent>
 					<SidebarMenuSub className="mr-0 ml-3 border-l px-2">
 						{group.children.map((child) => renderProjectGroup(child))}
@@ -1259,12 +1329,23 @@ variant: "destructive",
 											<DropdownMenuItem
 												onClick={(e) => {
 													e.stopPropagation();
+													setProjectToRename(project);
+													setRenameProjectName(project.name);
+													setIsRenameProjectDialogOpen(true);
+												}}
+											>
+												<Pencil className="mr-2 h-4 w-4" />
+												<span>Rename Project</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={(e) => {
+													e.stopPropagation();
 													setProjectToEdit(project);
 													setIsProjectDialogOpen(true);
 												}}
 											>
-												<Pencil className="mr-2 h-4 w-4" />
-												<span>Edit Project</span>
+												<FileCog className="mr-2 h-4 w-4" />
+												<span>Full Edit / Settings</span>
 											</DropdownMenuItem>
 											<DropdownMenuItem
 												onClick={(e) => {
@@ -1935,6 +2016,70 @@ variant: "destructive",
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<Dialog open={isRenameGroupDialogOpen} onOpenChange={setIsRenameGroupDialogOpen}>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Rename Folder</DialogTitle>
+						<DialogDescription>
+							Enter a new name for the project folder.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="group-name">Folder Name</Label>
+							<Input
+								id="group-name"
+								value={renameGroupName}
+								onChange={(e) => setRenameGroupName(e.target.value)}
+								placeholder="e.g. Mobile Apps"
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' && groupToRename) {
+										handleUpdateGroup(groupToRename.id, renameGroupName);
+										setIsRenameGroupDialogOpen(false);
+									}
+								}}
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setIsRenameGroupDialogOpen(false)}>Cancel</Button>
+						<Button onClick={() => {
+							if (groupToRename) {
+								handleUpdateGroup(groupToRename.id, renameGroupName);
+								setIsRenameGroupDialogOpen(false);
+							}
+						}}>Save Changes</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={isRenameProjectDialogOpen} onOpenChange={setIsRenameProjectDialogOpen}>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Rename Project</DialogTitle>
+						<DialogDescription>
+							Enter a new name for your project.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="project-name">Project Name</Label>
+							<Input
+								id="project-name"
+								value={renameProjectName}
+								onChange={(e) => setRenameProjectName(e.target.value)}
+								placeholder="e.g. Website Revamp"
+								onKeyDown={(e) => e.key === 'Enter' && handleRenameProject()}
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setIsRenameProjectDialogOpen(false)}>Cancel</Button>
+						<Button onClick={handleRenameProject}>Rename Project</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 			<SidebarRail />
 			<Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
 				<DialogContent
