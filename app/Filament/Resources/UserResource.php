@@ -103,6 +103,10 @@ class UserResource extends Resource
                     ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('success')
                     ->falseColor('danger'),
+                Tables\Columns\TextColumn::make('last_active_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->label('Last Active'),
                 Tables\Columns\TextColumn::make('assigned_tasks_count')
                     ->counts('assignedTasks')
                     ->label('Tasks'),

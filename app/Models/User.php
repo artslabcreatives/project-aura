@@ -49,6 +49,7 @@ class User extends Authenticatable implements FilamentUser
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
         'has_seen_welcome_video',
+        'last_active_at',
     ];
 
     /**
@@ -80,6 +81,7 @@ class User extends Authenticatable implements FilamentUser
         'two_factor_recovery_codes' => 'encrypted:array',
         'two_factor_secret' => 'encrypted',
         'has_seen_welcome_video' => 'boolean',
+        'last_active_at' => 'datetime',
     ];
 
     /**
