@@ -29,8 +29,10 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronRight } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { ProjectDialog } from "./ProjectDialog";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+const ProjectDialog = lazy(() => import("./ProjectDialog").then(m => ({ default: m.ProjectDialog })));
+const AssignGroupDialog = lazy(() => import("./AssignGroupDialog").then(m => ({ default: m.AssignGroupDialog })));
+const InviteUsersDialog = lazy(() => import("./InviteUsersDialog").then(m => ({ default: m.InviteUsersDialog })));
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Project } from "@/types/project";
@@ -45,8 +47,6 @@ import { taskService } from "@/services/taskService";
 import { departmentService } from "@/services/departmentService";
 import { userService } from "@/services/userService";
 import { projectGroupService } from "@/services/projectGroupService";
-import { AssignGroupDialog } from "./AssignGroupDialog";
-import { InviteUsersDialog } from "./InviteUsersDialog";
 import { ProjectGroup } from "@/types/project-group";
 import { FolderPlus } from "lucide-react";
 import { echo } from "@/services/echoService";
@@ -177,7 +177,7 @@ export function AppSidebar() {
 			}
 
 			const [projectsData, departmentsData, projectGroupsData] = await Promise.all([
-				projectService.getAll(),
+				projectService.getSidebar(),
 				departmentService.getAll(),
 				projectGroupService.getAll(),
 			]);
@@ -1961,33 +1961,44 @@ variant: "destructive",
 					</SidebarGroup>
 				)}
 			</SidebarContent>
+			<Suspense fallback={null}>
+				<ProjectDialog
+					open={isProjectDialogOpen}
+					onOpenChange={(open) => {
+						setIsProjectDialogOpen(open);
+						if (!open) setProjectToEdit(null);
+					}}
+					onSave={projectToEdit ? handleProjectUpdate : handleProjectSave}
+					existingProjects={projects.map(p => p.name)}
+					teamMembers={teamMembers}
+					editProject={projectToEdit ?? undefined}
+					departments={departments}
+					currentUser={currentUser}
+				/>
 
-			<ProjectDialog
-				open={isProjectDialogOpen}
-				onOpenChange={(open) => {
-					setIsProjectDialogOpen(open);
-					if (!open) setProjectToEdit(null);
-				}}
-				onSave={projectToEdit ? handleProjectUpdate : handleProjectSave}
-				existingProjects={projects.map(p => p.name)}
-				teamMembers={teamMembers}
-				editProject={projectToEdit || undefined}
-				departments={departments}
-				currentUser={currentUser}
-			/>
+				<AssignGroupDialog
+					open={isAssignGroupOpen}
+					onOpenChange={(open) => {
+						setIsAssignGroupOpen(open);
+						if (!open) setProjectToAssign(null);
+					}}
+					project={projectToAssign}
+					availableGroups={projectGroups.filter(g => projectToAssign?.department?.id === g.departmentId)}
+					onAssign={handleAssignGroup}
+					onUpdateGroup={handleUpdateGroup}
+					onDeleteGroup={handleDeleteGroup}
+				/>
 
-			<AssignGroupDialog
-				open={isAssignGroupOpen}
-				onOpenChange={(open) => {
-					setIsAssignGroupOpen(open);
-					if (!open) setProjectToAssign(null);
-				}}
-				project={projectToAssign}
-				availableGroups={projectGroups.filter(g => projectToAssign?.department?.id === g.departmentId)}
-				onAssign={handleAssignGroup}
-				onUpdateGroup={handleUpdateGroup}
-				onDeleteGroup={handleDeleteGroup}
-			/>
+				<InviteUsersDialog
+					open={isInviteDialogOpen}
+					onOpenChange={setIsInviteDialogOpen}
+					project={projectToInvite}
+					allUsers={teamMembers}
+					onUpdate={(updatedProject) => {
+						setProjects(prev => prev.map(p => String(p.id) === String(updatedProject.id) ? updatedProject : p));
+					}}
+				/>
+			</Suspense>
 
 			<AlertDialog open={!!projectToArchive} onOpenChange={(open) => !open && setProjectToArchive(null)}>
 				<AlertDialogContent>

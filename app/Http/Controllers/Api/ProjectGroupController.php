@@ -36,13 +36,20 @@ class ProjectGroupController extends Controller
     )]
     public function index(Request $request)
     {
-        $query = ProjectGroup::query();
+        $deptId = $request->query('department_id', 'all');
+        $cacheKey = "project_groups_dept_{$deptId}";
 
-        if ($request->filled('department_id')) {
-            $query->where('department_id', $request->department_id);
-        }
+        $groups = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function() use ($request) {
+            $query = ProjectGroup::query();
 
-        return response()->json($query->orderBy('name')->get());
+            if ($request->filled('department_id')) {
+                $query->where('department_id', $request->department_id);
+            }
+
+            return $query->orderBy('name')->get();
+        });
+
+        return response()->json($groups);
     }
 
     #[OA\Post(

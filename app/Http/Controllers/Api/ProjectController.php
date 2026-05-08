@@ -103,6 +103,58 @@ class ProjectController extends Controller
         return response()->json($projects);
     }
 
+    public function sidebar(): JsonResponse
+    {
+        $user = auth()->user();
+        $version = Cache::rememberForever('projects_version', fn() => microtime(true));
+        $cacheKey = "projects_sidebar_user_{$user->id}_{$user->role}_v{$version}";
+
+        $projects = Cache::remember($cacheKey, 3600, function() use ($user) {
+            $query = Project::query()
+                ->select([
+                    'id', 'name', 'status', 'is_archived', 'department_id', 
+                    'client_id', 'project_group_id', 'is_internal_project'
+                ])
+                ->with([
+                    'department:id,name',
+                    'group:id,name,department_id',
+                    'client:id,company_name',
+                    'stages' => function ($query) {
+                        $query->select(['id', 'title', 'project_id', 'color', 'type', 'order'])
+                              ->where('type', 'project');
+                    },
+                    'collaborators' => function ($query) {
+                        $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+                    }
+                ])
+                ->withExists(['tasks as has_overdue_tasks' => function ($query) {
+                    $query->where('due_date', '<', now())
+                        ->where('user_status', '!=', 'complete')
+                        ->whereHas('projectStage', function ($q) {
+                            $q->whereNotIn('title', ['completed', 'complete', 'archive']);
+                        });
+                }]);
+
+            if (in_array($user->role, ['user', 'account_manager'])) {
+                $query->where(function ($q) use ($user) {
+                    $q->whereHas('tasks', function ($taskQuery) use ($user) {
+                        $taskQuery->where('assignee_id', $user->id)
+                            ->orWhereHas('assignedUsers', function ($sq) use ($user) {
+                                $sq->where('users.id', $user->id);
+                            });
+                    })
+                    ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
+                        $collabQuery->where('users.id', $user->id);
+                    });
+                });
+            }
+
+            return $query->get();
+        });
+
+        return response()->json($projects);
+    }
+
     #[OA\Post(
         path: "/projects",
         summary: "Create a new project",

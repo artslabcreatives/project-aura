@@ -23,16 +23,18 @@ export default function ProjectOverview() {
 			setLoading(true);
 			try {
 				let found: Project | null = null;
-				const allProjects = await projectService.getAll();
-
-				if (/^\d+$/.test(projectId)) {
-					found = allProjects.find(p => String(p.id) === projectId) || null;
-				} else {
-					const decoded = decodeURIComponent(projectId);
-					found = allProjects.find(p => p.name === decoded) || null;
-					if (!found) {
-						const slug = projectId.toLowerCase();
-						found = allProjects.find(p => p.name.toLowerCase().replace(/\s+/g, '-') === slug) || null;
+				if (projectId) {
+					if (/^\d+$/.test(projectId)) {
+						found = await projectService.getById(projectId);
+					} else {
+						// For named slugs, we still might need to find it by name
+						const decoded = decodeURIComponent(projectId);
+						const allProjects = await projectService.getAll();
+						found = allProjects.find(p => p.name === decoded) || null;
+						if (!found) {
+							const slug = projectId.toLowerCase();
+							found = allProjects.find(p => p.name.toLowerCase().replace(/\s+/g, '-') === slug) || null;
+						}
 					}
 				}
 

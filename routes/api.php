@@ -84,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/seen-welcome-video', [AuthController::class, 'markWelcomeVideoAsSeen']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::apiResource('departments', DepartmentController::class);
+    Route::get('/projects/sidebar', [ProjectController::class, 'sidebar']);
     Route::apiResource('projects', ProjectController::class)->middleware('cache.headers:public;max_age=3600;etag');
     Route::apiResource('stages', StageController::class);
     Route::apiResource('stage-groups', StageGroupController::class);

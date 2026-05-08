@@ -152,6 +152,12 @@ export const projectService = {
 		return projects;
 	},
 
+	getSidebar: async (): Promise<Project[]> => {
+		const { data } = await api.get('/projects/sidebar', { params: { _t: Date.now() } });
+		const projects = Array.isArray(data) ? data.map(mapProject) : [];
+		return projects;
+	},
+
 	getAllCached: (): Project[] | null => {
 		return cacheService.get<Project[]>('projects_all');
 	},

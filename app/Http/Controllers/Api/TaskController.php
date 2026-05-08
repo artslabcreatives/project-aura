@@ -66,19 +66,32 @@ class TaskController extends Controller
     {
         $user = $request->user();
         $version = Cache::rememberForever('tasks_version', fn() => time());
-        // Tasks often have filters, so include them in the cache key
         $filters = md5(json_encode($request->all()));
         $cacheKey = "tasks_user_{$user->id}_{$user->role}_f{$filters}_v{$version}";
 
         $tasks = Cache::remember($cacheKey, 3600, function() use ($request, $user) {
-            $query = Task::with(['project', 'assignee', 'projectStage', 'attachments', 'subtasks.assignee', 'subtasks.project', 'assignedUsers']);
+            $query = Task::query()
+                ->select([
+                    'id', 'title', 'project_id', 'assignee_id', 'user_status', 
+                    'project_stage_id', 'priority', 'due_date', 'created_at',
+                    'is_in_specific_stage', 'completed_at', 'parent_id', 'tags'
+                ])
+                ->with([
+                    'project:id,name,department_id,status,is_archived', 
+                    'assignee:id,name', 
+                    'projectStage:id,title',
+                    'assignedUsers:id,name'
+                ]);
             
             // Global filter for user and account_manager roles
-            if (in_array($user->role, ['user', 'account_manager'])) {
+            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
                 $query->where(function($q) use ($user) {
                     $q->where('assignee_id', $user->id)
                       ->orWhereHas('assignedUsers', function($sq) use ($user) {
                           $sq->where('users.id', $user->id);
+                      })
+                      ->orWhereHas('project', function($pq) use ($user) {
+                          $pq->where('department_id', $user->department_id);
                       });
                 });
             }
@@ -103,7 +116,20 @@ class TaskController extends Controller
             if ($request->has('priority')) {
                 $query->where('priority', $request->priority);
             }
+
+            if ($request->has('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
             
+            // Limit to 500 tasks if no project_id provided to prevent OOM
+            if (!$request->has('project_id')) {
+                return $query->latest()->limit(500)->get();
+            }
+
             return $query->get();
         });
 
