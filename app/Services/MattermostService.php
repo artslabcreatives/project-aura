@@ -753,10 +753,16 @@ class MattermostService
             $mattermostUserId = $this->getMattermostUserId($user);
             
             if (!$mattermostUserId) {
-                Log::error('No Mattermost user ID found for user', [
-                    'user_id' => $user->id,
-                ]);
-                return false;
+                Log::info('No Mattermost ID found during avatar upload, attempting sync', ['user_id' => $user->id]);
+                $syncResult = $this->syncUser($user);
+                if ($syncResult && isset($syncResult['id'])) {
+                    $mattermostUserId = $syncResult['id'];
+                } else {
+                    Log::error('Could not sync user to Mattermost during avatar upload', [
+                        'user_id' => $user->id,
+                    ]);
+                    return false;
+                }
             }
 
             $url = "{$this->baseUrl}/api/v4/users/{$mattermostUserId}/image";
@@ -879,7 +885,32 @@ class MattermostService
     {
         $username = Str::before($email, '@');
         $username = preg_replace('/[^a-z0-9.\-_]/', '', strtolower($username));
-        return Str::limit($username, 64, '');
+        
+        // Reserved words check: Mattermost reserved words include 'all', 'channel', 'here' 
+        // and words starting with 'admin' or 'system'.
+        $reservedPrefixes = ['admin', 'system'];
+        $reservedFullWords = ['all', 'channel', 'here', 'root', 'support'];
+        
+        $isReserved = in_array($username, $reservedFullWords);
+        if (!$isReserved) {
+            foreach ($reservedPrefixes as $prefix) {
+                if (str_starts_with($username, $prefix)) {
+                    $isReserved = true;
+                    break;
+                }
+            }
+        }
+
+        if ($isReserved) {
+            $username = 'aura-' . $username;
+        }
+
+        // Ensure length between 3 and 22 characters
+        if (strlen($username) < 3) {
+            $username = $username . 'usr';
+        }
+        
+        return Str::limit($username, 22, '');
     }
 
     /**
