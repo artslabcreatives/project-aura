@@ -964,16 +964,22 @@ variant: "destructive",
 		const groupByClient = (projectList: Project[]) => {
 			const grouped: Record<string, { id: string; name: string; projects: Project[] }> = {};
 			projectList.forEach(project => {
-				const clientId = project.client?.id || 'no-client';
-				const clientName = project.client?.company_name || 'No Client';
+				const isInternal = project.isInternalProject;
+				const clientId = isInternal ? 'internal' : (project.client?.id || 'no-client');
+				const clientName = isInternal ? 'Internal' : (project.client?.company_name || 'No Client');
+				
 				if (!grouped[clientId]) {
 					grouped[clientId] = { id: String(clientId), name: clientName, projects: [] };
 				}
 				grouped[clientId].projects.push(project);
 			});
 			return Object.values(grouped).sort((a, b) => {
+				if (a.id === 'internal' && b.id === 'no-client') return -1;
+				if (a.id === 'no-client' && b.id === 'internal') return 1;
 				if (a.id === 'no-client') return 1;
 				if (b.id === 'no-client') return -1;
+				if (a.id === 'internal') return 1; // Put internal at the bottom, just above no-client
+				if (b.id === 'internal') return -1;
 				return a.name.localeCompare(b.name);
 			});
 		};
