@@ -37,8 +37,10 @@ export const HistoryDialog = ({ open, onOpenChange, history, teamMembers, stages
 	};
 
 	const getStageName = (stageId: string) => {
+		if (!stageId) return "Unknown Stage";
 		const stage = stages.find(s => String(s.id) === String(stageId));
-		const title = stage ? stage.title : stageId;
+		const title = stage ? stage.title : String(stageId);
+		if (typeof title !== 'string') return "Unknown Stage";
 		return title.toLowerCase().trim() === 'pending' ? 'Backlog' : title;
 	};
 
@@ -50,6 +52,8 @@ export const HistoryDialog = ({ open, onOpenChange, history, teamMembers, stages
 		switch (action) {
 			case 'CREATE_PROJECT':
 				return `created project "${d.name}"`;
+			case 'UPDATE_PROJECT':
+				return `updated project status from "${d.from}" to "${d.to}"`;
 			case 'CREATE_TASK':
 				return `created task "${d.title}"`;
 			case 'UPDATE_TASK':
@@ -57,6 +61,12 @@ export const HistoryDialog = ({ open, onOpenChange, history, teamMembers, stages
 			case 'DELETE_TASK':
 				return `deleted task "${d.title}"`;
 			case 'UPDATE_TASK_STATUS':
+				if (d.action === 'approved') {
+					return `approved task and moved to "${getStageName(d.targetStage)}"`;
+				}
+				if (d.action === 'revision_requested') {
+					return `requested revision and moved task to "${getStageName(d.targetStage)}"`;
+				}
 				return `moved task from "${getStageName(d.from)}" to "${getStageName(d.to)}"`;
 			case 'UPDATE_TASK_ASSIGNEE':
 				const assigneeInfo = entry.user || teamMembers.find(m => m.id === d.to);
