@@ -304,6 +304,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/documents/{document}/reject', [DocumentController::class, 'reject']);
     Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
+
+    // AI Scenario Chatbot
+    Route::prefix('ai-chatbot')->group(function () {
+        Route::get('/sessions', [\App\Http\Controllers\Api\AIChatbotController::class, 'sessions']);
+        Route::post('/sessions', [\App\Http\Controllers\Api\AIChatbotController::class, 'createSession']);
+        Route::get('/sessions/{id}', [\App\Http\Controllers\Api\AIChatbotController::class, 'getSession']);
+        Route::post('/sessions/{id}/messages', [\App\Http\Controllers\Api\AIChatbotController::class, 'sendMessage']);
+        Route::post('/sessions/{id}/complete', [\App\Http\Controllers\Api\AIChatbotController::class, 'completeSession']);
+        Route::post('/sessions/{id}/refresh-context', [\App\Http\Controllers\Api\AIChatbotController::class, 'refreshContext']);
+        Route::get('/policies', [\App\Http\Controllers\Api\AIChatbotController::class, 'policies']);
+        Route::put('/policies/{id}', [\App\Http\Controllers\Api\AIChatbotController::class, 'updatePolicy']);
+    });
 });
 
 // 2FA Verification during login

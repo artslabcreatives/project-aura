@@ -270,6 +270,7 @@ const SSOAuthorize = lazy(() => import("./pages/SSOAuthorize"));
 const SSOClients = lazy(() => import("./pages/SSOClients"));
 const ReportManagement = lazy(() => import("./pages/ReportManagement"));
 const Documents = lazy(() => import("./pages/Documents"));
+const AIChatbot = lazy(() => import("./pages/AIChatbot"));
 
 const Dashboard = () => {
 	const { activeRole } = useUser();
@@ -366,6 +367,11 @@ const App = () => (
 									<Route path="/sso/clients" element={
 										<ProtectedRoute allowedRoles={['admin']}>
 											<SSOClients />
+										</ProtectedRoute>
+									} />
+									<Route path="/ai-scenarios" element={
+										<ProtectedRoute allowedRoles={['admin']}>
+											<AIChatbot />
 										</ProtectedRoute>
 									} />
 
