@@ -46,7 +46,6 @@ class AIChatbotService
 
         // Projects overview
         $projects = Project::with(['stages', 'tasks', 'client', 'department'])
-            ->whereNull('deleted_at')
             ->get();
 
         $projectStats = $projects->map(function ($p) use ($now) {
@@ -101,7 +100,7 @@ class AIChatbotService
         })->sortByDesc('active_tasks')->values()->toArray();
 
         // Issue patterns — cross-cutting concerns
-        $allTasks = Task::with(['assignee', 'project', 'stage'])->whereNull('deleted_at')->get();
+        $allTasks = Task::with(['assignee', 'project', 'stage'])->get();
 
         $overdueTaskList = $allTasks->filter(fn($t) =>
             $t->status !== 'complete' && $t->due_date && Carbon::parse($t->due_date)->isPast()
