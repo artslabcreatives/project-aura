@@ -83,16 +83,47 @@ class TaskController extends Controller
                     'assignedUsers:id,name'
                 ]);
             
-            // Global filter for user and account_manager roles
+            // Global filter for restricted roles
             if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
                 $query->where(function($q) use ($user) {
+                    // Always show tasks where explicitly assigned
                     $q->where('assignee_id', $user->id)
                       ->orWhereHas('assignedUsers', function($sq) use ($user) {
                           $sq->where('users.id', $user->id);
-                      })
-                      ->orWhereHas('project', function($pq) use ($user) {
-                          $pq->where('department_id', $user->department_id);
                       });
+
+                    // Role/Department based visibility
+                    if ($user->role === 'team-lead') {
+                        if ($user->department_id == 9) { // Design Team Lead
+                            $q->orWhere(function($sq) {
+                                // Sees tasks in Design (9) or Digital Marketing (8) projects
+                                $sq->whereHas('project', function($pq) {
+                                    $pq->whereIn('department_id', [8, 9]);
+                                })
+                                // But only if the task is assigned to someone in Design (9)
+                                ->where(function($qq) {
+                                    $qq->whereHas('assignee', function($aq) {
+                                        $aq->where('department_id', 9);
+                                    })
+                                    ->orWhereHas('assignedUsers', function($auq) {
+                                        $auq->where('users.department_id', 9);
+                                    });
+                                });
+                            });
+                        } else {
+                            // Other Team Leads see all tasks in their own department
+                            $q->orWhereHas('project', function($pq) use ($user) {
+                                $pq->where('department_id', $user->department_id);
+                            });
+                        }
+                    } elseif ($user->department_id != 9) {
+                        // Non-Design users (user/account_manager) keep seeing their department tasks
+                        $q->orWhereHas('project', function($pq) use ($user) {
+                            $pq->where('department_id', $user->department_id);
+                        });
+                    }
+                    // Design normal users (department_id 9, role user/account_manager) 
+                    // only get the assigned tasks above (no orWhere added here).
                 });
             }
             

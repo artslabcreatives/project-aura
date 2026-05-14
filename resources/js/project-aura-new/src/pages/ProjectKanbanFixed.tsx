@@ -316,11 +316,18 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 			if (!currentProject) { setProject(null); if (!isBackground) setIsLoading(false); return; }
 
 			if (activeRole === 'team-lead' || activeRole === 'user' || activeRole === 'account-manager') {
-				const hasMatchingDepartment = String(currentProject.department?.id) === String(currentUser.department);
+				const currentDeptId = currentProject?.department?.id;
+				const hasMatchingDepartment = String(currentDeptId) === String(currentUser.department);
 				const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department));
-				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
-				const isDesignProject = currentProject.department?.name.toLowerCase() === 'design';
-				const hasSpecialPermission = isDigitalDept && isDesignProject;
+				const currentDeptNameLower = currentDept?.name?.toLowerCase() || "";
+				const isDigitalDept = currentDeptNameLower.includes('digital');
+				const isDesignDept = currentDeptNameLower.includes('design');
+				
+				const projectDeptNameLower = currentProject?.department?.name?.toLowerCase() || "";
+				const isDesignProject = projectDeptNameLower.includes('design');
+				const isDigitalProject = projectDeptNameLower.includes('digital');
+				
+				const hasSpecialPermission = (isDigitalDept && isDesignProject) || (isDesignDept && isDigitalProject);
 				const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
 				
 				// Staff and AM should be able to see their own projects and their department projects
@@ -471,8 +478,8 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 		}
 	};
 
-	const isDigitalMarketing = project.department?.name === "Digital Marketing";
-	const isCampaignReportApproved = !isDigitalMarketing || project.campaign_report_status === "approved";
+	const isDigitalMarketing = project?.department?.name === "Digital Marketing";
+	const isCampaignReportApproved = !isDigitalMarketing || project?.campaign_report_status === "approved";
 
 	const handleStatusChange = async (newStatus: string) => {
 		if (newStatus === "completed" && (activeRole === "hr" || activeRole === "admin")) {
@@ -526,13 +533,13 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	};
 
 	// Determine if task creation is allowed (mirrors backend allowsTaskCreation())
-	const hasPO = !!project.poDocumentUrl || !!project.poNumber;
-	const hasActiveGracePeriod = !!project.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
-	const hasActiveProvisionalPO = !!project.provisionalPoNumber && !!project.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
-	const isProjectActive = !project.isArchived && project.status !== 'completed';
-	const isProjectBlocked = project.status === 'blocked' || project.status === 'on-hold';
-	const isPORequired = isProjectActive && !project.isInternalProject && project.isLockedByPo && !hasPO && !hasActiveGracePeriod && !hasActiveProvisionalPO;
-	const canCreateTasks = isProjectActive && (project.isInternalProject || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
+	const hasPO = !!project?.poDocumentUrl || !!project?.poNumber;
+	const hasActiveGracePeriod = !!project?.gracePeriodExpiresAt && new Date(project.gracePeriodExpiresAt) >= new Date();
+	const hasActiveProvisionalPO = !!project?.provisionalPoNumber && !!project?.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
+	const isProjectActive = project && !project.isArchived && project.status !== 'completed';
+	const isProjectBlocked = project?.status === 'blocked' || project?.status === 'on-hold';
+	const isPORequired = isProjectActive && project && !project.isInternalProject && project.isLockedByPo && !hasPO && !hasActiveGracePeriod && !hasActiveProvisionalPO;
+	const canCreateTasks = isProjectActive && project && (project.isInternalProject || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
 
 	const handleAddTaskToStage = (stageId: string) => {
 		if (!canCreateTasks) {

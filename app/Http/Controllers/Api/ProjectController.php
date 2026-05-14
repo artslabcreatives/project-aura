@@ -73,7 +73,7 @@ class ProjectController extends Controller
                         });
                 }]);
 
-            if (in_array($user->role, ['user', 'account_manager'])) {
+            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
                 $query->where(function ($q) use ($user) {
                     $q->whereHas('tasks', function ($taskQuery) use ($user) {
                         $taskQuery->where('assignee_id', $user->id)
@@ -84,6 +84,14 @@ class ProjectController extends Controller
                     ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
                         $collabQuery->where('users.id', $user->id);
                     });
+
+                    if ($user->role === 'team-lead') {
+                        if ($user->department_id == 9) { // Design
+                            $q->orWhereIn('department_id', [8, 9]);
+                        } else {
+                            $q->orWhere('department_id', $user->department_id);
+                        }
+                    }
                 });
 
                 // For these roles, we only count the tasks that are relevant to them
@@ -135,7 +143,7 @@ class ProjectController extends Controller
                         });
                 }]);
 
-            if (in_array($user->role, ['user', 'account_manager'])) {
+            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
                 $query->where(function ($q) use ($user) {
                     $q->whereHas('tasks', function ($taskQuery) use ($user) {
                         $taskQuery->where('assignee_id', $user->id)
@@ -146,6 +154,14 @@ class ProjectController extends Controller
                     ->orWhereHas('collaborators', function ($collabQuery) use ($user) {
                         $collabQuery->where('users.id', $user->id);
                     });
+
+                    if ($user->role === 'team-lead') {
+                        if ($user->department_id == 9) { // Design
+                            $q->orWhereIn('department_id', [8, 9]);
+                        } else {
+                            $q->orWhere('department_id', $user->department_id);
+                        }
+                    }
                 });
             }
 
@@ -313,16 +329,26 @@ class ProjectController extends Controller
         $cacheKey = "project_{$project->id}_user_{$user->id}_{$user->role}_v{$version}";
 
         $projectData = Cache::remember($cacheKey, 3600, function() use ($user, $project) {
-            // Authorization check for user and account_manager roles
-            if (in_array($user->role, ['user', 'account_manager'])) {
-                $isAssigned = $project->tasks()->where(function($q) use ($user) {
+            // Authorization check for restricted roles
+            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
+                $isAuthorized = $project->tasks()->where(function($q) use ($user) {
                     $q->where('assignee_id', $user->id)
                       ->orWhereHas('assignedUsers', function($sq) use ($user) {
                           $sq->where('users.id', $user->id);
                       });
-                })->exists() || $project->collaborators()->where('users.id', $user->id)->exists();
+                })->exists() 
+                || $project->collaborators()->where('users.id', $user->id)->exists();
 
-                if (!$isAssigned) {
+                // Department-based access for Team Leads
+                if (!$isAuthorized && $user->role === 'team-lead') {
+                    if ($user->department_id == 9) { // Design sees Design and Digital
+                        $isAuthorized = in_array($project->department_id, [8, 9]);
+                    } else {
+                        $isAuthorized = $project->department_id == $user->department_id;
+                    }
+                }
+
+                if (!$isAuthorized) {
                     return ['unauthorized' => true];
                 }
             }

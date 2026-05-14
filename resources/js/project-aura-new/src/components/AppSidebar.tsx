@@ -269,13 +269,24 @@ export function AppSidebar() {
 					.filter(project => project.stages.length > 0);
 
 				const currentDept = departmentsData.find(d => d.id === currentUser.department);
-				const isDigitalDept = currentDept?.name.toLowerCase() === 'digital';
+				const currentDeptName = currentDept?.name.toLowerCase() || "";
+				const isDigitalDept = currentDeptName.includes('digital');
+				const isDesignDept = currentDeptName.includes('design');
+				
 				const departmentProjects = projectsData.filter(project => {
 					// Exclude archived and on-hold projects
 					if (project.isArchived || project.status === 'on-hold') return false;
+					
+					const projectDeptName = project.department?.name.toLowerCase() || "";
 					const isOwnDepartment = String(project.department?.id) === String(currentUser.department);
-					const isDesignProject = isDigitalDept && project.department?.name.toLowerCase() === 'design';
-					return isOwnDepartment || isDesignProject;
+					
+					// Design can see Digital Marketing, Digital Marketing can see Design
+					const isDesignProject = projectDeptName.includes('design');
+					const isDigitalProject = projectDeptName.includes('digital');
+					
+					const hasSpecialPermission = (isDigitalDept && isDesignProject) || (isDesignDept && isDigitalProject);
+					
+					return isOwnDepartment || hasSpecialPermission;
 				});
 
 				setUserAssignedProjects(assignedProjects);
@@ -814,14 +825,22 @@ variant: "destructive",
 			// Filter projects by department for team-lead
 			if (userRole === "team-lead" && currentUser) {
 				const currentDept = departments.find(d => d.id === currentUser.department);
-				const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
+				const currentDeptName = currentDept?.name.toLowerCase() || "";
+				const isDigitalDept = currentDeptName.includes('digital');
+				const isDesignDept = currentDeptName.includes('design');
 
 				filteredProjects = projectList.filter(project => {
-					const hasMatchingDepartment = project.department?.id === currentUser.department;
+					const projectDeptName = project.department?.name.toLowerCase() || "";
+					const isOwnDepartment = project.department?.id === currentUser.department;
 					const hasNoDepartment = !project.department;
-					const isDesignProject = project.department?.name.toLowerCase() === "design";
-					const hasSpecialPermission = isDigitalDept && isDesignProject;
-					return hasMatchingDepartment || hasNoDepartment || hasSpecialPermission;
+					
+					const isDesignProject = projectDeptName.includes('design');
+					const isDigitalProject = projectDeptName.includes('digital');
+					
+					// Collaboration permission: Design <-> Digital Marketing
+					const hasSpecialPermission = (isDigitalDept && isDesignProject) || (isDesignDept && isDigitalProject);
+					
+					return isOwnDepartment || hasNoDepartment || hasSpecialPermission;
 				});
 			} else if (userRole === "account-manager" && currentUser) {
 				// Account Manager: Strict Department Only + No On-hold
