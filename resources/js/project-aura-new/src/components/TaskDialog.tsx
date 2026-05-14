@@ -290,6 +290,16 @@ export function TaskDialog({
 		return Object.keys(newErrors).length === 0;
 	};
 
+	const validateStep3 = () => {
+		const newErrors: Record<string, string> = {};
+		if (newLinkUrl.trim() && !newLinkName.trim()) {
+			newErrors.linkName = "Link name is required";
+		}
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
 	const nextStep = () => {
 		if (currentStep === 1 && !validateStep1()) {
 			return;
@@ -352,6 +362,15 @@ export function TaskDialog({
 			return;
 		}
 		if (currentStep !== 3) return;
+
+		if (!validateStep3()) {
+			toast({
+				title: "Incomplete Link",
+				description: "Please provide a name for the URL you've entered, or clear the URL field.",
+				variant: "destructive"
+			});
+			return;
+		}
 
 		// Store as-is without timezone conversion
 		const dueDateTime = noEndDate
@@ -500,6 +519,15 @@ export function TaskDialog({
 	};
 
 	const addLink = () => {
+		if (!validateStep3()) {
+			toast({
+				title: "Incomplete Link",
+				description: "Please provide a name for your link.",
+				variant: "destructive"
+			});
+			return;
+		}
+
 		if (newLinkName && newLinkUrl) {
 			if (editTask) {
 				// For editing, we'll upload when saving - add to pending links
@@ -1176,16 +1204,28 @@ export function TaskDialog({
 										</div>
 
 										<div className="flex gap-2">
-											<Input
-												placeholder="Link name..."
-												value={newLinkName}
-												onChange={(e) => setNewLinkName(e.target.value)}
-											/>
-											<Input
-												placeholder="URL..."
-												value={newLinkUrl}
-												onChange={(e) => setNewLinkUrl(e.target.value)}
-											/>
+											<div className="flex-1 space-y-1">
+												<Input
+													placeholder="Link name..."
+													value={newLinkName}
+													onChange={(e) => {
+														setNewLinkName(e.target.value);
+														if (errors.linkName) setErrors({ ...errors, linkName: "" });
+													}}
+													className={errors.linkName ? "border-destructive focus-visible:ring-destructive" : ""}
+												/>
+												{errors.linkName && <span className="text-[10px] text-destructive">{errors.linkName}</span>}
+											</div>
+											<div className="flex-1">
+												<Input
+													placeholder="URL..."
+													value={newLinkUrl}
+													onChange={(e) => {
+														setNewLinkUrl(e.target.value);
+														if (errors.linkName && !e.target.value) setErrors({ ...errors, linkName: "" });
+													}}
+												/>
+											</div>
 											<Button
 												type="button"
 												variant="outline"
