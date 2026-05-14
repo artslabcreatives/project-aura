@@ -151,7 +151,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 				</main>
 				<ReminderPoller />
 				<ReportIssueDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
-				<AIHelperPopup />
+				{/* <AIHelperPopup /> */}
 				{currentUser && (
 					<VideoGuideModal
 						isOpen={isVideoGuideOpen}
