@@ -7,9 +7,23 @@ import { Separator } from '@/components/ui/separator';
 import {
   Bot, Send, Plus, RefreshCw, CheckCircle2, Clock, AlertTriangle,
   Users, FolderKanban, ListTodo, TrendingDown, Loader2, ChevronRight,
-  Shield, FileText, BarChart3, BookOpen
+  Shield, FileText, BarChart3, BookOpen, Paperclip, X, UploadCloud
 } from 'lucide-react';
-import { chatbotService, ChatSession, ChatMessage, ScenarioPolicy, ContextStats } from '@/services/chatbotService';
+import { chatbotService, ChatSession, ChatMessage, ScenarioPolicy, ContextStats, ChatMessageMetadata } from '@/services/chatbotService';
+
+const ACCEPTED_AGENT_FILES = ".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.mp3,.wav,.m4a,.mp4,.mov,.webm,.json";
+
+function parseMetadata(metadata: ChatMessage['metadata']): ChatMessageMetadata | null {
+  if (!metadata) return null;
+  if (typeof metadata === 'string') {
+    try {
+      return JSON.parse(metadata) as ChatMessageMetadata;
+    } catch {
+      return null;
+    }
+  }
+  return metadata;
+}
 
 // Lightweight markdown renderer — handles bold, headings, blockquotes, lists, code
 function renderInline(text: string): React.ReactNode[] {
@@ -163,6 +177,11 @@ function PolicyCard({ policy, onActivate }: { policy: ScenarioPolicy; onActivate
           <span className="font-medium text-foreground">Notify: </span>{notifications.description}
         </p>
       )}
+      {notifications.escalation && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Escalate: </span>{notifications.escalation}
+        </p>
+      )}
       {reactions.description && (
         <p className="text-xs text-muted-foreground">
           <span className="font-medium text-foreground">React: </span>{reactions.description}
@@ -189,6 +208,8 @@ export default function AIChatbot() {
   const [policies, setPolicies] = useState<ScenarioPolicy[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'policies'>('chat');
@@ -232,6 +253,7 @@ export default function AIChatbot() {
       const session = await chatbotService.getSession(id);
       setActiveSession(session);
       setMessages(session.messages);
+      setPendingFiles([]);
     } catch (err) {
       console.error('Failed to load session', err);
     } finally {
@@ -239,12 +261,22 @@ export default function AIChatbot() {
     }
   }
 
+  function addFiles(files: FileList | File[]) {
+    const incoming = Array.from(files);
+    setPendingFiles(prev => [...prev, ...incoming].slice(0, 8));
+  }
+
+  function removeFile(index: number) {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
   async function startNewSession() {
     setIsCreating(true);
     setActiveSession(null);
     setMessages([]);
+    setPendingFiles([]);
     try {
-      const session = await chatbotService.createSession();
+      const session = await chatbotService.createSession('scenario');
       setActiveSession(session);
       setMessages(session.messages);
       setSessions(prev => [
@@ -259,16 +291,38 @@ export default function AIChatbot() {
   }
 
   async function sendMessage() {
-    if (!input.trim() || !activeSession || isLoading) return;
+    if ((!input.trim() && pendingFiles.length === 0) || !activeSession || isLoading) return;
 
-    const userMsg: ChatMessage = { role: 'user', content: input.trim() };
+    const filesToSend = pendingFiles;
+    const userMsg: ChatMessage = {
+      role: 'user',
+      content: input.trim() || '[attachments uploaded]',
+      metadata: filesToSend.length > 0 ? {
+        attachments: filesToSend.map((file, index) => ({
+          id: index,
+          name: file.name,
+          mime_type: file.type,
+          size: file.size,
+        })),
+      } : null,
+    };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+    setPendingFiles([]);
     setIsLoading(true);
 
     try {
-      const reply = await chatbotService.sendMessage(activeSession.id, userMsg.content);
-      setMessages(prev => [...prev, { role: 'assistant', content: reply.content, created_at: reply.created_at }]);
+      const reply = await chatbotService.sendMessage(activeSession.id, userMsg.content, filesToSend);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: reply.content,
+        created_at: reply.created_at,
+        metadata: reply.metadata,
+      }]);
+      const metadata = parseMetadata(reply.metadata);
+      if (metadata?.memory_summary !== undefined) {
+        setActiveSession(prev => prev ? { ...prev, memory_summary: metadata.memory_summary ?? null } : prev);
+      }
 
       // Refresh policies if a policy was saved
       if (reply.content.includes('✅')) {
@@ -365,7 +419,7 @@ export default function AIChatbot() {
             <div className="p-2 space-y-1">
               {sessions.length === 0 && !isCreating && (
                 <p className="text-xs text-muted-foreground text-center py-8 px-4">
-                  Start a new session to let Claude analyze your database and discover scenarios.
+                  Start a session, drop files, and ask the agent to update Aura.
                 </p>
               )}
               {sessions.map(session => (
@@ -434,9 +488,8 @@ export default function AIChatbot() {
                 AI Scenario Discovery
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Claude will autonomously read your entire database — projects, tasks, team data, and
-                financials — then surface real patterns and scenarios, asking you to define how the
-                system should respond to each one.
+                Claude will read your database, identify operational patterns, and help system admins
+                define policies for how Aura should respond to recurring scenarios.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 w-full max-w-md text-xs text-muted-foreground">
@@ -507,6 +560,11 @@ export default function AIChatbot() {
                   />
                   <StatBadge icon={BarChart3} label="blocked" value={stats.blocked_tasks_total} />
                 </div>
+                {activeSession?.memory_summary && (
+                  <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                    <span className="font-medium text-foreground">Memory:</span> {activeSession.memory_summary}
+                  </p>
+                )}
               </div>
             )}
 
@@ -531,7 +589,19 @@ export default function AIChatbot() {
                       }`}
                     >
                       {msg.role === 'user' ? (
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        <div className="space-y-2">
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          {parseMetadata(msg.metadata)?.attachments && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {parseMetadata(msg.metadata)?.attachments?.map(file => (
+                                <span key={`${file.id}-${file.name}`} className="inline-flex items-center gap-1 rounded-md bg-primary-foreground/15 px-2 py-1 text-[11px]">
+                                  <Paperclip className="h-3 w-3" />
+                                  {file.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <MessageContent content={msg.content} />
                       )}
@@ -569,21 +639,76 @@ export default function AIChatbot() {
                     This session is completed. Start a new one to continue discovery.
                   </div>
                 ) : (
-                  <div className="flex gap-2 items-end">
-                    <Textarea
-                      ref={textareaRef}
-                      value={input}
-                      onChange={e => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Answer Claude's questions, define boundaries, or ask about scenarios… (Enter to send)"
-                      className="min-h-[60px] max-h-[160px] resize-none text-sm"
-                      disabled={isLoading}
-                    />
+                  <div
+                    className={`flex gap-2 items-end rounded-lg border p-2 transition-colors ${
+                      isDraggingFiles ? 'border-primary bg-primary/5' : 'border-transparent'
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); setIsDraggingFiles(true); }}
+                    onDragLeave={() => setIsDraggingFiles(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingFiles(false);
+                      if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+                    }}
+                  >
+                    <div className="flex-1 min-w-0 space-y-2">
+                      {pendingFiles.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {pendingFiles.map((file, index) => (
+                            <span
+                              key={`${file.name}-${index}`}
+                              className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs text-foreground"
+                            >
+                              <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="truncate max-w-[180px]">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeFile(index)}
+                                className="rounded-sm text-muted-foreground hover:text-foreground"
+                                aria-label={`Remove ${file.name}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <Textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Answer scenario questions or define a policy..."
+                        className="min-h-[60px] max-h-[160px] resize-none text-sm"
+                        disabled={isLoading}
+                      />
+                    </div>
                     <div className="flex flex-col gap-2">
                       <Button
                         size="icon"
+                        variant="outline"
+                        title="Attach files"
+                        disabled={isLoading || pendingFiles.length >= 8}
+                        onClick={() => document.getElementById('ai-chatbot-file-input')?.click()}
+                        className="h-10 w-10 shrink-0"
+                      >
+                        <UploadCloud className="h-4 w-4" />
+                      </Button>
+                      <input
+                        id="ai-chatbot-file-input"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        accept={ACCEPTED_AGENT_FILES}
+                        onChange={(event) => {
+                          if (event.target.files?.length) addFiles(event.target.files);
+                          event.target.value = '';
+                        }}
+                      />
+                      <Button
+                        size="icon"
                         onClick={sendMessage}
-                        disabled={!input.trim() || isLoading}
+                        disabled={(!input.trim() && pendingFiles.length === 0) || isLoading}
                         className="h-10 w-10 shrink-0"
                       >
                         {isLoading ? (
@@ -613,7 +738,7 @@ export default function AIChatbot() {
                   </div>
                 )}
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Shift+Enter for new line · Enter to send · Policies are auto-saved when Claude confirms them
+                  Shift+Enter for new line · Enter to send · Policies are saved when confirmed
                 </p>
               </div>
             </div>

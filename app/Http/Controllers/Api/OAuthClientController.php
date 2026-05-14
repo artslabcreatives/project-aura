@@ -7,12 +7,18 @@ use App\Models\OAuthClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 
 class OAuthClientController extends Controller
 {
-    /**
-     * GET /api/oauth/clients
-     */
+    #[OA\Get(
+        path: "/oauth/clients",
+        summary: "List OAuth clients",
+        description: "Returns all OAuth clients (admin only)",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        responses: [new OA\Response(response: 200, description: "OAuth clients list")]
+    )]
     public function index(): JsonResponse
     {
         $clients = OAuthClient::with('createdBy:id,name,email')
@@ -23,9 +29,32 @@ class OAuthClientController extends Controller
         return response()->json($clients);
     }
 
-    /**
-     * POST /api/oauth/clients
-     */
+    #[OA\Post(
+        path: "/oauth/clients",
+        summary: "Create OAuth client",
+        description: "Creates a new OAuth 2.0 client application. Returns client_secret once on creation (admin only).",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["name", "redirect_uris"],
+                properties: [
+                    new OA\Property(property: "name", type: "string"),
+                    new OA\Property(property: "redirect_uris", type: "array", items: new OA\Items(type: "string", format: "uri")),
+                    new OA\Property(property: "allowed_scopes", type: "array", items: new OA\Items(type: "string", enum: ["openid", "profile", "email"])),
+                    new OA\Property(property: "is_confidential", type: "boolean", default: true),
+                    new OA\Property(property: "description", type: "string"),
+                    new OA\Property(property: "logo_url", type: "string", format: "uri"),
+                    new OA\Property(property: "homepage_url", type: "string", format: "uri"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Client created with secret"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -64,17 +93,34 @@ class OAuthClientController extends Controller
         ), 201);
     }
 
-    /**
-     * GET /api/oauth/clients/{id}
-     */
+    #[OA\Get(
+        path: "/oauth/clients/{oauthClient}",
+        summary: "Get OAuth client",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        parameters: [new OA\Parameter(name: "oauthClient", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [new OA\Response(response: 200, description: "OAuth client details")]
+    )]
     public function show(OAuthClient $oauthClient): JsonResponse
     {
         return response()->json($this->formatClient($oauthClient->load('createdBy:id,name,email'), false));
     }
 
-    /**
-     * PUT /api/oauth/clients/{id}
-     */
+    #[OA\Put(
+        path: "/oauth/clients/{oauthClient}",
+        summary: "Update OAuth client",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        parameters: [new OA\Parameter(name: "oauthClient", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: "name", type: "string"),
+                new OA\Property(property: "redirect_uris", type: "array", items: new OA\Items(type: "string")),
+                new OA\Property(property: "is_active", type: "boolean"),
+            ])
+        ),
+        responses: [new OA\Response(response: 200, description: "Updated client")]
+    )]
     public function update(Request $request, OAuthClient $oauthClient): JsonResponse
     {
         $data = $request->validate([
@@ -94,18 +140,32 @@ class OAuthClientController extends Controller
         return response()->json($this->formatClient($oauthClient->fresh(), false));
     }
 
-    /**
-     * DELETE /api/oauth/clients/{id}
-     */
+    #[OA\Delete(
+        path: "/oauth/clients/{oauthClient}",
+        summary: "Delete OAuth client",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        parameters: [new OA\Parameter(name: "oauthClient", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [new OA\Response(response: 200, description: "Client deleted")]
+    )]
     public function destroy(OAuthClient $oauthClient): JsonResponse
     {
         $oauthClient->delete();
         return response()->json(['message' => 'Client deleted.']);
     }
 
-    /**
-     * POST /api/oauth/clients/{id}/regenerate-secret
-     */
+    #[OA\Post(
+        path: "/oauth/clients/{oauthClient}/regenerate-secret",
+        summary: "Regenerate OAuth client secret",
+        description: "Generates a new client secret and revokes all existing tokens (admin only, confidential clients only)",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        parameters: [new OA\Parameter(name: "oauthClient", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [
+            new OA\Response(response: 200, description: "New client secret"),
+            new OA\Response(response: 422, description: "Public client has no secret"),
+        ]
+    )]
     public function regenerateSecret(OAuthClient $oauthClient): JsonResponse
     {
         if (!$oauthClient->is_confidential) {

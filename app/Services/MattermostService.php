@@ -96,6 +96,97 @@ class MattermostService
     }
 
     /**
+     * Create a post in a Mattermost channel.
+     */
+    public function createPost(string $channelId, string $message, array $props = []): ?array
+    {
+        try {
+            $response = $this->makeRequest('POST', '/api/v4/posts', [
+                'channel_id' => $channelId,
+                'message' => $message,
+                'props' => $props,
+            ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to create Mattermost post', [
+                'channel_id' => $channelId,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Exception creating Mattermost post', [
+                'channel_id' => $channelId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Create or get a direct-message channel between the configured bot and a user.
+     */
+    public function createDirectChannel(string $mattermostUserId): ?array
+    {
+        $botUserId = config('services.mattermost.bot_user_id');
+
+        if (!$botUserId) {
+            Log::warning('Mattermost bot user id is not configured.');
+            return null;
+        }
+
+        try {
+            $response = $this->makeRequest('POST', '/api/v4/channels/direct', [
+                $botUserId,
+                $mattermostUserId,
+            ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to create Mattermost direct channel', [
+                'mattermost_user_id' => $mattermostUserId,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Exception creating Mattermost direct channel', [
+                'mattermost_user_id' => $mattermostUserId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Send a direct message to a user through the configured Mattermost bot.
+     */
+    public function sendDirectMessage(User $user, string $message, array $props = []): ?array
+    {
+        $mattermostUserId = $this->getMattermostUserId($user);
+
+        if (!$mattermostUserId) {
+            Log::warning('Cannot send Mattermost DM without a Mattermost user id.', [
+                'user_id' => $user->id,
+            ]);
+            return null;
+        }
+
+        $channel = $this->createDirectChannel($mattermostUserId);
+
+        if (!$channel || empty($channel['id'])) {
+            return null;
+        }
+
+        return $this->createPost($channel['id'], $message, $props);
+    }
+
+    /**
      * Delete a Mattermost channel by ID
      */
     public function deleteChannelById(string $channelId, ?string $projectName = null): bool

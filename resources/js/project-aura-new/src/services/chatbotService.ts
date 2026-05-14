@@ -4,14 +4,38 @@ export interface ChatMessage {
   id?: number;
   role: 'user' | 'assistant';
   content: string;
-  metadata?: Record<string, unknown> | null;
+  metadata?: ChatMessageMetadata | string | null;
   created_at?: string;
+}
+
+export interface ChatMessageMetadata {
+  actions?: ChatActionResult[];
+  memory_summary?: string | null;
+  attachments?: ChatAttachment[];
+  attachment_count?: number;
+  [key: string]: unknown;
+}
+
+export interface ChatAttachment {
+  id: number;
+  name: string;
+  mime_type?: string | null;
+  size: number;
+}
+
+export interface ChatActionResult {
+  type: string;
+  status: 'completed' | 'failed' | string;
+  result?: Record<string, unknown>;
+  error?: string;
 }
 
 export interface ChatSession {
   id: number;
   title: string;
   status: 'active' | 'completed' | 'archived';
+  mode?: 'operations' | 'scenario' | 'mattermost';
+  memory_summary?: string | null;
   stats?: ContextStats;
   messages: ChatMessage[];
   created_at?: string;
@@ -52,8 +76,8 @@ export const chatbotService = {
     return data;
   },
 
-  async createSession(): Promise<ChatSession> {
-    const { data } = await api.post('/ai-chatbot/sessions');
+  async createSession(mode: 'operations' | 'scenario' = 'operations'): Promise<ChatSession> {
+    const { data } = await api.post('/ai-chatbot/sessions', { mode });
     return data;
   },
 
@@ -62,7 +86,18 @@ export const chatbotService = {
     return data;
   },
 
-  async sendMessage(sessionId: number, message: string): Promise<ChatMessage> {
+  async sendMessage(sessionId: number, message: string, attachments: File[] = []): Promise<ChatMessage> {
+    if (attachments.length > 0) {
+      const form = new FormData();
+      form.append('message', message);
+      attachments.forEach(file => form.append('attachments[]', file));
+
+      const { data } = await api.post(`/ai-chatbot/sessions/${sessionId}/messages`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return data;
+    }
+
     const { data } = await api.post(`/ai-chatbot/sessions/${sessionId}/messages`, { message });
     return data;
   },

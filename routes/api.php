@@ -64,6 +64,7 @@ Route::get('/xero/callback', [XeroController::class, 'callback']);
 
 // n8n task import callback (public — called by n8n after AI extraction)
 Route::post('/task-import-callback', [TaskImportController::class, 'callback']);
+Route::post('/ai-chatbot/mattermost/webhook', [\App\Http\Controllers\Api\AIChatbotController::class, 'mattermostWebhook']);
 
 // ─── SSO / OAuth 2.0 ──────────────────────────────────────────────────────────
 // Public endpoints (no auth required)

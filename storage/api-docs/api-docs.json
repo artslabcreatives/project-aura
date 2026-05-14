@@ -12,6 +12,284 @@
         }
     ],
     "paths": {
+        "/ai-chatbot/sessions": {
+            "get": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "List AI chatbot sessions",
+                "description": "Returns active and completed chatbot sessions for the authenticated user",
+                "operationId": "a6e94e9904ef00943c6ee1eb1d819243",
+                "responses": {
+                    "200": {
+                        "description": "Sessions list"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "Create AI chatbot session",
+                "description": "Creates a new scenario discovery session and triggers initial AI analysis of the database",
+                "operationId": "6eadafab474796b0970ff96ab5bee9c9",
+                "responses": {
+                    "201": {
+                        "description": "Session created with initial AI analysis"
+                    },
+                    "500": {
+                        "description": "AI analysis error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/ai-chatbot/sessions/{id}": {
+            "get": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "Get chatbot session",
+                "description": "Returns a session with its full message history",
+                "operationId": "2e45892af663ef08f60642b5e03bcc75",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session with messages"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/ai-chatbot/sessions/{id}/messages": {
+            "post": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "Send chatbot message",
+                "description": "Sends a user message and returns the AI assistant's reply",
+                "operationId": "438e3c777a6c0d0a84a1320f1c29848f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "message"
+                                ],
+                                "properties": {
+                                    "message": {
+                                        "type": "string",
+                                        "maxLength": 4000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "AI reply"
+                    },
+                    "422": {
+                        "description": "Session not active"
+                    },
+                    "500": {
+                        "description": "AI API error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/ai-chatbot/sessions/{id}/complete": {
+            "post": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "Complete chatbot session",
+                "operationId": "15771c0a2d81f9991ef3395801752cf7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session marked as completed"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/ai-chatbot/policies": {
+            "get": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "List scenario policies",
+                "description": "Returns all AI scenario policies ordered by last updated",
+                "operationId": "dc14a9826477512f77d8a29ea3838d4b",
+                "responses": {
+                    "200": {
+                        "description": "Scenario policies list"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/ai-chatbot/policies/{id}": {
+            "put": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "Update scenario policy",
+                "operationId": "99b0a20fdb41bbf68636d47368fe8b44",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "scenario_title": {
+                                        "type": "string"
+                                    },
+                                    "scenario_description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "conditions": {
+                                        "type": "object"
+                                    },
+                                    "boundaries": {
+                                        "type": "object"
+                                    },
+                                    "notifications": {
+                                        "type": "object"
+                                    },
+                                    "reactions": {
+                                        "type": "object"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "draft",
+                                            "active",
+                                            "archived"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated policy"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/ai-chatbot/sessions/{id}/refresh-context": {
+            "post": {
+                "tags": [
+                    "AI Chatbot"
+                ],
+                "summary": "Refresh session context",
+                "description": "Re-reads current database state and updates the session context snapshot",
+                "operationId": "059eea147b64b5ac3834c1ae4b31331c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated stats"
+                    },
+                    "404": {
+                        "description": "Session not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/analytics/completion": {
             "get": {
                 "tags": [
@@ -1145,6 +1423,161 @@
                 ]
             }
         },
+        "/automated-reminder-settings": {
+            "get": {
+                "tags": [
+                    "Automated Reminders"
+                ],
+                "summary": "Get automated reminder settings",
+                "description": "Returns all automated reminder settings and projects with overrides",
+                "operationId": "411ab5c66d39d4e940ac292de0d2a6df",
+                "responses": {
+                    "200": {
+                        "description": "Settings and project overrides"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/automated-reminder-settings/{setting}": {
+            "patch": {
+                "tags": [
+                    "Automated Reminders"
+                ],
+                "summary": "Update reminder setting",
+                "description": "Update days_before schedule and/or active status for a reminder type (admin/hr only)",
+                "operationId": "1fba6555646f63f2242b378f628d4a16",
+                "parameters": [
+                    {
+                        "name": "setting",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "days_before": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "is_active": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated setting"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/projects/{project}/reminder-override": {
+            "patch": {
+                "tags": [
+                    "Automated Reminders"
+                ],
+                "summary": "Override project reminder settings",
+                "description": "Set a manual reminder date/frequency for a specific project (admin/hr only)",
+                "operationId": "78383aa7eb0a6bf9217c6083e83b6eaa",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "manual_reminder_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    },
+                                    "manual_reminder_days": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated project"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/automated-reminder-settings/audit-logs": {
+            "get": {
+                "tags": [
+                    "Automated Reminders"
+                ],
+                "summary": "Get reminder audit logs",
+                "description": "Returns audit history of reminder setting changes",
+                "operationId": "392e5b37df8f1a184ad6384a5359a53f",
+                "responses": {
+                    "200": {
+                        "description": "Audit log entries"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/clients": {
             "get": {
                 "tags": [
@@ -1167,6 +1600,217 @@
                         "description": "List of clients"
                     }
                 }
+            }
+        },
+        "/clients/{client}/contacts": {
+            "post": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Add client contact",
+                "operationId": "ee998ae7fd35f1932edbcb1896e9f611",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "phone": {
+                                        "type": "string"
+                                    },
+                                    "is_primary": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Contact created"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/clients/{client}/contacts/{contact}": {
+            "put": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Update client contact",
+                "operationId": "b0899b995388568f2c9d4f31e4539008",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "contact",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "phone": {
+                                        "type": "string"
+                                    },
+                                    "is_primary": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated contact"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Delete client contact",
+                "operationId": "6ac21c7a15026f208e7ee45119c06e6e",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "contact",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/clients/{client}/merge": {
+            "post": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Merge clients",
+                "description": "Merges another client into this one, reassigning all projects, estimates, contacts, and history",
+                "operationId": "9e578e41cc21d12c3b61d1e566f390ae",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "merge_client_id"
+                                ],
+                                "properties": {
+                                    "merge_client_id": {
+                                        "description": "ID of client to merge from",
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Merge completed"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/clients/{client}/financial-dashboard": {
@@ -1252,6 +1896,29 @@
                     },
                     "403": {
                         "description": "Forbidden - Admin/HR only"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/clients/history": {
+            "get": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Get client history",
+                "description": "Returns the last 100 client change history entries (admin/hr only)",
+                "operationId": "c00a5bee081e3c13da5eff4260a217b2",
+                "responses": {
+                    "200": {
+                        "description": "Client history list"
+                    },
+                    "403": {
+                        "description": "Forbidden"
                     }
                 },
                 "security": [
@@ -1509,6 +2176,118 @@
                     },
                     "404": {
                         "description": "Department not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/documents": {
+            "get": {
+                "tags": [
+                    "Documents"
+                ],
+                "summary": "List documents grouped by department",
+                "operationId": "58aa02e52615eb94196343283d7e4b56",
+                "responses": {
+                    "200": {
+                        "description": "List of documents"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Documents"
+                ],
+                "summary": "Upload a new document",
+                "operationId": "1376f0c660d7ac76c951592057ca0d19",
+                "responses": {
+                    "201": {
+                        "description": "Document uploaded"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/documents/{document}/approve": {
+            "post": {
+                "tags": [
+                    "Documents"
+                ],
+                "summary": "Approve a document",
+                "operationId": "af5fd732c36e8ad98a648436caad6509",
+                "responses": {
+                    "200": {
+                        "description": "Document approved"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/documents/{document}/reject": {
+            "post": {
+                "tags": [
+                    "Documents"
+                ],
+                "summary": "Reject a document",
+                "operationId": "963490933cb24b42ac17e5a76c547a9d",
+                "responses": {
+                    "200": {
+                        "description": "Document rejected"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/documents/{document}": {
+            "delete": {
+                "tags": [
+                    "Documents"
+                ],
+                "summary": "Delete a document",
+                "operationId": "0e30b6b5f7f3d6eb00a98924ec392c6c",
+                "responses": {
+                    "204": {
+                        "description": "Document deleted"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/documents/{document}/download": {
+            "get": {
+                "tags": [
+                    "Documents"
+                ],
+                "summary": "Get a secure download URL for a document",
+                "operationId": "84f9069fe7a3e13c0f6b187b3f6f72ac",
+                "responses": {
+                    "200": {
+                        "description": "Secure URL returned"
                     }
                 },
                 "security": [
@@ -2261,6 +3040,291 @@
                 ]
             }
         },
+        "/n8n/grace-periods": {
+            "get": {
+                "tags": [
+                    "Integrations"
+                ],
+                "summary": "Get expiring grace periods (N8N webhook)",
+                "description": "Returns projects with grace periods expiring soon. Secured via N8N_WEBHOOK_SECRET bearer token.",
+                "operationId": "39b4b1c046907456cbfa32e4affb564f",
+                "responses": {
+                    "200": {
+                        "description": "Projects with expiring grace periods"
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid webhook secret"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/invoices": {
+            "get": {
+                "tags": [
+                    "Invoices"
+                ],
+                "summary": "List invoices",
+                "description": "Returns paginated invoices with optional filters",
+                "operationId": "6d247429479a7a96338af3a38d52e215",
+                "parameters": [
+                    {
+                        "name": "source",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "manual",
+                                "xero"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "client_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated invoice list"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Invoices"
+                ],
+                "summary": "Create invoice",
+                "description": "Creates a new invoice. Supports file upload for invoice_document (multipart/form-data).",
+                "operationId": "b22372f77704d157104e4a6061b135d0",
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "source"
+                                ],
+                                "properties": {
+                                    "source": {
+                                        "type": "string",
+                                        "enum": [
+                                            "manual",
+                                            "xero"
+                                        ]
+                                    },
+                                    "project_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "client_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "invoice_number": {
+                                        "type": "string"
+                                    },
+                                    "invoice_type": {
+                                        "type": "string"
+                                    },
+                                    "invoice_document": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "status": {
+                                        "type": "string"
+                                    },
+                                    "amount": {
+                                        "type": "number"
+                                    },
+                                    "currency": {
+                                        "type": "string"
+                                    },
+                                    "issued_at": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "due_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Invoice created"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/invoices/{invoice}": {
+            "get": {
+                "tags": [
+                    "Invoices"
+                ],
+                "summary": "Get invoice",
+                "operationId": "e6f9c25a1265b8a65b66fb22b220750a",
+                "parameters": [
+                    {
+                        "name": "invoice",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invoice details"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Invoices"
+                ],
+                "summary": "Update invoice",
+                "description": "Updates an invoice. Use multipart/form-data when uploading a new document.",
+                "operationId": "ff2d4ce758179b3c2e368ce90613c112",
+                "parameters": [
+                    {
+                        "name": "invoice",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "source": {
+                                        "type": "string",
+                                        "enum": [
+                                            "manual",
+                                            "xero"
+                                        ]
+                                    },
+                                    "status": {
+                                        "type": "string"
+                                    },
+                                    "amount": {
+                                        "type": "number"
+                                    },
+                                    "invoice_document": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated invoice"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Invoices"
+                ],
+                "summary": "Delete invoice",
+                "operationId": "9aad049ac1e204f36d8379390ec712f1",
+                "parameters": [
+                    {
+                        "name": "invoice",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/jothika/token": {
             "post": {
                 "tags": [
@@ -2647,6 +3711,238 @@
                 ]
             }
         },
+        "/oauth/clients": {
+            "get": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "List OAuth clients",
+                "description": "Returns all OAuth clients (admin only)",
+                "operationId": "a084605a5610ecd7214dc3edec2f0cdb",
+                "responses": {
+                    "200": {
+                        "description": "OAuth clients list"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Create OAuth client",
+                "description": "Creates a new OAuth 2.0 client application. Returns client_secret once on creation (admin only).",
+                "operationId": "08adf1d17ce962c95911b8cd7a6145af",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "redirect_uris"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "redirect_uris": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uri"
+                                        }
+                                    },
+                                    "allowed_scopes": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "openid",
+                                                "profile",
+                                                "email"
+                                            ]
+                                        }
+                                    },
+                                    "is_confidential": {
+                                        "type": "boolean",
+                                        "default": true
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "logo_url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "homepage_url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Client created with secret"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/oauth/clients/{oauthClient}": {
+            "get": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Get OAuth client",
+                "operationId": "82731d7a5ee7827b620832de8631b6d9",
+                "parameters": [
+                    {
+                        "name": "oauthClient",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OAuth client details"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Update OAuth client",
+                "operationId": "f646197683d20719b21985c51f3e4c45",
+                "parameters": [
+                    {
+                        "name": "oauthClient",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "redirect_uris": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "is_active": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated client"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Delete OAuth client",
+                "operationId": "97a5773202335bb99bcbb43c462156f4",
+                "parameters": [
+                    {
+                        "name": "oauthClient",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client deleted"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/oauth/clients/{oauthClient}/regenerate-secret": {
+            "post": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Regenerate OAuth client secret",
+                "description": "Generates a new client secret and revokes all existing tokens (admin only, confidential clients only)",
+                "operationId": "dfee6020e6ad8fd2014b21d4358870f2",
+                "parameters": [
+                    {
+                        "name": "oauthClient",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New client secret"
+                    },
+                    "422": {
+                        "description": "Public client has no secret"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/projects/{project}/profitability": {
             "get": {
                 "tags": [
@@ -2896,6 +4192,107 @@
                 ]
             }
         },
+        "/projects/{project}/attachments": {
+            "post": {
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Add project attachment",
+                "description": "Attach a file (via direct upload or TUS upload_key) or a URL link to a project",
+                "operationId": "cfa8e5019327ad7efe2549f597cfa689",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "type"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "file",
+                                            "link"
+                                        ]
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "upload_key": {
+                                        "description": "TUS upload key",
+                                        "type": "string"
+                                    },
+                                    "url": {
+                                        "description": "Required when type=link",
+                                        "type": "string",
+                                        "format": "uri"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Attachment created"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/project-attachments/{attachment}": {
+            "delete": {
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Delete project attachment",
+                "description": "Removes a project attachment and deletes the file from S3 if applicable",
+                "operationId": "aaca4b57116d4f57fd988de8c37f3141",
+                "parameters": [
+                    {
+                        "name": "attachment",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/projects": {
             "get": {
                 "tags": [
@@ -2993,6 +4390,27 @@
                                             "type": "string"
                                         }
                                     },
+                                    "estimated_hours": {
+                                        "type": "number",
+                                        "example": 40
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active"
+                                    },
+                                    "is_internal_project": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "po_number": {
+                                        "type": "string",
+                                        "example": "PO-123"
+                                    },
+                                    "deadline": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
+                                    },
                                     "project_group_id": {
                                         "type": "integer",
                                         "example": 1
@@ -3000,23 +4418,6 @@
                                     "client_id": {
                                         "type": "integer",
                                         "example": 1,
-                                        "nullable": true
-                                    },
-                                    "estimated_hours": {
-                                        "type": "integer",
-                                        "example": 160,
-                                        "nullable": true
-                                    },
-                                    "status": {
-                                        "type": "string",
-                                        "enum": [
-                                            "active",
-                                            "on-hold",
-                                            "completed",
-                                            "cancelled",
-                                            "suggested"
-                                        ],
-                                        "example": "active",
                                         "nullable": true
                                     }
                                 },
@@ -3422,6 +4823,351 @@
                 ]
             }
         },
+        "/projects/{project}/expenses": {
+            "get": {
+                "tags": [
+                    "Project Expenses"
+                ],
+                "summary": "List project expenses",
+                "description": "Returns expenses for a project. Role-based visibility: admins/hr see all, team-leads see all, staff see own + approved.",
+                "operationId": "5706c8f1e85446dd2bcceea3548e6127",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Expense list with budget summary"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Project Expenses"
+                ],
+                "summary": "Create project expense",
+                "description": "Submit a new expense for a project. Admins/HR/team-leads are auto-approved.",
+                "operationId": "8a54db27d47866ad2e8d82150e7dd64b",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "type",
+                                    "amount",
+                                    "expense_date"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "receipt",
+                                            "expense",
+                                            "invoice"
+                                        ]
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "minimum": 0.01
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "maxLength": 3,
+                                        "minLength": 3
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "expense_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "is_reimbursable": {
+                                        "type": "boolean"
+                                    },
+                                    "receipt": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Expense created"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/projects/{project}/expenses/{expense}": {
+            "get": {
+                "tags": [
+                    "Project Expenses"
+                ],
+                "summary": "Get project expense",
+                "operationId": "ca1191d7b78fc76eaa5bdf90b042c818",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "expense",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Expense details"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Project Expenses"
+                ],
+                "summary": "Update project expense",
+                "description": "Updates an expense. Use POST with multipart/form-data. Submitter can edit pending; approvers can edit any.",
+                "operationId": "f511c35d8953627753b41a4f25b51102",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "expense",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "receipt",
+                                            "expense",
+                                            "invoice"
+                                        ]
+                                    },
+                                    "amount": {
+                                        "type": "number"
+                                    },
+                                    "receipt": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated expense"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Project Expenses"
+                ],
+                "summary": "Delete expense",
+                "description": "Submitter can delete pending; approvers can delete any",
+                "operationId": "80531dfbb5a59bc484c8d6b3921ae230",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "expense",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/projects/{project}/expenses/{expense}/approve": {
+            "post": {
+                "tags": [
+                    "Project Expenses"
+                ],
+                "summary": "Approve expense",
+                "description": "Approves a pending expense (team-lead/hr/admin only)",
+                "operationId": "a6d4422152fea409fce49e922936d9bd",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "expense",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Expense approved"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/projects/{project}/expenses/{expense}/reject": {
+            "post": {
+                "tags": [
+                    "Project Expenses"
+                ],
+                "summary": "Reject expense",
+                "description": "Rejects a pending expense with an optional reason (team-lead/hr/admin only)",
+                "operationId": "c908817e972799d69b63edf7a0b71e3e",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "expense",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Expense rejected"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/project-groups": {
             "get": {
                 "tags": [
@@ -3506,6 +5252,637 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reminders": {
+            "get": {
+                "tags": [
+                    "Reminders"
+                ],
+                "summary": "List reminders",
+                "description": "Returns active (unread) and paginated completed (read) reminders for the authenticated user",
+                "operationId": "3ae2e3a277b92c795de7aca89c74d034",
+                "responses": {
+                    "200": {
+                        "description": "Active and completed reminders"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Reminders"
+                ],
+                "summary": "Create reminder",
+                "operationId": "72e40cce8fb934da4b14aa42d0f0af3e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "title",
+                                    "reminder_at"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "reminder_at": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reminder created"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reminders/{reminder}": {
+            "get": {
+                "tags": [
+                    "Reminders"
+                ],
+                "summary": "Get reminder",
+                "operationId": "bf3ccaa46029a0af1e6958b0b6253ca9",
+                "parameters": [
+                    {
+                        "name": "reminder",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reminder details"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Reminders"
+                ],
+                "summary": "Update reminder",
+                "operationId": "1c5b86a9813b12639531f3f812c43acf",
+                "parameters": [
+                    {
+                        "name": "reminder",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "reminder_at": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "is_read": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated reminder"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Reminders"
+                ],
+                "summary": "Delete reminder",
+                "operationId": "b252cda33df6f8eef92ae2b8508d0bf8",
+                "parameters": [
+                    {
+                        "name": "reminder",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reminders/{reminder}/override": {
+            "delete": {
+                "tags": [
+                    "Reminders"
+                ],
+                "summary": "Revert reminder override",
+                "description": "Removes an override and returns the reminder to its original schedule",
+                "operationId": "71ed1466cc4df621f621ab13da541a08",
+                "parameters": [
+                    {
+                        "name": "reminder",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reminder with override removed"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Reminders"
+                ],
+                "summary": "Override reminder schedule",
+                "description": "Override the date and/or frequency of a reminder with an audit trail",
+                "operationId": "f8f846010770ee9764989ae890c053ae",
+                "parameters": [
+                    {
+                        "name": "reminder",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "reminder_at": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "reminder_frequency_days": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated reminder"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reports": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "List reports",
+                "description": "Returns reports with role-based filtering: hr/admin see all, team-lead sees department, staff sees own",
+                "operationId": "81a8afd2aa3c69c6b5565682c3a78dd7",
+                "parameters": [
+                    {
+                        "name": "project_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reports list"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Submit report",
+                "description": "Submit a new report file for approval workflow (multipart/form-data, max 20MB)",
+                "operationId": "39a2e936857d7fa55026c1daac0f01d0",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "project_id",
+                                    "title",
+                                    "report_file"
+                                ],
+                                "properties": {
+                                    "project_id": {
+                                        "type": "integer"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "report_file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Report submitted"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reports/{report}": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get report",
+                "operationId": "12d874928e5b2951479758c4f9381282",
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Report details with activities"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Update report",
+                "description": "Edit a report (owner only, before final HR approval). Use POST with multipart/form-data.",
+                "operationId": "fbaa8c4e20f150392baa99c45b4806ec",
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "report_file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated report"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reports/{report}/tl-approve": {
+            "post": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Team Lead approval",
+                "operationId": "899f10c7f5af0de1485dc16295541158",
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Approved by TL"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reports/{report}/hr-approve": {
+            "post": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "HR final approval",
+                "description": "HR final approval (requires TL approval first)",
+                "operationId": "6b6c932b2e5662c30addbce3b899085a",
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Approved by HR"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reports/{report}/reject": {
+            "post": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Reject report",
+                "operationId": "0e732d0b7b969761f5f1923ec9680801",
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "comment"
+                                ],
+                                "properties": {
+                                    "comment": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Report rejected"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/reports/{report}/comment": {
+            "post": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Add comment to report",
+                "operationId": "2611f962a216b61eefdc0f0f6b05663b",
+                "parameters": [
+                    {
+                        "name": "report",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "comment"
+                                ],
+                                "properties": {
+                                    "comment": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Comment added"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/uploads/tus/{uploadKey}": {
+            "post": {
+                "tags": [
+                    "Uploads"
+                ],
+                "summary": "Resumable file upload (TUS protocol)",
+                "description": "Handles resumable uploads via the TUS protocol. Supports OPTIONS, POST, HEAD, PATCH, and DELETE methods on /uploads/tus/{uploadKey?}.",
+                "operationId": "b443a72f7e7eb66798d3b03c6cf1ceea",
+                "parameters": [
+                    {
+                        "name": "uploadKey",
+                        "in": "path",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "TUS response (varies by method)"
+                    },
+                    "201": {
+                        "description": "Upload created"
+                    },
+                    "204": {
+                        "description": "Upload chunk accepted"
                     }
                 },
                 "security": [
@@ -3715,6 +6092,294 @@
                         "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "/oauth/authorize": {
+            "get": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Validate OAuth authorization request",
+                "description": "Validates the authorization request parameters and returns client info for the consent UI. Public endpoint.",
+                "operationId": "34e095a0a4ab2ad8e96d1ce8f8765868",
+                "parameters": [
+                    {
+                        "name": "client_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "redirect_uri",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uri"
+                        }
+                    },
+                    {
+                        "name": "response_type",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "code"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "scope",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "code_challenge",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "code_challenge_method",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "S256",
+                                "plain"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client info for consent screen"
+                    },
+                    "400": {
+                        "description": "Invalid request parameters"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Approve or deny OAuth authorization",
+                "description": "User approves or denies the OAuth consent screen. Requires Sanctum authentication.",
+                "operationId": "7f63e8d69b948fd2d863fbc222c6c1b5",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "client_id",
+                                    "redirect_uri",
+                                    "scope",
+                                    "approved"
+                                ],
+                                "properties": {
+                                    "client_id": {
+                                        "type": "string"
+                                    },
+                                    "redirect_uri": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "scope": {
+                                        "type": "string"
+                                    },
+                                    "state": {
+                                        "type": "string"
+                                    },
+                                    "code_challenge": {
+                                        "type": "string"
+                                    },
+                                    "approved": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Authorization code or denial redirect_uri"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/oauth/token": {
+            "post": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Exchange code for access token",
+                "description": "Token endpoint (RFC 6749). Supports authorization_code and refresh_token grant types. Public endpoint — called server-to-server.",
+                "operationId": "932fb31078d10b6872a334631971dc55",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "grant_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "authorization_code",
+                                            "refresh_token"
+                                        ]
+                                    },
+                                    "code": {
+                                        "description": "Authorization code (authorization_code grant)",
+                                        "type": "string"
+                                    },
+                                    "redirect_uri": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "client_id": {
+                                        "type": "string"
+                                    },
+                                    "client_secret": {
+                                        "type": "string"
+                                    },
+                                    "code_verifier": {
+                                        "description": "PKCE code verifier",
+                                        "type": "string"
+                                    },
+                                    "refresh_token": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Access token response"
+                    },
+                    "400": {
+                        "description": "Invalid grant"
+                    }
+                }
+            }
+        },
+        "/oauth/userinfo": {
+            "get": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Get user info (OIDC)",
+                "description": "Returns the authenticated resource owner's profile. Bearer token must be an Aurai SSO-issued JWT.",
+                "operationId": "40e314ffc5ed224da6bd2ede2325acb0",
+                "responses": {
+                    "200": {
+                        "description": "User profile claims"
+                    },
+                    "401": {
+                        "description": "Invalid token"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/oauth/revoke": {
+            "post": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "Revoke OAuth token",
+                "description": "Revokes an access or refresh token (RFC 7009). Public endpoint.",
+                "operationId": "51f463c8c38627b8c48063b29f9241ab",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "token": {
+                                        "type": "string"
+                                    },
+                                    "token_type_hint": {
+                                        "type": "string",
+                                        "enum": [
+                                            "access_token",
+                                            "refresh_token"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Revoked (always 200 per RFC 7009)"
+                    }
+                }
+            }
+        },
+        "/oauth/jwks": {
+            "get": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "JWKS public keys",
+                "description": "Returns the JSON Web Key Set for verifying SSO-issued JWTs. Public endpoint.",
+                "operationId": "144ef3c1d8f2e1ac80e959c0b9c65d77",
+                "responses": {
+                    "200": {
+                        "description": "JWKS document"
+                    }
+                }
+            }
+        },
+        "/openid-configuration": {
+            "get": {
+                "tags": [
+                    "SSO / OAuth"
+                ],
+                "summary": "OpenID Connect discovery document",
+                "description": "Returns the OIDC discovery document (/.well-known/openid-configuration). Public endpoint.",
+                "operationId": "f1e57d6a87d44c0cda608ce37674181f",
+                "responses": {
+                    "200": {
+                        "description": "OIDC discovery document"
+                    }
+                }
             }
         },
         "/search/all-with-relations": {
@@ -5325,6 +7990,81 @@
                 ]
             }
         },
+        "/suppliers": {
+            "get": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "List suppliers",
+                "description": "Returns paginated list of suppliers with optional search filter (admin/hr only)",
+                "operationId": "5d29c6f6c1ac2bd100e650844ae63ab2",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 15
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated supplier list"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/suppliers/{supplier}": {
+            "delete": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Delete supplier",
+                "description": "Deletes a supplier (admin/hr only)",
+                "operationId": "958a6acc282e0be5e45e073837bd9bf0",
+                "parameters": [
+                    {
+                        "name": "supplier",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Supplier deleted"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/tags": {
             "get": {
                 "tags": [
@@ -6002,6 +8742,44 @@
                 ]
             }
         },
+        "/tasks/{id}/duplicate": {
+            "post": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Duplicate a task",
+                "operationId": "2af83e8eb04b7856a92d7c482993f6b2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Task duplicated"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Task not found"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/tasks/{id}/start": {
             "post": {
                 "tags": [
@@ -6028,6 +8806,64 @@
                     },
                     "404": {
                         "description": "Task not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/tasks/bulk-update": {
+            "post": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Bulk update tasks (Assignee and Due Date)",
+                "operationId": "41242e6214757c436aa523c58b1c0984",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "task_ids"
+                                ],
+                                "properties": {
+                                    "task_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "assignee_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "due_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Tasks updated"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
                     }
                 },
                 "security": [
@@ -6290,6 +9126,383 @@
                     },
                     "401": {
                         "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/tasks/{task}/history": {
+            "get": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Get task history",
+                "description": "Returns paginated history log for a specific task",
+                "operationId": "031bf580863130dcdaf2eb263be78e89",
+                "parameters": [
+                    {
+                        "name": "task",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated task history entries"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/projects/{project}/upload-tasks": {
+            "post": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Upload document for task extraction",
+                "description": "Submits a document to N8N for AI-powered task extraction",
+                "operationId": "7a9445d7de13a9ce7fa1448588b51aa5",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "description": "PDF, Word, text, spreadsheet, or image (max 20MB)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Import started with import_id"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/task-import-callback": {
+            "post": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "N8N task import callback",
+                "description": "Public endpoint called by N8N with extracted tasks. Secured via bearer secret.",
+                "operationId": "fb71b56a507d2bba94d765e52619fdb1",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "project_id": {
+                                        "type": "integer"
+                                    },
+                                    "import_id": {
+                                        "type": "string"
+                                    },
+                                    "tasks": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Tasks stored"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/task-import/{importId}": {
+            "get": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Poll task import status",
+                "description": "Polling endpoint for task import results. Returns status=pending or the extracted tasks.",
+                "operationId": "d9a48f7b3f6452c40e65c9680a721528",
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "importId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Import status or extracted tasks"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/two-factor/enable": {
+            "post": {
+                "tags": [
+                    "Two-Factor Authentication"
+                ],
+                "summary": "Enable two-factor authentication",
+                "description": "Generates a TOTP secret and QR code SVG for the authenticated user",
+                "operationId": "af2392083f1ee5c3e34323f817f10071",
+                "responses": {
+                    "200": {
+                        "description": "TOTP secret and QR code",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "secret": {
+                                            "type": "string"
+                                        },
+                                        "qr_code_url": {
+                                            "description": "SVG QR code",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "2FA already enabled"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/two-factor/confirm": {
+            "post": {
+                "tags": [
+                    "Two-Factor Authentication"
+                ],
+                "summary": "Confirm two-factor authentication",
+                "description": "Verifies the TOTP code and activates 2FA, returning recovery codes",
+                "operationId": "665c56ab5269febf26f2aba7311e9893",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "example": "123456"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "2FA activated with recovery codes"
+                    },
+                    "422": {
+                        "description": "Invalid code"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/two-factor/disable": {
+            "post": {
+                "tags": [
+                    "Two-Factor Authentication"
+                ],
+                "summary": "Disable two-factor authentication",
+                "description": "Disables 2FA after verifying the user's current password",
+                "operationId": "a6c1a0d9f219884ada7f8ba2c794517d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "password"
+                                ],
+                                "properties": {
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "2FA disabled"
+                    },
+                    "422": {
+                        "description": "Wrong password"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/two-factor/recovery-codes": {
+            "post": {
+                "tags": [
+                    "Two-Factor Authentication"
+                ],
+                "summary": "Get recovery codes",
+                "description": "Returns the current 2FA recovery codes after password verification",
+                "operationId": "08ee70b899893cf2a1ebacda72b03ff9",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "password"
+                                ],
+                                "properties": {
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes array"
+                    },
+                    "422": {
+                        "description": "Wrong password"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/two-factor/recovery-codes/regenerate": {
+            "post": {
+                "tags": [
+                    "Two-Factor Authentication"
+                ],
+                "summary": "Regenerate recovery codes",
+                "description": "Generates new 2FA recovery codes after password verification (2FA must be enabled)",
+                "operationId": "f68476af1c204919ce43b1047273a8ee",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "password"
+                                ],
+                                "properties": {
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "New recovery codes"
+                    },
+                    "400": {
+                        "description": "2FA not enabled"
                     }
                 },
                 "security": [
@@ -6681,6 +9894,675 @@
                     }
                 ]
             }
+        },
+        "/xero/status": {
+            "get": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Xero connection status",
+                "description": "Returns whether Xero is connected and basic metadata",
+                "operationId": "230b0d4932ee285ed550773111c0cbe4",
+                "responses": {
+                    "200": {
+                        "description": "Connection status"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/xero/auth-url": {
+            "get": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Get Xero OAuth authorization URL",
+                "description": "Generates and returns the Xero OAuth2 authorization URL for the user to begin the OAuth flow",
+                "operationId": "6ccb0abed7f9b1f010ebdc907b9cc39d",
+                "responses": {
+                    "200": {
+                        "description": "Authorization URL",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "url": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/xero/callback": {
+            "get": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Xero OAuth callback",
+                "description": "Public endpoint. Handles the Xero OAuth2 callback, exchanges code for tokens, and redirects to frontend.",
+                "operationId": "2916664a77eeb32dfd8cd3aade83eeba",
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to frontend"
+                    }
+                }
+            }
+        },
+        "/xero/sync-clients": {
+            "post": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Sync Xero Contacts to Clients",
+                "description": "Syncs Xero Contacts to local Clients (admin/hr only)",
+                "operationId": "339ee1b388dc25bddd39391213c2bfa3",
+                "responses": {
+                    "200": {
+                        "description": "Sync summary"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/xero/sync-suppliers": {
+            "post": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Sync Xero Suppliers",
+                "description": "Syncs Xero Suppliers to local suppliers table (admin/hr only)",
+                "operationId": "fe8476903be8ceabc7b02db8ee9c339e",
+                "responses": {
+                    "200": {
+                        "description": "Sync summary"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/xero/sync": {
+            "post": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Sync Xero Quotes to Estimates",
+                "description": "Syncs Xero Quotes to local Estimates (admin/hr only)",
+                "operationId": "4ecc4e68ed376e826e1def21d1368ab9",
+                "responses": {
+                    "200": {
+                        "description": "Sync summary"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/xero/sync-invoices": {
+            "post": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Sync Xero Invoices",
+                "description": "Syncs Xero Invoices to local Projects (admin/hr only)",
+                "operationId": "0ad4584ad1e40074beef42472e0f5621",
+                "responses": {
+                    "200": {
+                        "description": "Sync summary"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/xero/purchase-orders": {
+            "get": {
+                "tags": [
+                    "Xero Integration"
+                ],
+                "summary": "Get Xero Purchase Orders",
+                "description": "Returns available Xero Purchase Orders not yet linked to a project",
+                "operationId": "7ecb762be4257360f6d6d3bd8690f046",
+                "parameters": [
+                    {
+                        "name": "xero_contact_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Purchase orders list"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/auth-url": {
+            "get": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Get Zoho Mail OAuth URL",
+                "description": "Returns the Zoho OAuth authorization URL",
+                "operationId": "05c24df144da12e30e895dbf77a7ac86",
+                "responses": {
+                    "200": {
+                        "description": "Authorization URL"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/callback": {
+            "get": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Zoho OAuth callback",
+                "description": "Public endpoint. Handles Zoho OAuth callback, exchanges code for tokens.",
+                "operationId": "44c623e44f1ec8e5e3027fabb82af434",
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to app"
+                    }
+                }
+            }
+        },
+        "/zoho/status": {
+            "get": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Zoho Mail connection status",
+                "description": "Returns whether Zoho Mail is connected and lists mail accounts",
+                "operationId": "c00358016034209f4d73a591021e1a5a",
+                "responses": {
+                    "200": {
+                        "description": "Connection status and accounts"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/folders": {
+            "get": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "List Zoho Mail folders",
+                "description": "Returns mail folders for the connected account",
+                "operationId": "73ab24f9988da13c9473b548654d03f8",
+                "parameters": [
+                    {
+                        "name": "account_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Folders list"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/folders/{folderId}/messages": {
+            "get": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "List folder messages",
+                "description": "Returns messages in a specific mail folder",
+                "operationId": "ad7b9f05feabb71c54a458967a53599c",
+                "parameters": [
+                    {
+                        "name": "folderId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "account_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages list"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/folders/{folderId}/messages/{messageId}/content": {
+            "get": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Get message content",
+                "description": "Returns full content and metadata of a specific email",
+                "operationId": "4daf9e8d5b703b8a2607cc7dbece4dd1",
+                "parameters": [
+                    {
+                        "name": "folderId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "account_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Message content"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/messages": {
+            "post": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Send email via Zoho",
+                "description": "Sends an email through the connected Zoho Mail account",
+                "operationId": "b273c8fa7cb70ec3ea72aa7f33180918",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "account_id": {
+                                        "type": "string"
+                                    },
+                                    "fromAddress": {
+                                        "type": "string"
+                                    },
+                                    "toAddress": {
+                                        "type": "string"
+                                    },
+                                    "ccAddress": {
+                                        "type": "string"
+                                    },
+                                    "subject": {
+                                        "type": "string"
+                                    },
+                                    "content": {
+                                        "type": "string"
+                                    },
+                                    "mailFormat": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html",
+                                            "plaintext"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Send result"
+                    },
+                    "400": {
+                        "description": "Failed to send"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/messages/attachments": {
+            "post": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Upload email attachment",
+                "description": "Uploads a file attachment for use in a Zoho Mail message (max 10MB)",
+                "operationId": "0e777b6a11ec6b565d467ba259f5f205",
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Attachment details"
+                    },
+                    "500": {
+                        "description": "Upload failed"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/folders/{folderId}/messages/{messageId}": {
+            "delete": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Delete email",
+                "operationId": "30603b19e757a4f6ba47099f446e3b27",
+                "parameters": [
+                    {
+                        "name": "folderId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "account_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully"
+                    },
+                    "500": {
+                        "description": "Failed to delete"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho/unlink": {
+            "post": {
+                "tags": [
+                    "Zoho Mail"
+                ],
+                "summary": "Disconnect Zoho Mail",
+                "description": "Removes the stored Zoho OAuth tokens, disconnecting the mail integration",
+                "operationId": "7f0f2d93ad3bd56e3146882ac1b24c2d",
+                "responses": {
+                    "200": {
+                        "description": "Disconnected"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/mattermost/redirect": {
+            "get": {
+                "tags": [
+                    "Mattermost"
+                ],
+                "summary": "Redirect to Mattermost with magic link",
+                "description": "Generates a magic link and redirects the browser to Mattermost",
+                "operationId": "1c3022f721b1d4e3a482bb2906adbe0a",
+                "responses": {
+                    "302": {
+                        "description": "Redirect to Mattermost"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/mattermost/magic-link": {
+            "get": {
+                "tags": [
+                    "Mattermost"
+                ],
+                "summary": "Get Mattermost magic link",
+                "description": "Returns a one-time magic link URL for Mattermost auto-login (expires in 5 minutes)",
+                "operationId": "8698119d5a53bef313818109f2223ec0",
+                "responses": {
+                    "200": {
+                        "description": "Magic link URL and expiry"
+                    },
+                    "500": {
+                        "description": "Failed to generate link"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/mattermost/plugin/auto-login": {
+            "get": {
+                "tags": [
+                    "Mattermost"
+                ],
+                "summary": "Redirect to Mattermost plugin auto-login",
+                "description": "Generates auto-login URL and redirects the browser to Mattermost",
+                "operationId": "ad874b8b12d7af843f169addd3f8ed61",
+                "parameters": [
+                    {
+                        "name": "channel",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to Mattermost"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/mattermost/plugin/auto-login-url": {
+            "get": {
+                "tags": [
+                    "Mattermost"
+                ],
+                "summary": "Get Mattermost plugin auto-login URL",
+                "description": "Returns a URL for Mattermost plugin auto-login (expires in 60 seconds)",
+                "operationId": "6661d0e8ba6c66ae3e957655d9ed15be",
+                "parameters": [
+                    {
+                        "name": "channel",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "general"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Auto-login URL and expiry"
+                    },
+                    "500": {
+                        "description": "Integration not configured"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -6702,8 +10584,16 @@
             "description": "Jothika reimbursement system integration"
         },
         {
+            "name": "AI Chatbot",
+            "description": "AI Chatbot"
+        },
+        {
             "name": "Authentication",
             "description": "Authentication"
+        },
+        {
+            "name": "Automated Reminders",
+            "description": "Automated Reminders"
         },
         {
             "name": "Clients",
@@ -6718,6 +10608,10 @@
             "description": "Departments"
         },
         {
+            "name": "Documents",
+            "description": "Documents"
+        },
+        {
             "name": "Estimates",
             "description": "Estimates"
         },
@@ -6730,8 +10624,20 @@
             "description": "History Entries"
         },
         {
+            "name": "Integrations",
+            "description": "Integrations"
+        },
+        {
+            "name": "Invoices",
+            "description": "Invoices"
+        },
+        {
             "name": "Notifications",
             "description": "Notifications"
+        },
+        {
+            "name": "SSO / OAuth",
+            "description": "SSO / OAuth"
         },
         {
             "name": "Profitability",
@@ -6742,8 +10648,24 @@
             "description": "Projects"
         },
         {
+            "name": "Project Expenses",
+            "description": "Project Expenses"
+        },
+        {
             "name": "Project Groups",
             "description": "Project Groups"
+        },
+        {
+            "name": "Reminders",
+            "description": "Reminders"
+        },
+        {
+            "name": "Reports",
+            "description": "Reports"
+        },
+        {
+            "name": "Uploads",
+            "description": "Uploads"
         },
         {
             "name": "Revision History",
@@ -6766,6 +10688,10 @@
             "description": "Stage Groups"
         },
         {
+            "name": "Suppliers",
+            "description": "Suppliers"
+        },
+        {
             "name": "Tags",
             "description": "Tags"
         },
@@ -6782,8 +10708,24 @@
             "description": "Task Efficiency"
         },
         {
+            "name": "Two-Factor Authentication",
+            "description": "Two-Factor Authentication"
+        },
+        {
             "name": "Users",
             "description": "Users"
+        },
+        {
+            "name": "Xero Integration",
+            "description": "Xero Integration"
+        },
+        {
+            "name": "Zoho Mail",
+            "description": "Zoho Mail"
+        },
+        {
+            "name": "Mattermost",
+            "description": "Mattermost"
         }
     ]
 }

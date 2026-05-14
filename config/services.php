@@ -38,6 +38,7 @@ return [
         'api_key' => env('MATTERMOST_API_KEY'),
         'plugin_id' => env('MATTERMOST_PLUGIN_ID', 'com.artslabcreatives.auraai'),
         'jwt_secret' => env('MATTERMOST_JWT_SECRET'),
+        'bot_user_id' => env('MATTERMOST_BOT_USER_ID'),
     ],
 
 	'slack' => [
@@ -71,5 +72,9 @@ return [
 
     'claude' => [
         'api_key' => env('CLAUDE_API'),
+    ],
+
+    'ai_agent' => [
+        'mattermost_webhook_token' => env('AI_AGENT_MATTERMOST_WEBHOOK_TOKEN', env('MATTERMOST_API_KEY')),
     ],
 ];

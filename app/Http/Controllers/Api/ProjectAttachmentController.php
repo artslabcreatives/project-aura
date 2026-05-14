@@ -10,12 +10,38 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
 use App\Services\ResumableUploadService;
+use OpenApi\Attributes as OA;
 
 class ProjectAttachmentController extends Controller
 {
-    /**
-     * Store a new attachment (file or link) for a project.
-     */
+    #[OA\Post(
+        path: "/projects/{project}/attachments",
+        summary: "Add project attachment",
+        description: "Attach a file (via direct upload or TUS upload_key) or a URL link to a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["type"],
+                    properties: [
+                        new OA\Property(property: "type", type: "string", enum: ["file", "link"]),
+                        new OA\Property(property: "name", type: "string"),
+                        new OA\Property(property: "file", type: "string", format: "binary"),
+                        new OA\Property(property: "upload_key", type: "string", description: "TUS upload key"),
+                        new OA\Property(property: "url", type: "string", format: "uri", description: "Required when type=link"),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Attachment created"),
+            new OA\Response(response: 422, description: "Validation error"),
+        ]
+    )]
     public function store(Request $request, Project $project, ResumableUploadService $resumableUploadService): JsonResponse
     {
         $validated = $request->validate([
@@ -71,9 +97,15 @@ class ProjectAttachmentController extends Controller
         return response()->json($attachment, 201);
     }
 
-    /**
-     * Remove the specified attachment.
-     */
+    #[OA\Delete(
+        path: "/project-attachments/{attachment}",
+        summary: "Delete project attachment",
+        description: "Removes a project attachment and deletes the file from S3 if applicable",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [new OA\Parameter(name: "attachment", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [new OA\Response(response: 204, description: "Deleted")]
+    )]
     public function destroy(ProjectAttachment $attachment): JsonResponse
     {
         if ($attachment->type === 'file' && $attachment->file_path) {

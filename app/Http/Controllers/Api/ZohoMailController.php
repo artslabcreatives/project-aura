@@ -9,6 +9,7 @@ use App\Services\ZohoAuthService;
 use App\Services\ZohoMailService;
 use App\Models\ZohoToken;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class ZohoMailController extends Controller
 {
@@ -21,6 +22,14 @@ class ZohoMailController extends Controller
         $this->mailService = $mailService;
     }
 
+    #[OA\Get(
+        path: "/zoho/auth-url",
+        summary: "Get Zoho Mail OAuth URL",
+        description: "Returns the Zoho OAuth authorization URL",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        responses: [new OA\Response(response: 200, description: "Authorization URL")]
+    )]
     public function getAuthUrl()
     {
         return response()->json([
@@ -28,6 +37,17 @@ class ZohoMailController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: "/zoho/callback",
+        summary: "Zoho OAuth callback",
+        description: "Public endpoint. Handles Zoho OAuth callback, exchanges code for tokens.",
+        tags: ["Zoho Mail"],
+        parameters: [
+            new OA\Parameter(name: "code", in: "query", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "state", in: "query", required: false, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [new OA\Response(response: 302, description: "Redirect to app")]
+    )]
     public function handleCallback(Request $request)
     {
         $code = $request->query('code');
@@ -46,6 +66,14 @@ class ZohoMailController extends Controller
         return redirect()->away(config('app.url') . '/emails?connection=success');
     }
 
+    #[OA\Get(
+        path: "/zoho/status",
+        summary: "Zoho Mail connection status",
+        description: "Returns whether Zoho Mail is connected and lists mail accounts",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        responses: [new OA\Response(response: 200, description: "Connection status and accounts")]
+    )]
     public function getStatus()
     {
         $userId = Auth::id();
@@ -63,6 +91,15 @@ class ZohoMailController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: "/zoho/folders",
+        summary: "List Zoho Mail folders",
+        description: "Returns mail folders for the connected account",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        parameters: [new OA\Parameter(name: "account_id", in: "query", required: false, schema: new OA\Schema(type: "string"))],
+        responses: [new OA\Response(response: 200, description: "Folders list")]
+    )]
     public function getFolders(Request $request)
     {
         $accountId = $request->query('account_id');
@@ -78,6 +115,18 @@ class ZohoMailController extends Controller
         return response()->json(['folders' => $folders]);
     }
 
+    #[OA\Get(
+        path: "/zoho/folders/{folderId}/messages",
+        summary: "List folder messages",
+        description: "Returns messages in a specific mail folder",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        parameters: [
+            new OA\Parameter(name: "folderId", in: "path", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "account_id", in: "query", required: false, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [new OA\Response(response: 200, description: "Messages list")]
+    )]
     public function getMessages(Request $request, $folderId)
     {
         $accountId = $request->query('account_id');
@@ -93,6 +142,19 @@ class ZohoMailController extends Controller
         return response()->json(['messages' => $messages]);
     }
 
+    #[OA\Get(
+        path: "/zoho/folders/{folderId}/messages/{messageId}/content",
+        summary: "Get message content",
+        description: "Returns full content and metadata of a specific email",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        parameters: [
+            new OA\Parameter(name: "folderId", in: "path", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "messageId", in: "path", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "account_id", in: "query", required: false, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [new OA\Response(response: 200, description: "Message content")]
+    )]
     public function getMessageContent(Request $request, $folderId, $messageId)
     {
         $accountId = $request->query('account_id');
@@ -117,6 +179,30 @@ class ZohoMailController extends Controller
         return response()->json(['content' => $finalData]);
     }
 
+    #[OA\Post(
+        path: "/zoho/messages",
+        summary: "Send email via Zoho",
+        description: "Sends an email through the connected Zoho Mail account",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "account_id", type: "string"),
+                    new OA\Property(property: "fromAddress", type: "string"),
+                    new OA\Property(property: "toAddress", type: "string"),
+                    new OA\Property(property: "ccAddress", type: "string"),
+                    new OA\Property(property: "subject", type: "string"),
+                    new OA\Property(property: "content", type: "string"),
+                    new OA\Property(property: "mailFormat", type: "string", enum: ["html", "plaintext"]),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Send result"),
+            new OA\Response(response: 400, description: "Failed to send"),
+        ]
+    )]
     public function sendMessage(Request $request)
     {
         $userId = Auth::id();
@@ -199,6 +285,26 @@ class ZohoMailController extends Controller
         return response()->json(['result' => $result]);
     }
 
+    #[OA\Post(
+        path: "/zoho/messages/attachments",
+        summary: "Upload email attachment",
+        description: "Uploads a file attachment for use in a Zoho Mail message (max 10MB)",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        requestBody: new OA\RequestBody(
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["file"],
+                    properties: [new OA\Property(property: "file", type: "string", format: "binary")]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Attachment details"),
+            new OA\Response(response: 500, description: "Upload failed"),
+        ]
+    )]
     public function uploadAttachment(Request $request)
     {
         $request->validate([
@@ -226,6 +332,21 @@ class ZohoMailController extends Controller
         return response()->json(['attachment' => $attachment]);
     }
 
+    #[OA\Delete(
+        path: "/zoho/folders/{folderId}/messages/{messageId}",
+        summary: "Delete email",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        parameters: [
+            new OA\Parameter(name: "folderId", in: "path", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "messageId", in: "path", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "account_id", in: "query", required: false, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Deleted successfully"),
+            new OA\Response(response: 500, description: "Failed to delete"),
+        ]
+    )]
     public function deleteMessage(Request $request, $folderId, $messageId)
     {
         $accountId = $request->query('account_id');
@@ -246,6 +367,14 @@ class ZohoMailController extends Controller
         return response()->json(['success' => true]);
     }
 
+    #[OA\Post(
+        path: "/zoho/unlink",
+        summary: "Disconnect Zoho Mail",
+        description: "Removes the stored Zoho OAuth tokens, disconnecting the mail integration",
+        security: [["bearerAuth" => []]],
+        tags: ["Zoho Mail"],
+        responses: [new OA\Response(response: 200, description: "Disconnected")]
+    )]
     public function unlink(Request $request)
     {
         $userId = Auth::id();

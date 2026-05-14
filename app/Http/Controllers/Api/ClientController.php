@@ -151,9 +151,27 @@ class ClientController extends Controller
         return response()->noContent();
     }
 
-    /**
-     * Store a new contact for the client.
-     */
+    #[OA\Post(
+        path: "/clients/{client}/contacts",
+        summary: "Add client contact",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        parameters: [new OA\Parameter(name: "client", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["name"],
+                properties: [
+                    new OA\Property(property: "name", type: "string"),
+                    new OA\Property(property: "title", type: "string"),
+                    new OA\Property(property: "email", type: "string", format: "email"),
+                    new OA\Property(property: "phone", type: "string"),
+                    new OA\Property(property: "is_primary", type: "boolean"),
+                ]
+            )
+        ),
+        responses: [new OA\Response(response: 201, description: "Contact created")]
+    )]
     public function storeContact(Request $request, Client $client)
     {
         $this->checkPermission();
@@ -177,9 +195,26 @@ class ClientController extends Controller
         return response()->json($contact, 201);
     }
 
-    /**
-     * Update a contact.
-     */
+    #[OA\Put(
+        path: "/clients/{client}/contacts/{contact}",
+        summary: "Update client contact",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        parameters: [
+            new OA\Parameter(name: "client", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "contact", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: "name", type: "string"),
+                new OA\Property(property: "title", type: "string"),
+                new OA\Property(property: "email", type: "string", format: "email"),
+                new OA\Property(property: "phone", type: "string"),
+                new OA\Property(property: "is_primary", type: "boolean"),
+            ])
+        ),
+        responses: [new OA\Response(response: 200, description: "Updated contact")]
+    )]
     public function updateContact(Request $request, Client $client, ClientContact $contact)
     {
         $this->checkPermission();
@@ -203,9 +238,17 @@ class ClientController extends Controller
         return response()->json($contact);
     }
 
-    /**
-     * Remove a contact.
-     */
+    #[OA\Delete(
+        path: "/clients/{client}/contacts/{contact}",
+        summary: "Delete client contact",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        parameters: [
+            new OA\Parameter(name: "client", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "contact", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        responses: [new OA\Response(response: 204, description: "Deleted")]
+    )]
     public function destroyContact(Client $client, ClientContact $contact)
     {
         $this->checkPermission();
@@ -222,6 +265,25 @@ class ClientController extends Controller
         return response()->noContent();
     }
 
+    #[OA\Post(
+        path: "/clients/{client}/merge",
+        summary: "Merge clients",
+        description: "Merges another client into this one, reassigning all projects, estimates, contacts, and history",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        parameters: [new OA\Parameter(name: "client", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["merge_client_id"],
+                properties: [new OA\Property(property: "merge_client_id", type: "integer", description: "ID of client to merge from")]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Merge completed"),
+            new OA\Response(response: 422, description: "Validation error"),
+        ]
+    )]
     /**
      * Merge another client into this client.
      *

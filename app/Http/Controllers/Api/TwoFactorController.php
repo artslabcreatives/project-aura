@@ -13,15 +13,28 @@ use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
+use OpenApi\Attributes as OA;
 
 class TwoFactorController extends Controller
 {
-    /**
-     * Enable two-factor authentication for the user.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    #[OA\Post(
+        path: "/two-factor/enable",
+        summary: "Enable two-factor authentication",
+        description: "Generates a TOTP secret and QR code SVG for the authenticated user",
+        security: [["bearerAuth" => []]],
+        tags: ["Two-Factor Authentication"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "TOTP secret and QR code",
+                content: new OA\JsonContent(properties: [
+                    new OA\Property(property: "secret", type: "string"),
+                    new OA\Property(property: "qr_code_url", type: "string", description: "SVG QR code"),
+                ])
+            ),
+            new OA\Response(response: 409, description: "2FA already enabled"),
+        ]
+    )]
     public function enable(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -59,12 +72,24 @@ class TwoFactorController extends Controller
         ]);
     }
 
-    /**
-     * Confirm two-factor authentication for the user.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    #[OA\Post(
+        path: "/two-factor/confirm",
+        summary: "Confirm two-factor authentication",
+        description: "Verifies the TOTP code and activates 2FA, returning recovery codes",
+        security: [["bearerAuth" => []]],
+        tags: ["Two-Factor Authentication"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["code"],
+                properties: [new OA\Property(property: "code", type: "string", example: "123456")]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "2FA activated with recovery codes"),
+            new OA\Response(response: 422, description: "Invalid code"),
+        ]
+    )]
     public function confirm(Request $request): JsonResponse
     {
         $request->validate([
@@ -99,12 +124,24 @@ class TwoFactorController extends Controller
         ]);
     }
 
-    /**
-     * Disable two-factor authentication for the user.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    #[OA\Post(
+        path: "/two-factor/disable",
+        summary: "Disable two-factor authentication",
+        description: "Disables 2FA after verifying the user's current password",
+        security: [["bearerAuth" => []]],
+        tags: ["Two-Factor Authentication"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["password"],
+                properties: [new OA\Property(property: "password", type: "string", format: "password")]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "2FA disabled"),
+            new OA\Response(response: 422, description: "Wrong password"),
+        ]
+    )]
     public function disable(Request $request): JsonResponse
     {
         $request->validate([
@@ -122,12 +159,24 @@ class TwoFactorController extends Controller
         return response()->json(['message' => 'Two-factor authentication disabled.']);
     }
 
-    /**
-     * Get the recovery codes for the user.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    #[OA\Post(
+        path: "/two-factor/recovery-codes",
+        summary: "Get recovery codes",
+        description: "Returns the current 2FA recovery codes after password verification",
+        security: [["bearerAuth" => []]],
+        tags: ["Two-Factor Authentication"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["password"],
+                properties: [new OA\Property(property: "password", type: "string", format: "password")]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Recovery codes array"),
+            new OA\Response(response: 422, description: "Wrong password"),
+        ]
+    )]
     public function recoveryCodes(Request $request): JsonResponse
     {
         $request->validate([
@@ -145,12 +194,24 @@ class TwoFactorController extends Controller
         ]);
     }
 
-    /**
-     * Regenerate the recovery codes for the user.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    #[OA\Post(
+        path: "/two-factor/recovery-codes/regenerate",
+        summary: "Regenerate recovery codes",
+        description: "Generates new 2FA recovery codes after password verification (2FA must be enabled)",
+        security: [["bearerAuth" => []]],
+        tags: ["Two-Factor Authentication"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["password"],
+                properties: [new OA\Property(property: "password", type: "string", format: "password")]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "New recovery codes"),
+            new OA\Response(response: 400, description: "2FA not enabled"),
+        ]
+    )]
     public function regenerateRecoveryCodes(Request $request): JsonResponse
     {
         $request->validate([

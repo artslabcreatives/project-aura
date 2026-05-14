@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use OpenApi\Attributes as OA;
 
 class MattermostAuthController extends Controller
 {
@@ -29,9 +30,14 @@ class MattermostAuthController extends Controller
         ]);
     }
 
-    /**
-     * Generate and redirect to Mattermost with magic link
-     */
+    #[OA\Get(
+        path: "/mattermost/redirect",
+        summary: "Redirect to Mattermost with magic link",
+        description: "Generates a magic link and redirects the browser to Mattermost",
+        security: [["bearerAuth" => []]],
+        tags: ["Mattermost"],
+        responses: [new OA\Response(response: 302, description: "Redirect to Mattermost")]
+    )]
     public function redirect(): RedirectResponse
     {
         $user = Auth::user();
@@ -51,9 +57,17 @@ class MattermostAuthController extends Controller
         return redirect()->away($magicLinkUrl);
     }
 
-    /**
-     * API endpoint to get magic link URL
-     */
+    #[OA\Get(
+        path: "/mattermost/magic-link",
+        summary: "Get Mattermost magic link",
+        description: "Returns a one-time magic link URL for Mattermost auto-login (expires in 5 minutes)",
+        security: [["bearerAuth" => []]],
+        tags: ["Mattermost"],
+        responses: [
+            new OA\Response(response: 200, description: "Magic link URL and expiry"),
+            new OA\Response(response: 500, description: "Failed to generate link"),
+        ]
+    )]
     public function getMagicLink(Request $request)
     {
         $user = Auth::user();
@@ -74,9 +88,17 @@ class MattermostAuthController extends Controller
         ]);
     }
 
-    /**
-     * Generate email login and redirect to Mattermost plugin auto-login
-     */
+    #[OA\Get(
+        path: "/mattermost/plugin/auto-login",
+        summary: "Redirect to Mattermost plugin auto-login",
+        description: "Generates auto-login URL and redirects the browser to Mattermost",
+        security: [["bearerAuth" => []]],
+        tags: ["Mattermost"],
+        parameters: [
+            new OA\Parameter(name: "channel", in: "query", required: false, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [new OA\Response(response: 302, description: "Redirect to Mattermost")]
+    )]
     public function pluginAutoLogin(Request $request): RedirectResponse
     {
         $user = Auth::user();
@@ -99,9 +121,20 @@ class MattermostAuthController extends Controller
         return redirect()->away($autoLoginUrl);
     }
 
-    /**
-     * API endpoint to get plugin auto-login URL with email login
-     */
+    #[OA\Get(
+        path: "/mattermost/plugin/auto-login-url",
+        summary: "Get Mattermost plugin auto-login URL",
+        description: "Returns a URL for Mattermost plugin auto-login (expires in 60 seconds)",
+        security: [["bearerAuth" => []]],
+        tags: ["Mattermost"],
+        parameters: [
+            new OA\Parameter(name: "channel", in: "query", required: false, schema: new OA\Schema(type: "string", default: "general")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Auto-login URL and expiry"),
+            new OA\Response(response: 500, description: "Integration not configured"),
+        ]
+    )]
     public function getPluginAutoLoginUrl(Request $request)
     {
         $user = Auth::user();

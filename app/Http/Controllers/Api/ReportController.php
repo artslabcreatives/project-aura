@@ -10,12 +10,21 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class ReportController extends Controller
 {
-    /**
-     * List reports based on user role and permissions.
-     */
+    #[OA\Get(
+        path: "/reports",
+        summary: "List reports",
+        description: "Returns reports with role-based filtering: hr/admin see all, team-lead sees department, staff sees own",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        parameters: [
+            new OA\Parameter(name: "project_id", in: "query", required: false, schema: new OA\Schema(type: "integer")),
+        ],
+        responses: [new OA\Response(response: 200, description: "Reports list")]
+    )]
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -44,9 +53,32 @@ class ReportController extends Controller
         return response()->json($query->orderBy('updated_at', 'desc')->get());
     }
 
-    /**
-     * Store a new report submission.
-     */
+    #[OA\Post(
+        path: "/reports",
+        summary: "Submit report",
+        description: "Submit a new report file for approval workflow (multipart/form-data, max 20MB)",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["project_id", "title", "report_file"],
+                    properties: [
+                        new OA\Property(property: "project_id", type: "integer"),
+                        new OA\Property(property: "title", type: "string"),
+                        new OA\Property(property: "description", type: "string", nullable: true),
+                        new OA\Property(property: "report_file", type: "string", format: "binary"),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Report submitted"),
+            new OA\Response(response: 422, description: "Validation error"),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -76,18 +108,39 @@ class ReportController extends Controller
         return response()->json($report->load('user', 'project'), 201);
     }
 
-    /**
-     * Show report details.
-     */
+    #[OA\Get(
+        path: "/reports/{report}",
+        summary: "Get report",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        parameters: [new OA\Parameter(name: "report", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [new OA\Response(response: 200, description: "Report details with activities")]
+    )]
     public function show(ProjectReport $report): JsonResponse
     {
         $this->authorizeAccess($report);
         return response()->json($report->load(['user', 'project', 'activities.user', 'teamLead', 'hrUser']));
     }
 
-    /**
-     * Update/Edit a report.
-     */
+    #[OA\Post(
+        path: "/reports/{report}",
+        summary: "Update report",
+        description: "Edit a report (owner only, before final HR approval). Use POST with multipart/form-data.",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        parameters: [new OA\Parameter(name: "report", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(properties: [
+                    new OA\Property(property: "title", type: "string"),
+                    new OA\Property(property: "description", type: "string"),
+                    new OA\Property(property: "report_file", type: "string", format: "binary"),
+                ])
+            )
+        ),
+        responses: [new OA\Response(response: 200, description: "Updated report")]
+    )]
     public function update(Request $request, ProjectReport $report): JsonResponse
     {
         $user = $request->user();
@@ -138,9 +191,17 @@ class ReportController extends Controller
         return response()->json($report->load('user', 'project'));
     }
 
-    /**
-     * Team Lead Approval
-     */
+    #[OA\Post(
+        path: "/reports/{report}/tl-approve",
+        summary: "Team Lead approval",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        parameters: [new OA\Parameter(name: "report", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [
+            new OA\Response(response: 200, description: "Approved by TL"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function tlApprove(Request $request, ProjectReport $report): JsonResponse
     {
         $user = $request->user();
@@ -170,9 +231,18 @@ class ReportController extends Controller
         return response()->json($report->load('user', 'project'));
     }
 
-    /**
-     * HR Approval
-     */
+    #[OA\Post(
+        path: "/reports/{report}/hr-approve",
+        summary: "HR final approval",
+        description: "HR final approval (requires TL approval first)",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        parameters: [new OA\Parameter(name: "report", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [
+            new OA\Response(response: 200, description: "Approved by HR"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function hrApprove(Request $request, ProjectReport $report): JsonResponse
     {
         $user = $request->user();
@@ -198,9 +268,24 @@ class ReportController extends Controller
         return response()->json($report->load('user', 'project'));
     }
 
-    /**
-     * Reject report (TL or HR)
-     */
+    #[OA\Post(
+        path: "/reports/{report}/reject",
+        summary: "Reject report",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        parameters: [new OA\Parameter(name: "report", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["comment"],
+                properties: [new OA\Property(property: "comment", type: "string")]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Report rejected"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function reject(Request $request, ProjectReport $report): JsonResponse
     {
         $user = $request->user();
@@ -224,9 +309,21 @@ class ReportController extends Controller
         return response()->json($report->load('user', 'project'));
     }
 
-    /**
-     * Add comment to a report
-     */
+    #[OA\Post(
+        path: "/reports/{report}/comment",
+        summary: "Add comment to report",
+        security: [["bearerAuth" => []]],
+        tags: ["Reports"],
+        parameters: [new OA\Parameter(name: "report", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["comment"],
+                properties: [new OA\Property(property: "comment", type: "string")]
+            )
+        ),
+        responses: [new OA\Response(response: 200, description: "Comment added")]
+    )]
     public function addComment(Request $request, ProjectReport $report): JsonResponse
     {
         $this->authorizeAccess($report);

@@ -37,6 +37,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { UserProfileMenu } from "@/components/UserProfileMenu";
 import { UploadManagerPopup } from "@/components/UploadManagerPopup";
 import { ActiveTimersPopover } from "@/components/ActiveTimersPopover";
+import { AIHelperPopup } from "@/components/AIHelperPopup";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 	const { open } = useSidebar();
@@ -150,6 +151,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 				</main>
 				<ReminderPoller />
 				<ReportIssueDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
+				<AIHelperPopup />
 				{currentUser && (
 					<VideoGuideModal
 						isOpen={isVideoGuideOpen}

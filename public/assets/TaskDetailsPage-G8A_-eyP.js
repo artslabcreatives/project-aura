@@ -1,0 +1,902 @@
+import { H as useParams, u as useNavigate, v as useUser, F as useToast, l as reactExports, j as jsxRuntimeExports, S as Skeleton, ai as Separator, B as Button, Y as Badge, z as cn, C as CircleAlert, a as CircleCheck, w as taskService, a2 as Trash2, ak as ExternalLink, al as Eye, Q as Label, I as Input, X, L as LoaderCircle, af as Upload, ag as User, aE as History, a3 as AlertDialog, a4 as AlertDialogContent, a5 as AlertDialogHeader, a6 as AlertDialogTitle, a7 as AlertDialogDescription, J as Dialog, K as DialogContent, N as DialogTitle, am as cacheService, ba as UserPlus, aD as MessageSquare } from "./index-C4ZP3eFM.js";
+import { T as Tag, b as TimeLogWidget, a as attachmentService } from "./attachmentService-B1K5TSm1.js";
+import { C as Card, a as CardHeader, c as CardContent, b as CardTitle } from "./card-5_9pbgKs.js";
+import { A as ArrowLeft } from "./arrow-left-84kdjEmA.js";
+import { L as ListTodo } from "./list-todo-B9y_ixvA.js";
+import { P as Paperclip } from "./paperclip-DDW-rwXv.js";
+import { P as Play } from "./play-BwxbIHvy.js";
+import { D as Download } from "./download-qf94484n.js";
+import { F as File } from "./file-DZtoCEiO.js";
+import { C as Clock } from "./clock-C-1UQMq-.js";
+import { C as Calendar } from "./calendar-B2-LyEnc.js";
+import { A as Activity } from "./activity-D4R4frf9.js";
+import { B as Ban } from "./ban-CxrDCq8f.js";
+import { i as isValid, f as format } from "./format-BDODTvac.js";
+function TaskDetailsPage() {
+  const { taskId } = useParams();
+  const navigate = useNavigate();
+  const { currentUser, activeRole } = useUser();
+  const { toast } = useToast();
+  const [task, setTask] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [error, setError] = reactExports.useState("");
+  const [historyEntries, setHistoryEntries] = reactExports.useState([]);
+  const [historyPage, setHistoryPage] = reactExports.useState(1);
+  const [historyMeta, setHistoryMeta] = reactExports.useState(null);
+  const [loadingHistory, setLoadingHistory] = reactExports.useState(false);
+  const [subtaskToDelete, setSubtaskToDelete] = reactExports.useState(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = reactExports.useState(false);
+  const [pendingFiles, setPendingFiles] = reactExports.useState([]);
+  const [isUploadingAttachments, setIsUploadingAttachments] = reactExports.useState(false);
+  const [fileInputKey, setFileInputKey] = reactExports.useState(0);
+  const [viewingAttachment, setViewingAttachment] = reactExports.useState(null);
+  const [isResolvingUrl, setIsResolvingUrl] = reactExports.useState(false);
+  const isVideo = (name) => {
+    const ext = name.split(".").pop()?.toLowerCase();
+    return ["mp4", "webm", "ogg", "mov", "m4v"].includes(ext || "");
+  };
+  const isImage = (name) => {
+    const ext = name.split(".").pop()?.toLowerCase();
+    return ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext || "");
+  };
+  const handleDownload = async (attachmentId, name) => {
+    try {
+      const { url } = await attachmentService.download(attachmentId, "download");
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error2) {
+      toast({
+        title: "Error",
+        description: "Failed to download file.",
+        variant: "destructive"
+      });
+    }
+  };
+  const handleView = async (attachment) => {
+    setIsResolvingUrl(true);
+    try {
+      const { url } = await attachmentService.download(attachment.id, "view");
+      setViewingAttachment({ ...attachment, url });
+    } catch (error2) {
+      toast({
+        title: "Error",
+        description: "Failed to open viewer. Please try downloading instead.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsResolvingUrl(false);
+    }
+  };
+  const loadTask = async () => {
+    if (!taskId) return;
+    const cachedTask = cacheService.get(`task_${taskId}`);
+    if (cachedTask) {
+      setTask(cachedTask);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    try {
+      const data = await taskService.getById(taskId);
+      setTask(data);
+    } catch (err) {
+      console.error("Failed to fetch task details:", err);
+      setError("Failed to load task details. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const loadHistory = async (page) => {
+    if (!taskId) return;
+    setLoadingHistory(true);
+    try {
+      const { data, meta } = await taskService.getHistory(taskId, page);
+      if (page === 1) {
+        setHistoryEntries(data);
+      } else {
+        setHistoryEntries((prev) => [...prev, ...data]);
+      }
+      setHistoryMeta(meta);
+      setHistoryPage(page);
+    } catch (error2) {
+      console.error("Failed to load history", error2);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+  reactExports.useEffect(() => {
+    if (taskId) {
+      loadHistory(1);
+    }
+  }, [taskId]);
+  reactExports.useEffect(() => {
+    loadTask();
+  }, [taskId]);
+  reactExports.useEffect(() => {
+    const handleAttachmentUpload = (event) => {
+      const detail = event.detail;
+      if (detail?.taskId && detail.taskId === taskId) {
+        void loadTask();
+        void loadHistory(1);
+      }
+    };
+    const handleTaskCompletion = (event) => {
+      const detail = event.detail;
+      if (detail?.taskId && detail.taskId === taskId) {
+        void loadTask();
+        void loadHistory(1);
+      }
+    };
+    window.addEventListener("aura:task-attachments-uploaded", handleAttachmentUpload);
+    window.addEventListener("aura:task-completion-finished", handleTaskCompletion);
+    return () => {
+      window.removeEventListener("aura:task-attachments-uploaded", handleAttachmentUpload);
+      window.removeEventListener("aura:task-completion-finished", handleTaskCompletion);
+    };
+  }, [taskId]);
+  const handleFileSelection = (event) => {
+    if (!event.target.files?.length) {
+      return;
+    }
+    setPendingFiles((current) => [...current, ...Array.from(event.target.files || [])]);
+  };
+  const removePendingFile = (indexToRemove) => {
+    setPendingFiles((current) => current.filter((_, index) => index !== indexToRemove));
+  };
+  const handleUploadAttachments = async () => {
+    if (!task || pendingFiles.length === 0) {
+      return;
+    }
+    setIsUploadingAttachments(true);
+    try {
+      const uploadedAttachments = await attachmentService.uploadFiles(task.id, pendingFiles);
+      setTask((currentTask) => currentTask ? {
+        ...currentTask,
+        attachments: [...currentTask.attachments || [], ...uploadedAttachments]
+      } : currentTask);
+      setPendingFiles([]);
+      setFileInputKey((current) => current + 1);
+      await loadHistory(1);
+      toast({
+        title: "Attachments uploaded",
+        description: `${uploadedAttachments.length} file${uploadedAttachments.length === 1 ? "" : "s"} added to this task.`
+      });
+    } catch (uploadError) {
+      console.error("Failed to upload attachments:", uploadError);
+      toast({
+        title: "Upload failed",
+        description: "Could not upload the selected files. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploadingAttachments(false);
+    }
+  };
+  if (loading) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6 max-w-5xl mx-auto p-6 pb-20", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-10 w-10 rounded-md" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 space-y-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-8 w-1/3" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-20" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-24" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-24" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-24" })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "md:col-span-2 space-y-6", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-32" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-full" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-full" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-3/4" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-32" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-12 w-full" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-12 w-full" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-32" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-16 w-full" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-16 w-full" })
+            ] }) })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "md:col-span-1 space-y-6", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-24" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-6", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-20" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-8 w-full" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-20" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-24" })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-20" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-4 w-24" })
+                ] })
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-20" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-16" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-16" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-16" })
+            ] }) })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-6 w-24" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-16 w-full" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-16 w-full" })
+            ] })
+          ] })
+        ] })
+      ] })
+    ] });
+  }
+  if (error || !task) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-full flex-col items-center justify-center p-8 gap-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-destructive font-medium", children: error || "Task not found" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { onClick: () => navigate(-1), variant: "outline", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowLeft, { className: "mr-2 h-4 w-4" }),
+        " Go Back"
+      ] })
+    ] });
+  }
+  const priorityColors = {
+    low: "bg-priority-low/10 text-priority-low border-priority-low/20",
+    medium: "bg-priority-medium/10 text-priority-medium border-priority-medium/20",
+    high: "bg-priority-high/10 text-priority-high border-priority-high/20"
+  };
+  const statusColors = {
+    pending: "bg-yellow-500/10 text-yellow-700 border-yellow-500/20",
+    "in-progress": "bg-blue-500/10 text-blue-700 border-blue-500/20",
+    complete: "bg-green-500/10 text-green-700 border-green-500/20"
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6 max-w-5xl mx-auto p-6 pb-20", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        Button,
+        {
+          variant: "ghost",
+          size: "icon",
+          onClick: () => navigate(-1),
+          className: "mt-1",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowLeft, { className: "h-5 w-5" })
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 mb-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100", children: task.title }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Badge, { variant: "outline", className: "text-xs", children: [
+            "Task ID: #",
+            task.id
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: "outline", className: "text-sm", children: task.project }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Badge,
+            {
+              variant: "outline",
+              className: cn("text-sm capitalize", statusColors[task.userStatus]),
+              children: task.userStatus.replace("-", " ")
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            Badge,
+            {
+              variant: "outline",
+              className: cn("text-sm capitalize", priorityColors[task.priority]),
+              children: [
+                task.priority || "Medium",
+                " Priority"
+              ]
+            }
+          )
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-6", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "md:col-span-2 space-y-6", children: [
+        task.revisionComment && task.tags?.includes("Redo") && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-500 dark:border-amber-600 rounded-lg animate-in fade-in slide-in-from-top-2", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CircleAlert, { className: "h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2", children: "Revision Requested" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-amber-800 dark:text-amber-200 whitespace-pre-wrap", children: task.revisionComment })
+          ] })
+        ] }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { className: "text-lg flex items-center gap-2", children: "Description" }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: task.description ? /<\/?[a-z][\s\S]*>/i.test(task.description) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5",
+              dangerouslySetInnerHTML: { __html: task.description }
+            }
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-muted-foreground", children: task.description }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted-foreground italic", children: "No description provided." }) })
+        ] }),
+        task.subtasks && task.subtasks.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "text-lg flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(ListTodo, { className: "h-5 w-5" }),
+            "Subtasks"
+          ] }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: task.subtasks.filter((st) => {
+            const isAdminOrTL = activeRole === "admin" || activeRole === "team-lead";
+            if (isAdminOrTL) return true;
+            return st.userStatus !== "complete";
+          }).map((subtask) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors group", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: cn(
+                  "h-5 w-5 flex items-center justify-center rounded border cursor-pointer transition-colors hover:border-primary",
+                  subtask.userStatus === "complete" ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
+                ),
+                onClick: async (e) => {
+                  e.stopPropagation();
+                  const isAdminOrTL = activeRole === "admin" || activeRole === "team-lead";
+                  if (!isAdminOrTL) return;
+                  const newStatus = subtask.userStatus === "complete" ? "pending" : "complete";
+                  try {
+                    await taskService.update(subtask.id, { userStatus: newStatus });
+                    if (task) {
+                      const updatedSubtasks = task.subtasks.map(
+                        (st) => st.id === subtask.id ? { ...st, userStatus: newStatus } : st
+                      );
+                      setTask({ ...task, subtasks: updatedSubtasks });
+                    }
+                    toast({
+                      title: newStatus === "complete" ? "Subtask Completed" : "Subtask Reopened",
+                      description: "The subtask status has been updated."
+                    });
+                  } catch (error2) {
+                    console.error("Failed to toggle subtask", error2);
+                    toast({
+                      title: "Error",
+                      description: "Failed to update subtask status.",
+                      variant: "destructive"
+                    });
+                  }
+                },
+                children: subtask.userStatus === "complete" && /* @__PURE__ */ jsxRuntimeExports.jsx(CircleCheck, { className: "h-3.5 w-3.5" })
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: cn(
+              "flex-1 text-sm font-medium",
+              subtask.userStatus === "complete" && "line-through text-muted-foreground"
+            ), children: subtask.title }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: "secondary", className: "text-xs font-normal", children: subtask.assignee }),
+            (activeRole === "admin" || activeRole === "team-lead") && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Button,
+              {
+                variant: "ghost",
+                size: "icon",
+                className: "h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setSubtaskToDelete(subtask);
+                  setIsDeleteDialogOpen(true);
+                },
+                children: /* @__PURE__ */ jsxRuntimeExports.jsx(Trash2, { className: "h-4 w-4" })
+              }
+            )
+          ] }, subtask.id)) }) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "text-lg flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { className: "h-5 w-5" }),
+            "Attachments ",
+            task.attachments?.length ? `(${task.attachments.length})` : ""
+          ] }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: task.attachments && task.attachments.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3", children: task.attachments.map((attachment) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "flex items-center justify-between p-3 border rounded-md hover:bg-accent/50 transition-colors group",
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 flex-1 min-w-0", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-8 rounded bg-muted flex items-center justify-center flex-shrink-0", children: attachment.type === "link" ? /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { className: "h-4 w-4 text-muted-foreground" }) }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium truncate group-hover:text-primary transition-colors", children: attachment.name }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: (() => {
+                        const uploadedAt = attachment.uploadedAt ? new Date(attachment.uploadedAt) : null;
+                        return uploadedAt && isValid(uploadedAt) ? format(uploadedAt, "MMM dd, yyyy") : "Unknown date";
+                      })() })
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-1", children: [
+                    (isImage(attachment.name) || isVideo(attachment.name)) && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      Button,
+                      {
+                        variant: "ghost",
+                        size: "icon",
+                        className: "opacity-0 group-hover:opacity-100 transition-opacity",
+                        onClick: () => handleView(attachment),
+                        disabled: isResolvingUrl,
+                        title: "View",
+                        children: isVideo(attachment.name) ? /* @__PURE__ */ jsxRuntimeExports.jsx(Play, { className: "h-4 w-4" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Eye, { className: "h-4 w-4" })
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      Button,
+                      {
+                        variant: "ghost",
+                        size: "icon",
+                        onClick: () => handleDownload(attachment.id, attachment.name),
+                        className: "opacity-0 group-hover:opacity-100 transition-opacity",
+                        title: attachment.type === "link" ? "Open" : "Download",
+                        children: attachment.type === "link" ? /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { className: "h-4 w-4" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Download, { className: "h-4 w-4" })
+                      }
+                    )
+                  ] })
+                ]
+              },
+              attachment.id
+            )) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "task-attachment-upload", children: "Add files" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: "Upload one or more files and they will appear in the attachments list above." })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Input,
+                {
+                  id: "task-attachment-upload",
+                  type: "file",
+                  multiple: true,
+                  onChange: handleFileSelection,
+                  disabled: isUploadingAttachments,
+                  className: "file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                },
+                fileInputKey
+              ),
+              pendingFiles.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: pendingFiles.map((file, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  className: "flex items-center justify-between gap-3 rounded-md border border-dashed bg-muted/40 px-3 py-2",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 items-center gap-2", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(File, { className: "h-4 w-4 text-muted-foreground" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "truncate text-sm font-medium", children: file.name }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-muted-foreground", children: [
+                          (file.size / 1024).toFixed(0),
+                          " KB"
+                        ] })
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      Button,
+                      {
+                        type: "button",
+                        variant: "ghost",
+                        size: "icon",
+                        className: "h-8 w-8 shrink-0",
+                        onClick: () => removePendingFile(index),
+                        disabled: isUploadingAttachments,
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { className: "h-4 w-4" })
+                      }
+                    )
+                  ]
+                },
+                `${file.name}-${file.lastModified}-${index}`
+              )) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Button,
+                {
+                  type: "button",
+                  onClick: handleUploadAttachments,
+                  disabled: pendingFiles.length === 0 || isUploadingAttachments,
+                  children: isUploadingAttachments ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderCircle, { className: "mr-2 h-4 w-4 animate-spin" }),
+                    "Uploading..."
+                  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(Upload, { className: "mr-2 h-4 w-4" }),
+                    "Upload files"
+                  ] })
+                }
+              ) })
+            ] })
+          ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground italic", children: "No attachments added." }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "task-attachment-upload", children: "Add files" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: "Upload one or more files to attach them to this task." })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Input,
+                {
+                  id: "task-attachment-upload",
+                  type: "file",
+                  multiple: true,
+                  onChange: handleFileSelection,
+                  disabled: isUploadingAttachments,
+                  className: "file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                },
+                fileInputKey
+              ),
+              pendingFiles.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: pendingFiles.map((file, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  className: "flex items-center justify-between gap-3 rounded-md border border-dashed bg-muted/40 px-3 py-2",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 items-center gap-2", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(File, { className: "h-4 w-4 text-muted-foreground" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "truncate text-sm font-medium", children: file.name }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-muted-foreground", children: [
+                          (file.size / 1024).toFixed(0),
+                          " KB"
+                        ] })
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      Button,
+                      {
+                        type: "button",
+                        variant: "ghost",
+                        size: "icon",
+                        className: "h-8 w-8 shrink-0",
+                        onClick: () => removePendingFile(index),
+                        disabled: isUploadingAttachments,
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { className: "h-4 w-4" })
+                      }
+                    )
+                  ]
+                },
+                `${file.name}-${file.lastModified}-${index}`
+              )) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Button,
+                {
+                  type: "button",
+                  onClick: handleUploadAttachments,
+                  disabled: pendingFiles.length === 0 || isUploadingAttachments,
+                  children: isUploadingAttachments ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderCircle, { className: "mr-2 h-4 w-4 animate-spin" }),
+                    "Uploading..."
+                  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(Upload, { className: "mr-2 h-4 w-4" }),
+                    "Upload files"
+                  ] })
+                }
+              ) })
+            ] })
+          ] }) })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "md:col-span-1 space-y-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { className: "text-lg", children: "Details" }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("h3", { className: "text-sm font-medium text-muted-foreground mb-1 flex items-center gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "h-4 w-4" }),
+                " Assignees"
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: task.assignedUsers && task.assignedUsers.length > 0 ? task.assignedUsers.map((u) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary", children: u.name.charAt(0) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm", children: u.name })
+              ] }, u.id)) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-6 w-6 rounded-full bg-muted flex items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "h-3 w-3 text-muted-foreground" }) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm italic text-muted-foreground", children: task.assignee || "Unassigned" })
+              ] }) })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Separator, {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
+              task.startDate && (() => {
+                const dateTimeParts = task.startDate.split("T");
+                const datePart = dateTimeParts[0];
+                const timePart = dateTimeParts[1]?.substring(0, 5) || "00:00";
+                const startDate = /* @__PURE__ */ new Date(`${datePart}T${timePart}`);
+                return isValid(startDate) ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-sm", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-muted-foreground flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(Clock, { className: "h-4 w-4" }),
+                    " Start Date"
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium", children: format(startDate, "MMM dd, yyyy") })
+                ] }) : null;
+              })(),
+              (() => {
+                const dateTimeParts = task.dueDate?.split("T") || [];
+                const datePart = dateTimeParts[0];
+                const timePart = dateTimeParts[1]?.substring(0, 5) || "00:00";
+                const dueDate = datePart ? /* @__PURE__ */ new Date(`${datePart}T${timePart}`) : null;
+                return dueDate && isValid(dueDate) ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-sm", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-muted-foreground flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(Calendar, { className: "h-4 w-4" }),
+                    " Due Date"
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium", children: format(dueDate, "MMM dd, yyyy") })
+                ] }) : null;
+              })()
+            ] })
+          ] })
+        ] }),
+        task.tags && task.tags.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "text-lg flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Tag, { className: "h-4 w-4" }),
+            " Tags"
+          ] }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: task.tags.map((tag) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            Badge,
+            {
+              variant: "secondary",
+              className: cn(
+                "text-sm py-1 px-3",
+                tag === "Redo" && "bg-amber-500/10 text-amber-700 border-amber-500/20"
+              ),
+              children: tag
+            },
+            tag
+          )) }) })
+        ] }),
+        task.revisionHistory && task.revisionHistory.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "text-lg flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(History, { className: "h-5 w-5" }),
+            "History"
+          ] }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { className: "space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar", children: [...task.revisionHistory].reverse().map((history, index) => {
+            const requestedDate = history.requestedAt ? new Date(history.requestedAt) : null;
+            const resolvedDate = history.resolvedAt ? new Date(history.resolvedAt) : null;
+            return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative pl-4 border-l-2 border-muted pb-4 last:pb-0", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-1", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-muted-foreground uppercase tracking-wider", children: requestedDate && isValid(requestedDate) ? format(requestedDate, "MMM dd, hh:mm a") : "Unknown" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium", children: history.comment }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-xs text-muted-foreground mt-1", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "h-3 w-3" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: history.requestedBy }),
+                  resolvedDate && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "ml-auto text-green-600 flex items-center gap-1", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(CircleCheck, { className: "h-3 w-3" }),
+                    " Resolved"
+                  ] })
+                ] })
+              ] })
+            ] }, history.id);
+          }) })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(TimeLogWidget, { taskId: parseInt(task.id) }),
+    (task.comments && task.comments.length > 0 || task.completedAt) && /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { className: "w-full border-green-500/20 bg-green-50/10", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { className: "pb-3", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "text-lg flex items-center gap-2 text-green-700 dark:text-green-500", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(CircleCheck, { className: "h-5 w-5" }),
+        "Task Submission & Comments"
+      ] }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+        task.completedAt && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-2 w-2 rounded-full bg-green-500" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+            "Task marked as complete on ",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium text-foreground", children: format(new Date(task.completedAt), "MMM dd, yyyy 'at' hh:mm a") })
+          ] })
+        ] }),
+        task.comments && task.comments.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-3 pt-2", children: [...task.comments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((comment) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-white dark:bg-card/50 p-3 rounded-md border text-sm shadow-sm", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-1.5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary", children: comment.user?.name.charAt(0) || "U" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold text-xs", children: comment.user?.name || "Unknown User" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-muted-foreground", children: format(new Date(comment.createdAt), "MMM dd, hh:mm a") })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pl-7 text-foreground/90", children: /<\/?[a-z][\s\S]*>/i.test(comment.comment) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5",
+              dangerouslySetInnerHTML: { __html: comment.comment }
+            }
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "whitespace-pre-wrap", children: comment.comment }) })
+        ] }, comment.id)) }) : task.completedAt && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground italic", children: "No comments added." })
+      ] }) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { className: "w-full", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardHeader, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(CardTitle, { className: "text-lg flex items-center gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(History, { className: "h-5 w-5" }),
+        "Activity Log"
+      ] }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { children: historyEntries.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent", children: historyEntries.map((history) => {
+          let Icon = Clock;
+          let iconColor = "text-slate-500 group-[.is-active]:text-emerald-50";
+          let iconBg = "bg-slate-300 group-[.is-active]:bg-emerald-500";
+          let detailsContent = /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-bold text-slate-900 dark:text-slate-100 text-sm", children: history.details });
+          switch (history.action) {
+            case "viewed":
+              Icon = Eye;
+              iconBg = "bg-blue-100 dark:bg-blue-900";
+              iconColor = "text-blue-600 dark:text-blue-300";
+              break;
+            case "comment_added":
+              Icon = MessageSquare;
+              iconBg = "bg-purple-100 dark:bg-purple-900";
+              iconColor = "text-purple-600 dark:text-purple-300";
+              if (history.previousDetails?.comment_text) {
+                detailsContent = /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-bold text-slate-900 dark:text-slate-100 text-sm", children: history.details }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-sm bg-muted/50 p-2 rounded border-l-2 border-primary italic", children: /<\/?[a-z][\s\S]*>/i.test(history.previousDetails.comment_text) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "div",
+                    {
+                      className: "prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5",
+                      dangerouslySetInnerHTML: { __html: history.previousDetails.comment_text }
+                    }
+                  ) : `"${history.previousDetails.comment_text}"` })
+                ] });
+              }
+              break;
+            case "status_changed":
+              if (history.previousDetails?.new_status === "blocked") {
+                Icon = Ban;
+                iconBg = "bg-red-100 dark:bg-red-900";
+                iconColor = "text-red-600 dark:text-red-300";
+              } else if (history.previousDetails?.old_status === "blocked") {
+                Icon = CircleCheck;
+                iconBg = "bg-green-100 dark:bg-green-900";
+                iconColor = "text-green-600 dark:text-green-300";
+              } else {
+                Icon = Activity;
+                iconBg = "bg-orange-100 dark:bg-orange-900";
+                iconColor = "text-orange-600 dark:text-orange-300";
+              }
+              break;
+            case "stage_changed":
+              Icon = Activity;
+              iconBg = "bg-orange-100 dark:bg-orange-900";
+              iconColor = "text-orange-600 dark:text-orange-300";
+              break;
+            case "assigned":
+            case "reassigned":
+            case "unassigned":
+              Icon = UserPlus;
+              iconBg = "bg-indigo-100 dark:bg-indigo-900";
+              iconColor = "text-indigo-600 dark:text-indigo-300";
+              break;
+            case "attachment_added":
+              Icon = File;
+              break;
+            case "attachment_removed":
+              Icon = Trash2;
+              iconBg = "bg-red-100 dark:bg-red-900";
+              iconColor = "text-red-600 dark:text-red-300";
+              break;
+            case "completed":
+              Icon = CircleCheck;
+              iconBg = "bg-green-100 dark:bg-green-900";
+              iconColor = "text-green-600 dark:text-green-300";
+              break;
+            default:
+              Icon = Clock;
+          }
+          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("flex items-center justify-center w-10 h-10 rounded-full border border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2", iconBg, iconColor), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Icon, { className: "h-5 w-5" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-card p-4 rounded border border-slate-200 dark:border-border shadow", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col space-y-1 mb-1", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+                detailsContent,
+                /* @__PURE__ */ jsxRuntimeExports.jsx("time", { className: "font-caveat font-medium text-xs text-indigo-500 whitespace-nowrap ml-2", children: format(new Date(history.createdAt), "MMM dd, hh:mm a") })
+              ] }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-slate-500 dark:text-muted-foreground text-xs flex items-center gap-1", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "h-3 w-3" }),
+                history.user?.name || "System"
+              ] })
+            ] })
+          ] }, history.id);
+        }) }),
+        historyMeta && historyMeta.current_page < historyMeta.last_page && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center pt-4", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Button,
+          {
+            variant: "ghost",
+            onClick: () => loadHistory(historyPage + 1),
+            disabled: loadingHistory,
+            children: loadingHistory ? "Loading..." : "Load More"
+          }
+        ) })
+      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted-foreground text-center py-8 italic bg-muted/30 rounded-lg border border-dashed", children: loadingHistory ? "Loading activity log..." : "No activity recorded for this task." }) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialog, { open: isDeleteDialogOpen, onOpenChange: setIsDeleteDialogOpen, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogContent, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogHeader, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AlertDialogTitle, { children: "Are you sure?" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(AlertDialogDescription, { children: [
+          'This action cannot be undone. This will permanently delete the subtask "',
+          subtaskToDelete?.title,
+          '".'
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-end space-x-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant: "outline", onClick: () => setIsDeleteDialogOpen(false), children: "Cancel" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Button,
+          {
+            variant: "destructive",
+            onClick: async () => {
+              if (!subtaskToDelete || !task) return;
+              try {
+                await taskService.delete(subtaskToDelete.id);
+                const updatedSubtasks = task.subtasks?.filter((st) => st.id !== subtaskToDelete.id) || [];
+                setTask({ ...task, subtasks: updatedSubtasks });
+              } catch (error2) {
+                console.error("Failed to delete subtask", error2);
+              } finally {
+                setIsDeleteDialogOpen(false);
+                setSubtaskToDelete(null);
+              }
+            },
+            children: "Delete"
+          }
+        )
+      ] })
+    ] }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Dialog, { open: !!viewingAttachment, onOpenChange: (open) => !open && setViewingAttachment(null), children: /* @__PURE__ */ jsxRuntimeExports.jsxs(DialogContent, { hideCloseButton: true, className: "sm:max-w-[800px] p-0 overflow-hidden bg-black/90 border-none", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(DialogTitle, { className: "sr-only", children: "Attachment Viewer" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative group", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Button,
+          {
+            variant: "ghost",
+            size: "icon",
+            className: "absolute top-2 right-2 z-10 text-white hover:bg-white/20",
+            onClick: () => setViewingAttachment(null),
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { className: "h-5 w-5" })
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center min-h-[400px]", children: [
+          viewingAttachment && isImage(viewingAttachment.name) && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "img",
+            {
+              src: viewingAttachment.url,
+              alt: viewingAttachment.name,
+              className: "max-w-full max-h-[80vh] object-contain"
+            }
+          ),
+          viewingAttachment && isVideo(viewingAttachment.name) && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "video",
+            {
+              src: viewingAttachment.url,
+              controls: true,
+              autoPlay: true,
+              className: "max-w-full max-h-[80vh]"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 bg-black/50 backdrop-blur-sm text-white flex justify-between items-center", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium truncate pr-4", children: viewingAttachment?.name }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { variant: "outline", size: "sm", className: "bg-transparent border-white/20 text-white hover:bg-white/10", onClick: () => handleDownload(viewingAttachment?.id, viewingAttachment?.name), children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Download, { className: "h-4 w-4 mr-2" }),
+            "Download"
+          ] })
+        ] })
+      ] })
+    ] }) })
+  ] });
+}
+export {
+  TaskDetailsPage as default
+};

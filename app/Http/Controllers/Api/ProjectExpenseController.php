@@ -8,6 +8,7 @@ use App\Models\ProjectExpense;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use OpenApi\Attributes as OA;
 
 class ProjectExpenseController extends Controller
 {
@@ -17,13 +18,15 @@ class ProjectExpenseController extends Controller
      */
     private const APPROVER_ROLES = ['admin', 'hr', 'team-lead'];
 
-    /**
-     * List expenses for a project.
-     *
-     * - Admins / HR / Finance see all (pending + approved + rejected).
-     * - Team leads see all entries for the project.
-     * - Regular users see only their own submissions + approved entries from others.
-     */
+    #[OA\Get(
+        path: "/projects/{project}/expenses",
+        summary: "List project expenses",
+        description: "Returns expenses for a project. Role-based visibility: admins/hr see all, team-leads see all, staff see own + approved.",
+        security: [["bearerAuth" => []]],
+        tags: ["Project Expenses"],
+        parameters: [new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [new OA\Response(response: 200, description: "Expense list with budget summary")]
+    )]
     public function index(Project $project): JsonResponse
     {
         $user = auth()->user();
@@ -65,6 +68,37 @@ class ProjectExpenseController extends Controller
      * Admins / HR / team leads are auto-approved.
      * Everyone else submits as "pending" — team leads must approve.
      */
+    #[OA\Post(
+        path: "/projects/{project}/expenses",
+        summary: "Create project expense",
+        description: "Submit a new expense for a project. Admins/HR/team-leads are auto-approved.",
+        security: [["bearerAuth" => []]],
+        tags: ["Project Expenses"],
+        parameters: [new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["type", "amount", "expense_date"],
+                    properties: [
+                        new OA\Property(property: "type", type: "string", enum: ["receipt", "expense", "invoice"]),
+                        new OA\Property(property: "amount", type: "number", minimum: 0.01),
+                        new OA\Property(property: "currency", type: "string", minLength: 3, maxLength: 3),
+                        new OA\Property(property: "description", type: "string"),
+                        new OA\Property(property: "expense_date", type: "string", format: "date"),
+                        new OA\Property(property: "supplier_id", type: "integer", nullable: true),
+                        new OA\Property(property: "is_reimbursable", type: "boolean"),
+                        new OA\Property(property: "receipt", type: "string", format: "binary"),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Expense created"),
+            new OA\Response(response: 422, description: "Validation error"),
+        ]
+    )]
     public function store(Request $request, Project $project): JsonResponse
     {
         $user = auth()->user();
@@ -107,9 +141,17 @@ class ProjectExpenseController extends Controller
         return response()->json($expense, 201);
     }
 
-    /**
-     * Show a single expense entry.
-     */
+    #[OA\Get(
+        path: "/projects/{project}/expenses/{expense}",
+        summary: "Get project expense",
+        security: [["bearerAuth" => []]],
+        tags: ["Project Expenses"],
+        parameters: [
+            new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "expense", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        responses: [new OA\Response(response: 200, description: "Expense details")]
+    )]
     public function show(Project $project, ProjectExpense $expense): JsonResponse
     {
         $this->authorizeExpenseAccess($expense);
@@ -119,9 +161,28 @@ class ProjectExpenseController extends Controller
         return response()->json($expense);
     }
 
-    /**
-     * Update an expense (only the submitter can edit pending ones; approvers can edit any).
-     */
+    #[OA\Post(
+        path: "/projects/{project}/expenses/{expense}",
+        summary: "Update project expense",
+        description: "Updates an expense. Use POST with multipart/form-data. Submitter can edit pending; approvers can edit any.",
+        security: [["bearerAuth" => []]],
+        tags: ["Project Expenses"],
+        parameters: [
+            new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "expense", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(properties: [
+                    new OA\Property(property: "type", type: "string", enum: ["receipt", "expense", "invoice"]),
+                    new OA\Property(property: "amount", type: "number"),
+                    new OA\Property(property: "receipt", type: "string", format: "binary"),
+                ])
+            )
+        ),
+        responses: [new OA\Response(response: 200, description: "Updated expense")]
+    )]
     public function update(Request $request, Project $project, ProjectExpense $expense): JsonResponse
     {
         $user = auth()->user();
@@ -160,10 +221,21 @@ class ProjectExpenseController extends Controller
         return response()->json($expense);
     }
 
-    /**
-     * Approve a pending expense.
-     * Only team leads, HR, and admins may approve.
-     */
+    #[OA\Post(
+        path: "/projects/{project}/expenses/{expense}/approve",
+        summary: "Approve expense",
+        description: "Approves a pending expense (team-lead/hr/admin only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Project Expenses"],
+        parameters: [
+            new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "expense", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Expense approved"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function approve(Request $request, Project $project, ProjectExpense $expense): JsonResponse
     {
         $user = auth()->user();
@@ -188,10 +260,24 @@ class ProjectExpenseController extends Controller
         return response()->json($expense);
     }
 
-    /**
-     * Reject a pending expense with an optional reason.
-     * Only team leads, HR, and admins may reject.
-     */
+    #[OA\Post(
+        path: "/projects/{project}/expenses/{expense}/reject",
+        summary: "Reject expense",
+        description: "Rejects a pending expense with an optional reason (team-lead/hr/admin only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Project Expenses"],
+        parameters: [
+            new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "expense", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(properties: [new OA\Property(property: "reason", type: "string", nullable: true)])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Expense rejected"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function reject(Request $request, Project $project, ProjectExpense $expense): JsonResponse
     {
         $user = auth()->user();
@@ -218,10 +304,18 @@ class ProjectExpenseController extends Controller
         return response()->json($expense);
     }
 
-    /**
-     * Delete an expense.
-     * Submitter can delete pending entries; approvers can delete any.
-     */
+    #[OA\Delete(
+        path: "/projects/{project}/expenses/{expense}",
+        summary: "Delete expense",
+        description: "Submitter can delete pending; approvers can delete any",
+        security: [["bearerAuth" => []]],
+        tags: ["Project Expenses"],
+        parameters: [
+            new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "expense", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        responses: [new OA\Response(response: 204, description: "Deleted")]
+    )]
     public function destroy(Project $project, ProjectExpense $expense): JsonResponse
     {
         $user = auth()->user();

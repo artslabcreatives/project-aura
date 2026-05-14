@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 
 class XeroController extends Controller
 {
@@ -15,18 +16,29 @@ class XeroController extends Controller
 
     public function __construct(private XeroService $xeroService) {}
 
-    /**
-     * Return whether Xero is connected and basic metadata.
-     */
+    #[OA\Get(
+        path: "/xero/status",
+        summary: "Xero connection status",
+        description: "Returns whether Xero is connected and basic metadata",
+        security: [["bearerAuth" => []]],
+        tags: ["Xero Integration"],
+        responses: [new OA\Response(response: 200, description: "Connection status")]
+    )]
     public function status(): JsonResponse
     {
         return response()->json($this->xeroService->getConnectionStatus());
     }
 
-    /**
-     * Generate and return the Xero OAuth2 authorisation URL.
-     * The frontend redirects the user here to begin the OAuth flow.
-     */
+    #[OA\Get(
+        path: "/xero/auth-url",
+        summary: "Get Xero OAuth authorization URL",
+        description: "Generates and returns the Xero OAuth2 authorization URL for the user to begin the OAuth flow",
+        security: [["bearerAuth" => []]],
+        tags: ["Xero Integration"],
+        responses: [
+            new OA\Response(response: 200, description: "Authorization URL", content: new OA\JsonContent(properties: [new OA\Property(property: "url", type: "string")])),
+        ]
+    )]
     public function getAuthUrl(Request $request): JsonResponse
     {
         $userId = $request->user()?->getAuthIdentifier();
@@ -44,10 +56,17 @@ class XeroController extends Controller
         ]);
     }
 
-    /**
-     * Handle the Xero OAuth2 callback (public route — no auth middleware).
-     * Exchanges the code for tokens and redirects back to the frontend.
-     */
+    #[OA\Get(
+        path: "/xero/callback",
+        summary: "Xero OAuth callback",
+        description: "Public endpoint. Handles the Xero OAuth2 callback, exchanges code for tokens, and redirects to frontend.",
+        tags: ["Xero Integration"],
+        parameters: [
+            new OA\Parameter(name: "code", in: "query", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "state", in: "query", required: true, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [new OA\Response(response: 302, description: "Redirect to frontend")]
+    )]
     public function callback(Request $request)
     {
         $code  = $request->query('code');
@@ -121,11 +140,17 @@ class XeroController extends Controller
         return [$userId, $nonce];
     }
 
-    /**
-     * Trigger a manual sync of Xero Contacts → local Clients.
-     * Auto-merges contacts whose name matches an existing client (case-insensitive).
-     * Creates new clients for contacts that have no local match.
-     */
+    #[OA\Post(
+        path: "/xero/sync-clients",
+        summary: "Sync Xero Contacts to Clients",
+        description: "Syncs Xero Contacts to local Clients (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Xero Integration"],
+        responses: [
+            new OA\Response(response: 200, description: "Sync summary"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function syncClients(Request $request): JsonResponse
     {
         if (!in_array($request->user()->role, ['admin', 'hr'])) {
@@ -144,9 +169,17 @@ class XeroController extends Controller
         ]);
     }
 
-    /**
-     * Trigger a manual sync of Xero Suppliers → local suppliers table.
-     */
+    #[OA\Post(
+        path: "/xero/sync-suppliers",
+        summary: "Sync Xero Suppliers",
+        description: "Syncs Xero Suppliers to local suppliers table (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Xero Integration"],
+        responses: [
+            new OA\Response(response: 200, description: "Sync summary"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function syncSuppliers(Request $request): JsonResponse
     {
         if (!in_array($request->user()->role, ['admin', 'hr'])) {
@@ -165,10 +198,17 @@ class XeroController extends Controller
         ]);
     }
 
-    /**
-     * Trigger a manual sync of Xero Quotes → local Estimates.
-     * Returns a summary of the sync operation.
-     */
+    #[OA\Post(
+        path: "/xero/sync",
+        summary: "Sync Xero Quotes to Estimates",
+        description: "Syncs Xero Quotes to local Estimates (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Xero Integration"],
+        responses: [
+            new OA\Response(response: 200, description: "Sync summary"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function sync(Request $request): JsonResponse
     {
         if (!in_array($request->user()->role, ['admin', 'hr'])) {
@@ -187,10 +227,17 @@ class XeroController extends Controller
         ]);
     }
 
-    /**
-     * Trigger a manual sync of Xero Invoices → local Projects.
-     * Returns a summary of the sync operation.
-     */
+    #[OA\Post(
+        path: "/xero/sync-invoices",
+        summary: "Sync Xero Invoices",
+        description: "Syncs Xero Invoices to local Projects (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Xero Integration"],
+        responses: [
+            new OA\Response(response: 200, description: "Sync summary"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function syncInvoices(Request $request): JsonResponse
     {
         if (!in_array($request->user()->role, ['admin', 'hr'])) {
@@ -209,10 +256,17 @@ class XeroController extends Controller
         ]);
     }
 
-    /**
-     * Fetch available Xero Purchase Orders (authorised and not linked to any project).
-     * Optional 'xero_contact_id' query param to filter by client.
-     */
+    #[OA\Get(
+        path: "/xero/purchase-orders",
+        summary: "Get Xero Purchase Orders",
+        description: "Returns available Xero Purchase Orders not yet linked to a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Xero Integration"],
+        parameters: [
+            new OA\Parameter(name: "xero_contact_id", in: "query", required: false, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [new OA\Response(response: 200, description: "Purchase orders list")]
+    )]
     public function getPurchaseOrders(Request $request): JsonResponse
     {
         try {

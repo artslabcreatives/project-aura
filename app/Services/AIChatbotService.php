@@ -50,11 +50,11 @@ class AIChatbotService
 
         $projectStats = $projects->map(function ($p) use ($now) {
             $tasks = $p->tasks;
-            $overdueTasks = $tasks->where('status', '!=', 'complete')
+            $overdueTasks = $tasks->where('user_status', '!=', 'complete')
                 ->filter(fn($t) => $t->due_date && Carbon::parse($t->due_date)->isPast());
-            $completedTasks = $tasks->where('status', 'complete');
-            $inProgressTasks = $tasks->where('status', 'in-progress');
-            $pendingTasks = $tasks->where('status', 'pending');
+            $completedTasks = $tasks->where('user_status', 'complete');
+            $inProgressTasks = $tasks->where('user_status', 'in-progress');
+            $pendingTasks = $tasks->where('user_status', 'pending');
 
             return [
                 'id' => $p->id,
@@ -83,7 +83,7 @@ class AIChatbotService
         // Team workload
         $users = User::where('is_active', true)->get();
         $userWorkload = $users->map(function ($u) use ($now) {
-            $tasks = Task::where('assignee_id', $u->id)->where('status', '!=', 'complete')->get();
+            $tasks = Task::where('assignee_id', $u->id)->where('user_status', '!=', 'complete')->get();
             $overdue = $tasks->filter(fn($t) => $t->due_date && Carbon::parse($t->due_date)->isPast());
             $highPriority = $tasks->where('priority', 'high');
 
@@ -100,10 +100,10 @@ class AIChatbotService
         })->sortByDesc('active_tasks')->values()->toArray();
 
         // Issue patterns — cross-cutting concerns
-        $allTasks = Task::with(['assignee', 'project', 'stage'])->get();
+        $allTasks = Task::with(['assignee', 'project', 'projectStage'])->get();
 
         $overdueTaskList = $allTasks->filter(fn($t) =>
-            $t->status !== 'complete' && $t->due_date && Carbon::parse($t->due_date)->isPast()
+            $t->user_status !== 'complete' && $t->due_date && Carbon::parse($t->due_date)->isPast()
         )->take(20)->map(fn($t) => [
             'id' => $t->id,
             'title' => $t->title,
@@ -115,7 +115,7 @@ class AIChatbotService
         ])->values()->toArray();
 
         $unassignedTasks = $allTasks->whereNull('assignee_id')
-            ->where('status', '!=', 'complete')
+            ->where('user_status', '!=', 'complete')
             ->take(20)->map(fn($t) => [
                 'id' => $t->id,
                 'title' => $t->title,
@@ -124,7 +124,7 @@ class AIChatbotService
                 'due_date' => $t->due_date,
             ])->values()->toArray();
 
-        $blockedTasks = $allTasks->where('status', 'in-progress')
+        $blockedTasks = $allTasks->where('user_status', 'in-progress')
             ->filter(fn($t) => $t->updated_at && Carbon::parse($t->updated_at)->diffInDays($now) > 3)
             ->take(20)->map(fn($t) => [
                 'id' => $t->id,
@@ -136,20 +136,14 @@ class AIChatbotService
             ])->values()->toArray();
 
         // Recent task history patterns
-        $recentHistory = TaskHistory::with(['task', 'changedByUser'])
-            ->where('changed_at', '>=', $thirtyDaysAgo)
-            ->orderByDesc('changed_at')
-            ->limit(100)
+        $recentHistory = TaskHistory::where('created_at', '>=', $thirtyDaysAgo)
+            ->orderByDesc('created_at')
+            ->limit(200)
             ->get()
-            ->groupBy('field_name')
-            ->map(fn($items, $field) => [
-                'field' => $field,
-                'change_count' => $items->count(),
-                'common_transitions' => $items->groupBy(fn($i) => "{$i->old_value} → {$i->new_value}")
-                    ->map->count()
-                    ->sortDesc()
-                    ->take(5)
-                    ->toArray(),
+            ->groupBy('action')
+            ->map(fn($items, $action) => [
+                'action' => $action,
+                'count' => $items->count(),
             ])->values()->toArray();
 
         // Financial overview
@@ -199,6 +193,14 @@ class AIChatbotService
      * Call Claude API with a messages array.
      */
     public function callClaude(array $messages, string $systemPrompt, int $maxTokens = 4096): string
+    {
+        return $this->callClaudeWithMessages($messages, $systemPrompt, $maxTokens);
+    }
+
+    /**
+     * Call Claude API with message content that may contain rich content blocks.
+     */
+    public function callClaudeWithMessages(array $messages, string $systemPrompt, int $maxTokens = 4096): string
     {
         try {
             $response = $this->http->post($this->apiUrl, [

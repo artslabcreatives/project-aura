@@ -8,9 +8,21 @@ use App\Models\Project;
 use App\Models\HistoryEntry;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use OpenApi\Attributes as OA;
 
 class AutomatedReminderSettingController extends Controller
 {
+    #[OA\Get(
+        path: "/automated-reminder-settings",
+        summary: "Get automated reminder settings",
+        description: "Returns all automated reminder settings and projects with overrides",
+        security: [["bearerAuth" => []]],
+        tags: ["Automated Reminders"],
+        responses: [
+            new OA\Response(response: 200, description: "Settings and project overrides"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
     public function index(): JsonResponse
     {
         $settings = AutomatedReminderSetting::all();
@@ -25,6 +37,28 @@ class AutomatedReminderSettingController extends Controller
         ]);
     }
 
+    #[OA\Patch(
+        path: "/automated-reminder-settings/{setting}",
+        summary: "Update reminder setting",
+        description: "Update days_before schedule and/or active status for a reminder type (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Automated Reminders"],
+        parameters: [
+            new OA\Parameter(name: "setting", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "days_before", type: "array", items: new OA\Items(type: "integer")),
+                    new OA\Property(property: "is_active", type: "boolean"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Updated setting"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function updateSetting(Request $request, AutomatedReminderSetting $setting): JsonResponse
     {
         $this->authorizeRole(['admin', 'hr']);
@@ -53,6 +87,28 @@ class AutomatedReminderSettingController extends Controller
         return response()->json($setting);
     }
 
+    #[OA\Patch(
+        path: "/projects/{project}/reminder-override",
+        summary: "Override project reminder settings",
+        description: "Set a manual reminder date/frequency for a specific project (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Automated Reminders"],
+        parameters: [
+            new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "manual_reminder_date", type: "string", format: "date", nullable: true),
+                    new OA\Property(property: "manual_reminder_days", type: "array", nullable: true, items: new OA\Items(type: "integer")),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Updated project"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function updateProjectOverride(Request $request, Project $project): JsonResponse
     {
         $this->authorizeRole(['admin', 'hr']);
@@ -92,6 +148,17 @@ class AutomatedReminderSettingController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: "/automated-reminder-settings/audit-logs",
+        summary: "Get reminder audit logs",
+        description: "Returns audit history of reminder setting changes",
+        security: [["bearerAuth" => []]],
+        tags: ["Automated Reminders"],
+        responses: [
+            new OA\Response(response: 200, description: "Audit log entries"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
     public function auditLogs(): JsonResponse
     {
         $logs = HistoryEntry::whereIn('action', ['updated_automated_reminder_setting', 'updated_project_reminder_override'])

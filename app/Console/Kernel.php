@@ -21,6 +21,12 @@ class Kernel extends ConsoleKernel
         $schedule->command('tasks:move-to-start-stage')
             ->everyMinute()
             ->runInBackground();
+
+        // Ask assignees for daily task updates via Mattermost.
+        $schedule->command('ai-chatbot:daily-mattermost-followups')
+            ->dailyAt('09:00')
+            ->timezone('Asia/Colombo')
+            ->runInBackground();
     }
 
     /**

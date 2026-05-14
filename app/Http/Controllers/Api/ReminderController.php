@@ -6,12 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Reminder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use OpenApi\Attributes as OA;
 
 class ReminderController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    #[OA\Get(
+        path: "/reminders",
+        summary: "List reminders",
+        description: "Returns active (unread) and paginated completed (read) reminders for the authenticated user",
+        security: [["bearerAuth" => []]],
+        tags: ["Reminders"],
+        responses: [
+            new OA\Response(response: 200, description: "Active and completed reminders"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
     public function index(Request $request)
     {
         $user_id = $request->user()->id;
@@ -34,9 +43,27 @@ class ReminderController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    #[OA\Post(
+        path: "/reminders",
+        summary: "Create reminder",
+        security: [["bearerAuth" => []]],
+        tags: ["Reminders"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["title", "reminder_at"],
+                properties: [
+                    new OA\Property(property: "title", type: "string", maxLength: 255),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "reminder_at", type: "string", format: "date-time"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Reminder created"),
+            new OA\Response(response: 422, description: "Validation error"),
+        ]
+    )]
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -57,18 +84,44 @@ class ReminderController extends Controller
         return response()->json($reminder, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
+    #[OA\Get(
+        path: "/reminders/{reminder}",
+        summary: "Get reminder",
+        security: [["bearerAuth" => []]],
+        tags: ["Reminders"],
+        parameters: [new OA\Parameter(name: "reminder", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [
+            new OA\Response(response: 200, description: "Reminder details"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function show(Reminder $reminder)
     {
         $this->authorize('view', $reminder);
         return response()->json($reminder);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+    #[OA\Put(
+        path: "/reminders/{reminder}",
+        summary: "Update reminder",
+        security: [["bearerAuth" => []]],
+        tags: ["Reminders"],
+        parameters: [new OA\Parameter(name: "reminder", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "title", type: "string", maxLength: 255),
+                    new OA\Property(property: "description", type: "string", nullable: true),
+                    new OA\Property(property: "reminder_at", type: "string", format: "date-time"),
+                    new OA\Property(property: "is_read", type: "boolean"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Updated reminder"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function update(Request $request, Reminder $reminder)
     {
         // Policy check needed but for now simple check
@@ -92,9 +145,17 @@ class ReminderController extends Controller
         return response()->json($reminder);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    #[OA\Delete(
+        path: "/reminders/{reminder}",
+        summary: "Delete reminder",
+        security: [["bearerAuth" => []]],
+        tags: ["Reminders"],
+        parameters: [new OA\Parameter(name: "reminder", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [
+            new OA\Response(response: 204, description: "Deleted"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function destroy(Request $request, Reminder $reminder)
     {
         if ($reminder->user_id !== $request->user()->id) {

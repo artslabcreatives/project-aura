@@ -10,27 +10,32 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 
 class TaskImportController extends Controller
 {
-    /**
-     * Receive a document from the frontend and forward it to the n8n webhook.
-     *
-     * n8n callback payload schema:
-     * {
-     *   "project_id": 123,
-     *   "import_id": "uuid-string",
-     *   "secret": "N8N_IMPORT_CALLBACK_SECRET value",
-     *   "tasks": [
-     *     {
-     *       "title": "Task title (required)",
-     *       "description": "Optional description text or null",
-     *       "due_date": "YYYY-MM-DD or null",
-     *       "priority": "low | medium | high | null"
-     *     }
-     *   ]
-     * }
-     */
+    #[OA\Post(
+        path: "/projects/{project}/upload-tasks",
+        summary: "Upload document for task extraction",
+        description: "Submits a document to N8N for AI-powered task extraction",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["file"],
+                    properties: [new OA\Property(property: "file", type: "string", format: "binary", description: "PDF, Word, text, spreadsheet, or image (max 20MB)")]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Import started with import_id"),
+            new OA\Response(response: 422, description: "Validation error"),
+        ]
+    )]
     public function upload(Request $request, Project $project)
     {
         $request->validate([
@@ -72,10 +77,20 @@ class TaskImportController extends Controller
         ]);
     }
 
-    /**
-     * Public callback endpoint called by n8n after processing.
-     * Stores results in cache (for polling fallback) and broadcasts via Echo.
-     */
+    #[OA\Post(
+        path: "/task-import-callback",
+        summary: "N8N task import callback",
+        description: "Public endpoint called by N8N with extracted tasks. Secured via bearer secret.",
+        tags: ["Tasks"],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: "project_id", type: "integer"),
+                new OA\Property(property: "import_id", type: "string"),
+                new OA\Property(property: "tasks", type: "array", items: new OA\Items(type: "object")),
+            ])
+        ),
+        responses: [new OA\Response(response: 200, description: "Tasks stored")]
+    )]
     public function callback(Request $request)
     {
         $secret = config('services.n8n.import_callback_secret');
@@ -117,10 +132,18 @@ class TaskImportController extends Controller
         return response()->json(['message' => 'Import received and broadcast to project channel.']);
     }
 
-    /**
-     * Polling fallback — frontend calls this every few seconds after upload.
-     * Returns tasks when ready, or status=pending while still processing.
-     */
+    #[OA\Get(
+        path: "/projects/{project}/task-import/{importId}",
+        summary: "Poll task import status",
+        description: "Polling endpoint for task import results. Returns status=pending or the extracted tasks.",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(name: "project", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "importId", in: "path", required: true, schema: new OA\Schema(type: "string")),
+        ],
+        responses: [new OA\Response(response: 200, description: "Import status or extracted tasks")]
+    )]
     public function status(Request $request, Project $project, string $importId)
     {
         // Check by import_id first, then fall back to project-scoped key

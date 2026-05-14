@@ -6,9 +6,32 @@ use App\Models\AuditLog;
 use App\Models\Reminder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class ReminderOverrideController extends Controller
 {
+    #[OA\Patch(
+        path: "/reminders/{reminder}/override",
+        summary: "Override reminder schedule",
+        description: "Override the date and/or frequency of a reminder with an audit trail",
+        security: [["bearerAuth" => []]],
+        tags: ["Reminders"],
+        parameters: [
+            new OA\Parameter(name: "reminder", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "reminder_at", type: "string", format: "date-time"),
+                    new OA\Property(property: "reminder_frequency_days", type: "integer", nullable: true, minimum: 1),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Updated reminder"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
     public function override(Request $request, Reminder $reminder): JsonResponse
     {
         $validated = $request->validate([
@@ -39,6 +62,20 @@ class ReminderOverrideController extends Controller
         return response()->json($reminder->fresh(['user', 'overriddenBy']));
     }
 
+    #[OA\Delete(
+        path: "/reminders/{reminder}/override",
+        summary: "Revert reminder override",
+        description: "Removes an override and returns the reminder to its original schedule",
+        security: [["bearerAuth" => []]],
+        tags: ["Reminders"],
+        parameters: [
+            new OA\Parameter(name: "reminder", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Reminder with override removed"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
     public function revert(Reminder $reminder): JsonResponse
     {
         $user = auth()->user();

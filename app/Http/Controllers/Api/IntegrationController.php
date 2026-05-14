@@ -8,13 +8,21 @@ use App\Models\AutomatedReminderSetting;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class IntegrationController extends Controller
 {
-    /**
-     * Return projects whose grace period expires within 7 days (or is already overdue).
-     * Secured via a shared secret in the N8N_WEBHOOK_SECRET env variable.
-     */
+    #[OA\Get(
+        path: "/n8n/grace-periods",
+        summary: "Get expiring grace periods (N8N webhook)",
+        description: "Returns projects with grace periods expiring soon. Secured via N8N_WEBHOOK_SECRET bearer token.",
+        security: [["bearerAuth" => []]],
+        tags: ["Integrations"],
+        responses: [
+            new OA\Response(response: 200, description: "Projects with expiring grace periods"),
+            new OA\Response(response: 401, description: "Unauthorized — invalid webhook secret"),
+        ]
+    )]
     public function expiringGracePeriods(Request $request): JsonResponse
     {
         $secret = config('services.n8n.webhook_secret');

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class SupplierController extends Controller
 {
@@ -18,6 +19,21 @@ class SupplierController extends Controller
         );
     }
 
+    #[OA\Get(
+        path: "/suppliers",
+        summary: "List suppliers",
+        description: "Returns paginated list of suppliers with optional search filter (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Suppliers"],
+        parameters: [
+            new OA\Parameter(name: "search", in: "query", required: false, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "per_page", in: "query", required: false, schema: new OA\Schema(type: "integer", default: 15)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Paginated supplier list"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $this->checkPermission();
@@ -51,6 +67,20 @@ class SupplierController extends Controller
         ]);
     }
 
+    #[OA\Delete(
+        path: "/suppliers/{supplier}",
+        summary: "Delete supplier",
+        description: "Deletes a supplier (admin/hr only)",
+        security: [["bearerAuth" => []]],
+        tags: ["Suppliers"],
+        parameters: [
+            new OA\Parameter(name: "supplier", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: "Supplier deleted"),
+            new OA\Response(response: 403, description: "Forbidden"),
+        ]
+    )]
     public function destroy(Supplier $supplier): JsonResponse
     {
         $this->checkPermission();

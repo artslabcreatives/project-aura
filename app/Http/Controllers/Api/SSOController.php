@@ -11,16 +11,31 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 
 class SSOController extends Controller
 {
     public function __construct(private SSOService $sso) {}
 
-    /**
-     * GET /api/oauth/authorize
-     * Validate the authorization request and return client info for the consent UI.
-     * Called by the React consent page before showing the approve/deny form.
-     */
+    #[OA\Get(
+        path: "/oauth/authorize",
+        summary: "Validate OAuth authorization request",
+        description: "Validates the authorization request parameters and returns client info for the consent UI. Public endpoint.",
+        tags: ["SSO / OAuth"],
+        parameters: [
+            new OA\Parameter(name: "client_id", in: "query", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "redirect_uri", in: "query", required: true, schema: new OA\Schema(type: "string", format: "uri")),
+            new OA\Parameter(name: "response_type", in: "query", required: true, schema: new OA\Schema(type: "string", enum: ["code"])),
+            new OA\Parameter(name: "scope", in: "query", required: true, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "state", in: "query", required: false, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "code_challenge", in: "query", required: false, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "code_challenge_method", in: "query", required: false, schema: new OA\Schema(type: "string", enum: ["S256", "plain"])),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Client info for consent screen"),
+            new OA\Response(response: 400, description: "Invalid request parameters"),
+        ]
+    )]
     public function validateAuthorize(Request $request): JsonResponse
     {
         $params = $request->validate([
@@ -68,11 +83,31 @@ class SSOController extends Controller
         ]);
     }
 
-    /**
-     * POST /api/oauth/authorize
-     * User approves or denies the authorization request.
-     * Requires Sanctum auth (user must be logged into Aurai).
-     */
+    #[OA\Post(
+        path: "/oauth/authorize",
+        summary: "Approve or deny OAuth authorization",
+        description: "User approves or denies the OAuth consent screen. Requires Sanctum authentication.",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["client_id", "redirect_uri", "scope", "approved"],
+                properties: [
+                    new OA\Property(property: "client_id", type: "string"),
+                    new OA\Property(property: "redirect_uri", type: "string", format: "uri"),
+                    new OA\Property(property: "scope", type: "string"),
+                    new OA\Property(property: "state", type: "string"),
+                    new OA\Property(property: "code_challenge", type: "string"),
+                    new OA\Property(property: "approved", type: "boolean"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Authorization code or denial redirect_uri"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
     public function approve(Request $request): JsonResponse
     {
         $params = $request->validate([
@@ -128,11 +163,29 @@ class SSOController extends Controller
         return response()->json(['redirect_to' => $url]);
     }
 
-    /**
-     * POST /api/oauth/token
-     * Exchange authorization code or refresh token for access token.
-     * Called server-to-server (no Sanctum auth required).
-     */
+    #[OA\Post(
+        path: "/oauth/token",
+        summary: "Exchange code for access token",
+        description: "Token endpoint (RFC 6749). Supports authorization_code and refresh_token grant types. Public endpoint — called server-to-server.",
+        tags: ["SSO / OAuth"],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "grant_type", type: "string", enum: ["authorization_code", "refresh_token"]),
+                    new OA\Property(property: "code", type: "string", description: "Authorization code (authorization_code grant)"),
+                    new OA\Property(property: "redirect_uri", type: "string", format: "uri"),
+                    new OA\Property(property: "client_id", type: "string"),
+                    new OA\Property(property: "client_secret", type: "string"),
+                    new OA\Property(property: "code_verifier", type: "string", description: "PKCE code verifier"),
+                    new OA\Property(property: "refresh_token", type: "string"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Access token response"),
+            new OA\Response(response: 400, description: "Invalid grant"),
+        ]
+    )]
     public function token(Request $request): JsonResponse
     {
         $grantType = $request->input('grant_type');
@@ -219,11 +272,17 @@ class SSOController extends Controller
         return response()->json($tokens);
     }
 
-    /**
-     * GET /api/oauth/userinfo
-     * Returns the authenticated user's profile.
-     * Bearer token must be an Aurai SSO-issued JWT.
-     */
+    #[OA\Get(
+        path: "/oauth/userinfo",
+        summary: "Get user info (OIDC)",
+        description: "Returns the authenticated resource owner's profile. Bearer token must be an Aurai SSO-issued JWT.",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        responses: [
+            new OA\Response(response: 200, description: "User profile claims"),
+            new OA\Response(response: 401, description: "Invalid token"),
+        ]
+    )]
     public function userinfo(Request $request): JsonResponse
     {
         $token = $this->extractBearerToken($request);
@@ -259,10 +318,21 @@ class SSOController extends Controller
         return response()->json($info);
     }
 
-    /**
-     * POST /api/oauth/revoke
-     * Revoke an access or refresh token.
-     */
+    #[OA\Post(
+        path: "/oauth/revoke",
+        summary: "Revoke OAuth token",
+        description: "Revokes an access or refresh token (RFC 7009). Public endpoint.",
+        tags: ["SSO / OAuth"],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "token", type: "string"),
+                    new OA\Property(property: "token_type_hint", type: "string", enum: ["access_token", "refresh_token"]),
+                ]
+            )
+        ),
+        responses: [new OA\Response(response: 200, description: "Revoked (always 200 per RFC 7009)")]
+    )]
     public function revoke(Request $request): JsonResponse
     {
         $token = $request->input('token');
@@ -286,18 +356,26 @@ class SSOController extends Controller
         return response()->json([], 200);
     }
 
-    /**
-     * GET /api/oauth/jwks  or  GET /.well-known/jwks.json
-     */
+    #[OA\Get(
+        path: "/oauth/jwks",
+        summary: "JWKS public keys",
+        description: "Returns the JSON Web Key Set for verifying SSO-issued JWTs. Public endpoint.",
+        tags: ["SSO / OAuth"],
+        responses: [new OA\Response(response: 200, description: "JWKS document")]
+    )]
     public function jwks(): JsonResponse
     {
         return response()->json($this->sso->getJwks())
             ->header('Cache-Control', 'public, max-age=3600');
     }
 
-    /**
-     * GET /.well-known/openid-configuration
-     */
+    #[OA\Get(
+        path: "/openid-configuration",
+        summary: "OpenID Connect discovery document",
+        description: "Returns the OIDC discovery document (/.well-known/openid-configuration). Public endpoint.",
+        tags: ["SSO / OAuth"],
+        responses: [new OA\Response(response: 200, description: "OIDC discovery document")]
+    )]
     public function discovery(): JsonResponse
     {
         return response()->json($this->sso->getDiscoveryDocument())
