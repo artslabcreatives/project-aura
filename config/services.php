@@ -83,4 +83,10 @@ return [
     'ai_agent' => [
         'mattermost_webhook_token' => env('AI_AGENT_MATTERMOST_WEBHOOK_TOKEN', env('MATTERMOST_API_KEY')),
     ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
 ];

@@ -48,6 +48,8 @@ use Illuminate\Support\Facades\Route;
 
 // Authentication routes (public)
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/auth/google', [\App\Http\Controllers\Api\GoogleAuthController::class, 'redirectToGoogle']);
+Route::get('/auth/google/callback', [\App\Http\Controllers\Api\GoogleAuthController::class, 'handleGoogleCallback']);
 Route::post('/check-email', [AuthController::class, 'checkEmail']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
