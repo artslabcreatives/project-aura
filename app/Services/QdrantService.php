@@ -15,20 +15,20 @@ class QdrantService
 
     public function __construct(
         private readonly string $baseUrl = '',
-    ) {
-    }
+    ) {}
 
     /**
-     * @param array<int, float|int> $embedding
+     * @param  array<int, float|int>  $embedding
      */
     public function upsertTask(Task $task, array $embedding): void
     {
         $this->ensureCollection();
+        $dueDate = $task->due_date ?? null;
 
         $response = Http::timeout(30)
             ->acceptJson()
             ->asJson()
-            ->put($this->url('/collections/' . self::COLLECTION . '/points?wait=true'), [
+            ->put($this->url('/collections/'.self::COLLECTION.'/points?wait=true'), [
                 'points' => [
                     [
                         'id' => is_numeric($task->id) ? (int) $task->id : (string) $task->id,
@@ -42,7 +42,7 @@ class QdrantService
                             'assignee_id' => $task->assignee_id ?? null,
                             'status' => $task->status ?? $task->user_status ?? null,
                             'priority' => $task->priority ?? null,
-                            'due_date' => $task->due_date?->toDateString(),
+                            'due_date' => $dueDate instanceof \DateTimeInterface ? $dueDate->format('Y-m-d') : $dueDate,
                         ],
                     ],
                 ],
@@ -52,7 +52,7 @@ class QdrantService
     }
 
     /**
-     * @param array<int, float|int> $embedding
+     * @param  array<int, float|int>  $embedding
      * @return array<int, array<string, mixed>>
      */
     public function searchSimilar(array $embedding, float $threshold = 0.85, int $limit = 5): array
@@ -62,7 +62,7 @@ class QdrantService
         $response = Http::timeout(30)
             ->acceptJson()
             ->asJson()
-            ->post($this->url('/collections/' . self::COLLECTION . '/points/search'), [
+            ->post($this->url('/collections/'.self::COLLECTION.'/points/search'), [
                 'vector' => array_values($embedding),
                 'limit' => $limit,
                 'score_threshold' => $threshold,
@@ -96,10 +96,11 @@ class QdrantService
 
         $response = Http::timeout(30)
             ->acceptJson()
-            ->get($this->url('/collections/' . self::COLLECTION));
+            ->get($this->url('/collections/'.self::COLLECTION));
 
         if ($response->successful()) {
             $this->collectionReady = true;
+
             return;
         }
 
@@ -110,7 +111,7 @@ class QdrantService
         $createResponse = Http::timeout(30)
             ->acceptJson()
             ->asJson()
-            ->put($this->url('/collections/' . self::COLLECTION), [
+            ->put($this->url('/collections/'.self::COLLECTION), [
                 'vectors' => [
                     'size' => 1024,
                     'distance' => 'Cosine',
@@ -132,6 +133,6 @@ class QdrantService
             throw new RuntimeException('Qdrant URL is not configured.');
         }
 
-        return $baseUrl . $path;
+        return $baseUrl.$path;
     }
 }

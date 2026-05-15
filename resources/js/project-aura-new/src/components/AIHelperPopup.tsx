@@ -77,7 +77,7 @@ export function AIHelperPopup() {
 			console.error("Helper message failed", error);
 			setMessages(prev => [...prev, {
 				role: "assistant",
-				content: "I couldn't process that request. Please try again.",
+				content: error instanceof Error ? error.message : "I couldn't process that request. Please try again.",
 			}]);
 		} finally {
 			setIsLoading(false);

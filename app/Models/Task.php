@@ -11,14 +11,16 @@ use Laravel\Scout\Searchable;
 class Task extends Model
 {
     use HasFactory;
-	use Searchable;
+    use Searchable;
 
     protected $fillable = [
         'title',
         'description',
+        'board_id',
         'project_id',
         'assignee_id',
         'due_date',
+        'status',
         'user_status',
         'project_stage_id',
         'start_stage_id',
@@ -47,6 +49,7 @@ class Task extends Model
         'start_date' => 'datetime',
         'completed_at' => 'datetime',
         'started_at' => 'datetime',
+        'estimated_hours' => 'integer',
         'is_in_specific_stage' => 'boolean',
         'is_assignee_locked' => 'boolean',
         'is_locked' => 'boolean',
@@ -55,22 +58,29 @@ class Task extends Model
         'task_cost' => 'decimal:2',
     ];
 
-	/**
-	 * Get the indexable data array for the model.
-	 *
-	 * @return array<string, mixed>
-	 */
-	public function toSearchableArray()
-	{
-		return array_merge($this->toArray(),[
-			'id' => (string) $this->id,
-			'title' => $this->title,
-			'description' => $this->description,
-			'priority' => $this->priority,
-			'tags' => $this->tags,
-			'created_at' => $this->created_at->timestamp,
-		]);
-	}
+    public function setEstimatedHoursAttribute($value): void
+    {
+        $this->attributes['estimated_hours'] = $value === null || $value === ''
+            ? 0
+            : max(0, (int) $value);
+    }
+
+    /**
+     * Get the indexable data array for the model.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray()
+    {
+        return array_merge($this->toArray(), [
+            'id' => (string) $this->id,
+            'title' => $this->title,
+            'description' => $this->description,
+            'priority' => $this->priority,
+            'tags' => $this->tags,
+            'created_at' => $this->created_at->timestamp,
+        ]);
+    }
 
     /**
      * Get the project that owns the task.
@@ -135,6 +145,7 @@ class Task extends Model
     {
         return $this->hasMany(RevisionHistory::class);
     }
+
     /**
      * Get the subtasks for the task.
      */
@@ -158,6 +169,7 @@ class Task extends Model
     {
         return $this->hasMany(TaskComment::class);
     }
+
     /**
      * Get the assignees for the task.
      */
@@ -188,7 +200,7 @@ class Task extends Model
     public function assignedUsers()
     {
         return $this->belongsToMany(User::class, 'task_assignees')
-                    ->withPivot('status')
-                    ->withTimestamps();
+            ->withPivot('status')
+            ->withTimestamps();
     }
 }

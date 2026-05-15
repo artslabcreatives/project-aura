@@ -2,50 +2,66 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
-use RuntimeException;
-
 class EmbeddingService
 {
+    private const DIMENSIONS = 1024;
+
     public function embedDocument(string $text): array
     {
-        return $this->embed($text, 'document');
+        return $this->embed($text);
     }
 
     public function embedQuery(string $text): array
     {
-        return $this->embed($text, 'query');
+        return $this->embed($text);
     }
 
     /**
      * @return array<int, float>
      */
-    private function embed(string $text, string $inputType): array
+    private function embed(string $text): array
     {
-        $apiKey = config('services.voyage.api_key');
+        $vector = array_fill(0, self::DIMENSIONS, 0.0);
+        $tokens = $this->tokens($text);
 
-        if (! $apiKey) {
-            throw new RuntimeException('Voyage API key is not configured.');
+        if ($tokens === []) {
+            return $vector;
         }
 
-        $response = Http::timeout(30)
-            ->withToken($apiKey)
-            ->acceptJson()
-            ->asJson()
-            ->post(config('services.voyage.endpoint', 'https://api.voyageai.com/v1/embeddings'), [
-                'model' => 'voyage-4',
-                'input' => $text,
-                'input_type' => $inputType,
-            ]);
+        foreach ($tokens as $token) {
+            $hash = crc32($token);
+            $index = $hash % self::DIMENSIONS;
+            $sign = ($hash & 1) === 0 ? 1.0 : -1.0;
 
-        $response->throw();
-
-        $embedding = $response->json('data.0.embedding');
-
-        if (! is_array($embedding)) {
-            throw new RuntimeException('Voyage API did not return an embedding.');
+            $vector[$index] += $sign;
         }
 
-        return array_map('floatval', $embedding);
+        return $this->normalize($vector);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function tokens(string $text): array
+    {
+        $normalized = mb_strtolower(strip_tags($text));
+        preg_match_all('/[\p{L}\p{N}]+/u', $normalized, $matches);
+
+        return array_values(array_filter($matches[0] ?? [], static fn (string $token): bool => mb_strlen($token) > 1));
+    }
+
+    /**
+     * @param  array<int, float>  $vector
+     * @return array<int, float>
+     */
+    private function normalize(array $vector): array
+    {
+        $magnitude = sqrt(array_sum(array_map(static fn (float $value): float => $value * $value, $vector)));
+
+        if ($magnitude <= 0.0) {
+            return $vector;
+        }
+
+        return array_map(static fn (float $value): float => $value / $magnitude, $vector);
     }
 }

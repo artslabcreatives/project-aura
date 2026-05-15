@@ -51,6 +51,22 @@ class TaskManagementTest extends TestCase
         ]);
     }
 
+    public function test_null_estimated_hours_defaults_to_zero(): void
+    {
+        $task = Task::create([
+            'title' => 'Task Without Estimate',
+            'project_id' => $this->project->id,
+            'assignee_id' => $this->user->id,
+            'estimated_hours' => null,
+        ]);
+
+        $this->assertSame(0, $task->fresh()->estimated_hours);
+        $this->assertDatabaseHas('tasks', [
+            'id' => $task->id,
+            'estimated_hours' => 0,
+        ]);
+    }
+
     public function test_can_reassign_task(): void
     {
         $user2 = User::factory()->create([

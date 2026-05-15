@@ -486,7 +486,7 @@ PROMPT;
             'due_date' => $this->normalizeDate($arguments['due_date'] ?? null),
             'user_status' => 'pending',
             'priority' => in_array($arguments['priority'] ?? 'medium', ['low', 'medium', 'high'], true) ? $arguments['priority'] : 'medium',
-            'estimated_hours' => is_numeric($arguments['estimated_hours'] ?? null) ? $arguments['estimated_hours'] : null,
+            'estimated_hours' => is_numeric($arguments['estimated_hours'] ?? null) ? max(0, (int) $arguments['estimated_hours']) : 0,
         ]);
 
         if ($assigneeId) {

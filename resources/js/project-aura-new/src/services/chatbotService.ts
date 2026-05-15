@@ -1,4 +1,5 @@
 import { api } from '@/services/api';
+import axios from 'axios';
 
 export interface ChatMessage {
   id?: number;
@@ -87,19 +88,23 @@ export const chatbotService = {
   },
 
   async sendMessage(sessionId: number, message: string, attachments: File[] = []): Promise<ChatMessage> {
-    if (attachments.length > 0) {
-      const form = new FormData();
-      form.append('message', message);
-      attachments.forEach(file => form.append('attachments[]', file));
+    try {
+      if (attachments.length > 0) {
+        const form = new FormData();
+        form.append('message', message);
+        attachments.forEach(file => form.append('attachments[]', file));
 
-      const { data } = await api.post(`/ai-chatbot/sessions/${sessionId}/messages`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+        const { data } = await api.post(`/ai-chatbot/sessions/${sessionId}/messages`, form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data;
+      }
+
+      const { data } = await api.post(`/ai-chatbot/sessions/${sessionId}/messages`, { message });
       return data;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error));
     }
-
-    const { data } = await api.post(`/ai-chatbot/sessions/${sessionId}/messages`, { message });
-    return data;
   },
 
   async completeSession(sessionId: number): Promise<void> {
@@ -121,3 +126,12 @@ export const chatbotService = {
     return data;
   },
 };
+
+function getApiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const payload = error.response?.data as { error?: string; message?: string } | undefined;
+    return payload?.error ?? payload?.message ?? 'Sorry, something went wrong. Please try again.';
+  }
+
+  return error instanceof Error ? error.message : 'Sorry, something went wrong. Please try again.';
+}

@@ -331,7 +331,7 @@ export default function AIChatbot() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, something went wrong. Please try again.',
+        content: err instanceof Error ? err.message : 'Sorry, something went wrong. Please try again.',
       }]);
     } finally {
       setIsLoading(false);

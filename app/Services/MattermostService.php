@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -11,13 +12,15 @@ use Illuminate\Support\Str;
 class MattermostService
 {
     protected string $baseUrl;
+
     protected ?string $token;
+
     protected ?string $teamId;
 
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.mattermost.url', ''), '/');
-        $this->token = config('services.mattermost.token');
+        $this->token = config('services.mattermost.bot_token') ?: config('services.mattermost.token');
         $this->teamId = config('services.mattermost.team_id');
     }
 
@@ -40,7 +43,7 @@ class MattermostService
 
             if ($response->successful()) {
                 $channelData = $response->json();
-                
+
                 // Store channel ID in project metadata
                 $this->updateProjectChannelId($project, $channelData['id']);
 
@@ -66,6 +69,7 @@ class MattermostService
                 'project_id' => $project->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -77,11 +81,12 @@ class MattermostService
     {
         try {
             $channelId = $this->getProjectChannelId($project);
-            
-            if (!$channelId) {
+
+            if (! $channelId) {
                 Log::warning('No Mattermost channel ID found for project', [
                     'project_id' => $project->id,
                 ]);
+
                 return false;
             }
 
@@ -91,6 +96,7 @@ class MattermostService
                 'project_id' => $project->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -133,8 +139,9 @@ class MattermostService
     {
         $botUserId = config('services.mattermost.bot_user_id');
 
-        if (!$botUserId) {
+        if (! $botUserId) {
             Log::warning('Mattermost bot user id is not configured.');
+
             return null;
         }
 
@@ -170,16 +177,17 @@ class MattermostService
     {
         $mattermostUserId = $this->getMattermostUserId($user);
 
-        if (!$mattermostUserId) {
+        if (! $mattermostUserId) {
             Log::warning('Cannot send Mattermost DM without a Mattermost user id.', [
                 'user_id' => $user->id,
             ]);
+
             return null;
         }
 
         $channel = $this->createDirectChannel($mattermostUserId);
 
-        if (!$channel || empty($channel['id'])) {
+        if (! $channel || empty($channel['id'])) {
             return null;
         }
 
@@ -194,33 +202,38 @@ class MattermostService
         try {
             // Try permanent delete first (works for both deleted and non-deleted)
             $url = "{$this->baseUrl}/api/v4/channels/{$channelId}?permanent=true";
-            $response = Http::withToken($this->token)
+            $response = Http::timeout(30)
+                ->withToken($this->token)
                 ->accept('application/json')
                 ->delete($url);
 
             if ($response->successful()) {
-                Log::info("Permanently deleted channel" . ($projectName ? " for: {$projectName}" : ""), [
+                Log::info('Permanently deleted channel'.($projectName ? " for: {$projectName}" : ''), [
                     'channel_id' => $channelId,
                 ]);
+
                 return true;
             }
-            
+
             // If permanent delete failed, try soft delete first then permanent
             $softUrl = "{$this->baseUrl}/api/v4/channels/{$channelId}";
-            $softResponse = Http::withToken($this->token)
+            $softResponse = Http::timeout(30)
+                ->withToken($this->token)
                 ->accept('application/json')
                 ->delete($softUrl);
-                
+
             if ($softResponse->successful()) {
                 // Now try permanent delete
-                $permResponse = Http::withToken($this->token)
+                $permResponse = Http::timeout(30)
+                    ->withToken($this->token)
                     ->accept('application/json')
                     ->delete($url);
-                    
+
                 if ($permResponse->successful()) {
-                    Log::info("Soft deleted then permanently deleted channel", [
+                    Log::info('Soft deleted then permanently deleted channel', [
                         'channel_id' => $channelId,
                     ]);
+
                     return true;
                 }
             }
@@ -237,6 +250,7 @@ class MattermostService
                 'channel_id' => $channelId,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -250,13 +264,14 @@ class MattermostService
             $allChannels = [];
             $page = 0;
             $perPage = 200;
-            
+
             Log::info('Fetching all channels INCLUDING DELETED from Mattermost API');
-            
+
             do {
                 $url = "{$this->baseUrl}/api/v4/channels";
-                
-                $response = Http::withToken($this->token)
+
+                $response = Http::timeout(30)
+                    ->withToken($this->token)
                     ->accept('application/json')
                     ->get($url, [
                         'page' => $page,
@@ -264,7 +279,7 @@ class MattermostService
                         'include_deleted' => true,  // INCLUDE DELETED
                     ]);
 
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     Log::error('Failed to fetch channels', [
                         'status' => $response->status(),
                         'page' => $page,
@@ -274,16 +289,16 @@ class MattermostService
                 }
 
                 $channels = $response->json();
-                
+
                 // Filter by team_id if it exists
-                $teamChannels = array_filter($channels, function($ch) {
+                $teamChannels = array_filter($channels, function ($ch) {
                     return isset($ch['team_id']) && $ch['team_id'] === $this->teamId;
                 });
-                
+
                 $allChannels = array_merge($allChannels, $teamChannels);
-                
+
                 $page++;
-                
+
                 if (count($channels) < $perPage) {
                     break;
                 }
@@ -291,7 +306,7 @@ class MattermostService
 
             Log::info('Fetched all channels INCLUDING DELETED', [
                 'count' => count($allChannels),
-                'channels' => array_map(fn($ch) => $ch['name'], $allChannels)
+                'channels' => array_map(fn ($ch) => $ch['name'], $allChannels),
             ]);
 
             return $allChannels;
@@ -299,8 +314,64 @@ class MattermostService
             Log::error('Exception fetching channels', [
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
+    }
+
+    /**
+     * Fetch all channel posts since a millisecond Unix timestamp.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getChannelMessages(string $channelId, int $since, int $page = 0): array
+    {
+        $messages = [];
+        $perPage = 60;
+
+        do {
+            $response = Http::timeout(30)
+                ->withToken($this->token)
+                ->acceptJson()
+                ->get("{$this->baseUrl}/api/v4/channels/{$channelId}/posts", [
+                    'since' => $since,
+                    'page' => $page,
+                    'per_page' => $perPage,
+                ]);
+
+            $response->throw();
+
+            $posts = $response->json('posts', []);
+            $order = $response->json('order', []);
+
+            foreach ($order as $postId) {
+                if (isset($posts[$postId]) && empty($posts[$postId]['delete_at'])) {
+                    $messages[] = $posts[$postId];
+                }
+            }
+
+            $page++;
+        } while (count($order) === $perPage);
+
+        usort(
+            $messages,
+            static fn (array $a, array $b): int => ((int) ($a['create_at'] ?? 0)) <=> ((int) ($b['create_at'] ?? 0)),
+        );
+
+        return $messages;
+    }
+
+    public function resolveUsername(string $mattermostUserId): string
+    {
+        if ($mattermostUserId === '') {
+            return '@unknown';
+        }
+
+        $user = User::query()
+            ->where('mattermost_user_id', $mattermostUserId)
+            ->first();
+
+        return $user?->name ?? '@'.$mattermostUserId;
     }
 
     /**
@@ -327,46 +398,46 @@ class MattermostService
     public function deleteAllProjectChannels(): int
     {
         $deleted = 0;
-        
+
         // First, get visible channels and delete them
         $channels = $this->getAllTeamChannels();
-        
+
         Log::info('Deleting visible channels', ['count' => count($channels)]);
-        
+
         foreach ($channels as $channel) {
-            if (!in_array($channel['name'], ['town-square', 'off-topic'])) {
+            if (! in_array($channel['name'], ['town-square', 'off-topic'])) {
                 if ($this->deleteChannelById($channel['id'], $channel['display_name'])) {
                     $deleted++;
                 }
             }
         }
-        
+
         // Then, try to delete channels by project name
         $projects = \App\Models\Project::where('is_archived', false)->get();
-        
+
         Log::info('Attempting to delete channels by project names', ['project_count' => $projects->count()]);
-        
+
         foreach ($projects as $project) {
             $channelName = $this->generateChannelName($project);
-            
+
             // Try to fetch the channel by name
             $channel = $this->getChannelByName($channelName);
-            
+
             if ($channel) {
                 Log::info('Found channel by name, deleting', [
                     'project_id' => $project->id,
                     'channel_name' => $channelName,
-                    'channel_id' => $channel['id']
+                    'channel_id' => $channel['id'],
                 ]);
-                
+
                 if ($this->deleteChannelById($channel['id'], $channel['display_name'])) {
                     $deleted++;
                 }
             }
         }
-        
+
         Log::info('Total channels deleted', ['deleted' => $deleted]);
-        
+
         return $deleted;
     }
 
@@ -430,11 +501,12 @@ class MattermostService
     public function syncChannelMembers(Project $project, ?string $channelId = null): array
     {
         $channelId = $channelId ?? $this->getProjectChannelId($project);
-        
-        if (!$channelId) {
+
+        if (! $channelId) {
             Log::warning('No Mattermost channel ID found for project sync', [
                 'project_id' => $project->id,
             ]);
+
             return ['added' => 0, 'failed' => 0];
         }
 
@@ -453,7 +525,7 @@ class MattermostService
         // Remove channel creator if they're not part of the project team
         $this->removeChannelCreatorIfNotInTeam($project, $channelId);
 
-        Log::info("Synced members for project channel", [
+        Log::info('Synced members for project channel', [
             'project_id' => $project->id,
             'channel_id' => $channelId,
             'added' => $added,
@@ -470,12 +542,13 @@ class MattermostService
     {
         try {
             $mattermostUserId = $this->getMattermostUserId($user);
-            
-            if (!$mattermostUserId) {
+
+            if (! $mattermostUserId) {
                 Log::warning('No Mattermost user ID found for user', [
                     'user_id' => $user->id,
                     'email' => $user->email,
                 ]);
+
                 return false;
             }
 
@@ -491,6 +564,7 @@ class MattermostService
                 'channel_id' => $channelId,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -508,6 +582,7 @@ class MattermostService
                     'mattermost_user_id' => $mattermostUserId,
                     'channel_id' => $channelId,
                 ]);
+
                 return true;
             }
 
@@ -524,6 +599,7 @@ class MattermostService
                 'channel_id' => $channelId,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -551,6 +627,7 @@ class MattermostService
                 'channel_id' => $channelId,
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -563,7 +640,7 @@ class MattermostService
         try {
             // Get all channel members
             $members = $this->getChannelMembers($channelId);
-            
+
             if (empty($members)) {
                 return false;
             }
@@ -576,8 +653,8 @@ class MattermostService
             $removed = 0;
             foreach ($members as $member) {
                 $memberId = $member['user_id'] ?? null;
-                
-                if ($memberId && !in_array($memberId, $projectMattermostUserIds)) {
+
+                if ($memberId && ! in_array($memberId, $projectMattermostUserIds)) {
                     if ($this->removeUserFromChannel($memberId, $channelId)) {
                         $removed++;
                         Log::info('Removed non-team member from channel', [
@@ -603,6 +680,7 @@ class MattermostService
                 'channel_id' => $channelId,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -617,11 +695,12 @@ class MattermostService
             if ($user->mattermost_user_id) {
                 Log::debug('User already has Mattermost ID stored', [
                     'user_id' => $user->id,
-                    'mattermost_user_id' => $user->mattermost_user_id
+                    'mattermost_user_id' => $user->mattermost_user_id,
                 ]);
+
                 return ['id' => $user->mattermost_user_id];
             }
-            
+
             // Check if user exists in Mattermost by email
             $existingUser = $this->getUserByEmail($user->email);
 
@@ -629,20 +708,21 @@ class MattermostService
                 Log::info('Found existing Mattermost user, storing ID', [
                     'user_id' => $user->id,
                     'email' => $user->email,
-                    'mattermost_user_id' => $existingUser['id']
+                    'mattermost_user_id' => $existingUser['id'],
                 ]);
-                
+
                 // Store the ID
                 $this->storeMattermostUserId($user, $existingUser['id']);
-                
+
                 // Update existing user info
                 return $this->updateMattermostUser($user, $existingUser['id']);
             } else {
                 // Create new user
                 Log::info('Creating new Mattermost user', [
                     'user_id' => $user->id,
-                    'email' => $user->email
+                    'email' => $user->email,
                 ]);
+
                 return $this->createMattermostUser($user, $password);
             }
         } catch (\Exception $e) {
@@ -651,6 +731,7 @@ class MattermostService
                 'email' => $user->email,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -661,7 +742,7 @@ class MattermostService
     protected function createMattermostUser(User $user, ?string $password = null): ?array
     {
         $username = $this->generateUsername($user->email);
-        $password = $password ?? Str::random(32). '!Aa1';
+        $password = $password ?? Str::random(32).'!Aa1';
 
         $response = $this->makeRequest('POST', '/api/v4/users', [
             'email' => $user->email,
@@ -674,7 +755,7 @@ class MattermostService
 
         if ($response->successful()) {
             $mattermostUser = $response->json();
-            
+
             // Store Mattermost user ID in our database
             $this->storeMattermostUserId($user, $mattermostUser['id']);
 
@@ -715,12 +796,12 @@ class MattermostService
 
         if ($response->successful()) {
             $mattermostUser = $response->json();
-            
+
             // Store/update Mattermost user ID
             $this->storeMattermostUserId($user, $mattermostUser['id']);
 
             // Regenerate personal access token if not exists
-            if (!$user->mattermost_token) {
+            if (! $user->mattermost_token) {
                 $this->generateAndStoreUserToken($user, $mattermostUser['id']);
             }
 
@@ -768,8 +849,8 @@ class MattermostService
     {
         try {
             $mattermostUserId = $this->getMattermostUserId($user);
-            
-            if (!$mattermostUserId) {
+
+            if (! $mattermostUserId) {
                 return null;
             }
 
@@ -785,6 +866,7 @@ class MattermostService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -795,8 +877,8 @@ class MattermostService
     public function generateMagicLinkUrl(User $user): ?string
     {
         $token = $this->generateMagicLinkToken($user);
-        
-        if (!$token) {
+
+        if (! $token) {
             return null;
         }
 
@@ -811,11 +893,12 @@ class MattermostService
     {
         try {
             $mattermostUserId = $this->getMattermostUserId($user);
-            
-            if (!$mattermostUserId) {
+
+            if (! $mattermostUserId) {
                 Log::warning('No Mattermost user ID found for user', [
                     'user_id' => $user->id,
                 ]);
+
                 return null;
             }
 
@@ -827,23 +910,22 @@ class MattermostService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
 
     /**
      * Set user's profile image on Mattermost
-     * 
-     * @param User $user
-     * @param \Illuminate\Http\UploadedFile $file
-     * @return bool
+     *
+     * @param  \Illuminate\Http\UploadedFile  $file
      */
     public function setUserProfileImage(User $user, $file): bool
     {
         try {
             $mattermostUserId = $this->getMattermostUserId($user);
-            
-            if (!$mattermostUserId) {
+
+            if (! $mattermostUserId) {
                 Log::info('No Mattermost ID found during avatar upload, attempting sync', ['user_id' => $user->id]);
                 $syncResult = $this->syncUser($user);
                 if ($syncResult && isset($syncResult['id'])) {
@@ -852,16 +934,18 @@ class MattermostService
                     Log::error('Could not sync user to Mattermost during avatar upload', [
                         'user_id' => $user->id,
                     ]);
+
                     return false;
                 }
             }
 
             $url = "{$this->baseUrl}/api/v4/users/{$mattermostUserId}/image";
-            
+
             // Use user's personal token if available, otherwise use admin token
             $token = ($user->mattermost_token) ? $user->mattermost_token : $this->token;
 
-            $response = Http::withToken($token)
+            $response = Http::timeout(30)
+                ->withToken($token)
                 ->attach('image', file_get_contents($file->getRealPath()), $file->getClientOriginalName())
                 ->post($url);
 
@@ -870,6 +954,7 @@ class MattermostService
                     'user_id' => $user->id,
                     'mattermost_user_id' => $mattermostUserId,
                 ]);
+
                 return true;
             }
 
@@ -886,6 +971,7 @@ class MattermostService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -893,25 +979,25 @@ class MattermostService
     /**
      * Download user's profile image from Mattermost
      * Returns the image content as a binary string
-     * 
-     * @param User $user
+     *
      * @return string|null Binary image content or null on failure
      */
     public function downloadUserProfileImage(User $user): ?string
     {
         try {
             $mattermostUserId = $this->getMattermostUserId($user);
-            
-            if (!$mattermostUserId) {
+
+            if (! $mattermostUserId) {
                 Log::warning('No Mattermost user ID found for user', [
                     'user_id' => $user->id,
                 ]);
+
                 return null;
             }
 
             $url = "{$this->baseUrl}/api/v4/users/{$mattermostUserId}/image";
-            
-            $response = Http::withToken($this->token)->get($url);
+
+            $response = Http::timeout(30)->withToken($this->token)->get($url);
 
             if ($response->successful()) {
                 return $response->body();
@@ -929,6 +1015,7 @@ class MattermostService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -936,14 +1023,14 @@ class MattermostService
     /**
      * Make HTTP request to Mattermost API
      */
-    protected function makeRequest(string $method, string $endpoint, array $data = [], ?User $user = null)
+    protected function makeRequest(string $method, string $endpoint, array $data = [], ?User $user = null): Response
     {
-        $url = $this->baseUrl . $endpoint;
-        
+        $url = $this->baseUrl.$endpoint;
+
         // Use user's personal token if provided and available, otherwise use admin token
         $token = ($user && $user->mattermost_token) ? $user->mattermost_token : $this->token;
 
-        $http = Http::withToken($token)->accept('application/json');
+        $http = Http::timeout(30)->withToken($token)->accept('application/json');
 
         // For DELETE requests, don't send data in the body
         if (strtoupper($method) === 'DELETE') {
@@ -962,10 +1049,10 @@ class MattermostService
         $name = Str::slug($project->name, '-');
         $name = preg_replace('/[^a-z0-9\-_]/', '', $name);
         $name = Str::limit($name, 60, '');
-        
+
         // Add project ID to ensure uniqueness
-        $name .= '-' . $project->id;
-        
+        $name .= '-'.$project->id;
+
         return $name;
     }
 
@@ -976,14 +1063,14 @@ class MattermostService
     {
         $username = Str::before($email, '@');
         $username = preg_replace('/[^a-z0-9.\-_]/', '', strtolower($username));
-        
-        // Reserved words check: Mattermost reserved words include 'all', 'channel', 'here' 
+
+        // Reserved words check: Mattermost reserved words include 'all', 'channel', 'here'
         // and words starting with 'admin' or 'system'.
         $reservedPrefixes = ['admin', 'system'];
         $reservedFullWords = ['all', 'channel', 'here', 'root', 'support'];
-        
+
         $isReserved = in_array($username, $reservedFullWords);
-        if (!$isReserved) {
+        if (! $isReserved) {
             foreach ($reservedPrefixes as $prefix) {
                 if (str_starts_with($username, $prefix)) {
                     $isReserved = true;
@@ -993,14 +1080,14 @@ class MattermostService
         }
 
         if ($isReserved) {
-            $username = 'aura-' . $username;
+            $username = 'aura-'.$username;
         }
 
         // Ensure length between 3 and 22 characters
         if (strlen($username) < 3) {
-            $username = $username . 'usr';
+            $username = $username.'usr';
         }
-        
+
         return Str::limit($username, 22, '');
     }
 
@@ -1018,6 +1105,7 @@ class MattermostService
     protected function getLastName(string $fullName): string
     {
         $lastName = Str::after($fullName, ' ');
+
         return $lastName !== $fullName ? $lastName : '';
     }
 
@@ -1061,13 +1149,13 @@ class MattermostService
         try {
             // Create a personal access token for the user
             $response = $this->makeRequest('POST', "/api/v4/users/{$mattermostUserId}/tokens", [
-                'description' => 'Personal API Token - Generated ' . now()->toDateTimeString(),
+                'description' => 'Personal API Token - Generated '.now()->toDateTimeString(),
             ]);
 
             if ($response->successful()) {
                 $tokenData = $response->json();
                 $token = $tokenData['token'];
-                
+
                 // Store token in database
                 $user->update(['mattermost_token' => $token]);
 
@@ -1092,6 +1180,7 @@ class MattermostService
                 'mattermost_user_id' => $mattermostUserId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -1110,7 +1199,8 @@ class MattermostService
     public function loginUser(string $email, string $password): ?array
     {
         try {
-            $response = Http::acceptJson()
+            $response = Http::timeout(30)
+                ->acceptJson()
                 ->post("{$this->baseUrl}/api/v4/users/login", [
                     'login_id' => $email,
                     'password' => $password,
@@ -1119,7 +1209,7 @@ class MattermostService
             if ($response->successful()) {
                 $userData = $response->json();
                 $token = $response->header('Token');
-                
+
                 Log::info('Mattermost user login successful', [
                     'email' => $email,
                     'user_id' => $userData['id'] ?? null,
@@ -1143,6 +1233,7 @@ class MattermostService
                 'email' => $email,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -1161,6 +1252,7 @@ class MattermostService
                 Log::info('Mattermost password updated successfully', [
                     'mattermost_user_id' => $mattermostUserId,
                 ]);
+
                 return true;
             }
 
@@ -1176,6 +1268,7 @@ class MattermostService
                 'mattermost_user_id' => $mattermostUserId,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -1195,38 +1288,37 @@ class MattermostService
         } else {
             // Sync user to Mattermost with the password
             $result = $this->syncUser($user, $plaintextPassword);
+
             return $result !== null;
         }
     }
 
     /**
      * Generate JWT token for Mattermost plugin auto-login
-     * 
-     * @param User $user
-     * @return string|null
      */
     public function generatePluginJWT(User $user): ?string
     {
         try {
             $secret = config('services.mattermost.jwt_secret');
-            
-            if (!$secret) {
+
+            if (! $secret) {
                 Log::error('Mattermost JWT secret not configured');
+
                 return null;
             }
 
             $mattermostUserId = $this->getMattermostUserId($user);
-            
+
             // If no stored Mattermost ID, try to fetch it from Mattermost by email
-            if (!$mattermostUserId) {
+            if (! $mattermostUserId) {
                 $mattermostUser = $this->getUserByEmail($user->email);
-                
+
                 if ($mattermostUser && isset($mattermostUser['id'])) {
                     $mattermostUserId = $mattermostUser['id'];
-                    
+
                     // Store the ID for future use
                     $this->storeMattermostUserId($user, $mattermostUserId);
-                    
+
                     Log::info('Found and stored Mattermost user ID for JWT', [
                         'user_id' => $user->id,
                         'email' => $user->email,
@@ -1237,6 +1329,7 @@ class MattermostService
                         'user_id' => $user->id,
                         'email' => $user->email,
                     ]);
+
                     return null;
                 }
             }
@@ -1267,28 +1360,27 @@ class MattermostService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
 
     /**
      * Generate Mattermost plugin auto-login URL with email login
-     * 
-     * @param User $user
-     * @param string|null $channelName - Optional channel name to redirect to (e.g. 'general', 'town-square', or project channel)
-     * @return string|null
+     *
+     * @param  string|null  $channelName  - Optional channel name to redirect to (e.g. 'general', 'town-square', or project channel)
      */
     public function generatePluginAutoLoginUrl(User $user, ?string $channelName = null): ?string
     {
         $email = urlencode($user->email);
-        
+
         // Default to general channel if no channel specified
-        if (!$channelName) {
+        if (! $channelName) {
             $channelName = 'general';
         }
-        
+
         $redirectTo = urlencode("/artslab-creatives/channels/{$channelName}");
-        
+
         return "{$this->baseUrl}/email_login?email={$email}&redirect_to={$redirectTo}";
     }
 }
