@@ -13,10 +13,27 @@ class TaskHistoryService
      */
     public function trackStageChange(Task $task, int $oldStageId, int $newStageId, ?int $userId = null): void
     {
+        if ($oldStageId === $newStageId) {
+            return;
+        }
+
         $oldStage = \App\Models\Stage::find($oldStageId);
         $newStage = \App\Models\Stage::find($newStageId);
         
         $action = $newStage && $newStage->is_review_stage ? 'moved_to_review_stage' : 'stage_changed';
+
+        $recentDuplicateExists = TaskHistory::query()
+            ->where('task_id', $task->id)
+            ->where('action', $action)
+            ->where('incoming_stage_id', $oldStageId)
+            ->where('outgoing_stage_id', $newStageId)
+            ->where('created_at', '>=', now()->subMinutes(5))
+            ->exists();
+
+        if ($recentDuplicateExists) {
+            Log::debug("TaskHistory: Skipped duplicate stage change for task {$task->id} from stage {$oldStageId} to {$newStageId}");
+            return;
+        }
         
         // Populate both incoming and outgoing, even if same
         TaskHistory::create([

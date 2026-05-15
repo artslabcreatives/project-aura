@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class GoogleAuthController extends Controller
@@ -26,8 +25,23 @@ class GoogleAuthController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function handleGoogleCallback()
+    public function handleGoogleCallback(Request $request)
     {
+        if ($request->filled('error')) {
+            Log::warning('Google Auth Error: provider returned error', [
+                'error' => $request->query('error'),
+                'error_description' => $request->query('error_description'),
+            ]);
+
+            return redirect(config('app.frontend_url') . '/login?error=google_auth_failed');
+        }
+
+        if (!$request->filled('code')) {
+            Log::warning('Google Auth Error: callback missing authorization code');
+
+            return redirect(config('app.frontend_url') . '/login?error=google_auth_failed');
+        }
+
         try {
             $googleUser = Socialite::driver('google')->stateless()->user();
             
@@ -52,7 +66,7 @@ class GoogleAuthController extends Controller
 
             // Redirect back to frontend with the generated token
             // The frontend will catch this token and log the user in.
-            return redirect(config('app.frontend_url') . '/login?token=' . $token);
+            return redirect(config('app.frontend_url') . '/login?' . http_build_query(['token' => $token]));
 
         } catch (\Exception $e) {
             Log::error('Google Auth Error: ' . $e->getMessage());
