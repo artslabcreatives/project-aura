@@ -85,6 +85,31 @@ class ClientController extends Controller
         return response()->json($query->get());
     }
 
+    #[OA\Post(
+        path: "/clients",
+        summary: "Create a new client",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["company_name"],
+                properties: [
+                    new OA\Property(property: "company_name", type: "string"),
+                    new OA\Property(property: "industry", type: "string"),
+                    new OA\Property(property: "website", type: "string"),
+                    new OA\Property(property: "phone", type: "string"),
+                    new OA\Property(property: "email", type: "string", format: "email"),
+                    new OA\Property(property: "address", type: "string"),
+                    new OA\Property(property: "notes", type: "string"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Client created"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function store(Request $request)
     {
         $this->checkPermission();
@@ -108,6 +133,19 @@ class ClientController extends Controller
         return response()->json($client, 201);
     }
 
+    #[OA\Get(
+        path: "/clients/{id}",
+        summary: "Get client by ID",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Client details"),
+            new OA\Response(response: 404, description: "Client not found")
+        ]
+    )]
     public function show(Client $client): JsonResponse
     {
         $this->checkPermission();
@@ -116,6 +154,34 @@ class ClientController extends Controller
         }]));
     }
 
+    #[OA\Put(
+        path: "/clients/{id}",
+        summary: "Update client",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "company_name", type: "string"),
+                    new OA\Property(property: "industry", type: "string"),
+                    new OA\Property(property: "website", type: "string"),
+                    new OA\Property(property: "phone", type: "string"),
+                    new OA\Property(property: "email", type: "string", format: "email"),
+                    new OA\Property(property: "address", type: "string"),
+                    new OA\Property(property: "notes", type: "string"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Client updated"),
+            new OA\Response(response: 422, description: "Validation error"),
+            new OA\Response(response: 404, description: "Client not found")
+        ]
+    )]
     public function update(Request $request, Client $client)
     {
         $this->checkPermission();
@@ -137,6 +203,19 @@ class ClientController extends Controller
         return response()->json($client);
     }
 
+    #[OA\Delete(
+        path: "/clients/{id}",
+        summary: "Delete client",
+        security: [["bearerAuth" => []]],
+        tags: ["Clients"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 204, description: "Client deleted"),
+            new OA\Response(response: 404, description: "Client not found")
+        ]
+    )]
     public function destroy(Client $client)
     {
         $this->checkPermission();
