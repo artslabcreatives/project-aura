@@ -142,8 +142,8 @@ class ProjectController extends Controller
                     'group:id,name,department_id',
                     'client:id,company_name',
                     'stages' => function ($query) {
-                        $query->select(['id', 'title', 'project_id', 'color', 'type', 'order'])
-                              ->where('type', 'project');
+                        $query->select(['id', 'title', 'project_id', 'color', 'type', 'order', 'is_review_stage', 'main_responsible_id', 'backup_responsible_id_1', 'backup_responsible_id_2'])
+                              ->where('type', 'project')->withCount(['tasks' => function ($q) { $q->where('user_status', '!=', 'complete'); }]);
                     },
                     'collaborators' => function ($query) {
                         $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');

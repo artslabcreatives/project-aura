@@ -52,25 +52,29 @@ export default function ReviewNeededPage() {
         if (!currentUser) return [];
 
         return tasks.filter(task => {
-            // 1. Must be assigned to the current user
-            const isAssigned =
-                task.assignee === currentUser.name ||
-                (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
-
-            if (!isAssigned) return false;
-
-            // 2. Must be in a "Review" stage
-            // We need to find the project and the stage
+            // Find the project and the stage
             const project = projects.find(p => p.name === task.project);
             if (!project) return false;
 
             const stage = project.stages.find(s => s.id === task.projectStage);
             if (!stage) return false;
 
-            // Check if it's a review stage (by property or title conventions)
+            // Check if it's a review stage
             const isReview = stage.isReviewStage || stage.title.toLowerCase().includes("review");
+            if (!isReview || task.userStatus === 'complete') return false;
 
-            return isReview && task.userStatus !== 'complete';
+            // 1. Check if assigned to the current user
+            const isAssigned =
+                task.assignee === currentUser.name ||
+                (task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(currentUser.id)));
+
+            // 2. Check if user is responsible for this stage (for Team Leads)
+            const isResponsible = 
+                String(stage.mainResponsibleId) === String(currentUser.id) ||
+                String(stage.backupResponsibleId1) === String(currentUser.id) ||
+                String(stage.backupResponsibleId2) === String(currentUser.id);
+
+            return isAssigned || isResponsible;
         });
     }, [tasks, projects, currentUser]);
 

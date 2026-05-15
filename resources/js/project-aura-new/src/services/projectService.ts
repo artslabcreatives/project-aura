@@ -28,6 +28,7 @@ function mapStage(raw: any): Stage {
 		isReviewStage: raw.is_review_stage ?? false,
 		linkedReviewStageId: raw.linked_review_stage_id ? String(raw.linked_review_stage_id) : undefined,
 		approvedTargetStageId: raw.approved_target_stage_id ? String(raw.approved_target_stage_id) : undefined,
+		tasksCount: raw.tasks_count ?? 0,
 	};
 }
 
