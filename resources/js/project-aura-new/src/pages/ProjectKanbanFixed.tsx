@@ -63,6 +63,7 @@ import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { ProjectAttachmentsTab } from "@/components/ProjectAttachmentsTab";
 import { ProjectLevelAttachmentsDialog } from "@/components/ProjectLevelAttachmentsDialog";
+import { ProjectSummary } from "@/components/ProjectSummary";
 import { Paperclip } from "lucide-react";
 import { 
 	Dialog, 
@@ -284,6 +285,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [preselectedStageId, setPreselectedStageId] = useState<string | undefined>(undefined);
+	const [activeTab, setActiveTab] = useState<"summary" | "board">("board");
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 
 	// Subtask Dialog State
@@ -1184,20 +1186,36 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 						</div>
 					</div>
 
-					<div className="flex justify-start">
+					<div className="flex justify-start gap-4">
 						<ToggleGroup 
 							type="single" 
-							value={view} 
-							onValueChange={(v) => v && setView(v as 'kanban' | 'list')}
+							value={activeTab} 
+							onValueChange={(v) => v && setActiveTab(v as 'summary' | 'board')}
 							className="bg-muted/50 p-1 rounded-xl border border-border/10"
 						>
-							<ToggleGroupItem value="kanban" aria-label="Kanban view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
-								<LayoutGrid className="h-4 w-4" />
+							<ToggleGroupItem value="summary" aria-label="Summary" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
+								Summary
 							</ToggleGroupItem>
-							<ToggleGroupItem value="list" aria-label="List view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
-								<List className="h-4 w-4" />
+							<ToggleGroupItem value="board" aria-label="Board" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
+								Board
 							</ToggleGroupItem>
 						</ToggleGroup>
+
+						{activeTab === "board" && (
+							<ToggleGroup 
+								type="single" 
+								value={view} 
+								onValueChange={(v) => v && setView(v as 'kanban' | 'list')}
+								className="bg-muted/50 p-1 rounded-xl border border-border/10"
+							>
+								<ToggleGroupItem value="kanban" aria-label="Kanban view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+									<LayoutGrid className="h-4 w-4" />
+								</ToggleGroupItem>
+								<ToggleGroupItem value="list" aria-label="List view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+									<List className="h-4 w-4" />
+								</ToggleGroupItem>
+							</ToggleGroup>
+						)}
 					</div>
 				</div>
 			</header>
@@ -1241,7 +1259,9 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 					(isProjectBlocked || isPORequired) && "grayscale opacity-50 pointer-events-none select-none"
 				)}>
 					<div className="w-full">
-						{view === 'kanban' ? (
+						{activeTab === "summary" ? (
+							<ProjectSummary project={project} tasks={tasks} />
+						) : view === 'kanban' ? (
 							<KanbanBoard
 								tasks={topLevelTasks}
 								stages={sortedStages}
