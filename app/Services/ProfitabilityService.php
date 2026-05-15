@@ -167,9 +167,19 @@ class ProfitabilityService
             ->whereNotNull('ended_at')
             ->sum('hours_logged');
 
-        $task->update([
+        $taskCost = $task->hourly_rate ? $task->hourly_rate * $totalHours : null;
+
+        DB::table('tasks')
+            ->where('id', $task->id)
+            ->update([
+                'actual_hours_worked' => $totalHours,
+                'task_cost' => $taskCost,
+                'updated_at' => now(),
+            ]);
+
+        $task->forceFill([
             'actual_hours_worked' => $totalHours,
-            'task_cost' => $task->hourly_rate ? $task->hourly_rate * $totalHours : null,
+            'task_cost' => $taskCost,
         ]);
 
         // Recalculate project profitability

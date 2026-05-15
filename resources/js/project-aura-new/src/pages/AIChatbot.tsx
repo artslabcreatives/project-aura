@@ -9,9 +9,10 @@ import {
   Users, FolderKanban, ListTodo, TrendingDown, Loader2, ChevronRight,
   Shield, FileText, BarChart3, BookOpen, Paperclip, X, UploadCloud
 } from 'lucide-react';
-import { chatbotService, ChatSession, ChatMessage, ScenarioPolicy, ContextStats, ChatMessageMetadata } from '@/services/chatbotService';
+import { chatbotService, ChatSession, ChatMessage, ScenarioPolicy, ContextStats, ChatMessageMetadata, ChatActionResult } from '@/services/chatbotService';
 
 const ACCEPTED_AGENT_FILES = ".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.mp3,.wav,.m4a,.mp4,.mov,.webm,.json";
+const REQUEST_PROGRESS_STEPS = ['Reading request', 'Checking Aura records', 'Applying changes', 'Writing response'];
 
 function parseMetadata(metadata: ChatMessage['metadata']): ChatMessageMetadata | null {
   if (!metadata) return null;
@@ -122,6 +123,96 @@ function MessageContent({ content }: { content: string }) {
   return <div className="space-y-0.5 leading-relaxed">{nodes}</div>;
 }
 
+function humanizeAction(type: string): string {
+  return type
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function actionDetail(action: ChatActionResult): string | null {
+  if (action.error) return action.error;
+
+  const payload = action.result ?? {};
+  const id = payload.task_id ?? payload.comment_id;
+  const title = payload.title ?? payload.project ?? payload.status;
+  const changed = Array.isArray(payload.changed) ? payload.changed.join(', ') : null;
+  const parts = [
+    typeof id === 'number' || typeof id === 'string' ? `#${id}` : null,
+    typeof title === 'string' && title.trim() ? title : null,
+    changed ? `changed ${changed}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function ActionProgress({ actions, pending = false, activeStep = 0 }: {
+  actions?: ChatActionResult[];
+  pending?: boolean;
+  activeStep?: number;
+}) {
+  if (pending) {
+    return (
+      <div className="min-w-[260px] space-y-2">
+        <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" />
+          Working on it
+        </div>
+        <div className="space-y-1.5">
+          {REQUEST_PROGRESS_STEPS.map((step, index) => {
+            const isComplete = index < activeStep;
+            const isCurrent = index === activeStep;
+            const Icon = isComplete ? CheckCircle2 : isCurrent ? Loader2 : Clock;
+
+            return (
+              <div key={step} className={`flex items-center gap-2 text-xs ${isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>
+                <Icon className={`h-3.5 w-3.5 shrink-0 ${isComplete ? 'text-emerald-500' : isCurrent ? 'animate-spin text-violet-500' : ''}`} />
+                <span>{step}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (!actions?.length) return null;
+
+  const completed = actions.filter(action => action.status === 'completed').length;
+  const failed = actions.filter(action => action.status === 'failed').length;
+
+  return (
+    <div className="mt-3 border-t border-border/80 pt-2.5 space-y-2">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="font-medium text-foreground">Action progress</span>
+        <span className={failed > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}>
+          {completed}/{actions.length} completed
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {actions.map((action, index) => {
+          const failedAction = action.status === 'failed';
+          const Icon = failedAction ? AlertTriangle : CheckCircle2;
+          const detail = actionDetail(action);
+
+          return (
+            <div key={`${action.type}-${index}`} className="flex items-start gap-2 text-xs">
+              <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${failedAction ? 'text-red-500' : 'text-emerald-500'}`} />
+              <div className="min-w-0">
+                <div className="font-medium text-foreground">{humanizeAction(action.type)}</div>
+                {detail && (
+                  <div className={failedAction ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}>
+                    {detail}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function StatBadge({ icon: Icon, label, value, variant }: {
   icon: React.ElementType;
   label: string;
@@ -211,6 +302,7 @@ export default function AIChatbot() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeRequestStep, setActiveRequestStep] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'policies'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -228,6 +320,19 @@ export default function AIChatbot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setActiveRequestStep(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveRequestStep(prev => Math.min(prev + 1, REQUEST_PROGRESS_STEPS.length - 1));
+    }, 1400);
+
+    return () => window.clearInterval(interval);
+  }, [isLoading]);
 
   async function loadSessions() {
     try {
@@ -571,58 +676,57 @@ export default function AIChatbot() {
             {/* Messages */}
             <ScrollArea className="flex-1 px-4">
               <div className="py-4 space-y-4 max-w-3xl mx-auto">
-                {messages.filter(m => m.role !== 'system').map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {msg.role === 'assistant' && (
-                      <div className="p-1.5 bg-violet-100 dark:bg-violet-950/50 rounded-lg h-fit mt-0.5 shrink-0">
-                        <Bot className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-                      </div>
-                    )}
+                {messages.filter(m => m.role !== 'system').map((msg, idx) => {
+                  const metadata = parseMetadata(msg.metadata);
+
+                  return (
                     <div
-                      className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
-                        msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground ml-auto'
-                          : 'bg-card border border-border text-foreground'
-                      }`}
+                      key={idx}
+                      className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      {msg.role === 'user' ? (
-                        <div className="space-y-2">
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
-                          {parseMetadata(msg.metadata)?.attachments && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {parseMetadata(msg.metadata)?.attachments?.map(file => (
-                                <span key={`${file.id}-${file.name}`} className="inline-flex items-center gap-1 rounded-md bg-primary-foreground/15 px-2 py-1 text-[11px]">
-                                  <Paperclip className="h-3 w-3" />
-                                  {file.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                      {msg.role === 'assistant' && (
+                        <div className="p-1.5 bg-violet-100 dark:bg-violet-950/50 rounded-lg h-fit mt-0.5 shrink-0">
+                          <Bot className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
                         </div>
-                      ) : (
-                        <MessageContent content={msg.content} />
                       )}
+                      <div
+                        className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
+                          msg.role === 'user'
+                            ? 'bg-primary text-primary-foreground ml-auto'
+                            : 'bg-card border border-border text-foreground'
+                        }`}
+                      >
+                        {msg.role === 'user' ? (
+                          <div className="space-y-2">
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            {metadata?.attachments && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {metadata.attachments.map(file => (
+                                  <span key={`${file.id}-${file.name}`} className="inline-flex items-center gap-1 rounded-md bg-primary-foreground/15 px-2 py-1 text-[11px]">
+                                    <Paperclip className="h-3 w-3" />
+                                    {file.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <MessageContent content={msg.content} />
+                            <ActionProgress actions={metadata?.actions} />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {isLoading && (
                   <div className="flex gap-3 justify-start">
                     <div className="p-1.5 bg-violet-100 dark:bg-violet-950/50 rounded-lg h-fit mt-0.5 shrink-0">
                       <Bot className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
                     </div>
-                    <div className="bg-card border border-border rounded-xl px-4 py-3">
-                      <div className="flex gap-1 items-center h-4">
-                        {[0, 1, 2].map(i => (
-                          <div
-                            key={i}
-                            className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce"
-                            style={{ animationDelay: `${i * 150}ms` }}
-                          />
-                        ))}
-                      </div>
+                    <div className="bg-card border border-border rounded-xl px-4 py-3 text-sm">
+                      <ActionProgress pending activeStep={activeRequestStep} />
                     </div>
                   </div>
                 )}

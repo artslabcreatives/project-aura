@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Task;
 use App\Models\TaskHistory;
-use Illuminate\Support\Facades\Log;
 
 class TaskHistoryService
 {
@@ -22,16 +21,20 @@ class TaskHistoryService
         
         $action = $newStage && $newStage->is_review_stage ? 'moved_to_review_stage' : 'stage_changed';
 
-        $recentDuplicateExists = TaskHistory::query()
+        $latestStageHistory = TaskHistory::query()
             ->where('task_id', $task->id)
-            ->where('action', $action)
-            ->where('incoming_stage_id', $oldStageId)
-            ->where('outgoing_stage_id', $newStageId)
-            ->where('created_at', '>=', now()->subMinutes(5))
-            ->exists();
+            ->whereIn('action', ['stage_changed', 'moved_to_review_stage'])
+            ->whereNotNull('incoming_stage_id')
+            ->whereNotNull('outgoing_stage_id')
+            ->latest('id')
+            ->first();
 
-        if ($recentDuplicateExists) {
-            Log::debug("TaskHistory: Skipped duplicate stage change for task {$task->id} from stage {$oldStageId} to {$newStageId}");
+        if (
+            $latestStageHistory
+            && $latestStageHistory->action === $action
+            && (int) $latestStageHistory->incoming_stage_id === $oldStageId
+            && (int) $latestStageHistory->outgoing_stage_id === $newStageId
+        ) {
             return;
         }
         
