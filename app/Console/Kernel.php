@@ -27,6 +27,12 @@ class Kernel extends ConsoleKernel
             ->dailyAt('09:00')
             ->timezone('Asia/Colombo')
             ->runInBackground();
+
+        // Send weekly reminders for active projects working without a PO.
+        $schedule->command('projects:send-weekly-po-reminders')
+            ->weeklyOn(1, '09:00')
+            ->timezone('Asia/Colombo')
+            ->runInBackground();
     }
 
     /**

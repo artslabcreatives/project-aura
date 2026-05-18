@@ -109,7 +109,8 @@ interface ProjectDialogProps {
 		deadline?: string,
 		poDocument?: File,
 		currency?: string,
-		isInternalProject?: boolean
+		isInternalProject?: boolean,
+		skipPo?: boolean
 	) => Promise<void> | void;
 	existingProjects: string[];
 	teamMembers: User[];
@@ -456,7 +457,7 @@ export function ProjectDialog({
 	const { activeRole } = useUser();
 	const canSeeClientInfo = activeRole === 'admin' || activeRole === 'hr';
 	const { toast } = useToast();
-	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, deadline?: string, poDocument?: File, currency?: string, isInternalProject?: boolean }>({
+	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, deadline?: string, poDocument?: File, currency?: string, isInternalProject?: boolean, skipPo?: boolean }>({
 		name: "",
 		description: "",
 		clientId: "",
@@ -467,6 +468,7 @@ export function ProjectDialog({
 		poDocument: undefined,
 		currency: "LKR",
 		isInternalProject: true,
+		skipPo: false,
 	});
 	const [clients, setClients] = useState<ClientType[]>([]);
 	const [stages, setStages] = useState<Stage[]>([]);
@@ -559,6 +561,7 @@ export function ProjectDialog({
 					poDocument: undefined, // cannot prefill file inputs
 					currency: editProject.currency || "USD",
 					isInternalProject: editProject.isInternalProject || false,
+					skipPo: editProject.skipPo || false,
 				});
 				setStages(editProject.stages || []);
 				setEmails(editProject.emails || []);
@@ -583,7 +586,7 @@ export function ProjectDialog({
 			}
 		} else {
 			setGroupId("");
-			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", deadline: "", poDocument: undefined, currency: "LKR", isInternalProject: true });
+			setFormData({ name: "", description: "", clientId: "", estimatedHours: 0, status: "active", poNumber: "", deadline: "", poDocument: undefined, currency: "LKR", isInternalProject: true, skipPo: false });
 			setStages([]);
 			setEmails([]);
 			setPhoneNumbers([]);
@@ -789,7 +792,7 @@ export function ProjectDialog({
 			return;
 		}
 
-		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status, formData.poNumber, formData.deadline, formData.poDocument, formData.currency, formData.isInternalProject);
+		onSave(formData.name, formData.description || "", uniqueStages, emails, phoneNumbers, department, groupId, formData.clientId, formData.estimatedHours, formData.status, formData.poNumber, formData.deadline, formData.poDocument, formData.currency, formData.isInternalProject, formData.skipPo);
 		onOpenChange(false);
 	};
 
@@ -1043,6 +1046,32 @@ export function ProjectDialog({
 								
 								{!formData.isInternalProject && (
 									<>
+										<div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors animate-in fade-in duration-300">
+											<Checkbox
+												id="skipPo"
+												checked={formData.skipPo || false}
+												onCheckedChange={(checked) => setFormData({ ...formData, skipPo: checked === true })}
+											/>
+											<div className="flex-1">
+												<Label
+													htmlFor="skipPo"
+													className="text-xs font-semibold cursor-pointer select-none flex items-center gap-1.5"
+												>
+													Skip PO Requirement
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+														</TooltipTrigger>
+														<TooltipContent side="right" className="max-w-[280px]">
+															<p className="text-xs leading-relaxed">
+																Allows project work and task creation immediately without attaching a Purchase Order. Weekly email/Mattermost reminders will be sent to Admins and HR until a valid PO is uploaded.
+															</p>
+														</TooltipContent>
+													</Tooltip>
+												</Label>
+											</div>
+										</div>
+
 										{canSeeClientInfo && (
 											<div className="grid gap-2">
 												<Label htmlFor="deadline">Project Deadline</Label>

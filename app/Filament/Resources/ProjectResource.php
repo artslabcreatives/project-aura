@@ -58,6 +58,9 @@ class ProjectResource extends Resource
                         Forms\Components\Toggle::make('is_locked_by_po')
                             ->label('Locked (Awaiting PO)')
                             ->default(true),
+                        Forms\Components\Toggle::make('skip_po')
+                            ->label('Skip PO Requirement')
+                            ->default(false),
                     ])
                     ->columns(2),
                 Forms\Components\Section::make('Contact Information')

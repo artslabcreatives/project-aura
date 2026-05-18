@@ -254,6 +254,7 @@ class ProjectController extends Controller
             'is_physical_invoice' => 'nullable|boolean',
             'courier_tracking_number' => 'nullable|string|max:255',
             'is_internal_project' => 'nullable|boolean',
+            'skip_po' => 'nullable|boolean',
         ]);
 
         if ($request->hasFile('po_document')) {
@@ -453,6 +454,7 @@ class ProjectController extends Controller
             'courier_delivery_status' => 'nullable|string|max:255',
             'is_internal_project' => 'nullable|boolean',
             'budget_allocated' => 'nullable|numeric|min:0',
+            'skip_po' => 'nullable|boolean',
         ]);
 
         $wasArchived = $project->is_archived;

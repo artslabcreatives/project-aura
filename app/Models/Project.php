@@ -58,6 +58,7 @@ class Project extends Model
         'manual_reminder_date',
         'manual_reminder_frequency_days',
         'manual_reminder_days',
+        'skip_po',
     ];
 
     protected $casts = [
@@ -81,6 +82,7 @@ class Project extends Model
         'manual_reminder_frequency_days' => 'integer',
         'manual_reminder_days' => 'array',
         'last_automated_reminder_sent_at' => 'datetime',
+        'skip_po' => 'boolean',
     ];
 
     protected $attributes = [
@@ -161,6 +163,10 @@ class Project extends Model
 
         if ($this->is_internal_project) {
             return true; // Internal projects don't need PO/Docs
+        }
+
+        if ($this->skip_po) {
+            return true; // Bypass PO block
         }
 
         if (!$this->is_locked_by_po || $this->purchaseOrders()->exists()) {

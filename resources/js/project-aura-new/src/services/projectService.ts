@@ -109,6 +109,7 @@ function mapProject(raw: any): Project {
 		poDocument: raw.po_document,
 		poDocumentUrl: raw.po_document_url,
 		isLockedByPo: raw.is_locked_by_po,
+		skipPo: raw.skip_po,
 		isBlocked: raw.is_blocked,
 		deadline: raw.deadline,
 		invoiceNumber: raw.invoice_number,
@@ -197,6 +198,8 @@ export const projectService = {
 			project.phoneNumbers?.forEach((phone: string) => payload.append('phone_numbers[]', phone));
 			if (project.currency) payload.append('currency', project.currency);
 			if (project.is_internal_project !== undefined) payload.append('is_internal_project', project.is_internal_project ? '1' : '0');
+			const skipPoValue = project.skipPo ?? project.skip_po;
+			if (skipPoValue !== undefined) payload.append('skip_po', skipPoValue ? '1' : '0');
 		} else {
 			payload = {
 				name: project.name,
@@ -214,6 +217,7 @@ export const projectService = {
 				invoice_document: project.invoice_document,
 				currency: project.currency,
 				is_internal_project: project.is_internal_project,
+				skip_po: project.skipPo ?? project.skip_po,
 			};
 		}
 
@@ -254,6 +258,8 @@ export const projectService = {
 			if (updates.isPhysicalInvoice !== undefined) payload.append('is_physical_invoice', updates.isPhysicalInvoice ? '1' : '0');
 			if (updates.courierTrackingNumber !== undefined) payload.append('courier_tracking_number', updates.courierTrackingNumber);
 			if (updates.is_internal_project !== undefined) payload.append('is_internal_project', updates.is_internal_project ? '1' : '0');
+			const skipPoValue = updates.skipPo ?? updates.skip_po;
+			if (skipPoValue !== undefined) payload.append('skip_po', skipPoValue ? '1' : '0');
 
 			// Append arrays
 			updates.emails?.forEach((email: string) => payload.append('emails[]', email));
@@ -286,6 +292,7 @@ export const projectService = {
 				courier_delivery_status: updates.courierDeliveryStatus,
 				currency: updates.currency,
 				is_internal_project: updates.isInternalProject || updates.is_internal_project,
+				skip_po: updates.skipPo ?? updates.skip_po,
 			};
 		}
 

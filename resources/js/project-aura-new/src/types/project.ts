@@ -72,6 +72,7 @@ export interface Project {
 	profitMarginPercentage?: number;
 	budget_allocated?: number;
 	isInternalProject?: boolean;
+	skipPo?: boolean;
 	purchaseOrders?: ProjectPurchaseOrder[];
 	attachments?: ProjectAttachment[];
 }

@@ -394,7 +394,8 @@ export function AppSidebar() {
 		deadline?: string,
 		poDocument?: File,
 		currency?: string,
-		isInternalProject?: boolean
+		isInternalProject?: boolean,
+		skipPo?: boolean
 	) => {
 		if (!currentUser) return;
 		try {
@@ -415,6 +416,7 @@ export function AppSidebar() {
 				po_document: poDocument,
 				currency,
 				is_internal_project: isInternalProject,
+				skipPo: skipPo,
 			});
 
 			// Use the stages already returned by the create call
@@ -520,7 +522,8 @@ setProjects(prev => [newProject, ...prev]);
 		deadline?: string,
 		poDocument?: File,
 		currency?: string,
-		isInternalProject?: boolean
+		isInternalProject?: boolean,
+		skipPo?: boolean
 	) => {
 		if (!currentUser || !projectToEdit) return;
 		try {
@@ -539,6 +542,7 @@ setProjects(prev => [newProject, ...prev]);
 				po_document: poDocument,
 				currency,
 				is_internal_project: isInternalProject,
+				skipPo: skipPo,
 			});
 
 			// Optimistic update for projects list
