@@ -60,6 +60,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 				hasSeenWelcomeVideo: response.has_seen_welcome_video,
 				is_active: response.is_active,
 				createdAt: response.created_at,
+				system_settings: response.system_settings || { enable_chatbot: true, enable_ai_scenarios: true },
 			};
 			setCurrentUser(user);
 			setIsAuthenticated(true);

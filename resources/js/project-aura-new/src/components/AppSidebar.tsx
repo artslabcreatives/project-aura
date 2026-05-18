@@ -1319,9 +1319,12 @@ variant: "destructive",
 		}
 	};
 
-	const filteredMainMenuItems = mainMenuItems.filter(item =>
-		userRole && item.roles.includes(userRole)
-	);
+	const filteredMainMenuItems = mainMenuItems.filter(item => {
+		if (item.url === "/ai-scenarios" && currentUser?.system_settings?.enable_ai_scenarios === false) {
+			return false;
+		}
+		return userRole && item.roles.includes(userRole);
+	});
 
 	const renderProjectItem = (project: Project, showRole: boolean = false, showGroup: boolean = false) => {
 		let roleBadge = null;

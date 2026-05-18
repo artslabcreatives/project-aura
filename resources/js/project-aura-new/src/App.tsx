@@ -151,7 +151,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 				</main>
 				<ReminderPoller />
 				<ReportIssueDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
-				<AIHelperPopup />
+				{currentUser?.system_settings?.enable_chatbot !== false && <AIHelperPopup />}
 				{currentUser && (
 					<VideoGuideModal
 						isOpen={isVideoGuideOpen}
@@ -274,6 +274,18 @@ const ReportManagement = lazy(() => import("./pages/ReportManagement"));
 const Documents = lazy(() => import("./pages/Documents"));
 const AIChatbot = lazy(() => import("./pages/AIChatbot"));
 
+const AiScenariosRoute = () => {
+	const { currentUser } = useUser();
+	if (currentUser?.system_settings?.enable_ai_scenarios === false) {
+		return <Navigate to="/" replace />;
+	}
+	return (
+		<ProtectedRoute allowedRoles={['admin']}>
+			<AIChatbot />
+		</ProtectedRoute>
+	);
+};
+
 const Dashboard = () => {
 	const { activeRole } = useUser();
 
@@ -371,11 +383,7 @@ const App = () => (
 											<SSOClients />
 										</ProtectedRoute>
 									} />
-									<Route path="/ai-scenarios" element={
-										<ProtectedRoute allowedRoles={['admin']}>
-											<AIChatbot />
-										</ProtectedRoute>
-									} />
+									<Route path="/ai-scenarios" element={<AiScenariosRoute />} />
 
 									{/* Mattermost embedded routes (with /mattermost prefix) */}
 									<Route path="/mattermost" element={<Dashboard />} />

@@ -18,7 +18,20 @@ class AIChatbotController extends Controller
     public function __construct(
         private AIChatbotService $service,
         private AIChatbotOperationsService $operations,
-    ) {}
+    ) {
+        $this->middleware(function ($request, $next) {
+            if (str_contains($request->getPathInfo(), '/policies')) {
+                if (!\App\Models\SystemSetting::isEnabled('enable_ai_scenarios', true)) {
+                    return response()->json(['error' => 'AI Scenario features are disabled.'], 403);
+                }
+            } else {
+                if (!\App\Models\SystemSetting::isEnabled('enable_chatbot', true)) {
+                    return response()->json(['error' => 'AI Chatbot features are disabled.'], 403);
+                }
+            }
+            return $next($request);
+        });
+    }
 
     #[OA\Get(
         path: "/ai-chatbot/sessions",

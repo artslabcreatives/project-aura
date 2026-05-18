@@ -122,9 +122,15 @@ class AuthController extends Controller
         // Create a new token for stateless auth
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        $userData = $user->load('department')->toArray();
+        $userData['system_settings'] = [
+            'enable_chatbot' => \App\Models\SystemSetting::isEnabled('enable_chatbot', true),
+            'enable_ai_scenarios' => \App\Models\SystemSetting::isEnabled('enable_ai_scenarios', true),
+        ];
+
         return response()->json([
             'message' => 'Login successful',
-            'user' => $user->load('department'),
+            'user' => $userData,
             'token' => $token,
             'force_password_reset' => (bool) $user->force_password_reset,
         ]);
@@ -181,7 +187,12 @@ class AuthController extends Controller
     )]
     public function user(Request $request): JsonResponse
     {
-        return response()->json($request->user()->load('department'));
+        $userData = $request->user()->load('department')->toArray();
+        $userData['system_settings'] = [
+            'enable_chatbot' => \App\Models\SystemSetting::isEnabled('enable_chatbot', true),
+            'enable_ai_scenarios' => \App\Models\SystemSetting::isEnabled('enable_ai_scenarios', true),
+        ];
+        return response()->json($userData);
     }
 
     #[OA\Post(

@@ -109,4 +109,8 @@ export interface User {
 	createdAt?: string;
 	todayTaskCount?: number;
 	overdueTaskCount?: number;
+	system_settings?: {
+		enable_chatbot: boolean;
+		enable_ai_scenarios: boolean;
+	};
 }
