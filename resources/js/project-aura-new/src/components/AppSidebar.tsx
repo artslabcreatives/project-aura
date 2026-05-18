@@ -256,11 +256,7 @@ export function AppSidebar() {
 							return project.stages.some(stage => 
 								stage.isReviewStage && 
 								(stage.tasksCount ?? 0) > 0 &&
-								(
-									String(stage.mainResponsibleId) === String(currentUser.id) ||
-									String(stage.backupResponsibleId1) === String(currentUser.id) ||
-									String(stage.backupResponsibleId2) === String(currentUser.id)
-								)
+								String(stage.mainResponsibleId) === String(currentUser.id)
 							);
 						});
 						setReviewNeededProjects(reviewProjects);
@@ -268,11 +264,7 @@ export function AppSidebar() {
 						const totalReviewTasks = reviewProjects.reduce((sum, p) => {
 							return sum + p.stages.filter(s => 
 								s.isReviewStage && 
-								(
-									String(s.mainResponsibleId) === String(currentUser.id) ||
-									String(s.backupResponsibleId1) === String(currentUser.id) ||
-									String(s.backupResponsibleId2) === String(currentUser.id)
-								)
+								String(s.mainResponsibleId) === String(currentUser.id)
 							).reduce((sSum, s) => sSum + (s.tasksCount ?? 0), 0);
 						}, 0);
 						setReviewNeededCount(totalReviewTasks);
@@ -1586,21 +1578,14 @@ variant: "destructive",
 																	.filter(stage =>
 																		stage.isReviewStage &&
 																		(stage.tasksCount ?? 0) > 0 &&
-																		(
-																			String(stage.mainResponsibleId) === String(currentUser?.id) ||
-																			String(stage.backupResponsibleId1) === String(currentUser?.id) ||
-																			String(stage.backupResponsibleId2) === String(currentUser?.id)
-																		)
+																		String(stage.mainResponsibleId) === String(currentUser?.id)
 																	)
 																	.map((stage) => (
 																		<SidebarMenuSubItem key={stage.id}>
 																			<SidebarMenuSubButton asChild>
 																				<NavLink
-																					to={`/user-project/${project.id}/stage/${stage.id}`}
-																					className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isStageActive(String(project.id), stage.id)
-																						? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-																						: ""
-																						}`}
+																					to={`/project/${project.id}`}
+																					className="flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent"
 																				>
 																					<Layers className="h-3 w-3" />
 																					<span className="text-sm">{stage.title}</span>

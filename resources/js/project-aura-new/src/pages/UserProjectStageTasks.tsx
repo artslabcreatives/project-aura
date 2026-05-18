@@ -139,6 +139,10 @@ export default function UserProjectStageTasks() {
 					return;
 				}
 
+				const isStageResponsible = projStage && (
+					String(projStage.mainResponsibleId) === String(currentUser?.id)
+				);
+
 				const filtered = tasksData.filter(t => {
 					const isAssigned =
 						t.assignee === (currentUser?.name || "") ||
@@ -152,12 +156,21 @@ export default function UserProjectStageTasks() {
 					const hasSubtasks = t.subtasks && t.subtasks.length > 0;
 					const allSubtasksComplete = hasSubtasks && t.subtasks.every(st => st.userStatus === 'complete');
 
+					// Check if the task is assigned to another Team Lead
+					const assigneeUser = teamMembers.find(m => m.name === t.assignee);
+					const isAssigneeAnotherTeamLead = assigneeUser && 
+						assigneeUser.role === 'team-lead' && 
+						String(assigneeUser.id) !== String(currentUser?.id);
+
+					const shouldShow = isAssigneeAnotherTeamLead
+						? false
+						: ((projStage?.isReviewStage || isStageResponsible) ? true : isAssigned);
+
 					return String(t.projectId) === String(projectId) &&
 						String(t.projectStage) === String(stageId) &&
-						isAssigned &&
+						shouldShow &&
 						t.userStatus !== 'complete' &&
-						!isMyPartComplete &&
-						!allSubtasksComplete;
+						(projStage?.isReviewStage || (!isMyPartComplete && !allSubtasksComplete));
 				});
 				setTasks(filtered);
 			} catch (error) {
@@ -566,7 +579,7 @@ export default function UserProjectStageTasks() {
 						{project.name} - {stage.title}
 					</h1>
 					<p className="text-muted-foreground">
-						Tasks assigned to {currentUser?.name} in this stage.
+						{stage.isReviewStage ? "Tasks awaiting review in this stage." : `Tasks assigned to ${currentUser?.name} in this stage.`}
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
