@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Task;
 use App\Models\TaskHistory;
+use Illuminate\Support\Facades\Log;
 
 class TaskHistoryService
 {
