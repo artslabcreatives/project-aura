@@ -151,7 +151,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 				</main>
 				<ReminderPoller />
 				<ReportIssueDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
-				{/* <AIHelperPopup /> */}
+				<AIHelperPopup />
 				{currentUser && (
 					<VideoGuideModal
 						isOpen={isVideoGuideOpen}
@@ -330,7 +330,7 @@ const App = () => (
 									} />
 									<Route path="/user-project/:projectId/stage/:stageId" element={<UserProjectStageTasks />} />
 									<Route path="/review-needed" element={
-										<ProtectedRoute allowedRoles={['account-manager']}>
+										<ProtectedRoute allowedRoles={['account-manager', 'team-lead']}>
 											<ReviewNeededPage />
 										</ProtectedRoute>
 									} />

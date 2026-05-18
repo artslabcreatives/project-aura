@@ -3,14 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Scout\Searchable;
 
 
 class TaskHistory extends Model
 {
-    //
-	use Searchable;
-
 	protected $fillable = [
 		'action',
 		'details',
@@ -26,25 +22,6 @@ class TaskHistory extends Model
 	public $casts = [
 		'previous_details' => 'array',
 	];
-
-	/**
-	 * Get the indexable data array for the model.
-	 *
-	 * @return array<string, mixed>
-	 */
-	public function toSearchableArray()
-	{
-		$details = [];
-		if ($this->details) {
-			$details[] = is_array($this->details) ? json_encode($this->details) : (string) $this->details;
-		}
-		return array_merge($this->toArray(),[
-			'id' => (string) $this->id,
-			'action' => $this->action,
-			'details' => $details,
-			'created_at' => $this->created_at->timestamp,
-		]);
-	}
 
 	public function task()
 	{

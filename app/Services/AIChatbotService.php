@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiProviderRateLimitException;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
@@ -11,6 +12,7 @@ use App\Models\Invoice;
 use App\Models\Estimate;
 use App\Models\TaskTimeLog;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -214,6 +216,20 @@ class AIChatbotService
 
             $body = json_decode($response->getBody()->getContents(), true);
             return $body['content'][0]['text'] ?? '';
+        } catch (ClientException $e) {
+            if ($e->getResponse()->getStatusCode() === 429) {
+                $retryAfter = $e->getResponse()->getHeaderLine('retry-after');
+                Log::warning('[AIChatbot] Claude API rate limit hit', [
+                    'retry_after' => $retryAfter ?: null,
+                ]);
+
+                throw new AiProviderRateLimitException(
+                    retryAfterSeconds: is_numeric($retryAfter) ? (int) $retryAfter : null,
+                );
+            }
+
+            Log::error('[AIChatbot] Claude API client error: ' . $e->getMessage());
+            throw $e;
         } catch (\Exception $e) {
             Log::error('[AIChatbot] Claude API error: ' . $e->getMessage());
             throw $e;

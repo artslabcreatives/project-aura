@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AiProviderRateLimitException;
 use App\Http\Controllers\Controller;
 use App\Services\AIChatbotService;
 use App\Services\AIChatbotOperationsService;
@@ -53,6 +54,7 @@ class AIChatbotController extends Controller
     {
         $userId = auth()->id();
         $mode = $request->input('mode', 'operations');
+        $sessionId = null;
 
         try {
             if ($mode !== 'scenario') {
@@ -139,9 +141,26 @@ class AIChatbotController extends Controller
                 ],
                 'stats' => $context['stats'],
             ], 201);
+        } catch (AiProviderRateLimitException $e) {
+            if ($sessionId) {
+                DB::table('ai_chatbot_sessions')->where('id', $sessionId)->delete();
+            }
+
+            Log::warning('[AIChatbot] createSession rate limited');
+
+            $payload = [
+                'error' => $e->getMessage(),
+                'code' => 'ai_rate_limited',
+            ];
+
+            if ($e->retryAfterSeconds() !== null) {
+                $payload['retry_after_seconds'] = $e->retryAfterSeconds();
+            }
+
+            return response()->json($payload, 429);
         } catch (\Exception $e) {
             Log::error('[AIChatbot] createSession error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to start session: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to start the AI session. Please try again.'], 500);
         }
     }
 
@@ -321,9 +340,22 @@ class AIChatbotController extends Controller
                 ],
                 'created_at' => now(),
             ]);
+        } catch (AiProviderRateLimitException $e) {
+            Log::warning('[AIChatbot] sendMessage rate limited');
+
+            $payload = [
+                'error' => $e->getMessage(),
+                'code' => 'ai_rate_limited',
+            ];
+
+            if ($e->retryAfterSeconds() !== null) {
+                $payload['retry_after_seconds'] = $e->retryAfterSeconds();
+            }
+
+            return response()->json($payload, 429);
         } catch (\Exception $e) {
             Log::error('[AIChatbot] sendMessage error: ' . $e->getMessage());
-            return response()->json(['error' => 'Claude API error: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'The AI assistant could not process that request right now. Please try again.'], 500);
         }
     }
 
@@ -568,6 +600,13 @@ class AIChatbotController extends Controller
                 'text' => $result['reply'],
                 'response_type' => 'comment',
             ]);
+        } catch (AiProviderRateLimitException $e) {
+            Log::warning('[AIChatbot] Mattermost webhook rate limited');
+
+            return response()->json([
+                'error' => $e->getMessage(),
+                'code' => 'ai_rate_limited',
+            ], 429);
         } catch (\Throwable $e) {
             Log::error('[AIChatbot] Mattermost webhook error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to process Mattermost reply.'], 500);

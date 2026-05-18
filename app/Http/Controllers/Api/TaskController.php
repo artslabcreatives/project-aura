@@ -92,6 +92,13 @@ class TaskController extends Controller
                           $sq->where('users.id', $user->id);
                       });
 
+                    // Show tasks in stages where user is responsible
+                    $q->orWhereHas('projectStage', function($sq) use ($user) {
+                        $sq->where('main_responsible_id', $user->id)
+                          ->orWhere('backup_responsible_id_1', $user->id)
+                          ->orWhere('backup_responsible_id_2', $user->id);
+                    });
+
                     // Role/Department based visibility
                     if ($user->role === 'team-lead') {
                         if ($user->department_id == 9) { // Design Team Lead

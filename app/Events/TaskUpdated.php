@@ -37,4 +37,25 @@ class TaskUpdated implements ShouldBroadcast
             new PrivateChannel('project.' . $this->task->project_id),
         ];
     }
+
+    /**
+     * Keep realtime broadcasts small; consumers use this event as a refetch signal.
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'action' => $this->action,
+            'task_id' => $this->task->id,
+            'project_id' => $this->task->project_id,
+            'task' => [
+                'id' => $this->task->id,
+                'project_id' => $this->task->project_id,
+                'user_status' => $this->task->user_status,
+                'project_stage_id' => $this->task->project_stage_id,
+                'assignee_id' => $this->task->assignee_id,
+                'parent_id' => $this->task->parent_id,
+                'updated_at' => optional($this->task->updated_at)->toJSON(),
+            ],
+        ];
+    }
 }

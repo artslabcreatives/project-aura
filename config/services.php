@@ -34,6 +34,7 @@ return [
     'mattermost' => [
         'url' => env('MATTERMOST_URL'),
         'token' => env('MATTERMOST_TOKEN'),
+        'bot_token' => env('MATTERMOST_BOT_TOKEN', env('MATTERMOST_TOKEN')),
         'team_id' => env('MATTERMOST_TEAM_ID'),
         'api_key' => env('MATTERMOST_API_KEY'),
         'plugin_id' => env('MATTERMOST_PLUGIN_ID', 'com.artslabcreatives.auraai'),
@@ -41,9 +42,9 @@ return [
         'bot_user_id' => env('MATTERMOST_BOT_USER_ID'),
     ],
 
-	'slack' => [
-		'token' => env('SLACK_TOKEN'),
-	],
+    'slack' => [
+        'token' => env('SLACK_TOKEN'),
+    ],
 
     'zoho' => [
         'client_id' => env('ZOHO_CLIENT_ID'),
@@ -54,10 +55,10 @@ return [
     ],
 
     'xero' => [
-        'client_id'     => env('XERO_CLIENT_ID'),
+        'client_id' => env('XERO_CLIENT_ID'),
         'client_secret' => env('XERO_CLIENT_SECRET'),
-        'redirect_uri'  => env('XERO_REDIRECT_URI'),
-        'scopes'        => env('XERO_SCOPES', 'accounting.contacts accounting.invoices.read offline_access'),
+        'redirect_uri' => env('XERO_REDIRECT_URI'),
+        'scopes' => env('XERO_SCOPES', 'accounting.contacts accounting.invoices.read offline_access'),
     ],
 
     'jothika' => [
@@ -65,16 +66,27 @@ return [
     ],
 
     'n8n' => [
-        'webhook_secret'           => env('N8N_WEBHOOK_SECRET'),
-        'task_import_webhook_url'  => env('N8N_TASK_IMPORT_WEBHOOK_URL'),
-        'import_callback_secret'   => env('N8N_IMPORT_CALLBACK_SECRET'),
+        'webhook_secret' => env('N8N_WEBHOOK_SECRET'),
+        'task_import_webhook_url' => env('N8N_TASK_IMPORT_WEBHOOK_URL'),
+        'import_callback_secret' => env('N8N_IMPORT_CALLBACK_SECRET'),
     ],
 
     'claude' => [
         'api_key' => env('CLAUDE_API'),
+        'endpoint' => env('CLAUDE_ENDPOINT', 'https://api.anthropic.com/v1/messages'),
+    ],
+
+    'qdrant' => [
+        'url' => env('QDRANT_URL', 'http://localhost:6333'),
     ],
 
     'ai_agent' => [
         'mattermost_webhook_token' => env('AI_AGENT_MATTERMOST_WEBHOOK_TOKEN', env('MATTERMOST_API_KEY')),
+    ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 ];

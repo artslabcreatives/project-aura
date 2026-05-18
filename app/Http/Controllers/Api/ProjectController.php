@@ -111,6 +111,20 @@ class ProjectController extends Controller
         return response()->json($projects);
     }
 
+    #[OA\Get(
+        path: "/projects/sidebar",
+        summary: "Get projects for sidebar",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "List of projects for sidebar",
+                content: new OA\JsonContent(type: "array", items: new OA\Items(type: "object"))
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
     public function sidebar(): JsonResponse
     {
         $user = auth()->user();
@@ -128,8 +142,8 @@ class ProjectController extends Controller
                     'group:id,name,department_id',
                     'client:id,company_name',
                     'stages' => function ($query) {
-                        $query->select(['id', 'title', 'project_id', 'color', 'type', 'order'])
-                              ->where('type', 'project');
+                        $query->select(['id', 'title', 'project_id', 'color', 'type', 'order', 'is_review_stage', 'main_responsible_id', 'backup_responsible_id_1', 'backup_responsible_id_2'])
+                              ->where('type', 'project')->withCount(['tasks' => function ($q) { $q->where('user_status', '!=', 'complete'); }]);
                     },
                     'collaborators' => function ($query) {
                         $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
@@ -737,6 +751,28 @@ class ProjectController extends Controller
     /**
      * Add collaborators to a project.
      */
+    #[OA\Post(
+        path: "/projects/{id}/collaborators",
+        summary: "Add collaborators to a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["user_ids"],
+                properties: [
+                    new OA\Property(property: "user_ids", type: "array", items: new OA\Items(type: "integer"))
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Collaborators added"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function addCollaborators(Request $request, Project $project): JsonResponse
     {
         $validated = $request->validate([
@@ -762,6 +798,20 @@ class ProjectController extends Controller
     /**
      * Remove a collaborator from a project.
      */
+    #[OA\Delete(
+        path: "/projects/{id}/collaborators/{userId}",
+        summary: "Remove a collaborator from a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "userId", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Collaborator removed"),
+            new OA\Response(response: 404, description: "Project or user not found")
+        ]
+    )]
     public function removeCollaborator(Project $project, User $user): JsonResponse
     {
         $project->collaborators()->detach($user->id);
@@ -775,6 +825,19 @@ class ProjectController extends Controller
     /**
      * Get collaborators for a project.
      */
+    #[OA\Get(
+        path: "/projects/{id}/collaborators",
+        summary: "Get collaborators for a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "List of collaborators"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function getCollaborators(Project $project): JsonResponse
     {
         return response()->json(
@@ -786,6 +849,30 @@ class ProjectController extends Controller
      * Grant a grace period for a project that is missing a PO.
      * Only users with admin or finance roles may approve a grace period.
      */
+    #[OA\Post(
+        path: "/projects/{id}/grace-period",
+        summary: "Grant a grace period for a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["expires_at"],
+                properties: [
+                    new OA\Property(property: "expires_at", type: "string", format: "date"),
+                    new OA\Property(property: "notes", type: "string")
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Grace period granted"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function grantGracePeriod(Request $request, Project $project): JsonResponse
     {
         $user = $request->user();
@@ -813,6 +900,30 @@ class ProjectController extends Controller
      * awaiting the official PO document.
      * Only users with admin or hr roles may issue provisional POs.
      */
+    #[OA\Post(
+        path: "/projects/{id}/provisional-po",
+        summary: "Issue a provisional PO for a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["po_number", "expires_at"],
+                properties: [
+                    new OA\Property(property: "po_number", type: "string"),
+                    new OA\Property(property: "expires_at", type: "string", format: "date")
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Provisional PO issued"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function issueProvisionalPo(Request $request, Project $project): JsonResponse
     {
         $user = $request->user();
@@ -849,6 +960,20 @@ class ProjectController extends Controller
      * Manually block a project, setting it to a read-only state.
      * Only admin and hr users may block projects.
      */
+    #[OA\Post(
+        path: "/projects/{id}/block",
+        summary: "Block a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Project blocked"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function block(Request $request, Project $project): JsonResponse
     {
         $user = $request->user();
@@ -869,6 +994,20 @@ class ProjectController extends Controller
      * Unblock a manually blocked project.
      * Only admin and hr users may unblock projects.
      */
+    #[OA\Post(
+        path: "/projects/{id}/unblock",
+        summary: "Unblock a project",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Project unblocked"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function unblock(Request $request, Project $project): JsonResponse
     {
         $user = $request->user();
@@ -914,6 +1053,31 @@ class ProjectController extends Controller
     /**
      * Upload a campaign report for a Digital Marketing project.
      */
+    #[OA\Post(
+        path: "/projects/{id}/campaign-report",
+        summary: "Upload campaign report",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: "report", type: "string", format: "binary")
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Report uploaded"),
+            new OA\Response(response: 400, description: "No file uploaded"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function uploadCampaignReport(Request $request, Project $project): JsonResponse
     {
         $request->validate([
@@ -940,6 +1104,21 @@ class ProjectController extends Controller
      * Approve a campaign report for a Digital Marketing project.
      * Only admins or users in HR department (Harshani) can approve.
      */
+    #[OA\Post(
+        path: "/projects/{id}/approve-campaign-report",
+        summary: "Approve campaign report",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Report approved"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 400, description: "Report not pending"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function approveCampaignReport(Request $request, Project $project): JsonResponse
     {
         $user = $request->user();
@@ -970,6 +1149,19 @@ class ProjectController extends Controller
     /**
      * List all purchase orders assigned to a project.
      */
+    #[OA\Get(
+        path: "/projects/{id}/purchase-orders",
+        summary: "List project purchase orders",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "List of purchase orders"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
     public function listPurchaseOrders(Project $project): JsonResponse
     {
         return response()->json(
@@ -981,6 +1173,42 @@ class ProjectController extends Controller
      * Bulk-assign one or more purchase orders to a project.
      * Also unlocks the project's PO lock if it was awaiting a PO.
      */
+    #[OA\Post(
+        path: "/projects/{id}/purchase-orders/bulk",
+        summary: "Bulk assign purchase orders",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["purchase_orders"],
+                properties: [
+                    new OA\Property(
+                        property: "purchase_orders",
+                        type: "array",
+                        items: new OA\Items(
+                            properties: [
+                                new OA\Property(property: "po_number", type: "string"),
+                                new OA\Property(property: "xero_po_id", type: "string"),
+                                new OA\Property(property: "amount", type: "number"),
+                                new OA\Property(property: "currency", type: "string"),
+                                new OA\Property(property: "status", type: "string"),
+                                new OA\Property(property: "notes", type: "string")
+                            ]
+                        )
+                    )
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Purchase orders assigned"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 422, description: "Validation error")
+        ]
+    )]
     public function bulkAssignPurchaseOrders(Request $request, Project $project): JsonResponse
     {
         $user = $request->user();
@@ -1017,6 +1245,21 @@ class ProjectController extends Controller
     /**
      * Remove a single purchase order from a project.
      */
+    #[OA\Delete(
+        path: "/projects/{id}/purchase-orders/{purchaseOrderId}",
+        summary: "Remove purchase order",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "purchaseOrderId", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(response: 204, description: "Purchase order removed"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 404, description: "Project or PO not found")
+        ]
+    )]
     public function removePurchaseOrder(Request $request, Project $project, \App\Models\ProjectPurchaseOrder $purchaseOrder): JsonResponse
     {
         $user = $request->user();

@@ -486,14 +486,14 @@ PROMPT;
             'due_date' => $this->normalizeDate($arguments['due_date'] ?? null),
             'user_status' => 'pending',
             'priority' => in_array($arguments['priority'] ?? 'medium', ['low', 'medium', 'high'], true) ? $arguments['priority'] : 'medium',
-            'estimated_hours' => is_numeric($arguments['estimated_hours'] ?? null) ? $arguments['estimated_hours'] : null,
+            'estimated_hours' => is_numeric($arguments['estimated_hours'] ?? null) ? max(0, (int) $arguments['estimated_hours']) : 0,
         ]);
 
         if ($assigneeId) {
             $task->assignedUsers()->sync([$assigneeId]);
         }
 
-        TaskUpdated::dispatch($task, 'create');
+        $this->dispatchTaskUpdated($task, 'create');
 
         return [
             'task_id' => $task->id,
@@ -537,7 +537,7 @@ PROMPT;
         $task->fill($allowed);
         $task->save();
 
-        TaskUpdated::dispatch($task, 'update');
+        $this->dispatchTaskUpdated($task, 'update');
 
         return [
             'task_id' => $task->id,
@@ -559,7 +559,7 @@ PROMPT;
         $task->user_status = $status;
         $task->save();
 
-        TaskUpdated::dispatch($task, 'update');
+        $this->dispatchTaskUpdated($task, 'update');
 
         return [
             'task_id' => $task->id,
@@ -582,7 +582,7 @@ PROMPT;
         $task->save();
         $task->assignedUsers()->sync([$assigneeId]);
 
-        TaskUpdated::dispatch($task, 'update');
+        $this->dispatchTaskUpdated($task, 'update');
 
         return [
             'task_id' => $task->id,
@@ -611,6 +611,19 @@ PROMPT;
             'task_id' => $task->id,
             'comment_id' => $created->id,
         ];
+    }
+
+    private function dispatchTaskUpdated(Task $task, string $action = 'update'): void
+    {
+        try {
+            TaskUpdated::dispatch($task, $action);
+        } catch (\Throwable $e) {
+            Log::warning('[AIChatbotOperations] realtime task broadcast failed', [
+                'task_id' => $task->id,
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function authorizeProjectMutation(Project $project, User $user, string $verb): void

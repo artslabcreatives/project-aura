@@ -76,7 +76,7 @@ const mainMenuItems = [
 	{ title: "Chat", url: "/mattermost-chat", icon: MessageSquare, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Team", url: "/team", icon: Users, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Tasks", url: "/tasks", icon: Inbox, roles: ["admin", "team-lead"] },
-	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager"] },
+	{ title: "Review Needed", url: "/review-needed", icon: FileCog, roles: ["account-manager", "team-lead"] },
 	{ title: "Task Efficiency", url: "/task-efficiency", icon: TrendingUp, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Department Efficiency", url: "/department-efficiency", icon: BarChart3, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Reminders", url: "/reminders", icon: Bell, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
@@ -86,7 +86,7 @@ const mainMenuItems = [
 	{ title: "Reports", url: "/reports", icon: ClipboardList, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "Documents", url: "/documents", icon: FileText, roles: ["admin", "team-lead", "user", "account-manager", "hr"] },
 	{ title: "SSO Applications", url: "/sso/clients", icon: Shield, roles: ["admin"] },
-	// { title: "AI Scenarios", url: "/ai-scenarios", icon: Bot, roles: ["admin"] },
+	{ title: "AI Scenarios", url: "/ai-scenarios", icon: Bot, roles: ["admin"] },
 ];
 
 interface GroupedDepartment {
@@ -124,6 +124,8 @@ export function AppSidebar() {
 	const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
 	const [expandedProjectGroups, setExpandedProjectGroups] = useState<Set<string>>(new Set());
 	const [reviewNeededCount, setReviewNeededCount] = useState(0);
+	const [reviewNeededProjects, setReviewNeededProjects] = useState<Project[]>([]);
+	const [isReviewNeededOpen, setIsReviewNeededOpen] = useState(true);
 	const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
 	const [projectToDuplicate, setProjectToDuplicate] = useState<Project | null>(null);
 	const [newProjectName, setNewProjectName] = useState("");
@@ -198,7 +200,7 @@ export function AppSidebar() {
 			// Do NOT reset expanded departments here to avoid collapsing user view on refresh
 			// setExpandedDepartments(new Set()); 
 
-			if ((userRole === 'user' || userRole === 'account-manager') && currentUser) {
+			if ((userRole === 'user' || userRole === 'account-manager' || userRole === 'team-lead') && currentUser) {
 				// Fetch only tasks assigned to the current user.
 				// Passing assigneeId ensures the backend filters correctly even for
 				// admin/team-lead users who have switched to the user view.
@@ -224,7 +226,7 @@ export function AppSidebar() {
 						}
 					});
 
-				// Calculate Review Needed count for Account Managers
+				// Calculate Review Needed count for Account Managers and Team Leads
 				if (userRole === 'account-manager') {
 					const count = tasksData.filter(task => {
 						const isAssigned = task.assignee === currentUser.name ||
@@ -232,8 +234,6 @@ export function AppSidebar() {
 
 						if (!isAssigned) return false;
 
-						// We need to find the project and the stage from the fresh data
-						// Note: projectsData is usually available in scope here as it was fetched above
 						const project = projectsData.find(p => p.name === task.project);
 						if (!project) return false;
 
@@ -244,6 +244,39 @@ export function AppSidebar() {
 						return isReview && task.userStatus !== 'complete';
 					}).length;
 					setReviewNeededCount(count);
+				} else if (userRole === 'team-lead') {
+					const currentDept = departmentsData.find(d => String(d.id) === String(currentUser.department_id || currentUser.department));
+					const currentDeptName = currentDept?.name.toLowerCase() || "";
+					const isDigitalOrDesign = currentDeptName.includes('digital') || currentDeptName.includes('design');
+
+					if (isDigitalOrDesign) {
+						const reviewProjects = projectsData.filter(project => {
+							if (project.isArchived || project.status === 'on-hold') return false;
+							
+							return project.stages.some(stage => 
+								stage.isReviewStage && 
+								(stage.tasksCount ?? 0) > 0 &&
+								(
+									String(stage.mainResponsibleId) === String(currentUser.id) ||
+									String(stage.backupResponsibleId1) === String(currentUser.id) ||
+									String(stage.backupResponsibleId2) === String(currentUser.id)
+								)
+							);
+						});
+						setReviewNeededProjects(reviewProjects);
+						
+						const totalReviewTasks = reviewProjects.reduce((sum, p) => {
+							return sum + p.stages.filter(s => 
+								s.isReviewStage && 
+								(
+									String(s.mainResponsibleId) === String(currentUser.id) ||
+									String(s.backupResponsibleId1) === String(currentUser.id) ||
+									String(s.backupResponsibleId2) === String(currentUser.id)
+								)
+							).reduce((sSum, s) => sSum + (s.tasksCount ?? 0), 0);
+						}, 0);
+						setReviewNeededCount(totalReviewTasks);
+					}
 				}
 
 				const assignedProjects = projectsData
@@ -1487,6 +1520,102 @@ variant: "destructive",
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>
+				{userRole === "team-lead" && (isLoadingProjects || reviewNeededProjects.length > 0) && (
+					<SidebarGroup data-tour="review-needed-projects">
+						<Collapsible open={isReviewNeededOpen} onOpenChange={setIsReviewNeededOpen}>
+							<div className="flex items-center justify-between px-2">
+								<CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 text-sm font-medium hover:bg-sidebar-accent rounded-md transition-colors">
+									<SidebarGroupLabel className="hover:bg-transparent flex items-center gap-2">
+										<FileCog className="h-4 w-4" />
+										Review Needed
+									</SidebarGroupLabel>
+									<ChevronRight
+										className={`h-4 w-4 transition-transform ${isReviewNeededOpen ? "rotate-90" : ""
+											}`}
+									/>
+								</CollapsibleTrigger>
+							</div>
+							<CollapsibleContent>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{isLoadingProjects ? (
+											// Show skeleton loaders while loading
+											Array.from({ length: 3 }).map((_, index) => (
+												<SidebarMenuItem key={index}>
+													<SidebarMenuButton className="w-full opacity-60">
+														<div className="flex items-center gap-3 w-full">
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+															<div className="h-4 w-28 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse flex-1" />
+															<div className="h-4 w-4 bg-gradient-to-r from-gray-300 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded animate-pulse" />
+														</div>
+													</SidebarMenuButton>
+												</SidebarMenuItem>
+											))
+										) : (
+											reviewNeededProjects.map((project) => (
+												<Collapsible
+													key={project.id}
+													open={expandedProjects.has(String(project.id))}
+													onOpenChange={() => toggleProjectExpanded(String(project.id))}
+												>
+													<SidebarMenuItem>
+														<CollapsibleTrigger asChild>
+															<SidebarMenuButton className="w-full">
+																<div className="flex items-center gap-2 flex-1">
+																	<FolderKanban className="h-4 w-4" />
+																	<span className="text-sm">
+																		{project.group?.name ? `${project.group.name} - ${project.name}` : project.name}
+																	</span>
+																</div>
+																<ChevronRight
+																	className={`h-4 w-4 transition-transform ${expandedProjects.has(String(project.id)) ? "rotate-90" : ""
+																		}`}
+																/>
+															</SidebarMenuButton>
+														</CollapsibleTrigger>
+														<CollapsibleContent>
+															<SidebarMenuSub>
+																{project.stages
+																	.filter(stage =>
+																		stage.isReviewStage &&
+																		(stage.tasksCount ?? 0) > 0 &&
+																		(
+																			String(stage.mainResponsibleId) === String(currentUser?.id) ||
+																			String(stage.backupResponsibleId1) === String(currentUser?.id) ||
+																			String(stage.backupResponsibleId2) === String(currentUser?.id)
+																		)
+																	)
+																	.map((stage) => (
+																		<SidebarMenuSubItem key={stage.id}>
+																			<SidebarMenuSubButton asChild>
+																				<NavLink
+																					to={`/user-project/${project.id}/stage/${stage.id}`}
+																					className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent ${isStageActive(String(project.id), stage.id)
+																						? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+																						: ""
+																						}`}
+																				>
+																					<Layers className="h-3 w-3" />
+																					<span className="text-sm">{stage.title}</span>
+																					<span className="ml-auto text-xs bg-sidebar-accent-foreground/10 px-1.5 py-0.5 rounded-full">
+																						{stage.tasksCount}
+																					</span>
+																				</NavLink>
+																			</SidebarMenuSubButton>
+																		</SidebarMenuSubItem>
+																	))}
+															</SidebarMenuSub>
+														</CollapsibleContent>
+													</SidebarMenuItem>
+												</Collapsible>
+											))
+										)}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</CollapsibleContent>
+						</Collapsible>
+					</SidebarGroup>
+				)}
 
 				{(userRole === "user" || userRole === "account-manager") && (isLoadingProjects || userAssignedProjects.length > 0) && (
 					<SidebarGroup data-tour="projects-list">

@@ -1,36 +1,37 @@
 <?php
 
+use App\Http\Controllers\AnalysisController;
 use App\Http\Controllers\Api\AnalyticsController;
-use App\Http\Controllers\Api\TaskImportController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ClientFinancialController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\EstimateController;
-use App\Http\Controllers\Api\JothikaController;
-use App\Http\Controllers\Api\XeroController;
+use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\HistoryEntryController;
+use App\Http\Controllers\Api\JothikaController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OAuthClientController;
+use App\Http\Controllers\Api\ProfitabilityController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ProjectGroupController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ResumableUploadController;
 use App\Http\Controllers\Api\RevisionHistoryController;
-use App\Http\Controllers\Api\StageController;
-use App\Http\Controllers\Api\StageGroupController;
-use App\Http\Controllers\Api\TaskAttachmentController;
-use App\Http\Controllers\Api\TaskController;
-use App\Http\Controllers\Api\TaskHistoryController;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\ProjectGroupController;
-use App\Http\Controllers\Api\NotificationController;
-use App\Http\Controllers\Api\FeedbackController;
-use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Search\SearchController;
 use App\Http\Controllers\Api\Search\SearchIndexController;
-use App\Http\Controllers\Api\ProfitabilityController;
-use App\Http\Controllers\Api\ClientFinancialController;
-use App\Http\Controllers\Api\TaskEfficiencyController;
-use App\Http\Controllers\MattermostAuthController;
 use App\Http\Controllers\Api\SSOController;
-use App\Http\Controllers\Api\OAuthClientController;
-use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\StageController;
+use App\Http\Controllers\Api\StageGroupController;
+use App\Http\Controllers\Api\TagController;
+use App\Http\Controllers\Api\TaskAttachmentController;
+use App\Http\Controllers\Api\TaskController;
+use App\Http\Controllers\Api\TaskEfficiencyController;
+use App\Http\Controllers\Api\TaskHistoryController;
+use App\Http\Controllers\Api\TaskImportController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\XeroController;
+use App\Http\Controllers\MattermostAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -47,6 +48,8 @@ use Illuminate\Support\Facades\Route;
 
 // Authentication routes (public)
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/auth/google', [\App\Http\Controllers\Api\GoogleAuthController::class, 'redirectToGoogle']);
+Route::get('/auth/google/callback', [\App\Http\Controllers\Api\GoogleAuthController::class, 'handleGoogleCallback']);
 Route::post('/check-email', [AuthController::class, 'checkEmail']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
@@ -69,11 +72,11 @@ Route::post('/ai-chatbot/mattermost/webhook', [\App\Http\Controllers\Api\AIChatb
 // ─── SSO / OAuth 2.0 ──────────────────────────────────────────────────────────
 // Public endpoints (no auth required)
 Route::prefix('oauth')->group(function () {
-    Route::get('/authorize',   [SSOController::class, 'validateAuthorize']); // validate request, return client info
-    Route::post('/token',      [SSOController::class, 'token']);             // exchange code / refresh token
-    Route::post('/revoke',     [SSOController::class, 'revoke']);            // revoke token
-    Route::get('/jwks',        [SSOController::class, 'jwks']);              // public keys
-    Route::get('/userinfo',    [SSOController::class, 'userinfo']);          // resource owner info (SSO JWT bearer)
+    Route::get('/authorize', [SSOController::class, 'validateAuthorize']); // validate request, return client info
+    Route::post('/token', [SSOController::class, 'token']);             // exchange code / refresh token
+    Route::post('/revoke', [SSOController::class, 'revoke']);            // revoke token
+    Route::get('/jwks', [SSOController::class, 'jwks']);              // public keys
+    Route::get('/userinfo', [SSOController::class, 'userinfo']);          // resource owner info (SSO JWT bearer)
 });
 // OIDC discovery (also accessible via /.well-known in web routes)
 Route::get('/openid-configuration', [SSOController::class, 'discovery']);
@@ -96,11 +99,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tasks/{task}/start', [TaskController::class, 'start']);
     Route::post('/tasks/{task}/early-start', [TaskController::class, 'earlyStart']);
     Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
+    Route::post('/analysis/trigger', [AnalysisController::class, 'trigger']);
+    Route::get('/analysis/result/{channelId}', [AnalysisController::class, 'result']);
+    Route::post('/analysis/confirm', [AnalysisController::class, 'confirm']);
     Route::match(['options', 'post', 'head', 'patch', 'delete'], '/uploads/tus/{uploadKey?}', [ResumableUploadController::class, 'handle'])
         ->where('uploadKey', '.*');
     Route::get('/task-attachments/{taskAttachment}/download', [TaskAttachmentController::class, 'download']);
     Route::apiResource('task-attachments', TaskAttachmentController::class);
-    
+
     // Project Collaborators
     Route::post('projects/{project}/collaborators', [ProjectController::class, 'addCollaborators']);
     Route::delete('projects/{project}/collaborators/{user}', [ProjectController::class, 'removeCollaborator']);
@@ -118,10 +124,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('projects/{project}/purchase-orders/{purchaseOrder}', [ProjectController::class, 'removePurchaseOrder']);
     Route::post('projects/{project}/upload-tasks', [TaskImportController::class, 'upload']);
     Route::get('projects/{project}/task-import/{importId}', [TaskImportController::class, 'status']);
-    
+
     // Project Attachments
-    Route::post("projects/{project}/attachments", [\App\Http\Controllers\Api\ProjectAttachmentController::class, "store"]);
-    Route::delete("project-attachments/{attachment}", [\App\Http\Controllers\Api\ProjectAttachmentController::class, "destroy"]);
+    Route::post('projects/{project}/attachments', [\App\Http\Controllers\Api\ProjectAttachmentController::class, 'store']);
+    Route::delete('project-attachments/{attachment}', [\App\Http\Controllers\Api\ProjectAttachmentController::class, 'destroy']);
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
     Route::apiResource('users', UserController::class);
@@ -176,7 +182,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Mattermost magic link authentication
     Route::get('/mattermost/magic-link', [MattermostAuthController::class, 'getMagicLink']);
     Route::get('/mattermost/redirect', [MattermostAuthController::class, 'redirect']);
-    
+
     // Mattermost plugin auto-login with JWT
     Route::get('/mattermost/plugin/auto-login-url', [MattermostAuthController::class, 'getPluginAutoLoginUrl']);
     Route::get('/mattermost/plugin/auto-login', [MattermostAuthController::class, 'pluginAutoLogin']);

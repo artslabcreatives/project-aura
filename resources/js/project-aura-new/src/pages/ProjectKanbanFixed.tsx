@@ -63,7 +63,9 @@ import { ProjectReportsTab } from "@/components/ProjectReportsTab";
 import { ProjectFinanceTab } from "@/components/ProjectFinanceTab";
 import { ProjectAttachmentsTab } from "@/components/ProjectAttachmentsTab";
 import { ProjectLevelAttachmentsDialog } from "@/components/ProjectLevelAttachmentsDialog";
-import { Paperclip } from "lucide-react";
+import { ProjectSummary } from "@/components/ProjectSummary";
+import { ProjectCalendarView } from "@/components/ProjectCalendarView";
+import { Paperclip, Calendar as LucideCalendar } from "lucide-react";
 import { 
 	Dialog, 
 	DialogContent, 
@@ -284,7 +286,8 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const [editingStage, setEditingStage] = useState<Stage | null>(null);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [preselectedStageId, setPreselectedStageId] = useState<string | undefined>(undefined);
-	const [view, setView] = useState<"kanban" | "list">("kanban");
+	const [activeTab, setActiveTab] = useState<"summary" | "board">("board");
+	const [view, setView] = useState<"kanban" | "list" | "calendar">("kanban");
 
 	// Subtask Dialog State
 	const [isAddSubtaskDialogOpen, setIsAddSubtaskDialogOpen] = useState(false);
@@ -1184,20 +1187,39 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 						</div>
 					</div>
 
-					<div className="flex justify-start">
+					<div className="flex justify-start gap-4">
 						<ToggleGroup 
 							type="single" 
-							value={view} 
-							onValueChange={(v) => v && setView(v as 'kanban' | 'list')}
+							value={activeTab} 
+							onValueChange={(v) => v && setActiveTab(v as 'summary' | 'board')}
 							className="bg-muted/50 p-1 rounded-xl border border-border/10"
 						>
-							<ToggleGroupItem value="kanban" aria-label="Kanban view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
-								<LayoutGrid className="h-4 w-4" />
+							<ToggleGroupItem value="summary" aria-label="Summary" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
+								Summary
 							</ToggleGroupItem>
-							<ToggleGroupItem value="list" aria-label="List view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
-								<List className="h-4 w-4" />
+							<ToggleGroupItem value="board" aria-label="Board" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
+								Board
 							</ToggleGroupItem>
 						</ToggleGroup>
+
+						{activeTab === "board" && (
+							<ToggleGroup 
+								type="single" 
+								value={view} 
+								onValueChange={(v) => v && setView(v as 'kanban' | 'list' | 'calendar')}
+								className="bg-muted/50 p-1 rounded-xl border border-border/10"
+							>
+								<ToggleGroupItem value="kanban" aria-label="Kanban view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+									<LayoutGrid className="h-4 w-4" />
+								</ToggleGroupItem>
+								<ToggleGroupItem value="list" aria-label="List view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+									<List className="h-4 w-4" />
+								</ToggleGroupItem>
+								<ToggleGroupItem value="calendar" aria-label="Calendar view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+									<LucideCalendar className="h-4 w-4" />
+								</ToggleGroupItem>
+							</ToggleGroup>
+						)}
 					</div>
 				</div>
 			</header>
@@ -1241,7 +1263,20 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 					(isProjectBlocked || isPORequired) && "grayscale opacity-50 pointer-events-none select-none"
 				)}>
 					<div className="w-full">
-						{view === 'kanban' ? (
+						{activeTab === "summary" ? (
+							<ProjectSummary project={project} tasks={tasks} />
+						) : view === 'calendar' ? (
+							<ProjectCalendarView 
+								tasks={tasks} 
+								onTaskClick={(task) => handleTaskEdit(task)}
+								onAddTask={(date) => {
+									setPreselectedStageId(sortedStages[0]?.id);
+									setEditingTask(null);
+									setIsTaskDialogOpen(true);
+									// Note: In a real scenario, we'd pass the date to TaskDialog
+								}}
+							/>
+						) : view === 'kanban' ? (
 							<KanbanBoard
 								tasks={topLevelTasks}
 								stages={sortedStages}

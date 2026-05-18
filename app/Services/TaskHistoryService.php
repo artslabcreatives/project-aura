@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Task;
 use App\Models\TaskHistory;
-use Illuminate\Support\Facades\Log;
 
 class TaskHistoryService
 {
@@ -13,10 +12,31 @@ class TaskHistoryService
      */
     public function trackStageChange(Task $task, int $oldStageId, int $newStageId, ?int $userId = null): void
     {
+        if ($oldStageId === $newStageId) {
+            return;
+        }
+
         $oldStage = \App\Models\Stage::find($oldStageId);
         $newStage = \App\Models\Stage::find($newStageId);
         
         $action = $newStage && $newStage->is_review_stage ? 'moved_to_review_stage' : 'stage_changed';
+
+        $latestStageHistory = TaskHistory::query()
+            ->where('task_id', $task->id)
+            ->whereIn('action', ['stage_changed', 'moved_to_review_stage'])
+            ->whereNotNull('incoming_stage_id')
+            ->whereNotNull('outgoing_stage_id')
+            ->latest('id')
+            ->first();
+
+        if (
+            $latestStageHistory
+            && $latestStageHistory->action === $action
+            && (int) $latestStageHistory->incoming_stage_id === $oldStageId
+            && (int) $latestStageHistory->outgoing_stage_id === $newStageId
+        ) {
+            return;
+        }
         
         // Populate both incoming and outgoing, even if same
         TaskHistory::create([
