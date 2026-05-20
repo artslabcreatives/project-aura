@@ -95,7 +95,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 			{/* Search pinned to viewport center - must be outside header to avoid backdrop-filter containing block */}
 			<div
 				data-tour="global-search"
-				className="fixed top-0 h-11 flex items-center z-50"
+				className="hidden md:flex fixed top-0 h-11 items-center z-50"
 				style={{ left: '50vw', transform: 'translateX(-50%)' }}
 			>
 				<GlobalSearch />
@@ -109,6 +109,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 						<SidebarTrigger className="hover:bg-accent/50 transition-colors" />
 					</div>
 					<div className="flex items-center gap-3">
+						{/* Mobile Search Button */}
+						<div className="md:hidden flex items-center">
+							<GlobalSearch />
+						</div>
 
 						<div className="flex items-center mr-2 gap-1">
 							<Button
