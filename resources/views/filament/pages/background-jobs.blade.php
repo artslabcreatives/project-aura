@@ -14,7 +14,7 @@
             @endphp
 
             @foreach ($jobs as $job)
-                <div class="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div class="flex items-start gap-4">
                         <div class="p-3 rounded-xl" style="background-color: rgba(245, 158, 11, 0.15); color: rgb(245, 158, 11);">
                             @svg($job['icon'], 'h-6 w-6')
@@ -30,7 +30,7 @@
                                 @svg('heroicon-o-clock', 'h-4 w-4')
                                 Schedule: Daily at 12:00 AM (Sri Lanka Time)
                             </div>
-                            <div class="pt-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 mt-3">
+                            <div class="pt-4 flex items-center justify-between mt-3">
                                 <span class="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1 rounded-md">
                                     {{ $job['command'] }}
                                 </span>
@@ -67,7 +67,7 @@
                     No execution logs recorded yet. Run the job to generate logs.
                 </div>
             @else
-                <div class="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
+                <div class="overflow-hidden rounded-2xl bg-white dark:bg-gray-900 shadow-sm">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -79,9 +79,9 @@
                                     <th class="px-6 py-4">Output Log</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
+                            <tbody class="text-sm">
                                 @foreach ($logs as $log)
-                                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
+                                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/20" style="border-bottom: 1px solid rgba(63, 63, 70, 0.3);">
                                         <td class="px-6 py-4 font-semibold whitespace-nowrap text-gray-900 dark:text-gray-100">
                                             Task Recurrence Engine
                                         </td>
@@ -114,7 +114,7 @@
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="max-w-xl">
-                                                <pre class="overflow-x-auto max-h-32 text-xs font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-950 p-3 rounded-lg border border-gray-100 dark:border-gray-800 leading-relaxed whitespace-pre-wrap">{{ $log->output }}</pre>
+                                                <pre class="overflow-x-auto max-h-32 text-xs font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-950 p-3 rounded-lg leading-relaxed whitespace-pre-wrap">{{ $log->output }}</pre>
                                                 @if ($log->error_message)
                                                     <div class="mt-1 text-xs text-red-500 font-medium">
                                                         Error: {{ $log->error_message }}
