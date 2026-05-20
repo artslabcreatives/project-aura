@@ -24,7 +24,8 @@ class Kernel extends ConsoleKernel
 
         // Process and spawn scheduled recurring tasks that are due
         $schedule->command('tasks:process-recurring')
-            ->everyMinute()
+            ->dailyAt('00:00')
+            ->timezone('Asia/Colombo')
             ->runInBackground();
 
         // Ask assignees for daily task updates via Mattermost.
