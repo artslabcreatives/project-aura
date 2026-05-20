@@ -32,8 +32,8 @@ class TaskObserver
     {
         $this->historyService->trackTaskCreated($task);
 
-        $task->loadMissing('stage', 'project');
-        if ($task->stage && in_array(strtolower(trim($task->stage->title)), ['suggested', 'suggested task'])) {
+        $task->loadMissing('projectStage', 'project');
+        if ($task->projectStage && in_array(strtolower(trim($task->projectStage->title)), ['suggested', 'suggested task'])) {
             // Find the user who created it
             $creator = auth()->user();
             if ($creator && $creator->role === 'user') {
