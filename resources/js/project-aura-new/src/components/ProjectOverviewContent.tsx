@@ -464,7 +464,7 @@ toast({ title: "Error", description: "Could not remove attachment.", variant: "d
 										</Button>
 									)}
 							</div>
-						) : project.poDocumentUrl ? (
+						) : (project.poDocumentUrl && activeRole !== 'user' && activeRole !== 'account-manager') ? (
 							<div className="flex items-center gap-2">
 								<Button
 									variant="outline"

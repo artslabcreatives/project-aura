@@ -110,12 +110,12 @@ export const GlobalSearch = () => {
 			<Button
 				variant="outline"
 				style={{ borderRadius: '4px' }}
-				className="relative gap-1 flex items-center h-7 w-9 p-1 px-2 xl:h-7 xl:w-[464px] xl:justify-start bg-white/[0.08] hover:bg-white/[0.12] text-white/[0.64] text-xs font-medium border-0 cursor-pointer shadow-none transition-all duration-300 "
+				className="relative gap-1 flex items-center h-7 w-9 p-1 px-2 xl:h-7 xl:w-[464px] xl:justify-start bg-black/[0.05] hover:bg-black/[0.08] dark:bg-white/[0.08] dark:hover:bg-white/[0.12] text-muted-foreground dark:text-white/[0.64] text-xs font-medium border-0 cursor-pointer shadow-none transition-all duration-300 "
 				onClick={() => setOpen(true)}
 			>
 				<Search className="h-4 w-4" />
 				<span className="hidden xl:inline-flex">Search...</span>
-				<kbd className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 hidden h-5 select-none items-center gap-1 rounded border border-white/20 bg-white/[0.08] px-1.5 font-mono text-[10px] font-medium text-white/60 opacity-100 xl:flex">
+				<kbd className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 hidden h-5 select-none items-center gap-1 rounded border border-black/10 bg-black/[0.03] dark:border-white/20 dark:bg-white/[0.08] px-1.5 font-mono text-[10px] font-medium text-muted-foreground/60 dark:text-white/60 opacity-100 xl:flex">
 					<span className="text-xs">⌘</span>K
 				</kbd>
 			</Button>
