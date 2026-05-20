@@ -986,9 +986,11 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	});
 
 	const visibleStages = sortedStages.filter(s => {
-		if (activeRole === 'user') {
-			const t = s.title.toLowerCase().trim();
-			return t !== 'suggested' && t !== 'suggested task';
+		const t = s.title.toLowerCase().trim();
+		const isSuggested = t === 'suggested' || t === 'suggested task';
+		if (isSuggested && activeRole === 'user') {
+			// Show only if that stage has at least one task
+			return tasks.some(task => String(task.projectStage) === String(s.id) || String(task.userStatus) === String(s.id));
 		}
 		return true;
 	});
