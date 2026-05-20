@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\TaskCompletedNotification;
 use App\Notifications\TaskReviewNeededNotification;
 use App\Notifications\TaskStageChangedNotification;
+use App\Notifications\TaskSuggestedNotification;
 use App\Services\ProfitabilityService;
 use App\Services\TaskHistoryService;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,26 @@ class TaskObserver
     public function created(Task $task): void
     {
         $this->historyService->trackTaskCreated($task);
+
+        $task->loadMissing('stage', 'project');
+        if ($task->stage && in_array(strtolower(trim($task->stage->title)), ['suggested', 'suggested task'])) {
+            // Find the user who created it
+            $creator = auth()->user();
+            if ($creator && $creator->role === 'user') {
+                // Find all team leads of the project's department
+                $departmentId = $task->project?->department_id;
+                if ($departmentId) {
+                    $teamLeads = User::where('role', 'team-lead')
+                        ->where('department_id', $departmentId)
+                        ->get();
+
+                    foreach ($teamLeads as $lead) {
+                        $lead->notify(new TaskSuggestedNotification($task, $creator));
+                    }
+                    Log::info("Sent suggested task notifications for task {$task->id} to " . $teamLeads->count() . " team leads.");
+                }
+            }
+        }
     }
 
     /**
