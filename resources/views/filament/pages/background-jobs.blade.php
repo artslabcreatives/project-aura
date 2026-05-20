@@ -30,6 +30,10 @@
                                 @svg('heroicon-o-clock', 'h-4 w-4')
                                 Schedule: Daily at 12:00 AM (Sri Lanka Time)
                             </div>
+                            <div class="mt-2 flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                @svg('heroicon-o-document-duplicate', 'h-4 w-4 text-gray-400')
+                                Active Scheduled Tasks: <span class="text-amber-500 font-bold ml-0.5">{{ \App\Models\Task::where('is_recurring', true)->whereNotNull('next_recurrence_at')->count() }}</span>
+                            </div>
                             <div class="pt-4 flex items-center justify-between mt-3">
                                 <span class="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1 rounded-md">
                                     {{ $job['command'] }}
