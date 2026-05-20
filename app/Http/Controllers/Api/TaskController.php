@@ -71,11 +71,6 @@ class TaskController extends Controller
 
         $tasks = Cache::remember($cacheKey, 3600, function() use ($request, $user) {
             $query = Task::query()
-                ->select([
-                    'id', 'title', 'project_id', 'assignee_id', 'user_status', 
-                    'project_stage_id', 'priority', 'due_date', 'created_at',
-                    'is_in_specific_stage', 'completed_at', 'parent_id', 'tags'
-                ])
                 ->with([
                     'project:id,name,department_id,status,is_archived', 
                     'assignee:id,name', 
