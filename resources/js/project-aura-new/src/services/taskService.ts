@@ -65,8 +65,19 @@ function mapTask(raw: any): Task {
 		subtasks: raw.subtasks?.map(mapTask) || [],
 		parentId: raw.parent_id ? String(raw.parent_id) : null,
 		isAssigneeLocked: raw.is_assignee_locked === true || raw.is_assignee_locked === 1,
+		is_assignee_locked: raw.is_assignee_locked === true || raw.is_assignee_locked === 1,
 		isLocked: raw.is_locked === true || raw.is_locked === 1,
 		previousStatus: raw.previous_status || undefined,
+		isRecurring: raw.is_recurring === true || raw.is_recurring === 1,
+		is_recurring: raw.is_recurring === true || raw.is_recurring === 1,
+		recurrenceInterval: raw.recurrence_interval || undefined,
+		recurrence_interval: raw.recurrence_interval || undefined,
+		recurrenceCustomDays: raw.recurrence_custom_days || [],
+		recurrence_custom_days: raw.recurrence_custom_days || [],
+		nextRecurrenceAt: raw.next_recurrence_at || undefined,
+		next_recurrence_at: raw.next_recurrence_at || undefined,
+		recurrenceEndAt: raw.recurrence_end_at || undefined,
+		recurrence_end_at: raw.recurrence_end_at || undefined,
 	};
 }
 
@@ -116,7 +127,11 @@ export const taskService = {
 			is_in_specific_stage: task.isInSpecificStage,
 			revision_comment: task.revisionComment,
 			parent_id: task.parentId,
-			is_assignee_locked: task.isAssigneeLocked,
+			is_assignee_locked: task.isAssigneeLocked || task.is_assignee_locked,
+			is_recurring: task.isRecurring || task.is_recurring,
+			recurrence_interval: task.recurrenceInterval || task.recurrence_interval,
+			recurrence_custom_days: task.recurrenceCustomDays || task.recurrence_custom_days,
+			recurrence_end_at: task.recurrenceEndAt || task.recurrence_end_at,
 		};
 		console.log('=== TASK CREATE DEBUG ===');
 		console.log('Input task:', task);
@@ -146,7 +161,11 @@ export const taskService = {
 			original_assignee_id: updates.originalAssigneeId,
 			completed_at: updates.completedAt,
 			parent_id: updates.parentId,
-			is_assignee_locked: updates.isAssigneeLocked,
+			is_assignee_locked: updates.isAssigneeLocked !== undefined ? updates.isAssigneeLocked : updates.is_assignee_locked,
+			is_recurring: updates.isRecurring !== undefined ? updates.isRecurring : updates.is_recurring,
+			recurrence_interval: updates.recurrenceInterval !== undefined ? updates.recurrenceInterval : updates.recurrence_interval,
+			recurrence_custom_days: updates.recurrenceCustomDays !== undefined ? updates.recurrenceCustomDays : updates.recurrence_custom_days,
+			recurrence_end_at: updates.recurrenceEndAt !== undefined ? updates.recurrenceEndAt : updates.recurrence_end_at,
 		};
 		const { data } = await api.put(`/tasks/${id}`, payload);
 		return mapTask(data);

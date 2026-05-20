@@ -67,13 +67,20 @@ export interface Task {
 	subtasks?: Task[]; // Subtasks
 	parentId?: string | null; // Parent task ID
 	isAssigneeLocked?: boolean; // If true, auto-reassignment is disabled
+	is_assignee_locked?: boolean;
 	isLocked?: boolean; // If true, task is locked due to project status (on-hold/cancelled)
 	previousStatus?: UserStatus; // Saved status before project was paused/cancelled
 	isRecurring?: boolean;
+	is_recurring?: boolean;
 	recurrenceInterval?: 'daily' | 'weekly' | 'monthly' | 'custom' | 'on_completion';
+	recurrence_interval?: 'daily' | 'weekly' | 'monthly' | 'custom' | 'on_completion';
 	recurrenceCustomDays?: number[];
+	recurrence_custom_days?: number[];
 	nextRecurrenceAt?: string | null;
+	next_recurrence_at?: string | null;
 	recurrenceEndAt?: string | null;
+	recurrence_end_at?: string | null;
+	start_stage_id?: string;
 }
 
 export interface AssignedUser {

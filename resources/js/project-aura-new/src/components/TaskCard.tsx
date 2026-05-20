@@ -549,11 +549,11 @@ export function TaskCard({
 					>
 						{task.priority}
 					</Badge>
-					{task.isRecurring && (
+					{(task.isRecurring || task.is_recurring) && (
 						<Badge
 							variant="outline"
 							className="text-xs bg-indigo-500/10 text-indigo-700 border-indigo-500/20 flex items-center gap-1 dark:bg-indigo-500/20 dark:text-indigo-300"
-							title={`Repeats ${task.recurrenceInterval === 'on_completion' ? 'upon completion' : task.recurrenceInterval}`}
+							title={`Repeats ${(task.recurrenceInterval || task.recurrence_interval) === 'on_completion' ? 'upon completion' : (task.recurrenceInterval || task.recurrence_interval)}`}
 						>
 							<Repeat className="h-3 w-3 animate-pulse" />
 							Recurring

@@ -201,15 +201,15 @@ export function TaskDialog({
 				dueTime: editTask.dueDate && editTask.dueDate.includes("T") ? editTask.dueDate.split("T")[1]?.substring(0, 5) || "" : "",
 				userStatus: editTask.userStatus,
 				projectStage: editTask.projectStage || "",
-				startStageId: editTask.startStageId || "",
+				startStageId: editTask.startStageId || editTask.start_stage_id || "",
 				priority: editTask.priority,
 				startDate: editTask.startDate ? editTask.startDate.split("T")[0] : "",
 				startTime: editTask.startDate ? editTask.startDate.split("T")[1]?.substring(0, 5) || "" : "",
-				isAssigneeLocked: editTask.isAssigneeLocked || false,
-				isRecurring: editTask.isRecurring || false,
-				recurrenceInterval: editTask.recurrenceInterval || "weekly",
-				recurrenceCustomDays: editTask.recurrenceCustomDays || [],
-				recurrenceEndAt: editTask.recurrenceEndAt ? editTask.recurrenceEndAt.split("T")[0] : "",
+				isAssigneeLocked: editTask.isAssigneeLocked || editTask.is_assignee_locked || false,
+				isRecurring: editTask.isRecurring || editTask.is_recurring || false,
+				recurrenceInterval: editTask.recurrenceInterval || editTask.recurrence_interval || "weekly",
+				recurrenceCustomDays: editTask.recurrenceCustomDays || editTask.recurrence_custom_days || [],
+				recurrenceEndAt: (editTask.recurrenceEndAt || editTask.recurrence_end_at) ? (editTask.recurrenceEndAt || editTask.recurrence_end_at).split("T")[0] : "",
 			});
 			setTags(editTask.tags || []);
 			setAttachments(editTask.attachments || []);
