@@ -41,6 +41,11 @@ class Task extends Model
         'started_at',
         'previous_status',
         'is_locked',
+        'is_recurring',
+        'recurrence_interval',
+        'recurrence_custom_days',
+        'next_recurrence_at',
+        'recurrence_end_at',
     ];
 
     protected $casts = [
@@ -56,6 +61,10 @@ class Task extends Model
         'hourly_rate' => 'decimal:2',
         'actual_hours_worked' => 'decimal:2',
         'task_cost' => 'decimal:2',
+        'is_recurring' => 'boolean',
+        'recurrence_custom_days' => 'array',
+        'next_recurrence_at' => 'datetime',
+        'recurrence_end_at' => 'datetime',
     ];
 
     public function setEstimatedHoursAttribute($value): void

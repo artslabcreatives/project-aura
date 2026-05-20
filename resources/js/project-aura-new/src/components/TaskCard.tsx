@@ -3,7 +3,7 @@ import { Stage } from "@/types/stage";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText, Zap, Copy, Lock } from "lucide-react";
+import { Calendar, User, Edit, Trash2, Eye, AlertCircle, History, ClipboardCheck, Share2, Plus, ListTodo, CheckSquare, Clock, Link, Users, Globe, Check, ExternalLink, ScrollText, Zap, Copy, Lock, Repeat } from "lucide-react";
 import { format, isPast, isToday, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -549,6 +549,16 @@ export function TaskCard({
 					>
 						{task.priority}
 					</Badge>
+					{task.isRecurring && (
+						<Badge
+							variant="outline"
+							className="text-xs bg-indigo-500/10 text-indigo-700 border-indigo-500/20 flex items-center gap-1 dark:bg-indigo-500/20 dark:text-indigo-300"
+							title={`Repeats ${task.recurrenceInterval === 'on_completion' ? 'upon completion' : task.recurrenceInterval}`}
+						>
+							<Repeat className="h-3 w-3 animate-pulse" />
+							Recurring
+						</Badge>
+					)}
 					{task.isLocked && (
 						<TooltipProvider>
 							<Tooltip>

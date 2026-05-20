@@ -22,6 +22,11 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->runInBackground();
 
+        // Process and spawn scheduled recurring tasks that are due
+        $schedule->command('tasks:process-recurring')
+            ->everyMinute()
+            ->runInBackground();
+
         // Ask assignees for daily task updates via Mattermost.
         $schedule->command('ai-chatbot:daily-mattermost-followups')
             ->dailyAt('09:00')

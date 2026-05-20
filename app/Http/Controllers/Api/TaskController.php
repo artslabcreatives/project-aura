@@ -221,7 +221,22 @@ class TaskController extends Controller
             'estimated_hours' => 'nullable|numeric|min:0',
             'parent_id' => 'nullable|exists:tasks,id',
             'is_assignee_locked' => 'sometimes|boolean',
+            'is_recurring' => 'sometimes|boolean',
+            'recurrence_interval' => 'nullable|string|in:daily,weekly,monthly,custom,on_completion',
+            'recurrence_custom_days' => 'nullable|array',
+            'recurrence_custom_days.*' => 'integer|min:0|max:6',
+            'recurrence_end_at' => 'nullable|date',
         ]);
+
+        if (isset($validated['is_recurring']) && $validated['is_recurring']) {
+            $startDate = isset($validated['start_date']) ? $validated['start_date'] : null;
+            $interval = isset($validated['recurrence_interval']) ? $validated['recurrence_interval'] : 'weekly';
+            $customDays = isset($validated['recurrence_custom_days']) ? $validated['recurrence_custom_days'] : null;
+            
+            if ($interval !== 'on_completion') {
+                $validated['next_recurrence_at'] = $this->calculateInitialNextRecurrence($startDate, $interval, $customDays);
+            }
+        }
 
         // If assignee_id is not provided but assignee_ids is, use the first as primary
         if (!isset($validated['assignee_id']) && isset($validated['assignee_ids']) && count($validated['assignee_ids']) > 0) {
@@ -512,7 +527,32 @@ class TaskController extends Controller
             'estimated_hours' => 'nullable|numeric|min:0',
             'parent_id' => 'nullable|exists:tasks,id',
             'is_assignee_locked' => 'sometimes|boolean',
+            'is_recurring' => 'sometimes|boolean',
+            'recurrence_interval' => 'nullable|string|in:daily,weekly,monthly,custom,on_completion',
+            'recurrence_custom_days' => 'nullable|array',
+            'recurrence_custom_days.*' => 'integer|min:0|max:6',
+            'recurrence_end_at' => 'nullable|date',
         ]);
+
+        // Process recurrence updates
+        $isRecurringVal = isset($validated['is_recurring']) ? $validated['is_recurring'] : $task->is_recurring;
+        $intervalVal = isset($validated['recurrence_interval']) ? $validated['recurrence_interval'] : $task->recurrence_interval;
+        $customDaysVal = isset($validated['recurrence_custom_days']) ? $validated['recurrence_custom_days'] : $task->recurrence_custom_days;
+
+        if ($isRecurringVal && $intervalVal !== 'on_completion') {
+            // Recalculate next_recurrence_at if parameters changed or if next_recurrence_at was null
+            $intervalChanged = isset($validated['recurrence_interval']) && $validated['recurrence_interval'] !== $task->recurrence_interval;
+            $startDateChanged = isset($validated['start_date']) && $validated['start_date'] !== ($task->start_date?->toDateTimeString());
+            $customDaysChanged = isset($validated['recurrence_custom_days']) && $validated['recurrence_custom_days'] !== $task->recurrence_custom_days;
+            $enabledChanged = isset($validated['is_recurring']) && $validated['is_recurring'] && !$task->is_recurring;
+
+            if ($intervalChanged || $startDateChanged || $customDaysChanged || $enabledChanged || !$task->next_recurrence_at) {
+                $startDate = isset($validated['start_date']) ? $validated['start_date'] : $task->start_date;
+                $validated['next_recurrence_at'] = $this->calculateInitialNextRecurrence($startDate, $intervalVal, $customDaysVal);
+            }
+        } elseif (isset($validated['is_recurring']) && !$validated['is_recurring']) {
+            $validated['next_recurrence_at'] = null;
+        }
 
         // Restrict task assignment based on status
         $isChangingAssignee = $request->has('assignee_id') || $request->has('assignee_ids');
@@ -1283,5 +1323,42 @@ class TaskController extends Controller
         }
 
         return response()->json($task->load(['project', 'assignee', 'projectStage', 'assignedUsers']));
+    }
+
+    /**
+     * Calculate initial next recurrence date
+     */
+    private function calculateInitialNextRecurrence($startDate, $interval, $customDays)
+    {
+        $base = $startDate ? \Carbon\Carbon::parse($startDate) : \Carbon\Carbon::now();
+        
+        // If the start date is in the future, that is the first recurrence time
+        if ($base->gt(\Carbon\Carbon::now())) {
+            return $base;
+        }
+        
+        // Otherwise, shift it forward by one interval
+        switch ($interval) {
+            case 'daily':
+                return $base->addDay();
+            case 'weekly':
+                return $base->addWeek();
+            case 'monthly':
+                return $base->addMonth();
+            case 'custom':
+                if (empty($customDays)) {
+                    return $base->addWeek();
+                }
+                $base->addDay();
+                for ($i = 0; $i < 7; $i++) {
+                    if (in_array($base->dayOfWeek, $customDays)) {
+                        return $base;
+                    }
+                    $base->addDay();
+                }
+                return $base;
+            default:
+                return $base->addWeek();
+        }
     }
 }

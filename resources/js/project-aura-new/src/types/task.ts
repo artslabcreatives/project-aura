@@ -69,6 +69,11 @@ export interface Task {
 	isAssigneeLocked?: boolean; // If true, auto-reassignment is disabled
 	isLocked?: boolean; // If true, task is locked due to project status (on-hold/cancelled)
 	previousStatus?: UserStatus; // Saved status before project was paused/cancelled
+	isRecurring?: boolean;
+	recurrenceInterval?: 'daily' | 'weekly' | 'monthly' | 'custom' | 'on_completion';
+	recurrenceCustomDays?: number[];
+	nextRecurrenceAt?: string | null;
+	recurrenceEndAt?: string | null;
 }
 
 export interface AssignedUser {

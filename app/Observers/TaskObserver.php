@@ -87,6 +87,63 @@ class TaskObserver
                 $task->completed_at = now();
             }
 
+            // Handle completion-based recurrence
+            if ($task->is_recurring && $task->recurrence_interval === 'on_completion') {
+                // Determine duration for clone dates
+                $originalDurationDays = 0;
+                if ($task->start_date && $task->due_date) {
+                    $originalDurationDays = $task->start_date->diffInDays($task->due_date);
+                }
+
+                // 1. Create a historical completed clone
+                $clone = Task::create([
+                    'title' => $task->title,
+                    'description' => $task->description,
+                    'board_id' => $task->board_id,
+                    'project_id' => $task->project_id,
+                    'assignee_id' => $task->assignee_id,
+                    'user_status' => 'complete',
+                    'completed_at' => now(),
+                    'project_stage_id' => $task->project_stage_id,
+                    'priority' => $task->priority,
+                    'tags' => $task->tags,
+                    'start_date' => $task->start_date,
+                    'due_date' => $task->due_date,
+                    'is_recurring' => false,
+                    'is_assignee_locked' => $task->is_assignee_locked,
+                    'hourly_rate' => $task->hourly_rate,
+                    'estimated_hours' => $task->estimated_hours,
+                ]);
+
+                // Sync assignees to clone
+                $assigneeIds = $task->assignedUsers->pluck('id')->toArray();
+                if (!empty($assigneeIds)) {
+                    $clone->assignedUsers()->sync($assigneeIds);
+                } elseif ($task->assignee_id) {
+                    $clone->assignedUsers()->sync([$task->assignee_id]);
+                }
+
+                // 2. Advance the original task's schedule and reset its status
+                $nextRun = now()->addWeek();
+                
+                if ($task->start_date) {
+                    $task->start_date = $task->start_date->copy()->addWeek();
+                }
+                if ($task->due_date) {
+                    $task->due_date = $task->due_date->copy()->addWeek();
+                }
+
+                $task->next_recurrence_at = $nextRun;
+                $task->user_status = 'pending';
+                $task->completed_at = null;
+                
+                $firstStage = Stage::where('project_id', $task->project_id)->orderBy('order', 'asc')->first();
+                $task->project_stage_id = $task->start_stage_id ?? ($firstStage?->id ?? $task->project_stage_id);
+
+                Log::info("Task #{$task->id} was completed. Spawned historical completed task #{$clone->id} and reset original task for next cycle.");
+                return;
+            }
+
             // If this is a subtask, DO NOT move it to another stage.
             // Subtasks stay in the parent's stage.
             if ($task->parent_id) {

@@ -104,6 +104,10 @@ export function TaskDialog({
 		startDate: "",
 		startTime: "",
 		isAssigneeLocked: false,
+		isRecurring: false,
+		recurrenceInterval: "weekly" as "daily" | "weekly" | "monthly" | "custom" | "on_completion",
+		recurrenceCustomDays: [] as number[],
+		recurrenceEndAt: "",
 	});
 	const [tags, setTags] = useState<string[]>([]);
 	const [newTag, setNewTag] = useState("");
@@ -193,8 +197,8 @@ export function TaskDialog({
 				project: editTask.project,
 				assignee: editTask.assignee,
 				assigneeIds: ids,
-				dueDate: editTask.dueDate.split("T")[0],
-				dueTime: editTask.dueDate.split("T")[1]?.substring(0, 5) || "",
+				dueDate: editTask.dueDate ? editTask.dueDate.split("T")[0] : "",
+				dueTime: editTask.dueDate && editTask.dueDate.includes("T") ? editTask.dueDate.split("T")[1]?.substring(0, 5) || "" : "",
 				userStatus: editTask.userStatus,
 				projectStage: editTask.projectStage || "",
 				startStageId: editTask.startStageId || "",
@@ -202,6 +206,10 @@ export function TaskDialog({
 				startDate: editTask.startDate ? editTask.startDate.split("T")[0] : "",
 				startTime: editTask.startDate ? editTask.startDate.split("T")[1]?.substring(0, 5) || "" : "",
 				isAssigneeLocked: editTask.isAssigneeLocked || false,
+				isRecurring: editTask.isRecurring || false,
+				recurrenceInterval: editTask.recurrenceInterval || "weekly",
+				recurrenceCustomDays: editTask.recurrenceCustomDays || [],
+				recurrenceEndAt: editTask.recurrenceEndAt ? editTask.recurrenceEndAt.split("T")[0] : "",
 			});
 			setTags(editTask.tags || []);
 			setAttachments(editTask.attachments || []);
@@ -251,6 +259,10 @@ export function TaskDialog({
 				startDate: today.toISOString().split('T')[0],
 				startTime: slTimeString,
 				isAssigneeLocked: false,
+				isRecurring: false,
+				recurrenceInterval: "weekly",
+				recurrenceCustomDays: [],
+				recurrenceEndAt: "",
 			});
 			setTags([]);
 			setAttachments([]);
@@ -456,6 +468,10 @@ export function TaskDialog({
 					startDate: startDateTime,
 					attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
 					isAssigneeLocked: formData.isAssigneeLocked,
+					is_recurring: formData.isRecurring,
+					recurrence_interval: formData.recurrenceInterval,
+					recurrence_custom_days: formData.recurrenceCustomDays,
+					recurrence_end_at: formData.recurrenceEndAt ? `${formData.recurrenceEndAt}T23:59:59` : undefined,
 				});
 
 				toast({
@@ -492,6 +508,10 @@ export function TaskDialog({
 					startDate: startDateTime,
 					attachments: attachments.length > 0 ? attachments : undefined,
 					isAssigneeLocked: formData.isAssigneeLocked,
+					is_recurring: formData.isRecurring,
+					recurrence_interval: formData.recurrenceInterval,
+					recurrence_custom_days: formData.recurrenceCustomDays,
+					recurrence_end_at: formData.recurrenceEndAt ? `${formData.recurrenceEndAt}T23:59:59` : undefined,
 				},
 				filesToUpload.length > 0 ? filesToUpload : undefined,
 				effectivePendingLinks.length > 0 ? effectivePendingLinks : undefined
@@ -1051,6 +1071,109 @@ export function TaskDialog({
 											</div>
 										</div>
 									</>
+								)}
+
+								{/* Recurrence Settings Section */}
+								{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
+									<div className="pt-4 border-t border-border/50 space-y-4">
+										<div className="flex items-center justify-between">
+											<div className="space-y-0.5">
+												<Label className="text-sm font-semibold flex items-center gap-2">
+													<span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+													Enable Task Recurrence
+												</Label>
+												<p className="text-xs text-muted-foreground">
+													Automatically repeat this task on a schedule or upon completion
+												</p>
+											</div>
+											<Checkbox
+												id="isRecurring"
+												checked={formData.isRecurring}
+												onCheckedChange={(checked) =>
+													setFormData({ ...formData, isRecurring: checked as boolean })
+												}
+												className="h-5 w-5 rounded-md border-indigo-500/30 data-[state=checked]:bg-indigo-500 data-[state=checked]:text-white"
+											/>
+										</div>
+
+										{formData.isRecurring && (
+											<div className="p-4 bg-muted/30 border border-border/50 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+												<div className="grid grid-cols-2 gap-4">
+													<div className="grid gap-2">
+														<Label htmlFor="recurrenceInterval">Recurrence Interval</Label>
+														<Select
+															value={formData.recurrenceInterval}
+															onValueChange={(value: any) =>
+																setFormData({ ...formData, recurrenceInterval: value })
+															}
+														>
+															<SelectTrigger id="recurrenceInterval">
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent>
+																<SelectItem value="daily">Daily</SelectItem>
+																<SelectItem value="weekly">Weekly</SelectItem>
+																<SelectItem value="monthly">Monthly</SelectItem>
+																<SelectItem value="custom">Custom Weekdays</SelectItem>
+																<SelectItem value="on_completion">Upon Completion</SelectItem>
+															</SelectContent>
+														</Select>
+													</div>
+
+													<div className="grid gap-2">
+														<Label htmlFor="recurrenceEndAt">End Recurrence (Optional)</Label>
+														<Input
+															id="recurrenceEndAt"
+															type="date"
+															value={formData.recurrenceEndAt}
+															onChange={(e) =>
+																setFormData({ ...formData, recurrenceEndAt: e.target.value })
+															}
+														/>
+													</div>
+												</div>
+
+												{formData.recurrenceInterval === "custom" && (
+													<div className="space-y-2 animate-in fade-in duration-200">
+														<Label>Repeat on these days</Label>
+														<div className="flex flex-wrap gap-1.5">
+															{[
+																{ label: "Su", value: 0 },
+																{ label: "Mo", value: 1 },
+																{ label: "Tu", value: 2 },
+																{ label: "We", value: 3 },
+																{ label: "Th", value: 4 },
+																{ label: "Fr", value: 5 },
+																{ label: "Sa", value: 6 }
+															].map((day) => {
+																const isSelected = formData.recurrenceCustomDays.includes(day.value);
+																return (
+																	<button
+																		key={day.value}
+																		type="button"
+																		onClick={() => {
+																			const days = isSelected
+																				? formData.recurrenceCustomDays.filter((d) => d !== day.value)
+																				: [...formData.recurrenceCustomDays, day.value].sort();
+																			setFormData({ ...formData, recurrenceCustomDays: days });
+																		}}
+																		className={cn(
+																			"h-8 w-8 text-xs font-semibold rounded-full border transition-all duration-200",
+																			isSelected
+																				? "bg-indigo-500 border-indigo-500 text-white shadow-sm scale-105"
+																				: "bg-background border-border/60 hover:bg-muted text-muted-foreground"
+																		)}
+																	>
+																		{day.label}
+																	</button>
+																);
+															})}
+														</div>
+													</div>
+												)}
+											</div>
+										)}
+									</div>
 								)}
 							</div>
 						)}
