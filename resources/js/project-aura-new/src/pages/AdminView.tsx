@@ -1,6 +1,6 @@
 import { DashboardStats } from "@/components/DashboardStats";
 import { AdminAnalytics } from "@/components/AdminAnalytics";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TaskDetailsDialog } from "@/components/TaskDetailsDialog";
 import { useEffect, useState } from "react";
 import { Task } from "@/types/task";
@@ -12,9 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
 import { adminTourSteps } from "@/components/tourSteps";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Settings } from "lucide-react";
 
 import { useUser } from "@/hooks/use-user";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminView() {
   const [tasks, setTasks] = useState<Task[]>([]);

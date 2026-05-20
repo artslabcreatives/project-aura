@@ -30,89 +30,156 @@ class ProcessRecurringTasks extends Command
      */
     public function handle()
     {
+        $runner = getenv('AURA_JOB_RUNNER') ?: 'automatic';
+        $logMessages = [];
+
         $now = Carbon::now();
-        $this->info("Processing recurring tasks at: " . $now->toDateTimeString());
+        $msg = "Processing recurring tasks at: " . $now->toDateTimeString();
+        $this->info($msg);
+        $logMessages[] = $msg;
 
-        // Get all active recurring tasks that are due, excluding 'on_completion' type
-        $tasks = Task::where('is_recurring', true)
-            ->whereNotNull('next_recurrence_at')
-            ->where('next_recurrence_at', '<=', $now)
-            ->where('recurrence_interval', '!=', 'on_completion')
-            ->get();
+        try {
+            // Get all active recurring tasks that are due, excluding 'on_completion' type
+            $tasks = Task::where('is_recurring', true)
+                ->whereNotNull('next_recurrence_at')
+                ->where('next_recurrence_at', '<=', $now)
+                ->where('recurrence_interval', '!=', 'on_completion')
+                ->get();
 
-        if ($tasks->isEmpty()) {
-            $this->info("No recurring tasks are due at this time.");
-            return 0;
-        }
+            if ($tasks->isEmpty()) {
+                $msg = "No recurring tasks are due at this time.";
+                $this->info($msg);
+                $logMessages[] = $msg;
 
-        $this->info("Found " . $tasks->count() . " recurring tasks to process.");
-
-        foreach ($tasks as $task) {
-            DB::transaction(function () use ($task, $now) {
-                // 1. Calculate duration for clone dates
-                $originalDurationDays = 0;
-                if ($task->start_date && $task->due_date) {
-                    $originalDurationDays = $task->start_date->diffInDays($task->due_date);
-                }
-
-                $newStartDate = $task->next_recurrence_at->copy();
-                $newDueDate = $task->due_date ? $newStartDate->copy()->addDays($originalDurationDays) : null;
-
-                // 2. Determine target stage
-                $firstStage = Stage::where('project_id', $task->project_id)->orderBy('order', 'asc')->first();
-                $cloneStageId = $task->start_stage_id ?? ($firstStage?->id ?? $task->project_stage_id);
-
-                // 3. Create active task clone
-                $clone = Task::create([
-                    'title' => $task->title,
-                    'description' => $task->description,
-                    'board_id' => $task->board_id,
-                    'project_id' => $task->project_id,
-                    'assignee_id' => $task->assignee_id,
-                    'user_status' => 'pending',
-                    'project_stage_id' => $cloneStageId,
-                    'priority' => $task->priority,
-                    'tags' => $task->tags,
-                    'start_date' => $newStartDate,
-                    'due_date' => $newDueDate,
-                    'is_recurring' => false,
-                    'is_assignee_locked' => $task->is_assignee_locked,
-                    'hourly_rate' => $task->hourly_rate,
-                    'estimated_hours' => $task->estimated_hours,
+                \App\Models\BackgroundJobLog::create([
+                    'command' => 'tasks:process-recurring',
+                    'runner' => $runner,
+                    'status' => 'success',
+                    'output' => implode("\n", $logMessages),
                 ]);
+                return 0;
+            }
 
-                // Sync assignees
-                $assigneeIds = $task->assignedUsers->pluck('id')->toArray();
-                if (!empty($assigneeIds)) {
-                    $clone->assignedUsers()->sync($assigneeIds);
-                } elseif ($task->assignee_id) {
-                    $clone->assignedUsers()->sync([$task->assignee_id]);
-                }
+            $msg = "Found " . $tasks->count() . " recurring tasks to process.";
+            $this->info($msg);
+            $logMessages[] = $msg;
 
-                // 4. Advance the original template task's recurrence state
-                $nextRun = $this->calculateNextRecurrence($task->next_recurrence_at, $task->recurrence_interval, $task->recurrence_custom_days);
-
-                // If recurrence_end_at is set and next run is past the end date, terminate recurrence
-                if ($task->recurrence_end_at && $nextRun->gt($task->recurrence_end_at)) {
-                    $task->is_recurring = false;
-                    $task->next_recurrence_at = null;
-                } else {
-                    $task->next_recurrence_at = $nextRun;
-                    // Shift original dates forward too to keep the template in sync
-                    if ($task->start_date) {
-                        $task->start_date = $nextRun;
+            foreach ($tasks as $task) {
+                $self = $this;
+                DB::transaction(function () use ($task, $now, $self, &$logMessages) {
+                    // 1. Calculate duration for clone dates
+                    $originalDurationDays = 0;
+                    if ($task->start_date && $task->due_date) {
+                        $originalDurationDays = $task->start_date->diffInDays($task->due_date);
                     }
-                    if ($task->due_date) {
-                        $task->due_date = $nextRun->copy()->addDays($originalDurationDays);
-                    }
-                }
-                $task->save();
 
-                Log::info("Spawned cloned task #{$clone->id} from recurring task #{$task->id}. Next run set to: " . ($task->next_recurrence_at ? $task->next_recurrence_at->toDateTimeString() : 'Terminated'));
-            });
+                    $newStartDate = $task->next_recurrence_at->copy();
+                    $newDueDate = $task->due_date ? $newStartDate->copy()->addDays($originalDurationDays) : null;
+
+                    // 2. Determine target stage
+                    $firstStage = Stage::where('project_id', $task->project_id)->orderBy('order', 'asc')->first();
+                    $cloneStageId = $task->start_stage_id ?? ($firstStage?->id ?? $task->project_stage_id);
+
+                    // 3. Create active task clone
+                    $clone = Task::create([
+                        'title' => $task->title,
+                        'description' => $task->description,
+                        'board_id' => $task->board_id,
+                        'project_id' => $task->project_id,
+                        'assignee_id' => $task->assignee_id,
+                        'user_status' => 'pending',
+                        'project_stage_id' => $cloneStageId,
+                        'priority' => $task->priority,
+                        'tags' => $task->tags,
+                        'start_date' => $newStartDate,
+                        'due_date' => $newDueDate,
+                        'is_recurring' => false,
+                        'is_assignee_locked' => $task->is_assignee_locked,
+                        'hourly_rate' => $task->hourly_rate,
+                        'estimated_hours' => $task->estimated_hours,
+                    ]);
+
+                    // Sync assignees
+                    $assigneeIds = $task->assignedUsers->pluck('id')->toArray();
+                    if (!empty($assigneeIds)) {
+                        $clone->assignedUsers()->sync($assigneeIds);
+                    } elseif ($task->assignee_id) {
+                        $clone->assignedUsers()->sync([$task->assignee_id]);
+                    }
+
+                    // Notify assignees about the cloned recurring task
+                    $notifiedUserIds = [];
+                    $clone->load(['assignedUsers', 'assignee']);
+
+                    if ($clone->assignee_id) {
+                        try {
+                            $clone->assignee->notify(new \App\Notifications\TaskAssignedNotification($clone));
+                            $notifiedUserIds[] = $clone->assignee_id;
+                        } catch (\Exception $e) {
+                            Log::error("Failed to notify primary assignee on recurring clone: " . $e->getMessage());
+                        }
+                    }
+
+                    foreach ($clone->assignedUsers as $user) {
+                        if (!in_array($user->id, $notifiedUserIds)) {
+                            try {
+                                $user->notify(new \App\Notifications\TaskAssignedNotification($clone));
+                                $notifiedUserIds[] = $user->id;
+                            } catch (\Exception $e) {
+                                Log::error("Failed to notify multi-assignee on recurring clone: " . $e->getMessage());
+                            }
+                        }
+                    }
+
+                    // 4. Advance the original template task's recurrence state
+                    $nextRun = $self->calculateNextRecurrence($task->next_recurrence_at, $task->recurrence_interval, $task->recurrence_custom_days);
+
+                    // If recurrence_end_at is set and next run is past the end date, terminate recurrence
+                    if ($task->recurrence_end_at && $nextRun->gt($task->recurrence_end_at)) {
+                        $task->is_recurring = false;
+                        $task->next_recurrence_at = null;
+                    } else {
+                        $task->next_recurrence_at = $nextRun;
+                        // Shift original dates forward too to keep the template in sync
+                        if ($task->start_date) {
+                            $task->start_date = $nextRun;
+                        }
+                        if ($task->due_date) {
+                            $task->due_date = $nextRun->copy()->addDays($originalDurationDays);
+                        }
+                    }
+                    $task->save();
+
+                    $logMsg = "Spawned cloned task #{$clone->id} ('{$clone->title}') from recurring template #{$task->id}. Next run: " . ($task->next_recurrence_at ? $task->next_recurrence_at->toDateTimeString() : 'Terminated');
+                    $self->info($logMsg);
+                    $logMessages[] = $logMsg;
+                    Log::info($logMsg);
+                });
+            }
+
+            $msg = "Finished processing recurring tasks.";
+            $this->info($msg);
+            $logMessages[] = $msg;
+
+            \App\Models\BackgroundJobLog::create([
+                'command' => 'tasks:process-recurring',
+                'runner' => $runner,
+                'status' => 'success',
+                'output' => implode("\n", $logMessages),
+            ]);
+
+        } catch (\Exception $e) {
+            $logMessages[] = "ERROR: " . $e->getMessage();
+            \App\Models\BackgroundJobLog::create([
+                'command' => 'tasks:process-recurring',
+                'runner' => $runner,
+                'status' => 'failed',
+                'output' => implode("\n", $logMessages),
+                'error_message' => $e->getMessage(),
+            ]);
+            throw $e;
         }
 
-        $this->info("Finished processing recurring tasks.");
         return 0;
     }
 

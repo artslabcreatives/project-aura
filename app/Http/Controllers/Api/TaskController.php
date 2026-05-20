@@ -1326,6 +1326,33 @@ class TaskController extends Controller
     }
 
     /**
+     * Process recurring tasks programmatically (QA/Admin manually triggers)
+     */
+    public function processRecurring(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
+    {
+        if (!in_array($request->user()->role, ['admin', 'team-lead'])) {
+            return response()->json(['message' => 'Unauthorized action.'], 403);
+        }
+
+        try {
+            \Illuminate\Support\Facades\Artisan::call('tasks:process-recurring');
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Recurring tasks processed successfully.',
+                'output' => $output
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to process recurring tasks manually: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process recurring tasks: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Calculate initial next recurrence date
      */
     private function calculateInitialNextRecurrence($startDate, $interval, $customDays)
