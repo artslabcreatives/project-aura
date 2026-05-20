@@ -259,11 +259,32 @@ export function TaskDialog({
 			setNewTag("");
 			setNewLinkName("");
 			setNewLinkUrl("");
-			setNoStartDate(false);
-			setNoEndDate(false);
+			setNoStartDate(activeRole === 'user');
+			setNoEndDate(activeRole === 'user');
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [editTask?.id, open]);
+
+	// Force Suggested stage, self-assignee and disable date select for normal user role
+	useEffect(() => {
+		if (open && activeRole === 'user' && !editTask) {
+			const currentProject = allProjects?.find(p => p.name === formData.project);
+			const suggestedStage = currentProject?.stages?.find(s => {
+				const title = s.title.toLowerCase().trim();
+				return title === 'suggested task' || title === 'suggested';
+			});
+
+			setFormData(prev => ({
+				...prev,
+				assignee: currentUser?.name || prev.assignee,
+				assigneeIds: currentUser ? [currentUser.id] : prev.assigneeIds,
+				projectStage: suggestedStage?.id || prev.projectStage,
+				userStatus: "pending",
+			}));
+			setNoStartDate(true);
+			setNoEndDate(true);
+		}
+	}, [formData.project, open, activeRole, currentUser, allProjects, editTask]);
 
 	useEffect(() => {
 		if (open) {
@@ -738,7 +759,7 @@ export function TaskDialog({
 											}}
 											options={memberOptions}
 											placeholder="Select member"
-											disabled={!!assignmentRestriction || isTaskLocked}
+											disabled={!!assignmentRestriction || isTaskLocked || activeRole === 'user'}
 										/>
 										{assignmentRestriction ? (
 											<div className="flex items-center gap-1.5 mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-700 animate-in fade-in slide-in-from-top-1">
@@ -814,10 +835,12 @@ export function TaskDialog({
 
 												setFormData(prev => ({ ...prev, ...updates }));
 											}}
-											disabled={isStageLocked}
+											disabled={isStageLocked || activeRole === 'user'}
 										>
 											<SelectTrigger id="status">
-												<SelectValue />
+												<SelectValue placeholder={activeRole === 'user' ? "Suggested Task" : undefined}>
+													{activeRole === 'user' ? "Suggested Task" : undefined}
+												</SelectValue>
 											</SelectTrigger>
 											<SelectContent>
 												{(useProjectStages && allProjects && formData.project
@@ -935,84 +958,100 @@ export function TaskDialog({
 									);
 								})()}
 
-								<div className="grid grid-cols-2 gap-4">
-									<div className="grid gap-2">
-										<div className="flex items-center justify-between">
-											<Label htmlFor="startDate">Start Date</Label>
-											{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
-												<div className="flex items-center space-x-2">
-													<Checkbox
-														id="noStartDate"
-														checked={noStartDate}
-														onCheckedChange={(checked) => setNoStartDate(checked as boolean)}
-													/>
-													<Label htmlFor="noStartDate" className="text-xs font-normal text-muted-foreground">No date</Label>
-												</div>
-											)}
+								{activeRole === 'user' ? (
+									<div className="flex items-start gap-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl dark:bg-blue-950/10 dark:border-blue-900/30">
+										<AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
+										<div className="space-y-1">
+											<p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+												Schedule Set by Approval
+											</p>
+											<p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+												Start and end dates for this suggested task will be designated by your Team Lead or Admin during the review and approval process.
+											</p>
 										</div>
-										<Input
-											id="startDate"
-											type="date"
-											value={formData.startDate}
-											disabled={noStartDate}
-											onChange={(e) =>
-												setFormData({ ...formData, startDate: e.target.value })
-											}
-										/>
 									</div>
-									<div className="grid gap-2">
-										<Label htmlFor="startTime">Start Time</Label>
-										<Input
-											id="startTime"
-											type="time"
-											value={formData.startTime}
-											disabled={noStartDate}
-											onChange={(e) =>
-												setFormData({ ...formData, startTime: e.target.value })
-											}
-										/>
-									</div>
-								</div>
+								) : (
+									<>
+										<div className="grid grid-cols-2 gap-4">
+											<div className="grid gap-2">
+												<div className="flex items-center justify-between">
+													<Label htmlFor="startDate">Start Date</Label>
+													{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
+														<div className="flex items-center space-x-2">
+															<Checkbox
+																id="noStartDate"
+																checked={noStartDate}
+																onCheckedChange={(checked) => setNoStartDate(checked as boolean)}
+															/>
+															<Label htmlFor="noStartDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+														</div>
+													)}
+												</div>
+												<Input
+													id="startDate"
+													type="date"
+													value={formData.startDate}
+													disabled={noStartDate}
+													onChange={(e) =>
+														setFormData({ ...formData, startDate: e.target.value })
+													}
+												/>
+											</div>
+											<div className="grid gap-2">
+												<Label htmlFor="startTime">Start Time</Label>
+												<Input
+													id="startTime"
+													type="time"
+													value={formData.startTime}
+													disabled={noStartDate}
+													onChange={(e) =>
+														setFormData({ ...formData, startTime: e.target.value })
+													}
+												/>
+											</div>
+										</div>
 
-								<div className="grid grid-cols-2 gap-4">
-									<div className="grid gap-2">
-										<div className="flex items-center justify-between">
-											<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
-											{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
-												<div className="flex items-center space-x-2">
-													<Checkbox
-														id="noEndDate"
-														checked={noEndDate}
-														onCheckedChange={(checked) => setNoEndDate(checked as boolean)}
-													/>
-													<Label htmlFor="noEndDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+										<div className="grid grid-cols-2 gap-4">
+											<div className="grid gap-2">
+												<div className="flex items-center justify-between">
+													<Label htmlFor="dueDate">End Date {noEndDate ? '' : '*'}</Label>
+													{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
+														<div className="flex items-center space-x-2">
+															<Checkbox
+																id="noEndDate"
+																checked={noEndDate}
+																onCheckedChange={(checked) => setNoEndDate(checked as boolean)}
+															/>
+															<Label htmlFor="noEndDate" className="text-xs font-normal text-muted-foreground">No date</Label>
+														</div>
+													)}
 												</div>
-											)}
+												<Input
+													id="dueDate"
+													type="date"
+													value={formData.dueDate}
+													disabled={noEndDate}
+													onChange={(e) =>
+														setFormData({ ...formData, dueDate: e.target.value })
+													}
+													required={!noEndDate}
+												/>
+											</div>
+											<div className="grid gap-2">
+												<Label htmlFor="dueTime">End Time</Label>
+												<Input
+													id="dueTime"
+													type="time"
+													value={formData.dueTime}
+													disabled={noEndDate}
+													onChange={(e) =>
+														setFormData({ ...formData, dueTime: e.target.value })
+													}
+												/>
+											</div>
 										</div>
-										<Input
-											id="dueDate"
-											type="date"
-											value={formData.dueDate}
-											disabled={noEndDate}
-											onChange={(e) =>
-												setFormData({ ...formData, dueDate: e.target.value })
-											}
-											required={!noEndDate}
-										/>
-									</div>
-									<div className="grid gap-2">
-										<Label htmlFor="dueTime">End Time</Label>
-										<Input
-											id="dueTime"
-											type="time"
-											value={formData.dueTime}
-											disabled={noEndDate}
-											onChange={(e) =>
-												setFormData({ ...formData, dueTime: e.target.value })
-											}
-										/>
-									</div>
-								</div>
+									</>
+								)}
 							</div>
 						)}
 

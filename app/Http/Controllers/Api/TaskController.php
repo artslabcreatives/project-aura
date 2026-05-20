@@ -235,6 +235,23 @@ class TaskController extends Controller
             $validated['assignee_id'] = $request->user()->id;
         }
 
+        if ($request->user()->role === 'user') {
+            $suggestedStage = \App\Models\Stage::where('project_id', $validated['project_id'])
+                ->whereIn(\DB::raw('LOWER(TRIM(title))'), ['suggested', 'suggested task'])
+                ->first();
+
+            if (!$suggestedStage) {
+                $maxOrder = \App\Models\Stage::where('project_id', $validated['project_id'])->max('order') ?? 0;
+                $suggestedStage = \App\Models\Stage::create([
+                    'project_id' => $validated['project_id'],
+                    'title' => 'Suggested Task',
+                    'order' => $maxOrder + 1,
+                    'color' => '#60A5FA',
+                ]);
+            }
+            $validated['project_stage_id'] = $suggestedStage->id;
+        }
+
         // PO Requirement Enforcement (Task 5): block task creation when project
         // has no PO and no active grace period, or is manually blocked.
         $project = Project::find($validated['project_id']);

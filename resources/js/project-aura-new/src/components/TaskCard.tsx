@@ -331,6 +331,37 @@ export function TaskCard({
 					>
 						<Eye className="h-3.5 w-3.5" />
 					</Button>
+					{/* Show Approve Task button if in suggested stage */}
+					{currentStage?.title?.toLowerCase().includes("suggested") && (activeRole === 'admin' || activeRole === 'team-lead') && onTaskUpdate && (
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+										onClick={async (e) => {
+											e.stopPropagation();
+											const pendingStage = allStages.find(s => s.title.toLowerCase().trim() === 'pending' || s.id === 'pending');
+											const targetStageId = pendingStage?.id || allStages.find(s => !s.title.toLowerCase().includes('suggested'))?.id;
+											if (targetStageId) {
+												onTaskUpdate(task.id, { projectStage: targetStageId });
+												toast({
+													title: "Task Approved",
+													description: `Successfully moved "${task.title}" to active backlog.`
+												});
+											}
+										}}
+									>
+										<Check className="h-4 w-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Approve Task</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					)}
 					{/* Show Review Task button if in review stage */}
 					{currentStage?.isReviewStage && onReviewTask && (
 						activeRole === 'admin' ||

@@ -985,6 +985,14 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 		return a.order - b.order;
 	});
 
+	const visibleStages = sortedStages.filter(s => {
+		if (activeRole === 'user') {
+			const t = s.title.toLowerCase().trim();
+			return t !== 'suggested' && t !== 'suggested task';
+		}
+		return true;
+	});
+
 	// Filter out subtasks from the main board view so they don't appear as duplicate cards
 	// Only show top-level tasks (where parentId is null/undefined)
 	const topLevelTasks = tasks.filter(t => !t.parentId);
@@ -1270,7 +1278,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 								tasks={tasks} 
 								onTaskClick={(task) => handleTaskEdit(task)}
 								onAddTask={(date) => {
-									setPreselectedStageId(sortedStages[0]?.id);
+									setPreselectedStageId(visibleStages[0]?.id);
 									setEditingTask(null);
 									setIsTaskDialogOpen(true);
 									// Note: In a real scenario, we'd pass the date to TaskDialog
@@ -1279,7 +1287,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 						) : view === 'kanban' ? (
 							<KanbanBoard
 								tasks={topLevelTasks}
-								stages={sortedStages}
+								stages={visibleStages}
 								onTaskUpdate={(!project.isArchived && !isProjectBlocked && !isPORequired) ? handleTaskUpdate : undefined}
 								onTaskEdit={(!project.isArchived && !isProjectBlocked && !isPORequired) ? handleTaskEdit : undefined}
 								onTaskDelete={(!project.isArchived && !isProjectBlocked && !isPORequired) ? handleTaskDelete : undefined}
@@ -1300,7 +1308,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 						) : (
 							<TaskListView
 								tasks={topLevelTasks}
-								stages={sortedStages}
+								stages={visibleStages}
 								onTaskEdit={(!project.isArchived && !isProjectBlocked) ? handleTaskEdit : undefined}
 								onTaskDelete={(!project.isArchived && !isProjectBlocked) ? handleTaskDelete : undefined}
 								onTaskUpdate={(!project.isArchived && !isProjectBlocked) ? handleTaskUpdate : undefined}
@@ -1333,7 +1341,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 				}}
 				onSave={handleSaveTask}
 				editTask={editingTask}
-				availableStatuses={sortedStages}
+				availableStatuses={visibleStages}
 				useProjectStages
 				availableProjects={[project.name]}
 				allProjects={[project]}
