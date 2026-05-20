@@ -1204,10 +1204,10 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 							onValueChange={(v) => v && setActiveTab(v as 'summary' | 'board')}
 							className="bg-muted/50 p-1 rounded-xl border border-border/10"
 						>
-							<ToggleGroupItem value="summary" aria-label="Summary" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
+							<ToggleGroupItem value="summary" aria-label="Summary" className="rounded-lg data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
 								Summary
 							</ToggleGroupItem>
-							<ToggleGroupItem value="board" aria-label="Board" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
+							<ToggleGroupItem value="board" aria-label="Board" className="rounded-lg data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm px-4 text-[10px] font-bold uppercase">
 								Board
 							</ToggleGroupItem>
 						</ToggleGroup>
@@ -1219,13 +1219,13 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 								onValueChange={(v) => v && setView(v as 'kanban' | 'list' | 'calendar')}
 								className="bg-muted/50 p-1 rounded-xl border border-border/10"
 							>
-								<ToggleGroupItem value="kanban" aria-label="Kanban view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+								<ToggleGroupItem value="kanban" aria-label="Kanban view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm px-3">
 									<LayoutGrid className="h-4 w-4" />
 								</ToggleGroupItem>
-								<ToggleGroupItem value="list" aria-label="List view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+								<ToggleGroupItem value="list" aria-label="List view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm px-3">
 									<List className="h-4 w-4" />
 								</ToggleGroupItem>
-								<ToggleGroupItem value="calendar" aria-label="Calendar view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:shadow-sm px-3">
+								<ToggleGroupItem value="calendar" aria-label="Calendar view" className="rounded-lg data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm px-3">
 									<LucideCalendar className="h-4 w-4" />
 								</ToggleGroupItem>
 							</ToggleGroup>
