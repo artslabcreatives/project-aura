@@ -462,7 +462,7 @@ $user->createToken('web|' . request()->ip() . '|' . now()->toDateString())
 - [x] Replace `rand()` with `random_int()` in OTP generation
 - [ ] Add `->middleware('throttle:5,1')` to `/login`, `/forgot-password`, `/verify-otp`
 - [ ] Change `'allowed_origins' => ['*']` to your exact domain in `cors.php`
-- [ ] Set `'expiration' => 1440` in `config/sanctum.php`
+- [x] Set `'expiration' => 1440` in `config/sanctum.php`
 - [ ] Move `searchByEmail`, `searchByWhatsapp`, `suggestedTasks` inside `auth:sanctum` group
 - [ ] Add `->middleware('role:admin')` to user `store`, `update`, `destroy`
 - [ ] Replace hardcoded email with `env('REMINDER_RECIPIENT_EMAIL')` in `IntegrationController`
