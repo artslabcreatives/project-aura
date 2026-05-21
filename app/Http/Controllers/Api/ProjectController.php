@@ -372,7 +372,31 @@ class ProjectController extends Controller
                 $query->where('type', 'project');
             }, 'collaborators' => function ($query) {
                 $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
-            }, "attachments"]);
+            }, "attachments", "purchaseOrders"]);
+
+            // Dynamically look up matching Estimate/Quote if po_number exists and append to purchaseOrders
+            if ($project->po_number) {
+                $estimate = \App\Models\Estimate::where('estimate_number', $project->po_number)->first();
+                if ($estimate) {
+                    $exists = $project->purchaseOrders->contains(function ($po) use ($project) {
+                        return strtolower(trim($po->po_number)) === strtolower(trim($project->po_number));
+                    });
+                    if (!$exists) {
+                        $dynamicPO = new \App\Models\ProjectPurchaseOrder([
+                            'project_id' => $project->id,
+                            'po_number' => $estimate->estimate_number,
+                            'xero_po_id' => $estimate->xero_estimate_id,
+                            'amount' => $estimate->total,
+                            'currency' => $estimate->currency,
+                            'status' => $estimate->status,
+                            'notes' => $estimate->notes ?: 'Imported from Quote / Estimate',
+                        ]);
+                        // Set fake ID to avoid collision
+                        $dynamicPO->id = 9999999 + $estimate->id;
+                        $project->purchaseOrders->push($dynamicPO);
+                    }
+                }
+            }
 
             // Filter tasks relationship for user and account_manager
             if (in_array($user->role, ['user', 'account_manager'])) {

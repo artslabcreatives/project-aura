@@ -31,6 +31,8 @@ Link as LinkIcon,
 Upload,
 X,
 	Plus,
+	ChevronDown,
+	ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -44,6 +46,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Loader2 } from "lucide-react";
 import { POSelectDialog } from "@/components/POSelectDialog";
 import { POViewDialog } from "@/components/POViewDialog";
@@ -111,6 +119,16 @@ const fileInputRef = useRef<HTMLInputElement>(null);
 	const { toast } = useToast();
 	const { currentUser, activeRole } = useUser();
 	const navigate = useNavigate();
+
+	const xeroPOs = project.purchaseOrders?.filter(po => po.xeroPoId) || [];
+	const hasXeroPO = xeroPOs.length > 0;
+
+	const handleViewXeroPO = (xeroPoId: string, poNumber: string) => {
+		const url = poNumber.toLowerCase().includes('qt') 
+			? `https://go.xero.com/Quotes/View/${xeroPoId}` 
+			: `https://go.xero.com/PO/View/${xeroPoId}`;
+		window.open(url, '_blank', 'noopener,noreferrer');
+	};
 
 	// Sync local project state when the parent provides an updated project
 	useEffect(() => {
@@ -464,12 +482,12 @@ toast({ title: "Error", description: "Could not remove attachment.", variant: "d
 										</Button>
 									)}
 							</div>
-						) : (project.poDocumentUrl && activeRole !== 'user' && activeRole !== 'account-manager') ? (
+						) : ((project.poNumber || hasXeroPO) && activeRole !== 'user' && activeRole !== 'account-manager') ? (
 							<div className="flex items-center gap-2">
 								<Button
 									variant="outline"
 									size="sm"
-									className="h-6 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+									className="h-6 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950 flex items-center gap-1"
 									onClick={() => setIsPOViewOpen(true)}
 								>
 									View PO
@@ -814,16 +832,6 @@ toast({ title: "Error", description: "Could not remove attachment.", variant: "d
 											<span className="font-semibold text-sm">{project.poNumber}</span>
 											<span className="text-xs text-muted-foreground">Primary PO</span>
 										</div>
-										{project.poDocumentUrl && (
-											<Button
-												variant="ghost"
-												size="sm"
-												className="text-xs"
-												onClick={() => setIsPOViewOpen(true)}
-											>
-												View
-											</Button>
-										)}
 									</div>
 								)}
 								{/* POs from project_purchase_orders table */}
@@ -852,17 +860,29 @@ toast({ title: "Error", description: "Could not remove attachment.", variant: "d
 												<span className="text-xs text-muted-foreground">{po.notes}</span>
 											)}
 										</div>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="h-7 w-7 text-destructive hover:text-destructive"
-											disabled={isRemovingPO === po.id}
-											onClick={() => handleRemovePO(po)}
-										>
-											{isRemovingPO === po.id
-												? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-												: <Trash2 className="h-3.5 w-3.5" />}
-										</Button>
+										<div className="flex items-center gap-1.5">
+											{po.xeroPoId && (
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950 flex items-center gap-1"
+													onClick={() => handleViewXeroPO(po.xeroPoId!, po.poNumber)}
+												>
+													<ExternalLink className="h-3.5 w-3.5" /> View
+												</Button>
+											)}
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-7 w-7 text-destructive hover:text-destructive"
+												disabled={isRemovingPO === po.id}
+												onClick={() => handleRemovePO(po)}
+											>
+												{isRemovingPO === po.id
+													? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+													: <Trash2 className="h-3.5 w-3.5" />}
+											</Button>
+										</div>
 									</div>
 								))}
 							</div>
@@ -1368,8 +1388,7 @@ toast({ title: "Error", description: "Could not remove attachment.", variant: "d
 			<POViewDialog
 				open={isPOViewOpen}
 				onOpenChange={setIsPOViewOpen}
-				url={project.poDocumentUrl || ""}
-				poNumber={project.poNumber}
+				project={project}
 			/>
 
 			<InvoiceUploadDialog

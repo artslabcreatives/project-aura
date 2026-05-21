@@ -7,7 +7,7 @@ import { Task, User, UserStatus, TaskPriority } from "@/types/task";
 import { StageDialog } from "@/components/StageDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign, Sparkles, ChevronDown, Settings, MoreVertical, Link as LinkIcon } from "lucide-react";
+import { Plus, LayoutGrid, List, Lock, Calendar, Info, FileText, DollarSign, Sparkles, ChevronDown, Settings, MoreVertical, Link as LinkIcon, ExternalLink } from "lucide-react";
 import { Stage } from "@/types/stage";
 import { TaskDialog } from "@/components/TaskDialog";
 import { StageManagement } from "@/components/StageManagement";
@@ -79,6 +79,8 @@ export default function ProjectKanbanFixed() {
 	const [project, setProject] = useState<Project | null>(null);
 	const [loading, setLoading] = useState(true);
 	const { toast } = useToast();
+
+
 
 	useEffect(() => {
 		const fetchProject = async () => {
@@ -235,6 +237,16 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const [isImportReviewOpen, setIsImportReviewOpen] = useState(false);
 	const [importedTasks, setImportedTasks] = useState<ImportedTask[]>([]);
 	const importPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+	const xeroPOs = project?.purchaseOrders?.filter(po => po.xeroPoId) || [];
+	const hasXeroPO = xeroPOs.length > 0;
+
+	const handleViewXeroPO = (xeroPoId: string, poNumber: string) => {
+		const url = poNumber.toLowerCase().includes('qt') 
+			? `https://go.xero.com/Quotes/View/${xeroPoId}` 
+			: `https://go.xero.com/PO/View/${xeroPoId}`;
+		window.open(url, '_blank', 'noopener,noreferrer');
+	};
 
 	const openImportReview = useCallback((tasks: ImportedTask[]) => {
 		// Clear any running poll — Echo or poll, whichever fires first wins
@@ -1041,7 +1053,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 											</Button>
 										)}
 									</div>
-								) : (project.poDocumentUrl && activeRole !== 'user' && activeRole !== 'account-manager') ? (
+								) : ((project.poNumber || hasXeroPO) && activeRole !== 'user' && activeRole !== 'account-manager') ? (
 									<div className="flex items-center gap-2">
 										<Button 
 											variant="outline" 
@@ -1428,8 +1440,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 			<POViewDialog
 				open={isPOViewOpen}
 				onOpenChange={setIsPOViewOpen}
-				url={project.poDocumentUrl || ""}
-				poNumber={project.poNumber}
+				project={project}
 			/>
 
 			{/* Finance Dialog */}
