@@ -31,6 +31,30 @@ class ProjectReport extends Model
         'rejected_at' => 'datetime',
     ];
 
+    public function getFileUrlAttribute($value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl(
+                $value,
+                now()->addMinutes(1440)
+            );
+        } catch (\Exception $e) {
+            try {
+                return \Illuminate\Support\Facades\Storage::disk('s3')->url($value);
+            } catch (\Exception $ex) {
+                return $value;
+            }
+        }
+    }
+
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
