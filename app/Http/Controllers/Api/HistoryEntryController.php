@@ -56,7 +56,15 @@ class HistoryEntryController extends Controller
             $query->where('entity_id', $request->entity_id);
         }
         
-        $entries = $query->orderByDesc('timestamp')->get();
+        $query->orderByDesc('timestamp');
+
+        if ($request->has('paginate') || $request->has('page')) {
+            $perPage = $request->get('per_page', 15);
+            $paginated = $query->paginate($perPage);
+            return response()->json($paginated);
+        }
+        
+        $entries = $query->get();
         return response()->json($entries);
     }
 

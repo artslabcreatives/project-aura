@@ -1343,6 +1343,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 				history={history}
 				teamMembers={teamMembers}
 				stages={sortedStages}
+				projectId={project?.id ? String(project.id) : undefined}
 			/>
 			<TaskDialog
 				open={isTaskDialogOpen}

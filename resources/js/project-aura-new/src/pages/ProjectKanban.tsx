@@ -718,7 +718,7 @@ export default function ProjectKanban() {
 					/>
 				)}
 			</div>
-			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} stages={project.stages} loading={historyLoading} />
+			<HistoryDialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen} history={history} teamMembers={teamMembers} stages={project.stages} loading={historyLoading} projectId={project?.id ? String(project.id) : undefined} />
 			<TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} onSave={handleSaveTask} editTask={editingTask} availableStatuses={project.stages} useProjectStages availableProjects={[project.name]} allProjects={[project]} teamMembers={teamMembers} departments={departments} allTasks={allTasks} />
 			<StageManagement open={isStageManagementOpen} onOpenChange={setIsStageManagementOpen} stages={project.stages} onAddStage={handleAddStage} onEditStage={handleEditStage} onDeleteStage={handleDeleteStage} />
 			<StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} onSave={handleSaveStage} existingStages={project.stages} editStage={editingStage} teamMembers={teamMembers} />

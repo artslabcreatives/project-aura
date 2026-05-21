@@ -33,6 +33,22 @@ export const historyService = {
 		return Array.isArray(data) ? data.map(mapHistoryEntry) : [];
 	},
 
+	getByProjectPaginated: async (projectId: string, page: number = 1, perPage: number = 15): Promise<{ data: HistoryEntry[], total: number, lastPage: number }> => {
+		const { data } = await api.get('/history-entries', {
+			params: { 
+				project_id: projectId,
+				paginate: true,
+				page,
+				per_page: perPage
+			}
+		});
+		return {
+			data: Array.isArray(data.data) ? data.data.map(mapHistoryEntry) : [],
+			total: data.total || 0,
+			lastPage: data.last_page || 1
+		};
+	},
+
 	create: async (entry: Omit<HistoryEntry, 'id' | 'timestamp'>): Promise<HistoryEntry> => {
 		// user_id is automatically added by the backend from the authenticated user
 		const payload = {
