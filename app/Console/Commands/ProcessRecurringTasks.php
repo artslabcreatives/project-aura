@@ -84,7 +84,6 @@ class ProcessRecurringTasks extends Command
                     $clone = Task::create([
                         'title' => $task->title,
                         'description' => $task->description,
-                        'board_id' => $task->board_id,
                         'project_id' => $task->project_id,
                         'assignee_id' => $task->assignee_id,
                         'user_status' => 'pending',
