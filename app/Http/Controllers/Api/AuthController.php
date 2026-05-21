@@ -266,7 +266,7 @@ class AuthController extends Controller
         $request->validate(['email' => 'required|email|exists:users,email']);
 
         $email = $request->email;
-        $otp = (string) random_int(100000, 999999);
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         
         // Store OTP in cache for 5 minutes
         \Illuminate\Support\Facades\Cache::put('password_reset_otp_' . $email, $otp, 300);
