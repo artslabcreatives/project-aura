@@ -90,7 +90,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::apiResource('departments', DepartmentController::class);
     Route::get('/projects/sidebar', [ProjectController::class, 'sidebar']);
-    Route::apiResource('projects', ProjectController::class)->middleware('cache.headers:public;max_age=3600;etag');
+    Route::apiResource('projects', ProjectController::class)->only(['index', 'show'])->middleware('cache.headers:public;max_age=3600;etag');
+    Route::apiResource('projects', ProjectController::class)->only(['store', 'update', 'destroy'])->middleware('role:admin,team-lead,account-manager');
     Route::apiResource('stages', StageController::class);
     Route::apiResource('stage-groups', StageGroupController::class);
     Route::post('/tasks/process-recurring', [TaskController::class, 'processRecurring']);
