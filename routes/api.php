@@ -47,14 +47,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Authentication routes (public)
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::get('/auth/google', [\App\Http\Controllers\Api\GoogleAuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [\App\Http\Controllers\Api\GoogleAuthController::class, 'handleGoogleCallback']);
 Route::post('/check-email', [AuthController::class, 'checkEmail'])->middleware('throttle:10,1');
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-Route::post('/set-password', [AuthController::class, 'setPasswordFromToken']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,5');
+Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:5,5');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,5');
+Route::post('/set-password', [AuthController::class, 'setPasswordFromToken'])->middleware('throttle:5,5');
 
 Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Public avatar viewing
 Route::get('/zoho/callback', [\App\Http\Controllers\Api\ZohoMailController::class, 'handleCallback']);
@@ -328,7 +328,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // 2FA Verification during login
-Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor']);
+Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor'])->middleware('throttle:5,1');
 
 // n8n integration endpoints (secured via N8N_WEBHOOK_SECRET bearer token)
 Route::get('/n8n/grace-periods', [\App\Http\Controllers\Api\IntegrationController::class, 'expiringGracePeriods']);
