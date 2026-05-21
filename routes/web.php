@@ -35,4 +35,4 @@ Route::middleware('mattermost.api-key')->prefix('mattermost')->group(function ()
 // Serve the React app for all routes (React Router handles client-side routing)
 Route::get('/{any?}', function () {
     return view('app');
-})->where('any', '^(?!api).*$');
+})->where('any', '^(?!(api|vendor)(/|$)).*$');

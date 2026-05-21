@@ -43,6 +43,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { POSelectDialog } from "@/components/POSelectDialog";
 import { POViewDialog } from "@/components/POViewDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -236,6 +238,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const [isImportTasksOpen, setIsImportTasksOpen] = useState(false);
 	const [isImportReviewOpen, setIsImportReviewOpen] = useState(false);
 	const [importedTasks, setImportedTasks] = useState<ImportedTask[]>([]);
+	const [activeCollaborators, setActiveCollaborators] = useState<Array<{ id: string, name: string, role: string, avatar?: string }>>([]);
 	const importPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const xeroPOs = project?.purchaseOrders?.filter(po => po.xeroPoId) || [];
@@ -463,6 +466,31 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 				}
 			});
 
+			// Presence Channel Setup
+			const presenceChannel = echo.join(`project-presence.${numericProjectId}`);
+
+			presenceChannel.here((users: any[]) => {
+				console.log('Kanban Presence users initially here:', users);
+				setActiveCollaborators(users);
+			});
+
+			presenceChannel.joining((user: any) => {
+				console.log('Kanban Presence user joining:', user);
+				setActiveCollaborators(prev => {
+					if (prev.some(u => String(u.id) === String(user.id))) return prev;
+					return [...prev, user];
+				});
+			});
+
+			presenceChannel.leaving((user: any) => {
+				console.log('Kanban Presence user leaving:', user);
+				setActiveCollaborators(prev => prev.filter(u => String(u.id) !== String(user.id)));
+			});
+
+			presenceChannel.error((error: any) => {
+				console.error('Kanban Presence channel error:', error);
+			});
+
 			// Listen for local project state changes (from sidebar actions)
 			const handleLocalProjectStateChange = (e: Event) => {
 				const customEvent = e as CustomEvent;
@@ -474,8 +502,9 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 			window.addEventListener('project-state-changed', handleLocalProjectStateChange);
 
 			return () => {
-				console.log(`Unsubscribing from project.${numericProjectId}`);
+				console.log(`Unsubscribing from project.${numericProjectId} and project-presence.${numericProjectId}`);
 				echo.leave(`project.${numericProjectId}`);
+				echo.leave(`project-presence.${numericProjectId}`);
 				window.removeEventListener('project-state-changed', handleLocalProjectStateChange);
 			};
 		}
@@ -1120,6 +1149,42 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 							</div>
 						</div>
 						<div className="flex items-center gap-3">
+							{/* Collaborators Live Presence */}
+							{activeCollaborators.filter(c => String(c.id) !== String(currentUser?.id)).length > 0 && (
+								<div className="flex items-center -space-x-2 mr-3 border-r pr-4 border-border/65">
+									{activeCollaborators
+										.filter(c => String(c.id) !== String(currentUser?.id))
+										.map((collaborator) => {
+											const initials = collaborator.name ? collaborator.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+											const userAvatarUrl = collaborator.avatar || `/api/users/${collaborator.id}/avatar`;
+											return (
+												<TooltipProvider key={collaborator.id}>
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<Avatar className="h-8 w-8 ring-2 ring-background hover:scale-110 hover:z-30 transition-all duration-200 border border-muted-foreground/10 cursor-default">
+																<AvatarImage src={userAvatarUrl} alt={collaborator.name} />
+																<AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+																	{initials}
+																</AvatarFallback>
+															</Avatar>
+														</TooltipTrigger>
+														<TooltipContent className="text-xs font-semibold px-2 py-1 rounded bg-popover text-popover-foreground border shadow">
+															<div className="flex flex-col">
+																<span>{collaborator.name}</span>
+																<span className="text-[10px] text-muted-foreground capitalize font-normal">{collaborator.role}</span>
+															</div>
+														</TooltipContent>
+													</Tooltip>
+												</TooltipProvider>
+											);
+										})}
+									{/* Pulse Indicator */}
+									<span className="relative flex h-2 w-2 ml-2 shrink-0">
+										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+										<span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+									</span>
+								</div>
+							)}
 							{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager' || activeRole === 'user') && (
 								<>
 									<DropdownMenu>

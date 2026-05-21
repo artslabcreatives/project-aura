@@ -22,3 +22,15 @@ Broadcast::channel('project.{projectId}', function ($user, $projectId) {
     // For now, allow any authenticated user to listen (or refine logic)
     return $user !== null;
 });
+
+Broadcast::channel('project-presence.{projectId}', function ($user, $projectId) {
+    if ($user) {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'role' => $user->role,
+            'avatar' => $user->avatar,
+        ];
+    }
+    return null;
+});

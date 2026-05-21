@@ -29,6 +29,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Info } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { echo } from "@/services/echoService";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function ProjectKanban() {
 	const { projectId } = useParams<{ projectId: string }>();
@@ -52,6 +55,7 @@ export default function ProjectKanban() {
 	const { currentUser, activeRole } = useUser();
 	const { toast } = useToast();
 	const [view, setView] = useState<"kanban" | "list">("kanban");
+	const [activeCollaborators, setActiveCollaborators] = useState<Array<{ id: string, name: string, role: string, avatar?: string }>>([]);
 
 	const [searchParams, setSearchParams] = useSearchParams();
 
@@ -137,6 +141,40 @@ export default function ProjectKanban() {
 
 	useEffect(() => {
 		loadData();
+	}, [numericProjectId, currentUser]);
+
+	useEffect(() => {
+		if (numericProjectId && echo) {
+			console.log(`Subscribing to legacy project-presence.${numericProjectId}`);
+			const presenceChannel = echo.join(`project-presence.${numericProjectId}`);
+
+			presenceChannel.here((users: any[]) => {
+				console.log('Legacy Kanban Presence users initially here:', users);
+				setActiveCollaborators(users);
+			});
+
+			presenceChannel.joining((user: any) => {
+				console.log('Legacy Kanban Presence user joining:', user);
+				setActiveCollaborators(prev => {
+					if (prev.some(u => String(u.id) === String(user.id))) return prev;
+					return [...prev, user];
+				});
+			});
+
+			presenceChannel.leaving((user: any) => {
+				console.log('Legacy Kanban Presence user leaving:', user);
+				setActiveCollaborators(prev => prev.filter(u => String(u.id) !== String(user.id)));
+			});
+
+			presenceChannel.error((error: any) => {
+				console.error('Legacy Kanban Presence channel error:', error);
+			});
+
+			return () => {
+				console.log(`Unsubscribing from legacy project-presence.${numericProjectId}`);
+				echo.leave(`project-presence.${numericProjectId}`);
+			};
+		}
 	}, [numericProjectId, currentUser]);
 
 	const updateProjectInStorage = async (updatedProject: Project) => {
@@ -598,7 +636,43 @@ export default function ProjectKanban() {
 							}}
 						/>
 					</div>
-					<div className="flex gap-2">
+					<div className="flex items-center gap-2">
+						{/* Collaborators Live Presence */}
+						{activeCollaborators.filter(c => String(c.id) !== String(currentUser?.id)).length > 0 && (
+							<div className="flex items-center -space-x-2 mr-2 border-r pr-3 border-border/65">
+								{activeCollaborators
+									.filter(c => String(c.id) !== String(currentUser?.id))
+									.map((collaborator) => {
+										const initials = collaborator.name ? collaborator.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+										const userAvatarUrl = collaborator.avatar || `/api/users/${collaborator.id}/avatar`;
+										return (
+											<TooltipProvider key={collaborator.id}>
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Avatar className="h-8 w-8 ring-2 ring-background hover:scale-110 hover:z-30 transition-all duration-200 border border-muted-foreground/10 cursor-default">
+															<AvatarImage src={userAvatarUrl} alt={collaborator.name} />
+															<AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+																{initials}
+															</AvatarFallback>
+														</Avatar>
+													</TooltipTrigger>
+													<TooltipContent className="text-xs font-semibold px-2 py-1 rounded bg-popover text-popover-foreground border shadow">
+														<div className="flex flex-col">
+															<span>{collaborator.name}</span>
+															<span className="text-[10px] text-muted-foreground capitalize font-normal">{collaborator.role}</span>
+														</div>
+													</TooltipContent>
+												</Tooltip>
+											</TooltipProvider>
+										);
+									})}
+								{/* Pulse Indicator */}
+								<span className="relative flex h-2 w-2 ml-2 shrink-0">
+									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+									<span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+								</span>
+							</div>
+						)}
 						{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 							<>
 								<Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>View History</Button>
