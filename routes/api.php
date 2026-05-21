@@ -50,17 +50,12 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/auth/google', [\App\Http\Controllers\Api\GoogleAuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [\App\Http\Controllers\Api\GoogleAuthController::class, 'handleGoogleCallback']);
-Route::post('/check-email', [AuthController::class, 'checkEmail']);
+Route::post('/check-email', [AuthController::class, 'checkEmail'])->middleware('throttle:10,1');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/set-password', [AuthController::class, 'setPasswordFromToken']);
 
-Route::get('projects/{project}/suggested-tasks', [ProjectController::class, 'suggestedTasks']);
-Route::post('projects/{project}/suggested-tasks', [ProjectController::class, 'createSuggestedTasks']);
-Route::get('projects/search/email', [ProjectController::class, 'searchByEmail']);
-Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
-Route::get('users/search/exist', [UserController::class, 'exist']);
 Route::get('/users/{user}/avatar', [UserController::class, 'getAvatar']); // Public avatar viewing
 Route::get('/zoho/callback', [\App\Http\Controllers\Api\ZohoMailController::class, 'handleCallback']);
 Route::get('/xero/callback', [XeroController::class, 'callback']);
@@ -83,6 +78,12 @@ Route::get('/openid-configuration', [SSOController::class, 'discovery']);
 
 // Protected API routes (require bearer token)
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('projects/{project}/suggested-tasks', [ProjectController::class, 'suggestedTasks']);
+    Route::post('projects/{project}/suggested-tasks', [ProjectController::class, 'createSuggestedTasks']);
+    Route::get('projects/search/email', [ProjectController::class, 'searchByEmail']);
+    Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
+    Route::get('users/search/exist', [UserController::class, 'exist']);
+
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/user/seen-welcome-video', [AuthController::class, 'markWelcomeVideoAsSeen']);

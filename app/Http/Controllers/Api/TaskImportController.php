@@ -94,8 +94,11 @@ class TaskImportController extends Controller
     public function callback(Request $request)
     {
         $secret = config('services.n8n.import_callback_secret');
+        $passedSecret = $request->header('X-Callback-Secret')
+            ?? $request->input('secret')
+            ?? str_replace('Bearer ', '', $request->header('Authorization') ?? '');
 
-        if ($secret && $request->input('secret') !== $secret) {
+        if (empty($secret) || $passedSecret !== $secret) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

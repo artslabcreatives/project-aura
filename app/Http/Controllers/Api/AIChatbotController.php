@@ -581,7 +581,7 @@ class AIChatbotController extends Controller
             ?? $request->header('X-Mattermost-Token')
             ?? $request->bearerToken();
 
-        if ($expected && $provided !== $expected) {
+        if (empty($expected) || $provided !== $expected) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

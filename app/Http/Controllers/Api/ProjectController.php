@@ -648,6 +648,7 @@ class ProjectController extends Controller
         ]);
 
         $groupId = $request->input('group_id');
+        $user = $request->user();
 
         // Search in the phone_numbers JSON column
         // Assuming phone_numbers is an array of strings or objects. 
