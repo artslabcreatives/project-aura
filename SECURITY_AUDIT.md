@@ -459,7 +459,7 @@ $user->createToken('web|' . request()->ip() . '|' . now()->toDateString())
 
 - [ ] Set `APP_DEBUG=false` in `.env`
 - [ ] Uncomment Mattermost middleware rejection block (`ValidateMattermostApiKey.php` lines 33–37)
-- [ ] Replace `rand()` with `random_int()` in OTP generation
+- [x] Replace `rand()` with `random_int()` in OTP generation
 - [ ] Add `->middleware('throttle:5,1')` to `/login`, `/forgot-password`, `/verify-otp`
 - [ ] Change `'allowed_origins' => ['*']` to your exact domain in `cors.php`
 - [ ] Set `'expiration' => 1440` in `config/sanctum.php`
