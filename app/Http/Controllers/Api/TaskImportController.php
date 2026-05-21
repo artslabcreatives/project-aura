@@ -130,7 +130,6 @@ class TaskImportController extends Controller
             'project_id' => $projectId,
             'import_id'  => $importId,
             'task_count' => count($tasks),
-            'tasks'      => $tasks,
         ]);
 
         $payload = [
