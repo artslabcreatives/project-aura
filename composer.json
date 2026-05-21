@@ -11,6 +11,7 @@
 		"php": "^8.2",
 		"ankitpokhrel/tus-php": "^2.4",
 		"bacon/bacon-qr-code": "^3.0",
+		"binarytorch/larecipe": "^2.9",
 		"darkaonline/l5-swagger": "^10.1",
 		"filament/filament": "^3.3",
 		"firebase/php-jwt": "^7.0",
