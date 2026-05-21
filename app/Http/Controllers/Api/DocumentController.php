@@ -64,7 +64,7 @@ class DocumentController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'department_id' => 'required|exists:departments,id',
-            'file' => 'nullable|file|max:20480', // 20MB
+            'file' => 'nullable|file|mimes:pdf,doc,docx,txt,csv,xlsx,xls,png,jpg,jpeg,mp4,mov,webm,avi,mkv|mimetypes:application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/png,image/jpeg,video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska',
             'upload_key' => 'nullable|string',
         ]);
 

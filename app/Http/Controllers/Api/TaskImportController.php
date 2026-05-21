@@ -39,7 +39,7 @@ class TaskImportController extends Controller
     public function upload(Request $request, Project $project)
     {
         $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,txt,csv,xlsx,xls,png,jpg,jpeg|max:20480',
+            'file' => 'required|file|mimes:pdf,doc,docx,txt,csv,xlsx,xls,png,jpg,jpeg,mp4,mov,webm,avi,mkv|mimetypes:application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/png,image/jpeg,video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska',
         ]);
 
         $webhookUrl = config('services.n8n.task_import_webhook_url');

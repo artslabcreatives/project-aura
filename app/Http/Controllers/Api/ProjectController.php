@@ -247,9 +247,9 @@ class ProjectController extends Controller
             'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested,blocked',
             'po_number' => 'nullable|string|max:255',
             'deadline' => 'nullable|date',
-            'po_document' => 'nullable|file|max:10240', // Max 10MB
+            'po_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|mimetypes:application/pdf,image/jpeg,image/png', // Max 10MB
             'invoice_number' => 'nullable|string|max:255',
-            'invoice_document' => 'nullable|file|max:10240',
+            'invoice_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|mimetypes:application/pdf,image/jpeg,image/png',
             'provisional_po_expires_at' => 'nullable|date',
             'is_physical_invoice' => 'nullable|boolean',
             'courier_tracking_number' => 'nullable|string|max:255',
@@ -445,9 +445,9 @@ class ProjectController extends Controller
             'estimated_hours' => 'nullable|integer',
             'status' => 'nullable|string|in:active,on-hold,completed,cancelled,suggested,blocked',
             'po_number' => 'nullable|string|max:255',
-            'po_document' => 'nullable|file|max:10240',
+            'po_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|mimetypes:application/pdf,image/jpeg,image/png',
             'invoice_number' => 'nullable|string|max:255',
-            'invoice_document' => 'nullable|file|max:10240',
+            'invoice_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|mimetypes:application/pdf,image/jpeg,image/png',
             'provisional_po_expires_at' => 'nullable|date',
             'is_physical_invoice' => 'nullable|boolean',
             'courier_tracking_number' => 'nullable|string|max:255',
@@ -1084,7 +1084,7 @@ class ProjectController extends Controller
     public function uploadCampaignReport(Request $request, Project $project): JsonResponse
     {
         $request->validate([
-            'report' => 'required|file|max:20480', // Max 20MB
+            'report' => 'required|file|mimes:pdf,jpg,jpeg,png,mp4,mov,webm,avi,mkv|mimetypes:application/pdf,image/jpeg,image/png,video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska', // Max 20MB
         ]);
 
         if ($request->hasFile('report')) {
