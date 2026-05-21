@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Task } from "@/types/task";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
 	Dialog,
 	DialogContent,
@@ -151,10 +152,45 @@ export function TaskDetailsDialog({ task, open, onOpenChange, onTaskUpdate, onEd
 						</div>
 						<div>
 							<h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-								<User className="h-4 w-4" />
 								Assigned To
 							</h3>
-							<p className="text-sm">{task.assignee}</p>
+							<div className="flex flex-col gap-1.5 mt-1">
+								{task.assignedUsers && task.assignedUsers.length > 1 ? (
+									task.assignedUsers.map(u => {
+										const initials = u.name ? u.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+										const avatarUrl = u.avatar || `/api/users/${u.id}/avatar`;
+										return (
+											<div key={u.id} className="flex items-center gap-2">
+												<Avatar className="h-6 w-6 border border-muted-foreground/10 shadow-sm flex-shrink-0">
+													<AvatarImage src={avatarUrl} alt={u.name} />
+													<AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+														{initials}
+													</AvatarFallback>
+												</Avatar>
+												<span className="text-sm font-medium">{u.name}</span>
+											</div>
+										);
+									})
+								) : (
+									(() => {
+										const assigneeName = (task.assignedUsers && task.assignedUsers.length === 1) ? task.assignedUsers[0].name : task.assignee;
+										const assigneeUserObj = (task.assignedUsers && task.assignedUsers.length === 1) ? task.assignedUsers[0] : null;
+										const initials = assigneeName ? assigneeName.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+										const avatarUrl = assigneeUserObj?.avatar || task.assigneeAvatar || (assigneeUserObj?.id ? `/api/users/${assigneeUserObj.id}/avatar` : undefined);
+										return (
+											<div className="flex items-center gap-2">
+												<Avatar className="h-6 w-6 border border-muted-foreground/10 shadow-sm flex-shrink-0">
+													{avatarUrl && <AvatarImage src={avatarUrl} alt={assigneeName} />}
+													<AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+														{initials}
+													</AvatarFallback>
+												</Avatar>
+												<span className="text-sm font-medium">{assigneeName}</span>
+											</div>
+										);
+									})()
+								)}
+							</div>
 						</div>
 					</div>
 

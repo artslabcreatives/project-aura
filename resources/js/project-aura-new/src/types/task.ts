@@ -46,6 +46,7 @@ export interface Task {
 	project: string; // project name (display)
 	projectId?: number; // numeric project id from backend
 	assignee: string;
+	assigneeAvatar?: string;
 	dueDate?: string | null;
 	userStatus: UserStatus; // User-level status: pending, in-progress, or complete
 	projectStage?: string; // Project-specific stage ID (optional, for project views)
@@ -86,6 +87,7 @@ export interface Task {
 export interface AssignedUser {
 	id: string; // User ID
 	name: string;
+	avatar?: string;
 	status: UserStatus; // Status for this specific user on this task
 	pivot?: { status: UserStatus };
 }

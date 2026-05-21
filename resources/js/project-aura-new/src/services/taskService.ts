@@ -11,10 +11,12 @@ function mapTask(raw: any): Task {
 		project: raw.project ? raw.project.name : '',
 		projectId: raw.project_id || (raw.project ? raw.project.id : undefined),
 		assignee: raw.assignee ? raw.assignee.name : '',
+		assigneeAvatar: raw.assignee ? raw.assignee.avatar : undefined,
 		// Map multiple assignees
 		assignedUsers: raw.assigned_users?.map((u: any) => ({
 			id: String(u.id),
 			name: u.name,
+			avatar: u.avatar,
 			status: u.pivot?.status || 'pending',
 		})) || [],
 		dueDate: raw.due_date ?? '',

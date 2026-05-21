@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Task, TaskHistory, UserStatus } from "@/types/task";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { taskService } from "@/services/taskService";
 import { attachmentService } from "@/services/attachmentService";
@@ -796,21 +797,36 @@ export default function TaskDetailsPage() {
 								</h3>
 								<div className="space-y-2">
 									{task.assignedUsers && task.assignedUsers.length > 0 ? (
-										task.assignedUsers.map(u => (
-											<div key={u.id} className="flex items-center gap-2">
-												<div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-													{u.name.charAt(0)}
+										task.assignedUsers.map(u => {
+											const initials = u.name ? u.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+											const avatarUrl = u.avatar || `/api/users/${u.id}/avatar`;
+											return (
+												<div key={u.id} className="flex items-center gap-2">
+													<Avatar className="h-6 w-6 border border-muted-foreground/10 shadow-sm flex-shrink-0">
+														<AvatarImage src={avatarUrl} alt={u.name} />
+														<AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+															{initials}
+														</AvatarFallback>
+													</Avatar>
+													<span className="text-sm">{u.name}</span>
 												</div>
-												<span className="text-sm">{u.name}</span>
-											</div>
-										))
+											);
+										})
 									) : (
-										<div className="flex items-center gap-2">
-											<div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
-												<User className="h-3 w-3 text-muted-foreground" />
-											</div>
-											<span className="text-sm italic text-muted-foreground">{task.assignee || "Unassigned"}</span>
-										</div>
+										(() => {
+											const initials = task.assignee ? task.assignee.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+											return (
+												<div className="flex items-center gap-2">
+													<Avatar className="h-6 w-6 border border-muted-foreground/10 shadow-sm flex-shrink-0">
+														{task.assigneeAvatar && <AvatarImage src={task.assigneeAvatar} alt={task.assignee} />}
+														<AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+															{initials || <User className="h-3 w-3 text-muted-foreground" />}
+														</AvatarFallback>
+													</Avatar>
+													<span className="text-sm italic text-muted-foreground">{task.assignee || "Unassigned"}</span>
+												</div>
+											);
+										})()
 									)}
 								</div>
 							</div>

@@ -1,5 +1,6 @@
 import { Task, UserStatus } from "@/types/task";
 import { Stage } from "@/types/stage";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -502,27 +503,47 @@ export function TaskCard({
 				{task.assignedUsers && task.assignedUsers.length > 1 ? (
 					<div className="flex flex-col gap-1 mt-1 pt-1 border-t border-dashed">
 						<span className="text-[10px] text-muted-foreground font-medium px-1">Assignees</span>
-						{task.assignedUsers.map(u => (
-							<div key={u.id} className={cn(
-								"flex items-center gap-2 text-xs p-1 rounded transition-colors",
-								u.status === 'complete'
-									? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-									: "text-muted-foreground hover:bg-muted"
-							)}>
-								<User className="h-3 w-3" />
-								<span className="flex-1 truncate">{u.name}</span>
-								{u.status === 'complete' && <CheckSquare className="h-3 w-3 text-green-600 dark:text-green-400" />}
-							</div>
-						))}
+						{task.assignedUsers.map(u => {
+							const initials = u.name ? u.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+							const avatarUrl = u.avatar || `/api/users/${u.id}/avatar`;
+							return (
+								<div key={u.id} className={cn(
+									"flex items-center gap-2 text-xs p-1 rounded transition-colors",
+									u.status === 'complete'
+										? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+										: "text-muted-foreground hover:bg-muted"
+								)}>
+									<Avatar className="h-5 w-5 border border-muted-foreground/10 shadow-sm flex-shrink-0">
+										<AvatarImage src={avatarUrl} alt={u.name} />
+										<AvatarFallback className="text-[8px] font-bold bg-primary/10 text-primary">
+											{initials}
+										</AvatarFallback>
+									</Avatar>
+									<span className="flex-1 truncate">{u.name}</span>
+									{u.status === 'complete' && <CheckSquare className="h-3 w-3 text-green-600 dark:text-green-400" />}
+								</div>
+							);
+						})}
 					</div>
 				) : (
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
-						<User className="h-3 w-3" />
-						<span>
-							{(task.assignedUsers && task.assignedUsers.length === 1)
-								? task.assignedUsers[0].name
-								: task.assignee}
-						</span>
+						{(() => {
+							const assigneeName = (task.assignedUsers && task.assignedUsers.length === 1) ? task.assignedUsers[0].name : task.assignee;
+							const assigneeUserObj = (task.assignedUsers && task.assignedUsers.length === 1) ? task.assignedUsers[0] : null;
+							const initials = assigneeName ? assigneeName.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "";
+							const avatarUrl = assigneeUserObj?.avatar || task.assigneeAvatar || (assigneeUserObj?.id ? `/api/users/${assigneeUserObj.id}/avatar` : undefined);
+							return (
+								<>
+									<Avatar className="h-5 w-5 border border-muted-foreground/10 shadow-sm flex-shrink-0">
+										{avatarUrl && <AvatarImage src={avatarUrl} alt={assigneeName} />}
+										<AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">
+											{initials}
+										</AvatarFallback>
+									</Avatar>
+									<span className="truncate">{assigneeName}</span>
+								</>
+							);
+						})()}
 					</div>
 				)}
 
