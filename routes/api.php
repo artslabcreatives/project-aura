@@ -82,7 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/suggested-tasks', [ProjectController::class, 'createSuggestedTasks']);
     Route::get('projects/search/email', [ProjectController::class, 'searchByEmail']);
     Route::get('projects/search/whatsapp', [ProjectController::class, 'searchByWhatsapp']);
-    Route::get('users/search/exist', [UserController::class, 'exist']);
+    Route::get('users/search/exist', [UserController::class, 'exist'])->middleware('throttle:10,1');
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);

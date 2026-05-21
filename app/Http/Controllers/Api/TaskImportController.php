@@ -94,12 +94,28 @@ class TaskImportController extends Controller
     public function callback(Request $request)
     {
         $secret = config('services.n8n.import_callback_secret');
-        $passedSecret = $request->header('X-Callback-Secret')
-            ?? $request->input('secret')
-            ?? str_replace('Bearer ', '', $request->header('Authorization') ?? '');
 
-        if (empty($secret) || $passedSecret !== $secret) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+        if (empty($secret)) {
+            return response()->json(['error' => 'Unauthorized. Callback secret is not configured.'], 401);
+        }
+
+        // 1. Verify via header-based HMAC signature if signature header is present
+        $signature = $request->header('X-Callback-Signature');
+        if ($signature) {
+            $computedSignature = hash_hmac('sha256', $request->getContent(), $secret);
+            if (!hash_equals($computedSignature, $signature)) {
+                return response()->json(['error' => 'Invalid signature'], 401);
+            }
+        } else {
+            // 2. Fallback to passed secret verification (highly discouraged)
+            $passedSecret = $request->header('X-Callback-Secret')
+                ?? $request->input('secret')
+                ?? str_replace('Bearer ', '', $request->header('Authorization') ?? '');
+
+            if ($passedSecret !== $secret) {
+                return response()->json(['error' => 'Unauthorized. Invalid signature or secret.'], 401);
+            }
+            Log::warning('Task import callback: Authentication fell back to plain secret verification.');
         }
 
         $projectId = (int) $request->input('project_id');
