@@ -461,7 +461,7 @@ $user->createToken('web|' . request()->ip() . '|' . now()->toDateString())
 - [ ] Uncomment Mattermost middleware rejection block (`ValidateMattermostApiKey.php` lines 33–37)
 - [x] Replace `rand()` with `random_int()` in OTP generation
 - [ ] Add `->middleware('throttle:5,1')` to `/login`, `/forgot-password`, `/verify-otp`
-- [ ] Change `'allowed_origins' => ['*']` to your exact domain in `cors.php`
+- [x] Change `'allowed_origins' => ['*']` to your exact domain in `cors.php`
 - [x] Set `'expiration' => 1440` in `config/sanctum.php`
 - [x] Move `searchByEmail`, `searchByWhatsapp`, `suggestedTasks` inside `auth:sanctum` group
 - [ ] Add `->middleware('role:admin')` to user `store`, `update`, `destroy`

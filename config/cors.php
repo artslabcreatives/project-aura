@@ -19,7 +19,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => [
+        'https://staging.aura.artslabcreatives.com',
+        'https://aura.artslabcreatives.com',
+    ],
 
     'allowed_origins_patterns' => [],
 
