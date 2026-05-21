@@ -62,7 +62,7 @@ class GoogleAuthController extends Controller
             }
 
             // Generate authentication token for the SPA
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('web|' . request()->ip() . '|' . now()->toDateString())->plainTextToken;
 
             // Redirect back to frontend with the generated token
             // The frontend will catch this token and log the user in.

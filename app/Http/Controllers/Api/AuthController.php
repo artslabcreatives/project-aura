@@ -120,7 +120,7 @@ class AuthController extends Controller
         }
 
         // Create a new token for stateless auth
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $token = $user->createToken('web|' . request()->ip() . '|' . now()->toDateString())->plainTextToken;
 
         $userData = $user->load('department')->toArray();
         $userData['system_settings'] = [
@@ -534,7 +534,7 @@ class AuthController extends Controller
         }
 
         // Create an auth token so they're logged in immediately
-        $authToken = $user->createToken('auth-token')->plainTextToken;
+        $authToken = $user->createToken('web|' . request()->ip() . '|' . now()->toDateString())->plainTextToken;
 
         return response()->json([
             'message' => 'Password set successfully',
