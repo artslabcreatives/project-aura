@@ -216,7 +216,7 @@ export function BulkPOAssignDialog({
                     </TabsList>
 
                     {/* ── Xero tab ── */}
-                    <TabsContent value="xero" className="flex-1 flex flex-col overflow-hidden mt-3">
+                    <TabsContent value="xero" className="flex-1 data-[state=active]:flex flex-col overflow-hidden mt-3">
                         <div className="relative mb-2 shrink-0">
                             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -317,8 +317,8 @@ export function BulkPOAssignDialog({
                     </TabsContent>
 
                     {/* ── Manual tab ── */}
-                    <TabsContent value="manual" className="flex-1 overflow-hidden mt-3">
-                        <ScrollArea className="h-full pr-2">
+                    <TabsContent value="manual" className="flex-1 data-[state=active]:flex flex-col overflow-hidden mt-3">
+                        <ScrollArea className="flex-1 pr-2">
                             <div className="space-y-3">
                                 {manualEntries.map((entry, idx) => (
                                     <div key={entry.id} className="p-3 border rounded-lg space-y-2 bg-muted/30">
