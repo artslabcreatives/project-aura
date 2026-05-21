@@ -193,7 +193,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Two-Factor Authentication
     Route::post('/two-factor/enable', [App\Http\Controllers\Api\TwoFactorController::class, 'enable']);
-    Route::post('/two-factor/confirm', [App\Http\Controllers\Api\TwoFactorController::class, 'confirm']);
+    Route::post('/two-factor/confirm', [App\Http\Controllers\Api\TwoFactorController::class, 'confirm'])->middleware('throttle:5,1');
     Route::post('/two-factor/disable', [App\Http\Controllers\Api\TwoFactorController::class, 'disable']);
     Route::post('/two-factor/recovery-codes', [App\Http\Controllers\Api\TwoFactorController::class, 'recoveryCodes']);
     Route::post('/two-factor/recovery-codes/regenerate', [App\Http\Controllers\Api\TwoFactorController::class, 'regenerateRecoveryCodes']);
