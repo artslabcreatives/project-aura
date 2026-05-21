@@ -132,7 +132,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('project-attachments/{attachment}', [\App\Http\Controllers\Api\ProjectAttachmentController::class, 'destroy']);
     Route::apiResource('revision-histories', RevisionHistoryController::class);
     Route::apiResource('history-entries', HistoryEntryController::class);
-    Route::apiResource('users', UserController::class);
+    Route::apiResource('users', UserController::class)->only(['index', 'show']);
+    Route::apiResource('users', UserController::class)->only(['store', 'update', 'destroy'])->middleware('role:admin,hr');
     Route::apiResource('project-groups', ProjectGroupController::class);
     Route::post('/users/{user}/avatar', [UserController::class, 'uploadAvatar']);
 

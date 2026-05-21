@@ -464,7 +464,7 @@ $user->createToken('web|' . request()->ip() . '|' . now()->toDateString())
 - [x] Change `'allowed_origins' => ['*']` to your exact domain in `cors.php`
 - [x] Set `'expiration' => 1440` in `config/sanctum.php`
 - [x] Move `searchByEmail`, `searchByWhatsapp`, `suggestedTasks` inside `auth:sanctum` group
-- [ ] Add `->middleware('role:admin')` to user `store`, `update`, `destroy`
+- [x] Add `->middleware('role:admin,hr')` to user `store`, `update`, `destroy`
 - [ ] Replace hardcoded email with `env('REMINDER_RECIPIENT_EMAIL')` in `IntegrationController`
 - [ ] Set `'secure' => true`, `'encrypt' => true` in `config/session.php`
 - [ ] Rotate ALL credentials in `.env` (DB, AWS, Mattermost, Slack, Zoho, Xero, Claude, Google)
