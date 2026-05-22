@@ -47,4 +47,19 @@ class SystemSetting extends Model
         }
         return filter_var($val, FILTER_VALIDATE_BOOLEAN);
     }
+
+    /**
+     * Get a setting value decoded as a JSON array.
+     *
+     * @return array<int|string, mixed>
+     */
+    public static function getJson(string $key, array $default = []): array
+    {
+        $val = self::get($key);
+        if (is_null($val)) {
+            return $default;
+        }
+        $decoded = json_decode($val, true);
+        return is_array($decoded) ? $decoded : $default;
+    }
 }

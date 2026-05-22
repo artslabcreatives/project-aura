@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\SystemSetting;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
@@ -26,9 +28,18 @@ class SystemSettings extends Page
 
     public function mount(): void
     {
+        // Load recipients from DB; fall back to env defaults
+        $recipients = SystemSetting::getJson('grace_period_reminder_recipients');
+        if (empty($recipients)) {
+            $fallbackEmail = env('AUTOMATED_REMINDER_RECIPIENT_EMAIL', 'admin@artslabcreatives.com');
+            $fallbackName  = env('AUTOMATED_REMINDER_RECIPIENT_NAME', 'Admin');
+            $recipients    = [['email' => $fallbackEmail, 'name' => $fallbackName]];
+        }
+
         $this->form->fill([
-            'enable_chatbot' => SystemSetting::isEnabled('enable_chatbot', true),
-            'enable_ai_scenarios' => SystemSetting::isEnabled('enable_ai_scenarios', true),
+            'enable_chatbot'                   => SystemSetting::isEnabled('enable_chatbot', true),
+            'enable_ai_scenarios'              => SystemSetting::isEnabled('enable_ai_scenarios', true),
+            'grace_period_reminder_recipients' => $recipients,
         ]);
     }
 
@@ -47,6 +58,34 @@ class SystemSettings extends Page
                             ->label('Enable AI Scenarios')
                             ->helperText('If enabled, users can view and use the AI scenario planning dashboard.')
                             ->default(true),
+                    ])
+                    ->columns(1),
+
+                Section::make('Grace Period Reminder — Notification Recipients')
+                    ->description('These email addresses will receive automated notifications when a project\'s grace period is about to expire. Add as many recipients as needed.')
+                    ->schema([
+                        Repeater::make('grace_period_reminder_recipients')
+                            ->label('Recipients')
+                            ->helperText('Each recipient listed here will receive a separate reminder email for every qualifying project.')
+                            ->schema([
+                                TextInput::make('email')
+                                    ->label('Email Address')
+                                    ->email()
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->placeholder('recipient@example.com'),
+                                TextInput::make('name')
+                                    ->label('Display Name')
+                                    ->maxLength(255)
+                                    ->placeholder('Finance Team'),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Add recipient')
+                            ->minItems(1)
+                            ->defaultItems(1)
+                            ->reorderable()
+                            ->collapsible()
+                            ->cloneable(),
                     ])
                     ->columns(1),
             ])
@@ -70,9 +109,23 @@ class SystemSettings extends Page
         SystemSetting::set('enable_chatbot', $data['enable_chatbot'] ? 'true' : 'false');
         SystemSetting::set('enable_ai_scenarios', $data['enable_ai_scenarios'] ? 'true' : 'false');
 
+        // Sanitise and persist the recipients list as a JSON array.
+        // Strip any entries that have no email address (Repeater may leave empty rows).
+        $recipients = collect($data['grace_period_reminder_recipients'] ?? [])
+            ->filter(fn($row) => !empty($row['email']))
+            ->map(fn($row) => [
+                'email' => trim(strtolower($row['email'])),
+                'name'  => trim($row['name'] ?? 'Admin'),
+            ])
+            ->values()
+            ->all();
+
+        SystemSetting::set('grace_period_reminder_recipients', json_encode($recipients));
+
         Notification::make()
             ->title('Settings saved successfully.')
             ->success()
             ->send();
     }
 }
+

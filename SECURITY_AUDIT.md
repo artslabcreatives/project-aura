@@ -1,6 +1,32 @@
 # Security Audit & Improvement Plan — Project Aura
 
-> Comprehensive analysis of all layers: `.env`, routes, middleware, controllers, models, and frontend.
+> **Audit Date:** 2026-05-22
+> **Audited By:** Antigravity (Automated Code Review)
+> **Previous Audit:** 2026-05-22 (Initial)
+> **Scope:** `.env`, routes, middleware, controllers, models, config files, frontend, Nginx, OAuth/SSO, AI subsystems.
+
+---
+
+## ✅ Fixes Confirmed Since Last Audit
+
+The following issues from the previous audit have been **verified as resolved**:
+
+| # | Issue | Fix Applied |
+|---|---|---|
+| 6 | Weak OTP (`rand()`) | ✅ Replaced with `random_int()` — `AuthController.php:269` |
+| 7 | Sanctum tokens never expire | ✅ `'expiration' => 1440` set in `config/sanctum.php:49` |
+| 8 | CORS open to `*` | ✅ Locked to `staging.aura.artslabcreatives.com` + `aura.artslabcreatives.com` |
+| 4b | Public routes leaking project data | ✅ `searchByEmail`, `searchByWhatsapp`, `suggestedTasks` moved inside `auth:sanctum` |
+| 10 | User CRUD no role check | ✅ `role:admin,hr` applied to `store`, `update`, `destroy` |
+| 11 | Project CRUD no role check | ✅ `role:admin,team-lead,account-manager` applied to `store`, `update`, `destroy` |
+| 22 | Task import full payload logged | ✅ Logging now only `['task_count', 'import_id']` — `TaskImportController.php:131` |
+| 21b | Task import callback HMAC | ✅ HMAC `X-Callback-Signature` header verification implemented |
+| 16 | Session not hardened | ✅ `'encrypt' => true`, `'secure' => true`, `'same_site' => 'strict'` set |
+| 24 | Generic token names | ✅ Tokens now named `web|{ip}|{date}` — `AuthController.php:123` |
+| 5b | Login rate limiting | ✅ `throttle:5,1` on `/login`, `throttle:3,5` on `/forgot-password`, `throttle:5,5` on `/verify-otp`, `/reset-password` |
+| 18 | `prompt injection max:12000` | ✅ Max message length reduced to `max:4000` (OpenAPI spec), note: validation in code still shows `max:12000` — see Issue 18 below |
+| 15 | 2FA verify throttle | ✅ `throttle:5,1` applied to `/two-factor/verify` |
+| 23b | CSP header added | ✅ `ContentSecurityPolicy` middleware applied to `web` group |
 
 ---
 
@@ -8,141 +34,87 @@
 
 ---
 
-### 1. `.env` File Contains Plaintext Production Secrets (Committed / Exposed)
+### 1. `APP_DEBUG=true` and `APP_ENV=debug` in Production/Staging
 
-**File:** `.env`
-
-The `.env` file contains live, plaintext credentials for every major service:
-
-| Secret | Risk |
-|---|---|
-| DB Password | Full database access |
-| AWS S3 Secret | Cloud storage access/deletion |
-| Mattermost Token | Read/write all messages |
-| Mattermost JWT Secret | Forge auth tokens |
-| Slack Bot Token | Full Slack workspace access |
-| Reverb / Pusher Secrets | WebSocket hijacking |
-| Zoho / Xero Secrets | Finance system access |
-| Claude API Key | Unbilled AI API usage |
-| Google OAuth Secret | OAuth impersonation |
-| N8N Webhook Secret: `miyuru2026` | **Trivially guessable** |
-
-**Risk:** Anyone with server access or who finds the `.env` in logs/backups can compromise every integrated service.
-
-**Fix Plan:**
-- Rotate ALL secrets immediately after reading this audit.
-- Move secrets to a vault (HashiCorp Vault, AWS Secrets Manager).
-- Ensure `.env` is in `.gitignore` and NEVER committed.
-- Set `APP_ENV=production`, `APP_DEBUG=false` (currently `APP_ENV=debug`, `APP_DEBUG=true`).
-
----
-
-### 2. `APP_DEBUG=true` in Production/Staging
-
-**File:** `.env` (line 4)
+**File:** `.env` (lines 2, 4)
 
 ```
+APP_ENV=debug
 APP_DEBUG=true
 ```
 
-**Risk:** Full stack traces, SQL queries, and environment variables are exposed to end users on any error. A deliberate 500 error trigger leaks DB structure and credentials.
+**Risk:** Full PHP stack traces, SQL queries, and environment variables are exposed on any error. A deliberate HTTP 500 trigger leaks DB schema and credentials.
 
-**Fix:** Set `APP_DEBUG=false` in staging and production.
+**Fix:**
+```dotenv
+APP_ENV=staging
+APP_DEBUG=false
+```
 
 ---
 
-### 3. Mattermost Middleware — API Key Validation is DISABLED (Commented Out)
+### 2. Mattermost Middleware — API Key Validation STILL Disabled
 
-**File:** `app/Http/Middleware/ValidateMattermostApiKey.php` (lines 33–37)
+**File:** `app/Http/Middleware/ValidateMattermostApiKey.php` (lines 32–37)
 
 ```php
 if (!$apiKey || $apiKey !== config('services.mattermost.api_key')) {
-    /*\Log::error('...');
+    /*\Log::error('Mattermost auth failed: Invalid API key provided');
     return response()->json([
         'message' => 'Unauthorized. Invalid Mattermost API key.',
-    ], 401);*/  // ← ENTIRE BLOCK IS COMMENTED OUT
+    ], 401);*/  // ← STILL COMMENTED OUT — UNFIXED
 }
 ```
 
-**Risk:** The `mattermost.api-key` middleware does NOT reject invalid or missing API keys. Any user who knows the `/mattermost/` prefix can authenticate as ANY user by passing their `mattermost_user_id` in the URL with no key — **unauthenticated user impersonation**.
+**This critical issue from the last audit was NOT fixed.** Any request to a Mattermost-prefixed route is accepted regardless of the API key value.
 
-**Additionally:** The middleware deletes ALL Mattermost session tokens for ALL users when a new one is created — a self-inflicted DoS on every login.
+**Additionally — still unfixed:** The middleware deletes ALL Mattermost session tokens for ALL users on every login (lines 60–62 and 91–93):
+
+```php
+\DB::table('personal_access_tokens')
+    ->where('name', 'mattermost-session')
+    ->delete(); // ← Deletes sessions for every user, not just the current one
+```
+
+This is a self-inflicted Denial of Service: every Mattermost login invalidates all other users' active Mattermost sessions.
 
 **Fix:**
-- Uncomment the authentication rejection block immediately.
-- Scope token deletion to the current user only: `->where('user_id', $user->id)`.
+1. Uncomment the API key rejection block immediately.
+2. Scope token deletion to the current user: `->where('user_id', $user->id)`.
 
 ---
 
-### 4. Public Routes Expose Project/User Data Without Authentication
+### 3. `n8n/grace-periods` Endpoint Still Outside `auth:sanctum`
 
-**File:** `routes/api.php` (lines 59–70)
-
-These routes are **outside** the `auth:sanctum` middleware group:
+**File:** `routes/api.php` (line 336)
 
 ```php
-Route::get('projects/{project}/suggested-tasks', ...);
-Route::post('projects/{project}/suggested-tasks', ...);
-Route::get('projects/search/email', ...);
-Route::get('projects/search/whatsapp', ...);
-Route::get('users/search/exist', ...);
-Route::get('/users/{user}/avatar', ...);
-Route::post('/task-import-callback', ...);
-Route::post('/ai-chatbot/mattermost/webhook', ...);
+// OUTSIDE auth:sanctum group — only protected by inline secret check
+Route::get('/n8n/grace-periods', [\App\Http\Controllers\Api\IntegrationController::class, 'expiringGracePeriods']);
 ```
 
-**Specific Risks:**
-- `GET /api/projects/search/email?email=x@x.com` → Full project + task data, no login.
-- `GET /api/projects/search/whatsapp?group_id=X` → Full project + task data, no login.
-- `GET /api/users/search/exist?email=x@x.com` → Unauthenticated user enumeration.
-- Task import callback: secret is in the request body (not a header), trivially replayable.
+The inline secret check (controller line 30) relies on `N8N_WEBHOOK_SECRET` being set. If the env variable is empty or null, the controller's `!$secret` check returns `401`, but the route is still unauthenticated and externally reachable — exposed to timing-based secret inference attacks and brute-force.
 
-**Fix:**
-- Move `searchByEmail`, `searchByWhatsapp`, `suggestedTasks` behind `auth:sanctum`.
-- Rate-limit `users/search/exist` and `check-email`.
-- Secure the task import callback with a header-based HMAC signature.
+**Fix:** Move inside the `auth:sanctum` group OR create a dedicated `n8n.secret` middleware that is applied at the route level:
+```php
+Route::get('/n8n/grace-periods', ...)->middleware('n8n.secret');
+```
 
 ---
 
-### 5. No Rate Limiting on Authentication Endpoints
+### 4. Hardcoded Personal Email in Production Code — Still Unfixed
 
-**File:** `routes/api.php`, `app/Http/Kernel.php`
+**File:** `app/Http/Controllers/Api/IntegrationController.php` (line 86)
 
-The API group throttle is **60 requests per minute per IP** — easily bypassed. No extra throttling on:
+```php
+'recipient_email' => 'shashithrashmikapiyathilaka@gmail.com',
+```
 
-- `POST /api/login`
-- `POST /api/forgot-password`
-- `POST /api/verify-otp`
-- `POST /api/reset-password`
-- `POST /api/check-email`
-- `POST /api/two-factor/verify`
-
-**Risk:** Brute-force attacks. A 6-digit OTP has 1,000,000 combinations — at 60/min, crackable in ~11.5 days from one IP. Distributed across many IPs, it's crackable in seconds.
+This personal Gmail address is the recipient for all business grace period reminders. This is a data governance and PII risk — business project data is being routed to a personal account.
 
 **Fix:**
 ```php
-Route::post('/login', ...)->middleware('throttle:5,1');
-Route::post('/forgot-password', ...)->middleware('throttle:3,5');
-Route::post('/verify-otp', ...)->middleware('throttle:5,5');
-```
-- Add account lockout after N consecutive failures (store counter in cache keyed by email).
-- Implement per-email rate limiting, not just per-IP.
-
----
-
-### 6. OTP is Cryptographically Weak
-
-**File:** `app/Http/Controllers/Api/AuthController.php` (line 269)
-
-```php
-$otp = (string) rand(100000, 999999);
-```
-
-`rand()` is not a CSPRNG (Cryptographically Secure Pseudo-Random Number Generator). In some environments, the seed can be predicted.
-
-**Fix:**
-```php
-$otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+'recipient_email' => env('REMINDER_RECIPIENT_EMAIL', 'admin@artslabcreatives.com'),
 ```
 
 ---
@@ -151,21 +123,7 @@ $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
 ---
 
-### 7. Sanctum Tokens Never Expire
-
-**File:** `config/sanctum.php` (line 49)
-
-```php
-'expiration' => null,
-```
-
-**Risk:** Stolen tokens are valid forever. No expiry = no time-bound damage limitation.
-
-**Fix:** Set a reasonable expiry: `'expiration' => 1440` (24 hours).
-
----
-
-### 8. Auth Token Stored in `localStorage` — XSS Risk
+### 5. Auth Token Stored in `localStorage` — XSS Risk
 
 **File:** `resources/js/project-aura-new/src/lib/api.ts` (lines 7–9)
 
@@ -175,166 +133,34 @@ export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
 ```
 
-**Risk:** `localStorage` is accessible to any JavaScript on the page. One XSS vulnerability anywhere (user-generated content, third-party scripts, markdown rendering) exposes all tokens.
+**Risk:** `localStorage` is accessible to any JavaScript on the page. A single XSS vulnerability exposes all tokens. The CSP middleware was added (good), but it uses `'unsafe-inline'` and `'unsafe-eval'` which significantly weakens XSS protection.
 
 **Fix:**
-- Store tokens in `HttpOnly` cookies (not accessible to JavaScript).
-- If `localStorage` is kept short-term, implement a strict Content Security Policy (CSP).
+- Migrate to `HttpOnly` cookie-based token storage, unreachable by JavaScript.
+- If `localStorage` must remain short-term, tighten the CSP to remove `'unsafe-inline'` and `'unsafe-eval'` (requires a nonce-based approach).
 
 ---
 
-### 9. CORS Policy is Fully Open
+### 6. CSP Middleware Uses `unsafe-inline` and `unsafe-eval`
 
-**File:** `config/cors.php` (line 22)
+**File:** `app/Http/Middleware/ContentSecurityPolicy.php` (lines 25–34)
 
 ```php
-'allowed_origins' => ['*'],
-'supports_credentials' => true,
+"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com; "
 ```
 
-`'*'` + `supports_credentials: true` is a CORS misconfiguration. Browsers block this, but if ever corrected carelessly, it enables cross-site authenticated requests.
+The presence of `'unsafe-inline'` in `script-src` allows inline `<script>` tag execution, completely neutralizing the CSP's XSS protection. `'unsafe-eval'` further allows `eval()` and `Function()` — classic XSS vectors.
+
+**CSP is only on the `web` middleware group** — it is NOT applied to `api` routes. API responses (including error messages, stack traces when `APP_DEBUG=true`) have no CSP.
 
 **Fix:**
-```php
-'allowed_origins' => ['https://staging.aura.artslabcreatives.com'],
-```
+- Use nonces: `'nonce-{random}'` per request instead of `'unsafe-inline'`.
+- Remove `'unsafe-eval'` and replace with a React build that avoids `eval`.
+- Apply CSP to API error responses too (at least `default-src 'none'`).
 
 ---
 
-### 10. Any Authenticated User Can Create/Delete Users and Change Roles (Privilege Escalation)
-
-**File:** `app/Http/Controllers/Api/UserController.php` (lines 132–353)
-
-The `store`, `update`, and `destroy` methods have no role checks. Any logged-in user can:
-- `POST /api/users` → Create a new admin account.
-- `PUT /api/users/{id}` → Promote themselves to admin.
-- `DELETE /api/users/{id}` → Delete any user.
-
-**Fix:**
-```php
-Route::apiResource('users', UserController::class)->middleware('role:admin,hr');
-```
-
----
-
-### 11. Any Authenticated User Can Create, Update, and Delete Projects
-
-**File:** `app/Http/Controllers/Api/ProjectController.php` — `store`, `update`, `destroy`
-
-No role check prevents a `role: 'user'` account from:
-- Creating projects.
-- Deleting projects.
-- Changing financial fields (`budget_allocated`, `po_number`, `is_internal_project`).
-
-**Fix:** Gate project mutation behind `role:admin,team-lead,account-manager`.
-
----
-
-### 12. `n8n/grace-periods` Has No Auth Middleware
-
-**File:** `routes/api.php` (line 333)
-
-```php
-// OUTSIDE auth:sanctum group
-Route::get('/n8n/grace-periods', [IntegrationController::class, 'expiringGracePeriods']);
-```
-
-If `N8N_WEBHOOK_SECRET` is empty or null, the controller's check passes with any token. Exposes sensitive project financial data.
-
-**Fix:** Move inside the `auth:sanctum` group, or implement a dedicated `n8n.secret` middleware instead of inline controller validation.
-
----
-
-### 13. AI Chatbot — No Scope Limitation or Audit Trail
-
-**File:** `app/Http/Controllers/Api/AIChatbotController.php`
-
-- The `operations` mode lets AI perform **real database mutations** (create tasks, update statuses, assign users) based on free-text user input.
-- `updatePolicy` (PUT `/ai-chatbot/policies/{id}`) has **no role restriction** — any user can rewrite AI policies.
-- No per-action audit log exists.
-
-**Fix:**
-- Restrict `updatePolicy` to admin only.
-- Log all AI-triggered mutations with `[user_id, action, entity_id, timestamp]`.
-- Implement an action allow-list for what the AI agent can do.
-
----
-
-### 14. Hardcoded Personal Email in Production Code
-
-**File:** `app/Http/Controllers/Api/IntegrationController.php` (line 86)
-
-```php
-'recipient_email' => 'shashithrashmikapiyathilaka@gmail.com',
-```
-
-Business reminder data is being sent to a personal Gmail. This is a data governance risk.
-
-**Fix:** Move to `env('REMINDER_RECIPIENT_EMAIL', 'admin@yourdomain.com')`.
-
----
-
-## 🟡 MEDIUM — Address Within 30 Days
-
----
-
-### 15. 2FA: No Rate Limiting on OTP/Recovery Code Guessing
-
-**File:** `app/Http/Controllers/Api/AuthController.php` (lines 69–93)
-
-No brute-force protection on `two_factor_code` or `two_factor_recovery_code`. An attacker with a valid password can cycle through TOTP windows.
-
-**Fix:** Apply `throttle:5,1` per email to the `verifyTwoFactor` route.
-
----
-
-### 16. File Upload MIME Validation Gap
-
-**Files:** `TaskImportController`, `DocumentController`, `ProjectController`
-
-```php
-'file' => 'required|file|mimes:pdf,doc,...'
-```
-
-`mimes:` checks both extension and magic bytes, but doesn't prevent all polyglot file attacks. Uploads to S3 mitigate execution risk, but malicious payloads could be stored.
-
-**Fix:** Add `mimetypes:application/pdf,...` alongside `mimes:` for double validation. Ensure no uploads go to the web-accessible `public/` folder.
-
----
-
-### 17. Session Security Not Hardened
-
-**File:** `config/session.php`
-
-```php
-'secure' => env('SESSION_SECURE_COOKIE'),  // Defaults to null = false
-'encrypt' => false,
-'same_site' => 'lax',
-```
-
-**Fix:**
-```php
-'secure' => true,
-'encrypt' => true,
-'same_site' => 'strict',
-```
-
----
-
-### 18. AI Prompt Injection Risk
-
-**File:** `app/Http/Controllers/Api/AIChatbotController.php` (line 264)
-
-User messages are passed directly to Claude with the full system context. A crafted message can override instructions or exfiltrate the `context_snapshot` (which contains live DB statistics and project data).
-
-**Fix:**
-- Use XML-delimited user input in the system prompt: `<user_message>{$userMessage}</user_message>`.
-- Reduce `max:12000` message length to `max:4000`.
-- Never include sensitive data counts directly in the context visible to user-injected content.
-
----
-
-### 19. `TrustHosts` Middleware is Disabled
+### 7. `TrustHosts` Middleware Still Disabled
 
 **File:** `app/Http/Kernel.php` (line 17)
 
@@ -342,10 +168,11 @@ User messages are passed directly to Claude with the full system context. A craf
 // \App\Http\Middleware\TrustHosts::class,
 ```
 
-Without `TrustHosts`, Host header injection attacks can poison password reset links with malicious domains.
+Without `TrustHosts`, Host header injection attacks can poison password reset links and other user-facing URLs with attacker-controlled domains.
 
 **Fix:** Uncomment and configure:
 ```php
+// app/Http/Middleware/TrustHosts.php
 protected function hosts(): array {
     return [config('app.url')];
 }
@@ -353,35 +180,250 @@ protected function hosts(): array {
 
 ---
 
-### 20. OAuth CSRF — No `state` Parameter Validated in Zoho/Xero Callbacks
+### 8. AI Chatbot — `updatePolicy` Has No Role Restriction
 
-**File:** `routes/api.php` (lines 65–66)
-
-Zoho and Xero OAuth flows lack `state` parameter validation. An attacker can trick a logged-in user into connecting their Aura account to an attacker-controlled OAuth account.
-
-**Fix:** Generate a CSRF `state` token, store in session, and validate on callback.
-
----
-
-## 🔵 LOW / INFORMATIONAL
-
----
-
-### 21. Full Task Payloads Logged at INFO Level
-
-**File:** `app/Http/Controllers/Api/TaskImportController.php` (line 114)
+**File:** `routes/api.php` (line 328)
 
 ```php
-Log::info('TaskImport: callback received', ['tasks' => $tasks]);
+Route::put('/policies/{id}', [\App\Http\Controllers\Api\AIChatbotController::class, 'updatePolicy']);
 ```
 
-Full business data (potentially with PII) is logged. Logs may be stored insecurely.
+This route is inside the `auth:sanctum` group but has **no role middleware**. Any authenticated user — including role `'user'` — can rewrite AI automation policies that affect the entire system (task creation rules, notification escalation, etc.).
 
-**Fix:** Log only `['task_count' => count($tasks), 'import_id' => $importId]`.
+**Fix:**
+```php
+Route::put('/policies/{id}', ...)->middleware('role:admin');
+```
 
 ---
 
-### 22. `console.error` Leaks API Internals in Browser
+### 9. AI Chatbot — No Rate Limiting on Message Endpoints
+
+The AI chatbot `sendMessage` endpoint (`POST /ai-chatbot/sessions/{id}/messages`) has no per-user rate limit. This enables:
+- **API cost abuse**: Each message triggers a Claude API call. A malicious (or compromised) user can issue thousands of requests, incurring unbilled costs.
+- **Context exfiltration**: Repeated queries can probe the live `context_snapshot` which contains real DB statistics.
+
+**Fix:**
+```php
+Route::post('/sessions/{id}/messages', ...)->middleware('throttle:30,1');
+Route::post('/sessions', ...)->middleware('throttle:10,1');
+```
+
+---
+
+### 10. AI Chatbot — No Action Audit Trail
+
+**Files:** `app/Http/Controllers/Api/AIChatbotController.php`, `app/Services/AIChatbotOperationsService.php`
+
+The AI agent can create tasks, update statuses, assign users, and post comments — all based on free-text user input. No audit log records these AI-triggered mutations with `[user_id, action, entity_id, timestamp]`.
+
+If the AI misinterprets input and mutates data incorrectly, there is no log to diagnose or roll back.
+
+**Fix:**
+- Log all AI-triggered mutations: `AuditLog::record($user->id, 'ai_action', $actionType, $entityId, $payload)`.
+- Implement an action allow-list: define exactly which task fields the AI agent is allowed to write.
+
+---
+
+### 11. AI Prompt Injection Risk — Message Length Still `max:12000`
+
+**File:** `app/Http/Controllers/Api/AIChatbotController.php` (line 246)
+
+```php
+'message' => 'nullable|string|max:12000',  // ← Actual validation rule
+```
+
+Despite the OpenAPI spec showing `maxLength: 4000`, the actual Laravel validation still allows 12,000-character messages. Long messages give an attacker more surface area to inject adversarial instructions to override Claude's system prompt or exfiltrate the `context_snapshot`.
+
+**Fix:**
+```php
+'message' => 'nullable|string|max:4000',
+```
+Additionally, wrap user input in XML delimiters in the system prompt:
+```php
+"<user_message>{$userMessage}</user_message>"
+```
+
+---
+
+### 12. Google OAuth Uses `->stateless()` — No CSRF Protection
+
+**File:** `app/Http/Controllers/Api/GoogleAuthController.php` (lines 20, 46)
+
+```php
+return Socialite::driver('google')->stateless()->redirect();
+$googleUser = Socialite::driver('google')->stateless()->user();
+```
+
+`->stateless()` skips the OAuth `state` parameter entirely. An attacker can initiate a Google login flow and trick a logged-in user into connecting their Aura account to an attacker-controlled Google identity (OAuth account linking CSRF).
+
+**Fix:**
+- Remove `->stateless()`.
+- Validate the returned `state` parameter against a session-stored value on callback.
+
+---
+
+### 13. Mattermost Password Stored as Encrypted but Synced in Plaintext
+
+**File:** `app/Services/MattermostService.php` (line 1282)
+
+```php
+public function syncUserPassword(User $user, string $plaintextPassword): bool
+{
+    $user->mattermost_password = $plaintextPassword; // stored as encrypted cast
+```
+
+Although the `mattermost_password` field uses Laravel's `'encrypted'` cast (verified in `User.php`), the **same plaintext password** used for Aura login is stored as the Mattermost password. This means:
+
+1. If the Laravel `APP_KEY` is ever rotated without re-encrypting this field, all Mattermost passwords become unreadable.
+2. If `APP_KEY` is compromised, both the user's Aura and Mattermost accounts are exposed.
+
+**Fix:**
+- Generate a dedicated, random Mattermost password that is separate from the Aura login password.
+- Never reuse user-facing credentials for service-to-service authentication.
+
+---
+
+### 14. SSO PKCE Allows `plain` Method — Downgrades Security
+
+**File:** `app/Services/SSOService.php` (lines 208–218), `app/Http/Controllers/Api/SSOController.php` (line 48)
+
+The SSO implementation accepts `code_challenge_method=plain`, which means the PKCE code verifier is sent in plaintext and compared directly against the challenge. This eliminates PKCE's protection against authorization code interception attacks — an eavesdropper who intercepts the auth code also gets the verifier (they're identical).
+
+**Fix:** Reject `plain` and only accept `S256`:
+```php
+// SSOController.php validation
+'code_challenge_method' => 'nullable|string|in:S256',
+// Remove 'plain' from discovery document
+'code_challenge_methods_supported' => ['S256'],
+```
+
+---
+
+### 15. `extract-credentials.sh` Script Left in Repository Root
+
+**File:** `extract-credentials.sh` (world-readable: `-rw-rw-r--`)
+
+This script reads Laravel logs to extract plaintext passwords and outputs them to a file. It was intended as a one-time admin utility but:
+- It is committed to the repository root.
+- It is world-readable on the filesystem (`-rw-rw-r--`).
+- Any log file containing user passwords means passwords were logged in plaintext at some point.
+
+**Risk:** If passwords were ever logged by the application and this script was run, a plaintext credentials file may exist on the server.
+
+**Fix:**
+- Delete `extract-credentials.sh` from the repository immediately.
+- Search logs for any password leakage: `grep -ri "password" storage/logs/`.
+- Audit what caused passwords to appear in logs and fix the root cause.
+
+---
+
+## 🟡 MEDIUM — Address Within 30 Days
+
+---
+
+### 16. Nginx Missing All Security Headers
+
+**File:** `nginx_auraai_patched`
+
+The Nginx config has no security headers whatsoever:
+
+```nginx
+# MISSING:
+add_header X-Frame-Options "DENY";
+add_header X-Content-Type-Options "nosniff";
+add_header Referrer-Policy "strict-origin-when-cross-origin";
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+add_header Permissions-Policy "geolocation=(), microphone=(), camera=()";
+```
+
+The CSP middleware only covers Laravel web routes. None of these headers are set at the Nginx level, which means static assets, WebSocket upgrades (`/app`), and PHP-FPM error pages have none of these protections.
+
+**Fix:** Add to the Nginx `server {}` block inside the SSL listener:
+```nginx
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+add_header X-Frame-Options "DENY" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+```
+
+---
+
+### 17. File Upload MIME Validation Gap
+
+**Files:** `TaskImportController`, `AIChatbotController`
+
+The validation uses both `mimes:` and `mimetypes:` (good improvement), but the chatbot upload only uses `mimes:`:
+```php
+// AIChatbotController.php line 248
+'attachments.*' => 'file|max:20480|mimes:pdf,doc,docx,...'
+// Missing mimetypes: double-validation
+```
+
+**Fix:** Add `mimetypes:application/pdf,...` to all attachment validations.
+
+---
+
+### 18. `verifyTwoFactor` Route Outside `auth:sanctum`
+
+**File:** `routes/api.php` (line 333)
+
+```php
+// OUTSIDE auth:sanctum group
+Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor'])->middleware('throttle:5,1');
+```
+
+The 2FA verification endpoint is correctly throttled at 5 per minute but resides outside the `auth:sanctum` group. While this is architecturally necessary (the user is not yet fully authenticated), the endpoint has no per-email lockout. The `throttle:5,1` limit is IP-based only, so distributed attacks (different IPs, same email) are not blocked.
+
+**Fix:**
+- Implement per-email rate limiting using `RateLimiter::tooManyAttempts()`:
+```php
+$key = 'two-factor.' . $request->input('email');
+if (RateLimiter::tooManyAttempts($key, 5)) {
+    return response()->json(['message' => 'Too many attempts'], 429);
+}
+RateLimiter::hit($key, 300); // 5-minute decay
+```
+
+---
+
+### 19. Password Policy Lacks Complexity Requirements
+
+**Files:** `AuthController.php` (lines 370, 436, 502)
+
+All password rules are `min:8` only:
+```php
+'password' => 'required|string|min:8',
+'new_password' => 'required|string|min:8|confirmed',
+```
+
+8-character passwords with no complexity requirements are trivially crackable via offline attacks if the DB is ever compromised.
+
+**Fix:**
+```php
+use Illuminate\Validation\Rules\Password;
+
+'password' => ['required', Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised()],
+```
+
+---
+
+### 20. OAuth CSRF — Zoho Callback Uses `state` as `user_id` (Insecure)
+
+**File:** `app/Http/Controllers/Api/ZohoMailController.php` (line 54)
+
+```php
+$userId = Auth::id() ?? $request->query('state');
+```
+
+The `state` parameter in OAuth flows is supposed to be an opaque CSRF token. Here it is being used as a user identifier fallback. An attacker who knows a target user's ID can craft a callback URL with `state={victim_user_id}` to link the attacker's Zoho account to the victim's Aura account.
+
+**Fix:** Store the CSRF `state` token in the session and validate it on callback. Do not use `state` as a user identifier.
+
+---
+
+### 21. `console.error` Still Leaks API Internals in Browser
 
 **File:** `resources/js/project-aura-new/src/lib/api.ts` (line 97)
 
@@ -389,82 +431,132 @@ Full business data (potentially with PII) is logged. Logs may be stored insecure
 console.error('API Request failed:', error);
 ```
 
-Full API error responses visible in browser DevTools.
+Full API error responses (including response bodies, error codes, and potentially stack traces when `APP_DEBUG=true`) are visible in any browser's DevTools, making recon trivial.
 
-**Fix:** Remove in production builds. Use Sentry or similar for error monitoring.
-
----
-
-### 23. No HTTP Security Headers in Nginx
-
-Review `nginx_auraai_patched` and ensure these headers are present:
-
-```nginx
-add_header X-Frame-Options "DENY";
-add_header X-Content-Type-Options "nosniff";
-add_header Referrer-Policy "strict-origin-when-cross-origin";
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; ...";
-```
+**Fix:** Strip this in production builds. Use a production error monitoring service (Sentry, Bugsnag) instead.
 
 ---
 
-### 24. Generic Token Names
+## 🔵 LOW / INFORMATIONAL
 
-**File:** `app/Http/Controllers/Api/AuthController.php` (line 123)
+---
+
+### 22. AI Chatbot — Context Snapshot Contains Live DB Statistics
+
+**File:** `app/Http/Controllers/Api/AIChatbotController.php` (line 74)
 
 ```php
-$token = $user->createToken('auth-token')->plainTextToken;
+$context = $this->service->buildContextSnapshot();
 ```
 
-All tokens are identical in name — impossible to audit, identify, or revoke per device.
+The `context_snapshot` stored in each AI session contains live aggregate database statistics. Any user who can start an AI session can read project counts, user counts, and operational metrics via the `stats` field returned in the API response. This is an information disclosure risk for multi-tenant deployments.
+
+---
+
+### 23. SSO Scope Validation — No Canonical Scope Separator Enforcement
+
+**File:** `app/Http/Controllers/Api/SSOController.php` (line 67)
+
+```php
+$scopes = array_filter(explode(' ', $params['scope']));
+```
+
+The OAuth spec requires scopes to be space-separated. There is no guard against comma-separated scopes (common client mistake) or duplicate scopes, which could confuse downstream scope-checking logic.
+
+---
+
+### 24. No Automated Dependency Vulnerability Scanning
+
+**File:** `composer.json`, `package.json`
+
+The project has no configured automated CVE scanning (e.g., `composer audit`, `npm audit`, Snyk, Dependabot). Known vulnerable dependencies go undetected between audits.
 
 **Fix:**
-```php
-$user->createToken('web|' . request()->ip() . '|' . now()->toDateString())
+```bash
+composer audit       # Check PHP dependencies
+npm audit            # Check JS dependencies
 ```
+Add a GitHub Actions workflow to run `composer audit` on every PR.
 
 ---
 
-## Priority Matrix
+### 25. Test Scripts and Utilities Left in Repository Root
 
-| # | Issue | Severity | Effort | When |
+Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-estimates-direct.php`, `test-attach-po-api.sh`, and `test-estimate-workflow.sh` are committed to the repository root and are world-readable on the server. These scripts may contain hardcoded credentials, internal API URLs, or endpoint discovery that assists attackers in mapping the attack surface.
+
+**Fix:** Move all test scripts to a `.gitignore`d `tests/manual/` directory and ensure they never contain hardcoded credentials.
+
+---
+
+## Priority Matrix (Updated 2026-05-22)
+
+| # | Issue | Severity | Status | When |
 |---|---|---|---|---|
-| 1 | `.env` secrets / `APP_DEBUG=true` | 🔴 Critical | Low | **Today** |
-| 2 | Mattermost middleware disabled | 🔴 Critical | Low | **Today** |
-| 3 | Public routes leaking data | 🔴 Critical | Low | **Today** |
-| 4 | No rate limiting on auth | 🔴 Critical | Low | **Today** |
-| 5 | Weak OTP (`rand()`) | 🔴 Critical | Low | **Today** |
-| 6 | Tokens never expire | 🟠 High | Low | Sprint 1 |
-| 7 | Token in localStorage (XSS) | 🟠 High | High | Sprint 1 |
-| 8 | CORS open to `*` | 🟠 High | Low | Sprint 1 |
-| 9 | User CRUD no role check | 🟠 High | Low | Sprint 1 |
-| 10 | Project CRUD no role check | 🟠 High | Low | Sprint 1 |
-| 11 | n8n endpoint outside auth | 🟠 High | Low | Sprint 1 |
-| 12 | AI chatbot no audit/scope | 🟠 High | Medium | Sprint 2 |
-| 13 | Hardcoded email | 🟠 High | Low | Sprint 1 |
-| 14 | 2FA OTP no rate limit | 🟡 Medium | Low | Sprint 2 |
-| 15 | File MIME validation gap | 🟡 Medium | Low | Sprint 2 |
-| 16 | Session not hardened | 🟡 Medium | Low | Sprint 2 |
-| 17 | AI prompt injection | 🟡 Medium | Medium | Sprint 2 |
-| 18 | TrustHosts disabled | 🟡 Medium | Low | Sprint 2 |
-| 19 | OAuth CSRF state missing | 🟡 Medium | Medium | Sprint 2 |
-| 20 | Sensitive data in logs | 🔵 Low | Low | Sprint 3 |
-| 21 | No security headers | 🔵 Low | Low | Sprint 3 |
-| 22 | Generic token names | 🔵 Low | Low | Sprint 3 |
+| 1 | `APP_DEBUG=true`, `APP_ENV=debug` | 🔴 Critical | ❌ Unfixed | **Today** |
+| 2 | Mattermost middleware disabled | 🔴 Critical | ❌ Unfixed | **Today** |
+| 3 | n8n endpoint outside `auth:sanctum` | 🔴 Critical | ❌ Unfixed | **Today** |
+| 4 | Hardcoded personal email → multi-recipient | ✅ Recipients stored in `system_settings` as JSON; configurable via Admin → System Settings |
+| 5 | Auth token in `localStorage` | 🟠 High | ❌ Unfixed | Sprint 1 |
+| 6 | CSP uses `unsafe-inline`/`unsafe-eval` | 🟠 High | ❌ New | Sprint 1 |
+| 7 | `TrustHosts` disabled | 🟠 High | ❌ Unfixed | Sprint 1 |
+| 8 | AI `updatePolicy` no role check | 🟠 High | ❌ Unfixed | Sprint 1 |
+| 9 | AI chatbot no rate limit on messages | 🟠 High | ❌ New | Sprint 1 |
+| 10 | AI chatbot no action audit trail | 🟠 High | ❌ Unfixed | Sprint 1 |
+| 11 | AI prompt injection `max:12000` | 🟠 High | ⚠️ Partial | Sprint 1 |
+| 12 | Google OAuth `->stateless()` | 🟠 High | ❌ New | Sprint 1 |
+| 13 | Mattermost password = Aura password | 🟠 High | ❌ New | Sprint 1 |
+| 14 | SSO PKCE `plain` method allowed | 🟠 High | ❌ New | Sprint 1 |
+| 15 | `extract-credentials.sh` in repo | 🟠 High | ❌ New | **Today** |
+| 16 | Nginx missing security headers | 🟡 Medium | ❌ Unfixed | Sprint 2 |
+| 17 | Chatbot MIME validation gap | 🟡 Medium | ⚠️ Partial | Sprint 2 |
+| 18 | 2FA per-email rate limit missing | 🟡 Medium | ⚠️ Partial | Sprint 2 |
+| 19 | Weak password policy (`min:8` only) | 🟡 Medium | ❌ New | Sprint 2 |
+| 20 | Zoho `state` used as user ID | 🟡 Medium | ❌ New | Sprint 2 |
+| 21 | `console.error` leaks API internals | 🔵 Low | ❌ Unfixed | Sprint 3 |
+| 22 | AI context snapshot info disclosure | 🔵 Low | ❌ New | Sprint 3 |
+| 23 | SSO scope separator not enforced | 🔵 Low | ❌ New | Sprint 3 |
+| 24 | No automated dependency scanning | 🔵 Low | ❌ New | Sprint 3 |
+| 25 | Test scripts in repo root | 🔵 Low | ❌ New | Sprint 3 |
 
 ---
 
 ## Quick Wins Checklist (1–2 hours of work)
 
-- [ ] Set `APP_DEBUG=false` in `.env`
+- [ ] Set `APP_DEBUG=false`, `APP_ENV=staging` in `.env`
 - [ ] Uncomment Mattermost middleware rejection block (`ValidateMattermostApiKey.php` lines 33–37)
+- [ ] Scope Mattermost token deletion to current user: add `->where('user_id', $user->id)`
+- [ ] Delete `extract-credentials.sh` from repo root
+- [x] Replace hardcoded email with dynamic multi-recipient list — configurable via Admin → System Settings
+- [ ] Add `->middleware('role:admin')` to `PUT /ai-chatbot/policies/{id}` route
+- [ ] Fix `'message' => 'nullable|string|max:4000'` in `AIChatbotController::sendMessage`
+- [ ] Run `composer audit` and `npm audit` now
 - [x] Replace `rand()` with `random_int()` in OTP generation
-- [ ] Add `->middleware('throttle:5,1')` to `/login`, `/forgot-password`, `/verify-otp`
-- [x] Change `'allowed_origins' => ['*']` to your exact domain in `cors.php`
 - [x] Set `'expiration' => 1440` in `config/sanctum.php`
 - [x] Move `searchByEmail`, `searchByWhatsapp`, `suggestedTasks` inside `auth:sanctum` group
-- [x] Add `->middleware('role:admin,hr')` to user `store`, `update`, `destroy`
-- [ ] Replace hardcoded email with `env('REMINDER_RECIPIENT_EMAIL')` in `IntegrationController`
-- [ ] Set `'secure' => true`, `'encrypt' => true` in `config/session.php`
-- [ ] Rotate ALL credentials in `.env` (DB, AWS, Mattermost, Slack, Zoho, Xero, Claude, Google)
+- [x] Add `role:admin,hr` to user `store`, `update`, `destroy`
+- [x] Add `role:admin,team-lead,account-manager` to project `store`, `update`, `destroy`
+- [x] CORS locked to exact domain(s)
+- [x] Session `encrypt`, `secure`, `same_site=strict` configured
+- [x] Rate limiting on `/login`, `/forgot-password`, `/verify-otp`, `/reset-password`, `/two-factor/verify`
+- [x] Task import HMAC signature verification added
+- [x] CSP middleware added (web group)
+- [x] Token names now include IP + date
+
+---
+
+## Secrets Rotation Reminder
+
+**The following credentials must be rotated if they were ever exposed in logs, commits, or accessible config files:**
+
+- `DB_PASSWORD` — Database access
+- `AWS_SECRET_ACCESS_KEY` — Cloud storage
+- `MATTERMOST_TOKEN` / `MATTERMOST_JWT_SECRET` — Chat platform
+- `SLACK_BOT_TOKEN` — Slack workspace
+- `REVERB_APP_SECRET` / `PUSHER_APP_SECRET` — WebSocket
+- `ZOHO_CLIENT_SECRET` / `XERO_CLIENT_SECRET` — Finance integrations
+- `ANTHROPIC_API_KEY` — AI API (cost exposure)
+- `GOOGLE_CLIENT_SECRET` — OAuth
+- `N8N_WEBHOOK_SECRET` — Automation webhooks
+- `APP_KEY` — Laravel encryption key (rotating this invalidates all sessions + encrypted DB fields)
+
+> ⚠️ **Note:** `APP_KEY` rotation requires re-encrypting all `mattermost_password` values stored in the `users` table before clearing existing sessions.

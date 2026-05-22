@@ -35,6 +35,19 @@ class IntegrationController extends Controller
         $defaultDaysBefore = $setting && is_array($setting->days_before) ? $setting->days_before : [7, 3, 1];
         $cutoff = Carbon::today()->addDays(max($defaultDaysBefore));
 
+        // ─── Resolve notification recipients ───────────────────────────────────
+        // Read the list from SystemSetting (admin-configurable). Each entry has
+        // 'email' (required) and 'name' (optional) keys.
+        $recipients = \App\Models\SystemSetting::getJson('grace_period_reminder_recipients');
+
+        // Fall back to the env-based defaults when no DB value is set yet.
+        if (empty($recipients)) {
+            $fallbackEmail = env('AUTOMATED_REMINDER_RECIPIENT_EMAIL', 'admin@artslabcreatives.com');
+            $fallbackName  = env('AUTOMATED_REMINDER_RECIPIENT_NAME', 'Admin');
+            $recipients    = [['email' => $fallbackEmail, 'name' => $fallbackName]];
+        }
+        // ───────────────────────────────────────────────────────────────────────
+
         $projects = Project::query()
             ->where('is_locked_by_po', true)
             ->whereNotNull('grace_period_expires_at')
@@ -75,19 +88,22 @@ class IntegrationController extends Controller
             }
 
             if ($shouldSend) {
-                $data[] = [
-                    'project_id'      => $project->id,
-                    'project_name'    => $project->name,
-                    'project_code'    => $project->project_code,
-                    'expires_at'      => $project->grace_period_expires_at->toDateString(),
-                    'days_remaining'  => $daysRemaining,
-                    'manual_reminder_date' => $project->manual_reminder_date,
-                    'manual_reminder_days' => $project->manual_reminder_days,
-                    'recipient_email' => 'shashithrashmikapiyathilaka@gmail.com',
-                    'recipient_name' => 'admin',
-                ];
+                // Fan out one entry per recipient so n8n can send a separate email to each.
+                foreach ($recipients as $recipient) {
+                    $data[] = [
+                        'project_id'           => $project->id,
+                        'project_name'         => $project->name,
+                        'project_code'         => $project->project_code,
+                        'expires_at'           => $project->grace_period_expires_at->toDateString(),
+                        'days_remaining'       => $daysRemaining,
+                        'manual_reminder_date' => $project->manual_reminder_date,
+                        'manual_reminder_days' => $project->manual_reminder_days,
+                        'recipient_email'      => $recipient['email'],
+                        'recipient_name'       => $recipient['name'] ?? 'Admin',
+                    ];
+                }
 
-                // Update last sent time
+                // Update last sent time (once per project, not once per recipient)
                 $project->last_automated_reminder_sent_at = Carbon::now();
                 $project->save();
             }
