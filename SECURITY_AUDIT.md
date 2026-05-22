@@ -29,6 +29,8 @@ The following issues from the previous audit have been **verified as resolved**:
 | 23b | CSP header added | ✅ `ContentSecurityPolicy` middleware applied to `web` group |
 | 5 | Auth token in `localStorage` | ✅ Secured by implementing strict request-specific CSP nonces for script execution |
 | 6 | CSP uses `unsafe-inline` | ✅ Replaced `'unsafe-inline'` with script nonces dynamically hooked to Laravel's Vite loader |
+| 26 | Settings changes not audited | ✅ Automatically log system settings created/updated events using observers |
+| 27 | No admin view for audit logs | ✅ Designed and added a read-only `AuditLogResource` to Filament Admin sidebar |
 
 ---
 
@@ -529,7 +531,7 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 - [x] Replace hardcoded email with dynamic multi-recipient list — configurable via Admin → System Settings
 - [ ] Add `->middleware('role:admin')` to `PUT /ai-chatbot/policies/{id}` route
 - [ ] Fix `'message' => 'nullable|string|max:4000'` in `AIChatbotController::sendMessage`
-- [ ] Run `composer audit` and `npm audit` now
+- [x] Run `composer audit` and `npm audit` now
 - [x] Replace `rand()` with `random_int()` in OTP generation
 - [x] Set `'expiration' => 1440` in `config/sanctum.php`
 - [x] Move `searchByEmail`, `searchByWhatsapp`, `suggestedTasks` inside `auth:sanctum` group
