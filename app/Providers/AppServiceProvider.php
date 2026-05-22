@@ -35,6 +35,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (class_exists(\BinaryTorch\LaRecipe\Facades\LaRecipe::class)) {
+            \BinaryTorch\LaRecipe\Facades\LaRecipe::style('app.css', public_path('vendor/binarytorch/larecipe/assets/css/app.css'));
+            \BinaryTorch\LaRecipe\Facades\LaRecipe::style('font-awesome.css', public_path('vendor/binarytorch/larecipe/assets/css/font-awesome.css'));
+            \BinaryTorch\LaRecipe\Facades\LaRecipe::style('font-awesome-v4-shims.css', public_path('vendor/binarytorch/larecipe/assets/css/font-awesome-v4-shims.css'));
+            \BinaryTorch\LaRecipe\Facades\LaRecipe::script('app.js', public_path('vendor/binarytorch/larecipe/assets/js/app.js'));
+        }
+
         // Register the Task observer for automatic stage progression
         Task::observe(TaskObserver::class);
         TaskComment::observe(TaskCommentObserver::class);
