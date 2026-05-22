@@ -21,19 +21,25 @@ class ContentSecurityPolicy
 
         $nonce = app('csp-nonce');
 
-        // Define a robust and strict Content Security Policy
-        // Mitigates XSS by restricting allowed script/connect sources,
-        // preventing malicious scripts from loading or exfiltrating tokens (localStorage) to arbitrary external servers.
-        $csp = "default-src 'self'; " .
-               "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval' https://apis.google.com; " .
-               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " .
-               "img-src 'self' data: https:; " .
-               "font-src 'self' https://fonts.gstatic.com; " .
-               "connect-src 'self' https: wss: ws:; " .
-               "frame-src 'self' https:; " .
-               "object-src 'none'; " .
-               "base-uri 'self'; " .
-               "form-action 'self';";
+        if ($request->is('api/*') || $request->expectsJson()) {
+            // Apply extremely strict CSP for REST API responses to prevent execution of any HTML/script content
+            $csp = "default-src 'none'; frame-ancestors 'none';";
+        } else {
+            // Unsafe-eval is only allowed in local development environment for hot module replacement / source maps.
+            // In staging and production, it is completely removed for maximum security.
+            $unsafeEval = config('app.env') === 'local' ? " 'unsafe-eval'" : "";
+
+            $csp = "default-src 'self'; " .
+                   "script-src 'self' 'nonce-{$nonce}'{$unsafeEval} https://apis.google.com; " .
+                   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " .
+                   "img-src 'self' data: https:; " .
+                   "font-src 'self' https://fonts.gstatic.com; " .
+                   "connect-src 'self' https: wss: ws:; " .
+                   "frame-src 'self' https:; " .
+                   "object-src 'none'; " .
+                   "base-uri 'self'; " .
+                   "form-action 'self';";
+        }
 
         // Set the CSP header on the response
         if (method_exists($response, 'header')) {

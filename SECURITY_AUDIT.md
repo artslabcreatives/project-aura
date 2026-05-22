@@ -144,18 +144,19 @@ export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
 
 ---
 
-### 6. [RESOLVED] CSP Middleware Uses `unsafe-inline`
+### 6. [RESOLVED] CSP Middleware Uses `unsafe-inline` and `unsafe-eval`
 
 **File:** `app/Http/Middleware/ContentSecurityPolicy.php` (lines 25–34)
 
 ```php
-"script-src 'self' 'nonce-{$nonce}' 'unsafe-eval' https://apis.google.com; "
+"script-src 'self' 'nonce-{$nonce}'{$unsafeEval} https://apis.google.com; "
 ```
 
 **Fix Applied:**
-- Replaced `'unsafe-inline'` with a cryptographically secure, per-request generated nonce.
-- Automatically configured Laravel Vite compiler to append the nonce to all rendered elements.
-- Secured inline script tags in `app.blade.php` with the `@viteReactRefresh` and custom `nonce` attributes.
+- **Stripped `unsafe-inline`:** Replaced with a cryptographically secure, per-request generated nonce singleton.
+- **Vite Integration:** Automatically configured Laravel Vite compiler to append the nonce to all rendered elements dynamically using `Vite::useCspNonce()`.
+- **Stripped `unsafe-eval`:** Fully disabled `'unsafe-eval'` in staging and production environments, permitting it only in local development for Hot Module Replacement (HMR) and source-map rendering.
+- **REST API Protection:** Applied `ContentSecurityPolicy` middleware to the global `api` middleware group. All API endpoints and error pages (including stack traces if debug mode is active) now return an extremely restrictive `default-src 'none'; frame-ancestors 'none';` policy to prevent script/HTML injection rendering in browser views.
 
 ---
 
