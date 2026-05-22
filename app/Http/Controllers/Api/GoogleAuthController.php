@@ -17,7 +17,21 @@ class GoogleAuthController extends Controller
      */
     public function redirectToGoogle()
     {
-        return Socialite::driver('google')->stateless()->redirect();
+        $state = \Illuminate\Support\Str::random(40);
+
+        setcookie('oauth_state', $state, [
+            'expires' => time() + 900, // 15 minutes
+            'path' => '/',
+            'domain' => '',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+
+        return Socialite::driver('google')
+            ->stateless()
+            ->with(['state' => $state])
+            ->redirect();
     }
 
     /**
@@ -40,6 +54,22 @@ class GoogleAuthController extends Controller
             Log::warning('Google Auth Error: callback missing authorization code');
 
             return redirect(config('app.frontend_url') . '/login?error=google_auth_failed');
+        }
+
+        // Validate CSRF state token
+        $stateCookie = $_COOKIE['oauth_state'] ?? null;
+        $stateRequest = $request->query('state');
+
+        // Clear the cookie immediately to prevent reuse
+        setcookie('oauth_state', '', time() - 3600, '/');
+
+        if (!$stateCookie || !$stateRequest || $stateCookie !== $stateRequest) {
+            Log::warning('Google Auth CSRF State mismatch', [
+                'cookie' => $stateCookie,
+                'request' => $stateRequest,
+            ]);
+
+            return redirect(config('app.frontend_url') . '/login?error=csrf_detected');
         }
 
         try {

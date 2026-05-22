@@ -31,6 +31,7 @@ The following issues from the previous audit have been **verified as resolved**:
 | 6 | CSP uses `unsafe-inline` | ✅ Replaced `'unsafe-inline'` with script nonces dynamically hooked to Laravel's Vite loader |
 | 26 | Settings changes not audited | ✅ Automatically log system settings created/updated events using observers |
 | 27 | No admin view for audit logs | ✅ Designed and added a read-only `AuditLogResource` to Filament Admin sidebar |
+| 12 | Google OAuth stateless CSRF | ✅ Implemented robust cryptographically secure HttpOnly state cookie verification |
 
 ---
 
@@ -248,20 +249,15 @@ Additionally, wrap user input in XML delimiters in the system prompt:
 
 ---
 
-### 12. Google OAuth Uses `->stateless()` — No CSRF Protection
+### 12. [RESOLVED] Google OAuth Uses `->stateless()` — No CSRF Protection
 
 **File:** `app/Http/Controllers/Api/GoogleAuthController.php` (lines 20, 46)
 
-```php
-return Socialite::driver('google')->stateless()->redirect();
-$googleUser = Socialite::driver('google')->stateless()->user();
-```
-
-`->stateless()` skips the OAuth `state` parameter entirely. An attacker can initiate a Google login flow and trick a logged-in user into connecting their Aura account to an attacker-controlled Google identity (OAuth account linking CSRF).
-
-**Fix:**
-- Remove `->stateless()`.
-- Validate the returned `state` parameter against a session-stored value on callback.
+**Fix Applied:**
+- **Dynamic Secure Cookie State Storage:** Generated a cryptographically secure 400-bit random state token (`\Illuminate\Support\Str::random(40)`) per authorization redirect.
+- **HttpOnly Secure Cookie:** Configured a native secure HttpOnly Lax cookie (`oauth_state`) storing the generated token for up to 15 minutes, which works natively across API route namespaces.
+- **State Validation Callback:** Validated that the incoming Google query state matches the value inside the `oauth_state` cookie on callback.
+- **Automatic Replay Prevention:** Wiped the state cookie immediately on callback to fully prevent replay attacks.
 
 ---
 
@@ -505,7 +501,7 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 | 9 | AI chatbot no rate limit on messages | 🟠 High | ❌ New | Sprint 1 |
 | 10 | AI chatbot no action audit trail | 🟠 High | ❌ Unfixed | Sprint 1 |
 | 11 | AI prompt injection `max:12000` | 🟠 High | ⚠️ Partial | Sprint 1 |
-| 12 | Google OAuth `->stateless()` | 🟠 High | ❌ New | Sprint 1 |
+| 12 | Google OAuth `->stateless()` | 🟠 High | ✅ Verified secure state cookie validation | Resolved |
 | 13 | Mattermost password = Aura password | 🟠 High | ❌ New | Sprint 1 |
 | 14 | SSO PKCE `plain` method allowed | 🟠 High | ❌ New | Sprint 1 |
 | 15 | `extract-credentials.sh` in repo | 🟠 High | ❌ New | **Today** |
