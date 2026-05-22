@@ -20,6 +20,39 @@ class SystemSetting extends Model
     ];
 
     /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function ($setting) {
+            // Avoid creating duplicate logs if the value didn't change
+            if ($setting->isDirty('value')) {
+                \App\Models\AuditLog::create([
+                    'user_id'       => auth()->id(),
+                    'entity_type'   => self::class,
+                    'entity_id'     => 0,
+                    'action'        => 'update_system_setting',
+                    'field_changed' => $setting->key,
+                    'old_value'     => $setting->getOriginal('value'),
+                    'new_value'     => $setting->value,
+                ]);
+            }
+        });
+
+        static::created(function ($setting) {
+            \App\Models\AuditLog::create([
+                'user_id'       => auth()->id(),
+                'entity_type'   => self::class,
+                'entity_id'     => 0,
+                'action'        => 'create_system_setting',
+                'field_changed' => $setting->key,
+                'old_value'     => null,
+                'new_value'     => $setting->value,
+            ]);
+        });
+    }
+
+    /**
      * Get a setting value by key.
      */
     public static function get(string $key, $default = null)
