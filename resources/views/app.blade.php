@@ -19,7 +19,7 @@
         @vite(['resources/js/project-aura-new/src/index.css', 'resources/js/project-aura-new/src/main.tsx'])
         
         @if(isset($mattermost_token) && $mattermost_token)
-        <script>
+        <script nonce="{{ app('csp-nonce') }}">
             // Immediately set the Mattermost token before React loads
             (function() {
                 localStorage.clear(); // Clear all previous auth data

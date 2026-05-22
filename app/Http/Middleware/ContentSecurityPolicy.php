@@ -19,11 +19,13 @@ class ContentSecurityPolicy
     {
         $response = $next($request);
 
+        $nonce = app('csp-nonce');
+
         // Define a robust and strict Content Security Policy
         // Mitigates XSS by restricting allowed script/connect sources,
         // preventing malicious scripts from loading or exfiltrating tokens (localStorage) to arbitrary external servers.
         $csp = "default-src 'self'; " .
-               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com; " .
+               "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval' https://apis.google.com; " .
                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " .
                "img-src 'self' data: https:; " .
                "font-src 'self' https://fonts.gstatic.com; " .

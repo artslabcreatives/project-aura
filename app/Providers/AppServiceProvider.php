@@ -27,7 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton('csp-nonce', function () {
+            return base64_encode(random_bytes(16));
+        });
     }
 
     /**
@@ -35,6 +37,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if ($this->app->bound('csp-nonce')) {
+            \Illuminate\Support\Facades\Vite::useCspNonce(app('csp-nonce'));
+        }
+
         if (class_exists(\BinaryTorch\LaRecipe\Facades\LaRecipe::class)) {
             \BinaryTorch\LaRecipe\Facades\LaRecipe::style('app.css', public_path('vendor/binarytorch/larecipe/assets/css/app.css'));
             \BinaryTorch\LaRecipe\Facades\LaRecipe::style('font-awesome.css', public_path('vendor/binarytorch/larecipe/assets/css/font-awesome.css'));
