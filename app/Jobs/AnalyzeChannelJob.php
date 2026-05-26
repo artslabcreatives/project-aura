@@ -15,15 +15,14 @@ class AnalyzeChannelJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public string $connection = 'redis';
-
-    public string $queue = 'analysis';
-
     public function __construct(
         public readonly string $channelId,
         public readonly int $hoursBack = 24,
         public readonly int|string $triggeredBy = 'scheduled',
-    ) {}
+    ) {
+        $this->connection = 'redis';
+        $this->queue = 'analysis';
+    }
 
     public function handle(ChannelAnalysisPipeline $pipeline): void
     {

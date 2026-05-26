@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Mail\ProvisionalPoMailable;
 use App\Models\Project;
+use App\Models\ProjectGroup;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -107,6 +108,78 @@ class ProjectController extends Controller
 
             return $query->get();
         });
+
+        return response()->json($projects);
+    }
+
+    #[OA\Get(
+        path: "/projects/department/{id}",
+        summary: "Get projects for a user's department, grouped by project group",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(name: "id", in: "path", required: true, description: "Department ID", schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "'groups' contains projects with a group (sub-projects); 'projects' contains ungrouped projects.",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "groups", type: "array", items: new OA\Items(
+                            properties: [
+                                new OA\Property(property: "id", type: "integer"),
+                                new OA\Property(property: "name", type: "string"),
+                                new OA\Property(property: "projects", type: "array", items: new OA\Items(type: "object"))
+                            ]
+                        )),
+                        new OA\Property(property: "projects", type: "array", items: new OA\Items(type: "object"))
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "No projects found for this department")
+        ]
+    )]
+    public function byDepartment(int $id): JsonResponse
+    {
+        $projects = Project::query()
+            ->select([
+                'id', 'name', 'status', 'is_archived', 'department_id',
+                'client_id', 'project_group_id', 'deadline',
+                'is_internal_project', 'project_code'
+            ])
+            ->where('department_id', $id)
+            ->with([
+                'department:id,name',
+                'group:id,name,department_id',
+                'client:id,company_name',
+                'stages' => function ($query) {
+                    $query->select(['id', 'title', 'project_id', 'color', 'type', 'order'])
+                          ->where('type', 'project');
+                },
+                'collaborators' => function ($query) {
+                    $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+                }
+            ])
+            ->withCount('tasks')
+            ->withExists(['tasks as is_due_tasks_available' => function ($query) {
+                $query->where('due_date', '<=', now())
+                      ->where('user_status', '!=', 'complete');
+            }])
+            ->get();
+
+        // $grouped  = $projects->whereNotNull('project_group_id')->groupBy('project_group_id');
+        // $ungrouped = $projects->whereNull('project_group_id')->values();
+
+        // $groups = $grouped->map(function ($groupProjects) {
+        //     $group = $groupProjects->first()->group;
+        //     return [
+        //         'id'       => $group->id,
+        //         'name'     => $group->name,
+        //         'projects' => $groupProjects->values(),
+        //     ];
+        // })->values();
 
         return response()->json($projects);
     }
@@ -1308,4 +1381,6 @@ class ProjectController extends Controller
 
         return response()->json(null, 204);
     }
+
+
 }
