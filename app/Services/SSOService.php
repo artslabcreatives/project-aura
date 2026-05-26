@@ -211,8 +211,8 @@ class SSOService
             $computed = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
             return hash_equals($challenge, $computed);
         }
-        // plain
-        return hash_equals($challenge, $verifier);
+        
+        return false; // Only S256 is supported
     }
 
     /**
@@ -265,7 +265,7 @@ class SSOService
             'scopes_supported' => ['openid', 'profile', 'email'],
             'token_endpoint_auth_methods_supported' => ['client_secret_post', 'client_secret_basic', 'none'],
             'claims_supported' => ['sub', 'iss', 'aud', 'exp', 'iat', 'name', 'email', 'picture', 'preferred_username'],
-            'code_challenge_methods_supported' => ['S256', 'plain'],
+            'code_challenge_methods_supported' => ['S256'],
             'grant_types_supported' => ['authorization_code', 'refresh_token'],
         ];
     }

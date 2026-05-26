@@ -29,7 +29,7 @@ class SSOController extends Controller
             new OA\Parameter(name: "scope", in: "query", required: true, schema: new OA\Schema(type: "string")),
             new OA\Parameter(name: "state", in: "query", required: false, schema: new OA\Schema(type: "string")),
             new OA\Parameter(name: "code_challenge", in: "query", required: false, schema: new OA\Schema(type: "string")),
-            new OA\Parameter(name: "code_challenge_method", in: "query", required: false, schema: new OA\Schema(type: "string", enum: ["S256", "plain"])),
+            new OA\Parameter(name: "code_challenge_method", in: "query", required: false, schema: new OA\Schema(type: "string", enum: ["S256"])),
         ],
         responses: [
             new OA\Response(response: 200, description: "Client info for consent screen"),
@@ -45,7 +45,7 @@ class SSOController extends Controller
             'scope'                 => 'required|string',
             'state'                 => 'nullable|string',
             'code_challenge'        => 'nullable|string',
-            'code_challenge_method' => 'nullable|string|in:S256,plain',
+            'code_challenge_method' => 'nullable|string|in:S256',
         ]);
 
         if ($params['response_type'] !== 'code') {
@@ -116,7 +116,7 @@ class SSOController extends Controller
             'scope'                 => 'required|string',
             'state'                 => 'nullable|string',
             'code_challenge'        => 'nullable|string',
-            'code_challenge_method' => 'nullable|string|in:S256,plain',
+            'code_challenge_method' => 'nullable|string|in:S256',
             'approved'              => 'required|boolean',
         ]);
 
@@ -237,7 +237,7 @@ class SSOController extends Controller
             if (!$this->sso->verifyCodeChallenge(
                 $params['code_verifier'],
                 $authCode->code_challenge,
-                $authCode->code_challenge_method ?? 'plain'
+                $authCode->code_challenge_method ?? 'S256'
             )) {
                 return response()->json(['error' => 'invalid_grant', 'error_description' => 'code_verifier mismatch.'], 400);
             }
