@@ -22,3 +22,5 @@ project_referrence.md
 /storage/oauth/private.key
 rr
 .rr.yaml
+extract-credentials.sh
+storage/logs/mattermost_credentials.txt

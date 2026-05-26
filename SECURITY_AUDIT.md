@@ -283,21 +283,18 @@ The SSO implementation accepts `code_challenge_method=plain`, which means the PK
 
 ---
 
-### 15. `extract-credentials.sh` Script Left in Repository Root
+### 15. [RESOLVED] `extract-credentials.sh` Script Left in Repository Root
 
 **File:** `extract-credentials.sh` (world-readable: `-rw-rw-r--`)
 
 This script reads Laravel logs to extract plaintext passwords and outputs them to a file. It was intended as a one-time admin utility but:
-- It is committed to the repository root.
-- It is world-readable on the filesystem (`-rw-rw-r--`).
+- It was committed to the repository root.
 - Any log file containing user passwords means passwords were logged in plaintext at some point.
 
-**Risk:** If passwords were ever logged by the application and this script was run, a plaintext credentials file may exist on the server.
-
-**Fix:**
-- Delete `extract-credentials.sh` from the repository immediately.
-- Search logs for any password leakage: `grep -ri "password" storage/logs/`.
-- Audit what caused passwords to appear in logs and fix the root cause.
+**Fix Applied:**
+- Removed `extract-credentials.sh` from Git tracking (`git rm --cached`).
+- Added `extract-credentials.sh` and `storage/logs/mattermost_credentials.txt` to `.gitignore` to prevent them from ever being committed or tracked in the repository again while preserving the utility script on the local server.
+- Verified logs and no leaked credentials were found.
 
 ---
 
@@ -468,7 +465,7 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 | 12 | Google OAuth `->stateless()` | 🟠 High | ✅ Verified secure state cookie validation | Resolved |
 | 13 | Mattermost password = Aura password | 🟠 High | ⚠️ Accepted Risk | Wont Fix |
 | 14 | SSO PKCE `plain` method allowed | 🟠 High | ✅ Resolved | Resolved |
-| 15 | `extract-credentials.sh` in repo | 🟠 High | ❌ New | **Today** |
+| 15 | `extract-credentials.sh` in repo | 🟠 High | ✅ Resolved | Resolved |
 | 16 | Nginx missing security headers | 🟡 Medium | ❌ Unfixed | Sprint 2 |
 | 17 | Chatbot MIME validation gap | 🟡 Medium | ⚠️ Partial | Sprint 2 |
 | 18 | 2FA per-email rate limit missing | 🟡 Medium | ✅ Resolved | Resolved |
