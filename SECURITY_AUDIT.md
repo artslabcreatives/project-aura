@@ -107,20 +107,16 @@ Route::get('/n8n/grace-periods', ...)->middleware('n8n.secret');
 
 ---
 
-### 4. Hardcoded Personal Email in Production Code — Still Unfixed
+### 4. [RESOLVED] Hardcoded Personal Email in Production Code
 
 **File:** `app/Http/Controllers/Api/IntegrationController.php` (line 86)
 
-```php
-'recipient_email' => 'shashithrashmikapiyathilaka@gmail.com',
-```
+Originally, a personal Gmail address was hardcoded as the recipient for all business grace period reminders. This was a data governance and PII risk.
 
-This personal Gmail address is the recipient for all business grace period reminders. This is a data governance and PII risk — business project data is being routed to a personal account.
-
-**Fix:**
-```php
-'recipient_email' => env('REMINDER_RECIPIENT_EMAIL', 'admin@artslabcreatives.com'),
-```
+**Fix Applied:**
+- Removed the hardcoded personal email completely.
+- Implemented a dynamic, multi-recipient architecture that reads recipients from the database (`SystemSetting::getJson('grace_period_reminder_recipients')`).
+- Configured a fallback to the environment variable `AUTOMATED_REMINDER_RECIPIENT_EMAIL` (defaulting to `admin@artslabcreatives.com`).
 
 ---
 
@@ -163,23 +159,15 @@ export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
 
 ---
 
-### 7. `TrustHosts` Middleware Still Disabled
+### 7. [RESOLVED] `TrustHosts` Middleware Still Disabled
 
 **File:** `app/Http/Kernel.php` (line 17)
 
-```php
-// \App\Http\Middleware\TrustHosts::class,
-```
-
 Without `TrustHosts`, Host header injection attacks can poison password reset links and other user-facing URLs with attacker-controlled domains.
 
-**Fix:** Uncomment and configure:
-```php
-// app/Http/Middleware/TrustHosts.php
-protected function hosts(): array {
-    return [config('app.url')];
-}
-```
+**Fix Applied:** 
+- Uncommented `\App\Http\Middleware\TrustHosts::class` in the global middleware stack.
+- Configured `TrustHosts.php` to explicitly trust the production (`aura.artslabcreatives.com`) and staging (`staging.aura.artslabcreatives.com`) domains along with their subdomains.
 
 ---
 
@@ -261,7 +249,7 @@ Additionally, wrap user input in XML delimiters in the system prompt:
 
 ---
 
-### 13. Mattermost Password Stored as Encrypted but Synced in Plaintext
+### 13. [ACCEPTED RISK] Mattermost Password Stored as Encrypted but Synced in Plaintext
 
 **File:** `app/Services/MattermostService.php` (line 1282)
 
@@ -276,25 +264,22 @@ Although the `mattermost_password` field uses Laravel's `'encrypted'` cast (veri
 1. If the Laravel `APP_KEY` is ever rotated without re-encrypting this field, all Mattermost passwords become unreadable.
 2. If `APP_KEY` is compromised, both the user's Aura and Mattermost accounts are exposed.
 
-**Fix:**
-- Generate a dedicated, random Mattermost password that is separate from the Aura login password.
-- Never reuse user-facing credentials for service-to-service authentication.
+**Decision:**
+- Due to a business requirement to keep the Aura and Mattermost passwords completely identical for the user, this issue is marked as an accepted risk.
+- No code changes will be made. The password will continue to be securely stored at rest using Laravel's encryption.
 
 ---
 
-### 14. SSO PKCE Allows `plain` Method — Downgrades Security
+### 14. [RESOLVED] SSO PKCE Allows `plain` Method — Downgrades Security
 
 **File:** `app/Services/SSOService.php` (lines 208–218), `app/Http/Controllers/Api/SSOController.php` (line 48)
 
 The SSO implementation accepts `code_challenge_method=plain`, which means the PKCE code verifier is sent in plaintext and compared directly against the challenge. This eliminates PKCE's protection against authorization code interception attacks — an eavesdropper who intercepts the auth code also gets the verifier (they're identical).
 
-**Fix:** Reject `plain` and only accept `S256`:
-```php
-// SSOController.php validation
-'code_challenge_method' => 'nullable|string|in:S256',
-// Remove 'plain' from discovery document
-'code_challenge_methods_supported' => ['S256'],
-```
+**Fix Applied:**
+- Removed `plain` method support from controller validation rules (`in:S256` only).
+- Stripped the `plain` fallback from `verifyCodeChallenge()` to strictly enforce `S256`.
+- Removed `plain` from the OIDC discovery document's supported methods.
 
 ---
 
@@ -363,61 +348,40 @@ The validation uses both `mimes:` and `mimetypes:` (good improvement), but the c
 
 ---
 
-### 18. `verifyTwoFactor` Route Outside `auth:sanctum`
+### 18. [RESOLVED] 2FA Per-Email Rate Limit Missing
 
-**File:** `routes/api.php` (line 333)
+**File:** `routes/api.php`, `app/Http/Controllers/Api/AuthController.php`
 
-```php
-// OUTSIDE auth:sanctum group
-Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor'])->middleware('throttle:5,1');
-```
+The 2FA verification endpoint was only protected by an IP-based throttle (`throttle:5,1`). This meant distributed brute-force attacks (different IPs against the same email) were not blocked.
 
-The 2FA verification endpoint is correctly throttled at 5 per minute but resides outside the `auth:sanctum` group. While this is architecturally necessary (the user is not yet fully authenticated), the endpoint has no per-email lockout. The `throttle:5,1` limit is IP-based only, so distributed attacks (different IPs, same email) are not blocked.
-
-**Fix:**
-- Implement per-email rate limiting using `RateLimiter::tooManyAttempts()`:
-```php
-$key = 'two-factor.' . $request->input('email');
-if (RateLimiter::tooManyAttempts($key, 5)) {
-    return response()->json(['message' => 'Too many attempts'], 429);
-}
-RateLimiter::hit($key, 300); // 5-minute decay
-```
+**Fix Applied:**
+- Removed the dead `/two-factor/verify` route.
+- Implemented per-email rate limiting natively inside the `login` method's 2FA verification block using Laravel's `RateLimiter` (`tooManyAttempts` and `hit` with a 5-minute decay).
 
 ---
 
-### 19. Password Policy Lacks Complexity Requirements
+### 19. [RESOLVED] Password Policy Lacks Complexity Requirements
 
 **Files:** `AuthController.php` (lines 370, 436, 502)
 
-All password rules are `min:8` only:
-```php
-'password' => 'required|string|min:8',
-'new_password' => 'required|string|min:8|confirmed',
-```
+All password rules were originally just `min:8`.
 
-8-character passwords with no complexity requirements are trivially crackable via offline attacks if the DB is ever compromised.
-
-**Fix:**
-```php
-use Illuminate\Validation\Rules\Password;
-
-'password' => ['required', Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised()],
-```
+**Fix Applied:**
+- Replaced the simple rule with Laravel's built-in `Password` rule object across all endpoints (`resetPassword`, `changePassword`, `setPasswordFromToken`).
+- Enforced strict complexity: `min(12)`, `mixedCase()`, `numbers()`, `symbols()`, and `uncompromised()` checks.
 
 ---
 
-### 20. OAuth CSRF — Zoho Callback Uses `state` as `user_id` (Insecure)
+### 20. [RESOLVED] OAuth CSRF — Zoho Callback Uses `state` as `user_id` (Insecure)
 
 **File:** `app/Http/Controllers/Api/ZohoMailController.php` (line 54)
 
-```php
-$userId = Auth::id() ?? $request->query('state');
-```
+The `state` parameter in OAuth flows was being used as a user identifier fallback instead of a CSRF token.
 
-The `state` parameter in OAuth flows is supposed to be an opaque CSRF token. Here it is being used as a user identifier fallback. An attacker who knows a target user's ID can craft a callback URL with `state={victim_user_id}` to link the attacker's Zoho account to the victim's Aura account.
-
-**Fix:** Store the CSRF `state` token in the session and validate it on callback. Do not use `state` as a user identifier.
+**Fix Applied:**
+- Generated a secure, random 40-character string for the `state` parameter.
+- Stored the mapping of the `state` token to the `user_id` securely in Laravel Cache (15-minute expiration).
+- Enforced strict single-use validation via `Cache::pull()` on callback, preventing CSRF and replay attacks.
 
 ---
 
@@ -496,20 +460,20 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 | 4 | Hardcoded personal email → multi-recipient | ✅ Recipients stored in `system_settings` as JSON; configurable via Admin → System Settings |
 | 5 | Auth token in `localStorage` | 🟠 High | ✅ Secured via strict request-specific CSP nonces | Resolved |
 | 6 | CSP uses `unsafe-inline` | 🟠 High | ✅ Replaced `'unsafe-inline'` with script nonces | Resolved |
-| 7 | `TrustHosts` disabled | 🟠 High | ❌ Unfixed | Sprint 1 |
+| 7 | `TrustHosts` disabled | 🟠 High | ✅ Resolved | Resolved |
 | 8 | AI `updatePolicy` no role check | 🟠 High | ❌ Unfixed | Sprint 1 |
 | 9 | AI chatbot no rate limit on messages | 🟠 High | ❌ New | Sprint 1 |
 | 10 | AI chatbot no action audit trail | 🟠 High | ❌ Unfixed | Sprint 1 |
 | 11 | AI prompt injection `max:12000` | 🟠 High | ⚠️ Partial | Sprint 1 |
 | 12 | Google OAuth `->stateless()` | 🟠 High | ✅ Verified secure state cookie validation | Resolved |
-| 13 | Mattermost password = Aura password | 🟠 High | ❌ New | Sprint 1 |
-| 14 | SSO PKCE `plain` method allowed | 🟠 High | ❌ New | Sprint 1 |
+| 13 | Mattermost password = Aura password | 🟠 High | ⚠️ Accepted Risk | Wont Fix |
+| 14 | SSO PKCE `plain` method allowed | 🟠 High | ✅ Resolved | Resolved |
 | 15 | `extract-credentials.sh` in repo | 🟠 High | ❌ New | **Today** |
 | 16 | Nginx missing security headers | 🟡 Medium | ❌ Unfixed | Sprint 2 |
 | 17 | Chatbot MIME validation gap | 🟡 Medium | ⚠️ Partial | Sprint 2 |
-| 18 | 2FA per-email rate limit missing | 🟡 Medium | ⚠️ Partial | Sprint 2 |
-| 19 | Weak password policy (`min:8` only) | 🟡 Medium | ❌ New | Sprint 2 |
-| 20 | Zoho `state` used as user ID | 🟡 Medium | ❌ New | Sprint 2 |
+| 18 | 2FA per-email rate limit missing | 🟡 Medium | ✅ Resolved | Resolved |
+| 19 | Weak password policy (`min:8` only) | 🟡 Medium | ✅ Resolved | Resolved |
+| 20 | Zoho `state` used as user ID | 🟡 Medium | ✅ Resolved | Resolved |
 | 21 | `console.error` leaks API internals | 🔵 Low | ❌ Unfixed | Sprint 3 |
 | 22 | AI context snapshot info disclosure | 🔵 Low | ❌ New | Sprint 3 |
 | 23 | SSO scope separator not enforced | 🔵 Low | ❌ New | Sprint 3 |
