@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules\Password;
 use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
@@ -381,7 +382,7 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email|exists:users,email',
             'otp' => 'required|string|size:6',
-            'password' => 'required|string|min:8',
+            'password' => ['required', 'string', Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised()],
         ]);
 
         // Verify OTP again before resetting
@@ -447,7 +448,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'current_password' => 'required|string',
-            'new_password' => 'required|string|min:8|confirmed',
+            'new_password' => ['required', 'string', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised()],
         ]);
 
         $user = $request->user();
@@ -513,7 +514,7 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'token' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'string', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised()],
         ]);
 
         $user = User::where('email', $request->email)
