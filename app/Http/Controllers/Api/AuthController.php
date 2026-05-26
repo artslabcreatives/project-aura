@@ -68,15 +68,28 @@ class AuthController extends Controller
 
         if ($user->hasEnabledTwoFactorAuthentication()) {
             if ($request->two_factor_code) {
+                $key = 'two-factor.' . $request->input('email');
+                if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($key, 5)) {
+                    return response()->json(['message' => 'Too many attempts'], 429);
+                }
+
                 if (! (new \PragmaRX\Google2FA\Google2FA)->verifyKey($user->two_factor_secret, $request->two_factor_code)) {
+                    \Illuminate\Support\Facades\RateLimiter::hit($key, 300); // 5-minute decay
                     throw ValidationException::withMessages([
                         'two_factor_code' => ['The provided two-factor authentication code was invalid.'],
                     ]);
                 }
+                \Illuminate\Support\Facades\RateLimiter::clear($key);
             } elseif ($request->two_factor_recovery_code) {
+                $key = 'two-factor-recovery.' . $request->input('email');
+                if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($key, 5)) {
+                    return response()->json(['message' => 'Too many attempts'], 429);
+                }
+
                 $recoveryCodes = $user->two_factor_recovery_codes;
  
                 if (! in_array($request->two_factor_recovery_code, $recoveryCodes)) {
+                    \Illuminate\Support\Facades\RateLimiter::hit($key, 300); // 5-minute decay
                     throw ValidationException::withMessages([
                         'two_factor_recovery_code' => ['The provided recovery code was invalid.'],
                     ]);
@@ -85,6 +98,7 @@ class AuthController extends Controller
                 $user->forceFill([
                     'two_factor_recovery_codes' => array_values(array_diff($recoveryCodes, [$request->two_factor_recovery_code])),
                 ])->save();
+                \Illuminate\Support\Facades\RateLimiter::clear($key);
             } else {
                 return response()->json([
                     'two_factor' => true,

@@ -330,8 +330,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-// 2FA Verification during login
-Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor'])->middleware('throttle:5,1');
+// 2FA Verification during login (handled directly within the /login endpoint)
 
 // n8n integration endpoints (secured via N8N_WEBHOOK_SECRET bearer token)
 Route::get('/n8n/grace-periods', [\App\Http\Controllers\Api\IntegrationController::class, 'expiringGracePeriods']);
