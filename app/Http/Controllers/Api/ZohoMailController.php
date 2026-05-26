@@ -32,8 +32,11 @@ class ZohoMailController extends Controller
     )]
     public function getAuthUrl()
     {
+        $state = \Illuminate\Support\Str::random(40);
+        \Illuminate\Support\Facades\Cache::put('zoho_oauth_state_' . $state, Auth::id(), now()->addMinutes(15));
+
         return response()->json([
-            'url' => $this->authService->getAuthUrl(Auth::id())
+            'url' => $this->authService->getAuthUrl($state)
         ]);
     }
 
@@ -51,10 +54,21 @@ class ZohoMailController extends Controller
     public function handleCallback(Request $request)
     {
         $code = $request->query('code');
-        $userId = Auth::id() ?? $request->query('state');
+        $state = $request->query('state');
 
         if (!$code) {
             return response()->json(['error' => 'No code provided'], 400);
+        }
+
+        if (!$state) {
+            return response()->json(['error' => 'No state parameter provided for CSRF validation'], 400);
+        }
+
+        // Pulling the state from cache deletes it immediately, preventing replay attacks
+        $userId = \Illuminate\Support\Facades\Cache::pull('zoho_oauth_state_' . $state);
+
+        if (!$userId) {
+            return response()->json(['error' => 'Invalid or expired state token. Please try connecting again.'], 403);
         }
 
         $token = $this->authService->exchangeCodeForTokens($code, $userId);
