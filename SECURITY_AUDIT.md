@@ -1,8 +1,8 @@
 # Security Audit & Improvement Plan — Project Aura
 
-> **Audit Date:** 2026-05-22
+> **Audit Date:** 2026-05-27
 > **Audited By:** Antigravity (Automated Code Review)
-> **Previous Audit:** 2026-05-22 (Initial)
+> **Previous Audit:** 2026-05-22
 > **Scope:** `.env`, routes, middleware, controllers, models, config files, frontend, Nginx, OAuth/SSO, AI subsystems.
 
 ---
@@ -32,6 +32,9 @@ The following issues from the previous audit have been **verified as resolved**:
 | 26 | Settings changes not audited | ✅ Automatically log system settings created/updated events using observers |
 | 27 | No admin view for audit logs | ✅ Designed and added a read-only `AuditLogResource` to Filament Admin sidebar |
 | 12 | Google OAuth stateless CSRF | ✅ Implemented robust cryptographically secure HttpOnly state cookie verification |
+| 9 | AI chatbot no rate limit on messages | ✅ Dynamic per-role rate limiters via `RouteServiceProvider`; configurable in Admin → System Settings |
+| 10 | AI chatbot no action audit trail | ✅ `AuditLog::create()` fires on every AI mutation; Filament admin shows red badge + filters |
+| 9b | AI Claude output token limits | ✅ Per-role `max_tokens` setting in System Settings; resolved by `resolveTokenLimit()` in `AIChatbotOperationsService` |
 
 ---
 
@@ -447,7 +450,7 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 
 ---
 
-## Priority Matrix (Updated 2026-05-22)
+## Priority Matrix (Updated 2026-05-27)
 
 | # | Issue | Severity | Status | When |
 |---|---|---|---|---|
@@ -502,6 +505,7 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 - [x] Token names now include IP + date
 - [x] AI Chatbot rate limiting dynamically mapped to user roles via System Settings
 - [x] AI-triggered mutations (create_task, update_task, set_task_status, assign_task, add_task_comment) now logged to Audit Log with full payload; visible in Filament Admin with red badge and filter
+- [x] Per-role Claude output token limits (`ai_token_limit_{role}`) configurable via Admin → System Settings; wired into `AIChatbotOperationsService::resolveTokenLimit()` with 5-min cache
 
 ---
 
