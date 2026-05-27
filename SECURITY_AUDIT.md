@@ -188,31 +188,31 @@ Route::put('/policies/{id}', ...)->middleware('role:admin');
 
 ---
 
-### 9. AI Chatbot — No Rate Limiting on Message Endpoints
+### 9. [RESOLVED] AI Chatbot — No Rate Limiting on Message Endpoints
 
-The AI chatbot `sendMessage` endpoint (`POST /ai-chatbot/sessions/{id}/messages`) has no per-user rate limit. This enables:
-- **API cost abuse**: Each message triggers a Claude API call. A malicious (or compromised) user can issue thousands of requests, incurring unbilled costs.
-- **Context exfiltration**: Repeated queries can probe the live `context_snapshot` which contains real DB statistics.
+The AI chatbot `sendMessage` endpoint (`POST /ai-chatbot/sessions/{id}/messages`) had no per-user rate limit.
 
-**Fix:**
-```php
-Route::post('/sessions/{id}/messages', ...)->middleware('throttle:30,1');
-Route::post('/sessions', ...)->middleware('throttle:10,1');
-```
+**Fix Applied:**
+- Configured dynamic rate limiters (`ai_chatbot_sessions` and `ai_chatbot_messages`) in `RouteServiceProvider`.
+- Applied these throttles to `POST /sessions` and `POST /sessions/{id}/messages` in `routes/api.php`.
+- Implemented a UI panel in System Settings to allow admins to set precise rate limits based on user roles (`admin`, `team-lead`, `hr`, `account-manager`, `user`).
 
 ---
 
-### 10. AI Chatbot — No Action Audit Trail
+### 10. [RESOLVED] AI Chatbot — No Action Audit Trail
 
-**Files:** `app/Http/Controllers/Api/AIChatbotController.php`, `app/Services/AIChatbotOperationsService.php`
+**Files:** `app/Services/AIChatbotOperationsService.php`, `app/Filament/Resources/AuditLogResource.php`
 
-The AI agent can create tasks, update statuses, assign users, and post comments — all based on free-text user input. No audit log records these AI-triggered mutations with `[user_id, action, entity_id, timestamp]`.
+The AI agent can create tasks, update statuses, assign users, and post comments — all based on free-text user input. No audit log recorded these AI-triggered mutations.
 
-If the AI misinterprets input and mutates data incorrectly, there is no log to diagnose or roll back.
-
-**Fix:**
-- Log all AI-triggered mutations: `AuditLog::record($user->id, 'ai_action', $actionType, $entityId, $payload)`.
-- Implement an action allow-list: define exactly which task fields the AI agent is allowed to write.
+**Fix Applied:**
+- Added `AuditLog::create(...)` inside `executeActions()` in `AIChatbotOperationsService.php` after every successfully completed action. Each record captures `user_id`, `entity_type` (e.g. `AI:create_task`), `entity_id` (task/comment ID), `action` (`ai_action`), `field_changed` (action type), and `new_value` (full JSON payload including `session_id`, `action_id`, and all AI-supplied arguments).
+- Enhanced the Filament **Audit Logs** admin panel with:
+  - 🔴 **Red badge** for all `ai_action` entries so they are instantly visible.
+  - **Filter by Action Type** dropdown (AI Action, Create/Update Setting, Reminder Override).
+  - **AI Actions Only** toggle filter for quick isolation.
+  - **Payload tooltip** on the table row to inspect the full JSON without opening the record.
+- The AI action allow-list was already enforced at the `match()` level in `executeActions()` — only `create_task`, `update_task`, `set_task_status`, `assign_task`, and `add_task_comment` are accepted; any other type throws an `InvalidArgumentException` and is logged as a `failed` action.
 
 ---
 
@@ -459,8 +459,8 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 | 6 | CSP uses `unsafe-inline` | 🟠 High | ✅ Replaced `'unsafe-inline'` with script nonces | Resolved |
 | 7 | `TrustHosts` disabled | 🟠 High | ✅ Resolved | Resolved |
 | 8 | AI `updatePolicy` no role check | 🟠 High | ❌ Unfixed | Sprint 1 |
-| 9 | AI chatbot no rate limit on messages | 🟠 High | ❌ New | Sprint 1 |
-| 10 | AI chatbot no action audit trail | 🟠 High | ❌ Unfixed | Sprint 1 |
+| 9 | AI chatbot no rate limit on messages | 🟠 High | ✅ Resolved | Resolved |
+| 10 | AI chatbot no action audit trail | 🟠 High | ✅ Resolved | Resolved |
 | 11 | AI prompt injection `max:12000` | 🟠 High | ⚠️ Partial | Sprint 1 |
 | 12 | Google OAuth `->stateless()` | 🟠 High | ✅ Verified secure state cookie validation | Resolved |
 | 13 | Mattermost password = Aura password | 🟠 High | ⚠️ Accepted Risk | Wont Fix |
@@ -500,6 +500,8 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 - [x] Task import HMAC signature verification added
 - [x] CSP middleware added (web group)
 - [x] Token names now include IP + date
+- [x] AI Chatbot rate limiting dynamically mapped to user roles via System Settings
+- [x] AI-triggered mutations (create_task, update_task, set_task_status, assign_task, add_task_comment) now logged to Audit Log with full payload; visible in Filament Admin with red badge and filter
 
 ---
 

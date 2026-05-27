@@ -26,6 +26,9 @@ class SystemSettings extends Page
 
     public ?array $data = [];
 
+    // Define the roles for rate limiting configuration
+    protected array $roles = ['admin', 'team-lead', 'hr', 'account-manager', 'user'];
+
     public function mount(): void
     {
         // Load recipients from DB; fall back to env defaults
@@ -36,11 +39,26 @@ class SystemSettings extends Page
             $recipients    = [['email' => $fallbackEmail, 'name' => $fallbackName]];
         }
 
-        $this->form->fill([
+        $this->form->fill(array_merge([
             'enable_chatbot'                   => SystemSetting::isEnabled('enable_chatbot', true),
             'enable_ai_scenarios'              => SystemSetting::isEnabled('enable_ai_scenarios', true),
             'grace_period_reminder_recipients' => $recipients,
-        ]);
+        ], $this->getRateLimitSettings()));
+    }
+
+    protected function getRateLimitSettings(): array
+    {
+        $settings = [];
+        foreach ($this->roles as $role) {
+            $defaultSessionLimit = $role === 'admin' ? 50 : ($role === 'user' ? 10 : 30);
+            $defaultMessageLimit = $role === 'admin' ? 100 : ($role === 'user' ? 30 : 60);
+            $defaultTokenLimit   = $role === 'admin' ? 8192 : ($role === 'user' ? 2048 : 4096);
+
+            $settings["ai_rate_limit_session_{$role}"] = SystemSetting::get("ai_rate_limit_session_{$role}", $defaultSessionLimit);
+            $settings["ai_rate_limit_message_{$role}"] = SystemSetting::get("ai_rate_limit_message_{$role}", $defaultMessageLimit);
+            $settings["ai_token_limit_{$role}"]         = SystemSetting::get("ai_token_limit_{$role}", $defaultTokenLimit);
+        }
+        return $settings;
     }
 
     public function form(Form $form): Form
@@ -60,6 +78,47 @@ class SystemSettings extends Page
                             ->default(true),
                     ])
                     ->columns(1),
+
+                Section::make('AI Chatbot Rate Limiting (per minute)')
+                    ->description('Set the maximum number of requests allowed per minute for each user role.')
+                    ->schema([
+                        Section::make('Session Creation Rate Limits')
+                            ->schema(
+                                collect($this->roles)->map(function ($role) {
+                                    $default = $role === 'admin' ? 50 : ($role === 'user' ? 10 : 30);
+                                    return TextInput::make("ai_rate_limit_session_{$role}")
+                                        ->label(ucwords(str_replace('-', ' ', $role)) . ' (Sessions/min)')
+                                        ->numeric()
+                                        ->default($default)
+                                        ->required();
+                                })->toArray()
+                            )->columns(2),
+                        Section::make('Message Sending Rate Limits')
+                            ->schema(
+                                collect($this->roles)->map(function ($role) {
+                                    $default = $role === 'admin' ? 100 : ($role === 'user' ? 30 : 60);
+                                    return TextInput::make("ai_rate_limit_message_{$role}")
+                                        ->label(ucwords(str_replace('-', ' ', $role)) . ' (Messages/min)')
+                                        ->numeric()
+                                        ->default($default)
+                                        ->required();
+                                })->toArray()
+                            )->columns(2),
+                        Section::make('Max Output Token Limit per Response')
+                            ->description('Controls how long Claude\'s reply can be. Higher = more detailed but more expensive.')
+                            ->schema(
+                                collect($this->roles)->map(function ($role) {
+                                    $default = $role === 'admin' ? 8192 : ($role === 'user' ? 2048 : 4096);
+                                    return TextInput::make("ai_token_limit_{$role}")
+                                        ->label(ucwords(str_replace('-', ' ', $role)) . ' (Max tokens)')
+                                        ->numeric()
+                                        ->default($default)
+                                        ->required()
+                                        ->helperText('Claude Sonnet max is 16,000');
+                                })->toArray()
+                            )->columns(2),
+                    ])
+                    ->collapsible(),
 
                 Section::make('Grace Period Reminder — Notification Recipients')
                     ->description('These email addresses will receive automated notifications when a project\'s grace period is about to expire. Add as many recipients as needed.')
@@ -108,6 +167,12 @@ class SystemSettings extends Page
 
         SystemSetting::set('enable_chatbot', $data['enable_chatbot'] ? 'true' : 'false');
         SystemSetting::set('enable_ai_scenarios', $data['enable_ai_scenarios'] ? 'true' : 'false');
+
+        foreach ($this->roles as $role) {
+            SystemSetting::set("ai_rate_limit_session_{$role}", $data["ai_rate_limit_session_{$role}"] ?? 10);
+            SystemSetting::set("ai_rate_limit_message_{$role}", $data["ai_rate_limit_message_{$role}"] ?? 30);
+            SystemSetting::set("ai_token_limit_{$role}",         $data["ai_token_limit_{$role}"] ?? 4096);
+        }
 
         // Sanitise and persist the recipients list as a JSON array.
         // Strip any entries that have no email address (Repeater may leave empty rows).

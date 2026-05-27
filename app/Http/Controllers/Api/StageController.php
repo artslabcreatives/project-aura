@@ -156,7 +156,7 @@ class StageController extends Controller
     )]
     public function show(Stage $stage): JsonResponse
     {
-        return response()->json($stage->load(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2', 'stageGroup', 'tasks']));
+        return response()->json($stage->load(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2', 'stageGroup', 'tasks.assignee:id,name,email,is_active,avatar']));
     }
 
     #[OA\Put(

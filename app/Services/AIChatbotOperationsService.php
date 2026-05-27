@@ -3,14 +3,17 @@
 namespace App\Services;
 
 use App\Events\TaskUpdated;
+use App\Models\AuditLog;
 use App\Models\Project;
 use App\Models\Stage;
+use App\Models\SystemSetting;
 use App\Models\Task;
 use App\Models\TaskComment;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -18,6 +21,25 @@ use Illuminate\Support\Str;
 class AIChatbotOperationsService
 {
     public function __construct(private AIChatbotService $ai) {}
+
+    /**
+     * Resolve the Claude max_tokens limit for this user based on their role.
+     * Reads from system_settings with a 5-minute cache to avoid per-request DB hits.
+     */
+    private function resolveTokenLimit(User $user): int
+    {
+        $role = $user->role ?? 'user';
+        $settingKey = "ai_token_limit_{$role}";
+
+        return (int) Cache::remember($settingKey, 300, function () use ($settingKey, $role) {
+            $value = SystemSetting::get($settingKey);
+            if (!is_null($value)) {
+                return (int) $value;
+            }
+            $defaults = ['admin' => 8192, 'team-lead' => 4096, 'hr' => 4096, 'account-manager' => 4096, 'user' => 2048];
+            return $defaults[$role] ?? 4096;
+        });
+    }
 
     public function storeAttachments(array $files, int $sessionId, int $userId, ?int $messageId = null): array
     {
@@ -36,9 +58,10 @@ class AIChatbotOperationsService
 
     public function processTurn(User $user, object $session, string $message, array $attachments = [], ?int $messageId = null): array
     {
-        $context = $this->buildOperationalContext($user, $session);
+        $context  = $this->buildOperationalContext($user, $session);
         $messages = $this->buildAiMessages($session, $message, $attachments, $context);
-        $raw = $this->ai->callClaudeWithMessages($messages, $this->buildOperationalPrompt(), 4096);
+        $maxTokens = $this->resolveTokenLimit($user);
+        $raw = $this->ai->callClaudeWithMessages($messages, $this->buildOperationalPrompt(), $maxTokens);
         $plan = $this->parseAiPlan($raw);
         $actions = $plan['actions'] ?? [];
         $results = $this->executeActions($actions, $user, (int) $session->id, $messageId);
@@ -440,6 +463,17 @@ PROMPT;
                     'status' => 'completed',
                     'result_payload' => json_encode($result),
                     'updated_at' => now(),
+                ]);
+
+                // Audit log every successful AI-triggered mutation
+                AuditLog::create([
+                    'user_id'       => $user->id,
+                    'entity_type'   => 'AI:' . $type,
+                    'entity_id'     => $result['task_id'] ?? $result['comment_id'] ?? 0,
+                    'action'        => 'ai_action',
+                    'field_changed' => $type,
+                    'old_value'     => null,
+                    'new_value'     => json_encode(array_merge(['session_id' => $sessionId, 'action_id' => $actionId], $arguments)),
                 ]);
 
                 $results[] = ['type' => $type, 'status' => 'completed', 'result' => $result];

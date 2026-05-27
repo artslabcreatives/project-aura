@@ -493,6 +493,110 @@ class ProjectController extends Controller
         return response()->json($projectData);
     }
 
+    #[OA\Get(
+        path: "/projects/stages/{id}",
+        summary: "Get project by ID with all stages, their tasks, and assignees",
+        security: [["bearerAuth" => []]],
+        tags: ["Projects"],
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                description: "Project ID",
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Project details with stages, tasks, and assignees",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "id", type: "integer"),
+                        new OA\Property(property: "name", type: "string"),
+                        new OA\Property(property: "description", type: "string"),
+                        new OA\Property(property: "department", type: "object"),
+                        new OA\Property(property: "group", type: "object"),
+                        new OA\Property(property: "client", type: "object"),
+                        new OA\Property(property: "stages", type: "array", items: new OA\Items(
+                            properties: [
+                                new OA\Property(property: "id", type: "integer"),
+                                new OA\Property(property: "title", type: "string"),
+                                new OA\Property(property: "tasks", type: "array", items: new OA\Items(
+                                    properties: [
+                                        new OA\Property(property: "id", type: "integer"),
+                                        new OA\Property(property: "title", type: "string"),
+                                        new OA\Property(property: "assignee", type: "object")
+                                    ]
+                                ))
+                            ]
+                        ))
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 403, description: "Forbidden"),
+            new OA\Response(response: 404, description: "Project not found")
+        ]
+    )]
+    public function showWithStages(Project $project): JsonResponse
+    {
+        $user = auth()->user();
+        $version = Cache::rememberForever('projects_version', fn() => microtime(true));
+        $cacheKey = "project_stages_{$project->id}_user_{$user->id}_{$user->role}_v{$version}";
+
+        $projectData = Cache::remember($cacheKey, 3600, function() use ($user, $project) {
+            // Authorization check for restricted roles
+            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
+                $isAuthorized = $project->tasks()->where(function($q) use ($user) {
+                    $q->where('assignee_id', $user->id)
+                      ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                          $sq->where('users.id', $user->id);
+                      });
+                })->exists()
+                || $project->collaborators()->where('users.id', $user->id)->exists();
+
+                // Department-based access for Team Leads
+                if (!$isAuthorized && $user->role === 'team-lead') {
+                    if ($user->department_id == 9) { // Design sees Design and Digital
+                        $isAuthorized = in_array($project->department_id, [8, 9]);
+                    } else {
+                        $isAuthorized = $project->department_id == $user->department_id;
+                    }
+                }
+
+                if (!$isAuthorized) {
+                    return ['unauthorized' => true];
+                }
+            }
+
+            $project->load([
+                'department',
+                'group',
+                'client',
+                'collaborators' => function ($query) {
+                    $query->select('users.id', 'users.name', 'users.email', 'users.department_id', 'users.role');
+                },
+                'attachments',
+                'purchaseOrders',
+                'stages' => function ($query) {
+                    $query->where('type', 'project');
+                },
+                'stages.tasks',
+                'stages.tasks.assignee:id,name,email,avatar,is_active',
+            ]);
+
+            return $project;
+        });
+
+        if (is_array($projectData) && isset($projectData['unauthorized'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        return response()->json($projectData);
+    }
+
     #[OA\Put(
         path: "/projects/{id}",
         summary: "Update project",

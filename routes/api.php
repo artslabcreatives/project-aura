@@ -91,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::apiResource('departments', DepartmentController::class);
     Route::get('/projects/sidebar', [ProjectController::class, 'sidebar']);
+    Route::get('/projects/stages/{project}', [ProjectController::class, 'showWithStages']);
     Route::apiResource('projects', ProjectController::class)->only(['index', 'show'])->middleware('cache.headers:public;max_age=3600;etag');
     Route::apiResource('projects', ProjectController::class)->only(['store', 'update', 'destroy'])->middleware('role:admin,team-lead,account-manager');
     Route::apiResource('stages', StageController::class);
@@ -320,9 +321,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // AI Scenario Chatbot
     Route::prefix('ai-chatbot')->group(function () {
         Route::get('/sessions', [\App\Http\Controllers\Api\AIChatbotController::class, 'sessions']);
-        Route::post('/sessions', [\App\Http\Controllers\Api\AIChatbotController::class, 'createSession']);
+        Route::post('/sessions', [\App\Http\Controllers\Api\AIChatbotController::class, 'createSession'])->middleware('throttle:ai_chatbot_sessions');
         Route::get('/sessions/{id}', [\App\Http\Controllers\Api\AIChatbotController::class, 'getSession']);
-        Route::post('/sessions/{id}/messages', [\App\Http\Controllers\Api\AIChatbotController::class, 'sendMessage']);
+        Route::post('/sessions/{id}/messages', [\App\Http\Controllers\Api\AIChatbotController::class, 'sendMessage'])->middleware('throttle:ai_chatbot_messages');
         Route::post('/sessions/{id}/complete', [\App\Http\Controllers\Api\AIChatbotController::class, 'completeSession']);
         Route::post('/sessions/{id}/refresh-context', [\App\Http\Controllers\Api\AIChatbotController::class, 'refreshContext']);
         Route::get('/policies', [\App\Http\Controllers\Api\AIChatbotController::class, 'policies']);

@@ -4668,12 +4668,13 @@
                 "tags": [
                     "Projects"
                 ],
-                "summary": "Get all projects belonging to a department",
+                "summary": "Get projects for a user's department, grouped by project group",
                 "operationId": "56e445afd6e7d35f6719eb7f5636e4b9",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
+                        "description": "Department ID",
                         "required": true,
                         "schema": {
                             "type": "integer"
@@ -4682,14 +4683,39 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of projects for the department",
+                        "description": "'groups' contains projects with a group (sub-projects); 'projects' contains ungrouped projects.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
+                                    "properties": {
+                                        "groups": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "projects": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object"
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "projects": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -4698,7 +4724,7 @@
                         "description": "Unauthorized"
                     },
                     "404": {
-                        "description": "Department not found"
+                        "description": "No projects found for this department"
                     }
                 },
                 "security": [
@@ -4911,6 +4937,103 @@
                     },
                     "401": {
                         "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Project not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/projects/stages/{id}": {
+            "get": {
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Get project by ID with all stages, their tasks, and assignees",
+                "operationId": "ba2055dc41e87aefcca82ec61cfc6081",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Project ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Project details with stages, tasks, and assignees",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "description": {
+                                            "type": "string"
+                                        },
+                                        "department": {
+                                            "type": "object"
+                                        },
+                                        "group": {
+                                            "type": "object"
+                                        },
+                                        "client": {
+                                            "type": "object"
+                                        },
+                                        "stages": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "tasks": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "properties": {
+                                                                "id": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "title": {
+                                                                    "type": "string"
+                                                                },
+                                                                "assignee": {
+                                                                    "type": "object"
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
                     },
                     "404": {
                         "description": "Project not found"
@@ -6985,8 +7108,7 @@
                         "schema": {
                             "type": "string",
                             "enum": [
-                                "S256",
-                                "plain"
+                                "S256"
                             ]
                         }
                     }

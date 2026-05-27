@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AuditLogResource\Pages;
-use App\Filament\Resources\AuditLogResource\RelationManagers;
 use App\Models\AuditLog;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -11,7 +10,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class AuditLogResource extends Resource
 {
@@ -41,17 +39,16 @@ class AuditLogResource extends Resource
                             ->disabled(),
                         Forms\Components\TextInput::make('entity_type')
                             ->label('Entity Type')
-                            ->formatStateUsing(fn (?string $state): ?string => $state ? class_basename($state) : null)
                             ->disabled(),
                         Forms\Components\TextInput::make('entity_id')
                             ->label('Entity ID')
                             ->disabled(),
                         Forms\Components\TextInput::make('field_changed')
-                            ->label('Field Changed')
+                            ->label('AI Action / Field Changed')
                             ->disabled(),
                     ])->columns(2),
 
-                Forms\Components\Section::make('Value Comparison')
+                Forms\Components\Section::make('Value / Payload')
                     ->schema([
                         Forms\Components\Textarea::make('old_value')
                             ->label('Old Value')
@@ -59,9 +56,9 @@ class AuditLogResource extends Resource
                             ->rows(4)
                             ->disabled(),
                         Forms\Components\Textarea::make('new_value')
-                            ->label('New Value')
+                            ->label('New Value / Payload')
                             ->placeholder('None (Deleted)')
-                            ->rows(4)
+                            ->rows(6)
                             ->disabled(),
                     ])->columns(2),
             ]);
@@ -83,57 +80,67 @@ class AuditLogResource extends Resource
                 Tables\Columns\TextColumn::make('action')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'create_system_setting' => 'success',
-                        'update_system_setting' => 'primary',
-                        'reminder_override' => 'warning',
-                        default => 'gray',
+                        'ai_action'              => 'danger',
+                        'create_system_setting'  => 'success',
+                        'update_system_setting'  => 'primary',
+                        'reminder_override'      => 'warning',
+                        default                  => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => ucwords(str_replace('_', ' ', $state)))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('entity_type')
                     ->label('Entity')
-                    ->formatStateUsing(fn (string $state): string => class_basename($state))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('field_changed')
-                    ->label('Field')
+                    ->label('AI Action / Field')
                     ->searchable()
                     ->sortable()
                     ->placeholder('—'),
-                Tables\Columns\TextColumn::make('old_value')
-                    ->label('Old Value')
-                    ->limit(25)
+                Tables\Columns\TextColumn::make('entity_id')
+                    ->label('Entity ID')
+                    ->sortable()
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('new_value')
-                    ->label('New Value')
-                    ->limit(25)
-                    ->placeholder('—'),
+                    ->label('Payload / New Value')
+                    ->limit(40)
+                    ->placeholder('—')
+                    ->tooltip(fn ($record) => $record?->new_value),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('action')
+                    ->label('Action Type')
+                    ->options([
+                        'ai_action'             => '🤖 AI Action',
+                        'create_system_setting' => '➕ Create System Setting',
+                        'update_system_setting' => '✏️ Update System Setting',
+                        'reminder_override'     => '⏰ Reminder Override',
+                    ]),
+                Tables\Filters\Filter::make('ai_only')
+                    ->label('AI Actions Only')
+                    ->query(fn (Builder $query) => $query->where('action', 'ai_action'))
+                    ->toggle(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
             ])
             ->bulkActions([
-                // No bulk actions to ensure audit trails cannot be deleted
+                // No bulk actions — audit trails must be immutable
             ]);
     }
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListAuditLogs::route('/'),
-            'view' => Pages\ViewAuditLog::route('/{record}'),
+            'view'  => Pages\ViewAuditLog::route('/{record}'),
         ];
     }
 }
