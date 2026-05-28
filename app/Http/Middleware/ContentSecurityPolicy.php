@@ -25,9 +25,14 @@ class ContentSecurityPolicy
             // Apply extremely strict CSP for REST API responses to prevent execution of any HTML/script content
             $csp = "default-src 'none'; frame-ancestors 'none';";
         } else {
-            // Unsafe-eval is only allowed in local development environment for hot module replacement / source maps.
-            // In staging and production, it is completely removed for maximum security.
-            $unsafeEval = config('app.env') === 'local' ? " 'unsafe-eval'" : "";
+            // Unsafe-eval is allowed in local development (HMR / source maps) and on the
+            // LaRecipe documentation routes, whose bundled Vue 2 runtime-compiler calls
+            // new Function() to compile in-DOM templates. It stays disabled everywhere else.
+            $docsRoute = trim(config('larecipe.docs.route', '/manuals'), '/');
+            $needsUnsafeEval = config('app.env') === 'local'
+                || $request->is($docsRoute, $docsRoute . '/*');
+
+            $unsafeEval = $needsUnsafeEval ? " 'unsafe-eval'" : "";
 
             $csp = "default-src 'self'; " .
                    "script-src 'self' 'nonce-{$nonce}'{$unsafeEval} https://apis.google.com; " .

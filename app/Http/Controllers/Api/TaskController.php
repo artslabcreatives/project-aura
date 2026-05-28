@@ -326,14 +326,14 @@ class TaskController extends Controller
         $notifiedUserIds = [];
         // Primary assignee
         if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
-            $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+            rescue(fn() => $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task)), null, false);
             $notifiedUserIds[] = $task->assignee_id;
         }
         
         // Multi-assignees
         foreach ($task->assignedUsers as $user) {
             if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedUserIds)) {
-                $user->notify(new \App\Notifications\TaskAssignedNotification($task));
+                rescue(fn() => $user->notify(new \App\Notifications\TaskAssignedNotification($task)), null, false);
                 $notifiedUserIds[] = $user->id;
             }
         }
@@ -674,7 +674,7 @@ class TaskController extends Controller
         $notifiedUserIds = [];
 
         if ($assigneeChanged && $task->assignee_id && $task->assignee_id !== $request->user()->id) {
-             $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+             rescue(fn() => $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task)), null, false);
              $notifiedUserIds[] = $task->assignee_id;
         }
 
@@ -685,7 +685,7 @@ class TaskController extends Controller
                 $newlyAssignedUsers = \App\Models\User::whereIn('id', $newlyAssignedIds)->get();
                 foreach ($newlyAssignedUsers as $user) {
                     if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedUserIds)) {
-                        $user->notify(new \App\Notifications\TaskAssignedNotification($task));
+                        rescue(fn() => $user->notify(new \App\Notifications\TaskAssignedNotification($task)), null, false);
                         $notifiedUserIds[] = $user->id;
                     }
                 }
@@ -696,13 +696,13 @@ class TaskController extends Controller
         if ($task->wasChanged('user_status')) {
              $notifiedStatusUserIds = [];
              if ($task->assignee_id && $task->assignee_id !== $request->user()->id) {
-                 $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
+                 rescue(fn() => $task->assignee->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status)), null, false);
                  $notifiedStatusUserIds[] = $task->assignee_id;
              }
              
              foreach ($task->assignedUsers as $user) {
                  if ($user->id !== $request->user()->id && !in_array($user->id, $notifiedStatusUserIds)) {
-                     $user->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status));
+                     rescue(fn() => $user->notify(new \App\Notifications\TaskStatusUpdatedNotification($task, $task->user_status)), null, false);
                      $notifiedStatusUserIds[] = $user->id;
                  }
              }
@@ -722,12 +722,12 @@ class TaskController extends Controller
                                              ->get();
                 // Send to Team Leads
                 if ($teamLeads->count() > 0) {
-                     \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\TaskCompletedNotification($task, $request->user()));
+                     rescue(fn() => \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\TaskCompletedNotification($task, $request->user())), null, false);
                 }
             }
             // Send to Admins (if not already covered by StatusUpdated, but detailed TaskCompleted is better)
              $admins = \App\Models\User::where('role', 'admin')->get();
-             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskCompletedNotification($task, $request->user()));
+             rescue(fn() => \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskCompletedNotification($task, $request->user())), null, false);
         }
 
         // 2. Stage Changed (Approval / Rejection / Move) -> Notify Previous Assignee / Doer
@@ -740,7 +740,7 @@ class TaskController extends Controller
             if ($task->original_assignee_id) {
                 $originalAssignee = \App\Models\User::find($task->original_assignee_id);
                 if ($originalAssignee) {
-                    $originalAssignee->notify(new \App\Notifications\TaskApprovedNotification($task, $stageName));
+                    rescue(fn() => $originalAssignee->notify(new \App\Notifications\TaskApprovedNotification($task, $stageName)), null, false);
                 }
             } else {
                  // Fallback: If no original_assignee, maybe notify the *previous* assignee if different from current?
@@ -1054,7 +1054,7 @@ class TaskController extends Controller
                 
                 // Notify
                 if ($task->assignee_id !== $user->id && $task->assignee) {
-                    $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task));
+                    rescue(fn() => $task->assignee->notify(new \App\Notifications\TaskAssignedNotification($task)), null, false);
                 }
             }
 
@@ -1203,11 +1203,11 @@ class TaskController extends Controller
                                                  ->where('department_id', $departmentId)
                                                  ->get();
                     if ($teamLeads->count() > 0) {
-                        \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\TaskCompletedNotification($task, $request->user(), $task->projectStage ? $task->projectStage->title : 'Completed'));
+                        rescue(fn() => \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\TaskCompletedNotification($task, $request->user(), $task->projectStage ? $task->projectStage->title : 'Completed')), null, false);
                     }
                 }
                 $admins = \App\Models\User::where('role', 'admin')->get();
-                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskCompletedNotification($task, $request->user(), $task->projectStage ? $task->projectStage->title : 'Completed'));
+                rescue(fn() => \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\TaskCompletedNotification($task, $request->user(), $task->projectStage ? $task->projectStage->title : 'Completed')), null, false);
             }
             
             // Add Comment
@@ -1309,10 +1309,10 @@ class TaskController extends Controller
                 $newStage = \App\Models\Stage::find($validated['project_stage_id']);
                 $newStageTitle = $newStage ? $newStage->title : 'Unknown Stage';
                 
-                \Illuminate\Support\Facades\Notification::send(
+                rescue(fn() => \Illuminate\Support\Facades\Notification::send(
                     $teamLeads, 
                     new \App\Notifications\TaskEarlyStartNotification($task, $newStageTitle, $request->user()->name)
-                );
+                ), null, false);
             }
         }
 

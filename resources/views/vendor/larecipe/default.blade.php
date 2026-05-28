@@ -65,26 +65,28 @@
         </div>
 
 
-        <script>
+        @php($cspNonce = app('csp-nonce'))
+
+        <script nonce="{{ $cspNonce }}">
             window.config = @json([]);
         </script>
 
-        <script type="text/javascript">
+        <script type="text/javascript" nonce="{{ $cspNonce }}">
             if(localStorage.getItem('larecipeSidebar') == null) {
                 localStorage.setItem('larecipeSidebar', !! {{ config('larecipe.ui.show_side_bar') ?: 0 }});
             }
         </script>
 
-        <script src="{{ route('larecipe.scripts', 'app.js') }}"></script>
+        <script src="{{ route('larecipe.scripts', 'app.js') }}" nonce="{{ $cspNonce }}"></script>
 
-        <script>
+        <script nonce="{{ $cspNonce }}">
             window.LaRecipe = new CreateLarecipe(config)
         </script>
 
         <!-- Google Analytics -->
         @if(config('larecipe.settings.ga_id'))
-            <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('larecipe.settings.ga_id') }}"></script>
-            <script>
+            <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('larecipe.settings.ga_id') }}" nonce="{{ $cspNonce }}"></script>
+            <script nonce="{{ $cspNonce }}">
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
@@ -96,13 +98,13 @@
 
         @foreach (LaRecipe::allScripts() as $name => $path)
             @if (preg_match('/^https?:\/\//', $path))
-                <script src="{{ $path }}"></script>
+                <script src="{{ $path }}" nonce="{{ $cspNonce }}"></script>
             @else
-                <script src="{{ route('larecipe.scripts', $name) }}"></script>
+                <script src="{{ route('larecipe.scripts', $name) }}" nonce="{{ $cspNonce }}"></script>
             @endif
         @endforeach
 
-        <script>
+        <script nonce="{{ $cspNonce }}">
             LaRecipe.run()
         </script>
     </body>
