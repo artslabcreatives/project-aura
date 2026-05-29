@@ -64,11 +64,9 @@ class SSOController extends Controller
             return response()->json(['error' => 'invalid_redirect_uri'], 400);
         }
 
-        $scopes = array_filter(explode(' ', $params['scope']));
-        foreach ($scopes as $scope) {
-            if (!$client->isScopeAllowed($scope)) {
-                return response()->json(['error' => 'invalid_scope', 'scope' => $scope], 400);
-            }
+        $scopes = $this->parseAndValidateScopes($params['scope'], $client);
+        if ($scopes instanceof JsonResponse) {
+            return $scopes;
         }
 
         return response()->json([
@@ -140,7 +138,10 @@ class SSOController extends Controller
             return response()->json(['error' => 'invalid_client'], 400);
         }
 
-        $scopes = array_values(array_filter(explode(' ', $params['scope'])));
+        $scopes = $this->parseAndValidateScopes($params['scope'], $client);
+        if ($scopes instanceof JsonResponse) {
+            return $scopes;
+        }
 
         $code = Str::random(64);
 
@@ -212,12 +213,26 @@ class SSOController extends Controller
             return $client;
         }
 
-        $authCode = OAuthAuthorizationCode::where('code', $params['code'])
-            ->where('used', false)
-            ->first();
+        // Query by code first to detect replay attacks
+        $authCode = OAuthAuthorizationCode::where('code', $params['code'])->first();
 
         if (!$authCode || $authCode->client_id !== $client->id) {
             return response()->json(['error' => 'invalid_grant'], 400);
+        }
+
+        // Detect replay: If the authorization code has already been used
+        if ($authCode->used) {
+            // Revoke all access/refresh tokens issued for this client/user
+            OAuthAccessToken::where('user_id', $authCode->user_id)
+                ->where('client_id', $authCode->client_id)
+                ->update(['revoked' => true]);
+
+            \Log::warning('SSO Auth Code Replay Detected: Revoking all active tokens for client_id ' . $client->id . ' and user_id ' . $authCode->user_id);
+
+            return response()->json([
+                'error'             => 'invalid_grant',
+                'error_description' => 'Authorization code has already been used. All issued tokens have been revoked.',
+            ], 400);
         }
 
         if ($authCode->isExpired()) {
@@ -433,5 +448,44 @@ class SSOController extends Controller
     {
         $params = array_filter($params, fn($v) => $v !== null);
         return $base . (str_contains($base, '?') ? '&' : '?') . http_build_query($params);
+    }
+
+    /**
+     * Parse, normalize, and validate request scopes.
+     * Returns an array of clean, unique scopes, or a JsonResponse with an error.
+     */
+    private function parseAndValidateScopes(string $scopeString, OAuthClient $client): array|JsonResponse
+    {
+        // Enforce canonical scope character rules (only alphanumeric, underscores, hyphens, colons, and spaces)
+        if (preg_match('/[^a-zA-Z0-9_\-:\s]/', $scopeString)) {
+            return response()->json([
+                'error'             => 'invalid_request',
+                'error_description' => 'Scopes must be space-separated and contain only alphanumeric, hyphen, colon, or underscore characters.',
+            ], 400);
+        }
+
+        // Normalize whitespaces
+        $normalized = trim(preg_replace('/\s+/', ' ', $scopeString));
+        if ($normalized === '') {
+            return response()->json([
+                'error'             => 'invalid_request',
+                'error_description' => 'Scope parameter cannot be empty.',
+            ], 400);
+        }
+
+        // Explode, filter, deduplicate
+        $scopes = array_values(array_unique(array_filter(explode(' ', $normalized))));
+
+        // Validate each scope is allowed for the client
+        foreach ($scopes as $scope) {
+            if (!$client->isScopeAllowed($scope)) {
+                return response()->json([
+                    'error' => 'invalid_scope',
+                    'scope' => $scope,
+                ], 400);
+            }
+        }
+
+        return $scopes;
     }
 }
