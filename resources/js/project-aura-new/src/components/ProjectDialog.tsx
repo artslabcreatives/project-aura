@@ -117,6 +117,7 @@ interface ProjectDialogProps {
 	editProject?: Project;
 	departments: Department[];
 	currentUser?: User | null;
+	onGroupCreated?: (group: ProjectGroup) => void;
 }
 
 // ... SortableStageItem remains same ...
@@ -453,6 +454,7 @@ export function ProjectDialog({
 	editProject,
 	departments,
 	currentUser,
+	onGroupCreated,
 }: ProjectDialogProps) {
 	const { activeRole } = useUser();
 	const canSeeClientInfo = activeRole === 'admin' || activeRole === 'hr';
@@ -636,6 +638,11 @@ export function ProjectDialog({
 			const newGroup = await projectGroupService.create(newGroupName, String(department.id), parentId);
 			setProjectGroups([...projectGroups, newGroup]);
 			setGroupId(newGroup.id);
+			
+			if (onGroupCreated) {
+				onGroupCreated(newGroup);
+			}
+
 			setNewGroupName("");
 			setNewGroupParentId("none");
 			setIsCreatingGroup(false);

@@ -30,10 +30,10 @@ class ValidateMattermostApiKey
         
         // Validate the API key
         if (!$apiKey || $apiKey !== config('services.mattermost.api_key')) {
-            /*\Log::error('Mattermost auth failed: Invalid API key provided');
+            \Log::error('Mattermost auth failed: Invalid API key provided');
             return response()->json([
                 'message' => 'Unauthorized. Invalid Mattermost API key.',
-            ], 401);*/
+            ], 401);
         }
 
         \Log::info('Mattermost auth: API key validated successfully');
@@ -56,10 +56,8 @@ class ValidateMattermostApiKey
                     if ($user) {
                         \Log::info('Mattermost auth: Authenticating user ' . $user->id . ' (' . $user->name . ')');
                         
-                        // Delete ALL existing Mattermost tokens for ALL users to prevent conflicts
-                        \DB::table('personal_access_tokens')
-                            ->where('name', 'mattermost-session')
-                            ->delete();
+                        // Delete existing Mattermost tokens for the current user to prevent conflicts
+                        $user->tokens()->where('name', 'mattermost-session')->delete();
                         
                         // Create a fresh Sanctum token for API calls
                         $token = $user->createToken('mattermost-session', ['*'], now()->addHours(24))->plainTextToken;
@@ -87,10 +85,8 @@ class ValidateMattermostApiKey
             if ($user) {
                 \Log::info('Mattermost auth: Found user ' . $user->id . ' (' . $user->name . ')');
                 
-                // Delete ALL existing Mattermost tokens for ALL users to prevent conflicts
-                \DB::table('personal_access_tokens')
-                    ->where('name', 'mattermost-session')
-                    ->delete();
+                // Delete existing Mattermost tokens for the current user to prevent conflicts
+                $user->tokens()->where('name', 'mattermost-session')->delete();
                 
                 // Create a fresh Sanctum token for API calls
                 $token = $user->createToken('mattermost-session', ['*'], now()->addHours(24))->plainTextToken;

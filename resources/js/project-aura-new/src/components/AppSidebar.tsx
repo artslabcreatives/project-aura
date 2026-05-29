@@ -2115,6 +2115,9 @@ variant: "destructive",
 					editProject={projectToEdit ?? undefined}
 					departments={departments}
 					currentUser={currentUser}
+					onGroupCreated={(newGroup) => {
+						setProjectGroups(prev => [...prev, newGroup]);
+					}}
 				/>
 
 				<AssignGroupDialog

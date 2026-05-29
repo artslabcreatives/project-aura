@@ -39,6 +39,7 @@ The following issues from the previous audit have been **verified as resolved**:
 | 23 | SSO scope separator not enforced | ✅ Added strict canonical OIDC scope character validation, whitespace normalization, deduplication, and client-level scope validation — `SSOController.php:453` |
 | - | SSO Auth Code Replay attacks | ✅ Implemented strict OAuth2 authorization code replay detection; reusing a code now automatically revokes all active access/refresh tokens for that client/user combo — `SSOController.php:222` |
 | 16 | Nginx missing security headers | ✅ Enforced security headers (`Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) at Nginx configuration level — `nginx_auraai_patched` |
+| 2 | Mattermost middleware disabled | ✅ Enabled API key validation check and scoped personal access token deletions using Sanctum relationships to prevent cross-user session invalidation DoS — `ValidateMattermostApiKey.php` |
 
 ---
 
@@ -65,34 +66,13 @@ APP_DEBUG=false
 
 ---
 
-### 2. Mattermost Middleware — API Key Validation STILL Disabled
+### 2. [RESOLVED] Mattermost Middleware — API Key Validation STILL Disabled
 
 **File:** `app/Http/Middleware/ValidateMattermostApiKey.php` (lines 32–37)
 
-```php
-if (!$apiKey || $apiKey !== config('services.mattermost.api_key')) {
-    /*\Log::error('Mattermost auth failed: Invalid API key provided');
-    return response()->json([
-        'message' => 'Unauthorized. Invalid Mattermost API key.',
-    ], 401);*/  // ← STILL COMMENTED OUT — UNFIXED
-}
-```
-
-**This critical issue from the last audit was NOT fixed.** Any request to a Mattermost-prefixed route is accepted regardless of the API key value.
-
-**Additionally — still unfixed:** The middleware deletes ALL Mattermost session tokens for ALL users on every login (lines 60–62 and 91–93):
-
-```php
-\DB::table('personal_access_tokens')
-    ->where('name', 'mattermost-session')
-    ->delete(); // ← Deletes sessions for every user, not just the current one
-```
-
-This is a self-inflicted Denial of Service: every Mattermost login invalidates all other users' active Mattermost sessions.
-
-**Fix:**
-1. Uncomment the API key rejection block immediately.
-2. Scope token deletion to the current user: `->where('user_id', $user->id)`.
+**Fix Applied:**
+- Enabled (uncommented) the API key rejection block in `ValidateMattermostApiKey.php` to properly validate all Mattermost requests.
+- Resolved the self-inflicted Denial of Service (DoS) vulnerability by scoping the `personal_access_tokens` table deletion natively via Laravel Sanctum relationships (`$user->tokens()->where('name', 'mattermost-session')->delete()`) so it only terminates the current authenticating user's sessions, leaving other users unaffected.
 
 ---
 
@@ -443,7 +423,7 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 | # | Issue | Severity | Status | When |
 |---|---|---|---|---|
 | 1 | `APP_DEBUG=true`, `APP_ENV=debug` | 🔴 Critical | ❌ Unfixed | **Today** |
-| 2 | Mattermost middleware disabled | 🔴 Critical | ❌ Unfixed | **Today** |
+| 2 | Mattermost middleware disabled | 🔴 Critical | ✅ Resolved | Resolved |
 | 3 | n8n endpoint outside `auth:sanctum` | 🔴 Critical | ❌ Unfixed | **Today** |
 | 4 | Hardcoded personal email → multi-recipient | ✅ Resolved | Recipients stored in `system_settings` as JSON; configurable via Admin → System Settings |
 | 5 | Auth token in `localStorage` | 🟠 High | ✅ Secured via strict request-specific CSP nonces | Resolved |
@@ -474,8 +454,8 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 ## Quick Wins Checklist (1–2 hours of work)
 
 - [ ] Set `APP_DEBUG=false`, `APP_ENV=staging` in `.env`
-- [ ] Uncomment Mattermost middleware rejection block (`ValidateMattermostApiKey.php` lines 33–37)
-- [ ] Scope Mattermost token deletion to current user: add `->where('user_id', $user->id)`
+- [x] Uncomment Mattermost middleware rejection block (`ValidateMattermostApiKey.php` lines 33–37)
+- [x] Scope Mattermost token deletion to current user: add `->where('user_id', $user->id)`
 - [ ] Delete `extract-credentials.sh` from repo root
 - [x] Replace hardcoded email with dynamic multi-recipient list — configurable via Admin → System Settings
 - [ ] Add `->middleware('role:admin')` to `PUT /ai-chatbot/policies/{id}` route
