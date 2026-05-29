@@ -1,8 +1,8 @@
 # Security Audit & Improvement Plan — Project Aura
 
-> **Audit Date:** 2026-05-27
+> **Audit Date:** 2026-05-29
 > **Audited By:** Antigravity (Automated Code Review)
-> **Previous Audit:** 2026-05-22
+> **Previous Audit:** 2026-05-27
 > **Scope:** `.env`, routes, middleware, controllers, models, config files, frontend, Nginx, OAuth/SSO, AI subsystems.
 
 ---
@@ -24,7 +24,7 @@ The following issues from the previous audit have been **verified as resolved**:
 | 16 | Session not hardened | ✅ `'encrypt' => true`, `'secure' => true`, `'same_site' => 'strict'` set |
 | 24 | Generic token names | ✅ Tokens now named `web|{ip}|{date}` — `AuthController.php:123` |
 | 5b | Login rate limiting | ✅ `throttle:5,1` on `/login`, `throttle:3,5` on `/forgot-password`, `throttle:5,5` on `/verify-otp`, `/reset-password` |
-| 18 | `prompt injection max:12000` | ✅ Max message length reduced to `max:4000` (OpenAPI spec), note: validation in code still shows `max:12000` — see Issue 18 below |
+| 27 | `prompt injection max:12000` | ✅ Max message length reduced to `max:4000` (OpenAPI spec), note: validation in code still shows `max:12000` — see Issue 18 below |
 | 15 | 2FA verify throttle | ✅ `throttle:5,1` applied to `/two-factor/verify` |
 | 23b | CSP header added | ✅ `ContentSecurityPolicy` middleware applied to `web` group |
 | 5 | Auth token in `localStorage` | ✅ Secured by implementing strict request-specific CSP nonces for script execution |
@@ -35,6 +35,9 @@ The following issues from the previous audit have been **verified as resolved**:
 | 9 | AI chatbot no rate limit on messages | ✅ Dynamic per-role rate limiters via `RouteServiceProvider`; configurable in Admin → System Settings |
 | 10 | AI chatbot no action audit trail | ✅ `AuditLog::create()` fires on every AI mutation; Filament admin shows red badge + filters |
 | 9b | AI Claude output token limits | ✅ Per-role `max_tokens` setting in System Settings; resolved by `resolveTokenLimit()` in `AIChatbotOperationsService` |
+| 17 | Chatbot MIME validation gap | ✅ Implemented robust MIME validation using both `mimes:` and `mimetypes:` for chatbot attachments (PDF, DOCX, TXT, CSV, etc.) — `AIChatbotController.php:248` |
+| 23 | SSO scope separator not enforced | ✅ Added strict canonical OIDC scope character validation, whitespace normalization, deduplication, and client-level scope validation — `SSOController.php:453` |
+| - | SSO Auth Code Replay attacks | ✅ Implemented strict OAuth2 authorization code replay detection; reusing a code now automatically revokes all active access/refresh tokens for that client/user combo — `SSOController.php:222` |
 
 ---
 
@@ -94,7 +97,7 @@ This is a self-inflicted Denial of Service: every Mattermost login invalidates a
 
 ### 3. `n8n/grace-periods` Endpoint Still Outside `auth:sanctum`
 
-**File:** `routes/api.php` (line 336)
+**File:** `routes/api.php` (line 337)
 
 ```php
 // OUTSIDE auth:sanctum group — only protected by inline secret check
@@ -157,7 +160,7 @@ export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
 **Fix Applied:**
 - **Stripped `unsafe-inline`:** Replaced with a cryptographically secure, per-request generated nonce singleton.
 - **Vite Integration:** Automatically configured Laravel Vite compiler to append the nonce to all rendered elements dynamically using `Vite::useCspNonce()`.
-- **Stripped `unsafe-eval`:** Fully disabled `'unsafe-eval'` in staging and production environments, permitting it only in local development for Hot Module Replacement (HMR) and source-map rendering.
+- **Stripped `unsafe-eval`:** Fully disabled `'unsafe-eval'` in staging and production environments, permitting it only in local development for Hot Module Replacement (HMR) / source-map rendering, and specifically allowed on LaRecipe documentation routes to enable their bundled compiler without exposing other app routes.
 - **REST API Protection:** Applied `ContentSecurityPolicy` middleware to the global `api` middleware group. All API endpoints and error pages (including stack traces if debug mode is active) now return an extremely restrictive `default-src 'none'; frame-ancestors 'none';` policy to prevent script/HTML injection rendering in browser views.
 
 ---
@@ -176,7 +179,7 @@ Without `TrustHosts`, Host header injection attacks can poison password reset li
 
 ### 8. AI Chatbot — `updatePolicy` Has No Role Restriction
 
-**File:** `routes/api.php` (line 328)
+**File:** `routes/api.php` (line 330)
 
 ```php
 Route::put('/policies/{id}', [\App\Http\Controllers\Api\AIChatbotController::class, 'updatePolicy']);
@@ -333,18 +336,13 @@ add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 
 ---
 
-### 17. File Upload MIME Validation Gap
+### 17. [RESOLVED] File Upload MIME Validation Gap
 
-**Files:** `TaskImportController`, `AIChatbotController`
+This was marked as medium due to a lack of dual validation inside the AI Chatbot's attachment uploader.
 
-The validation uses both `mimes:` and `mimetypes:` (good improvement), but the chatbot upload only uses `mimes:`:
-```php
-// AIChatbotController.php line 248
-'attachments.*' => 'file|max:20480|mimes:pdf,doc,docx,...'
-// Missing mimetypes: double-validation
-```
-
-**Fix:** Add `mimetypes:application/pdf,...` to all attachment validations.
+**Fix Applied:**
+- Configured dynamic MIME and mimetype validation rules matching the task importer rules.
+- Fully resolved the gap by applying both validation formats to `attachments.*` inside the chatbot's endpoint (`AIChatbotController.php:248`).
 
 ---
 
@@ -415,15 +413,14 @@ The `context_snapshot` stored in each AI session contains live aggregate databas
 
 ---
 
-### 23. SSO Scope Validation — No Canonical Scope Separator Enforcement
+### 23. [RESOLVED] SSO Scope Validation — No Canonical Scope Separator Enforcement
 
-**File:** `app/Http/Controllers/Api/SSOController.php` (line 67)
+The OAuth SSO scope validation allowed space/whitespace variations without a solid canonical OIDC character check, creating scope parsing errors.
 
-```php
-$scopes = array_filter(explode(' ', $params['scope']));
-```
-
-The OAuth spec requires scopes to be space-separated. There is no guard against comma-separated scopes (common client mistake) or duplicate scopes, which could confuse downstream scope-checking logic.
+**Fix Applied:**
+- Implemented robust canonical scope validation to enforce standard OIDC spaces and clean character rules (alphanumeric, hyphens, colons, underscores).
+- Automatically normalized, trimmed, and deduplicated scopes (`array_unique`) to prevent downstream scope escalation or misinterpretation.
+- Added strict OIDC validation helpers in `SSOController.php:453`.
 
 ---
 
@@ -450,14 +447,14 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 
 ---
 
-## Priority Matrix (Updated 2026-05-27)
+## Priority Matrix (Updated 2026-05-29)
 
 | # | Issue | Severity | Status | When |
 |---|---|---|---|---|
 | 1 | `APP_DEBUG=true`, `APP_ENV=debug` | 🔴 Critical | ❌ Unfixed | **Today** |
 | 2 | Mattermost middleware disabled | 🔴 Critical | ❌ Unfixed | **Today** |
 | 3 | n8n endpoint outside `auth:sanctum` | 🔴 Critical | ❌ Unfixed | **Today** |
-| 4 | Hardcoded personal email → multi-recipient | ✅ Recipients stored in `system_settings` as JSON; configurable via Admin → System Settings |
+| 4 | Hardcoded personal email → multi-recipient | ✅ Resolved | Recipients stored in `system_settings` as JSON; configurable via Admin → System Settings |
 | 5 | Auth token in `localStorage` | 🟠 High | ✅ Secured via strict request-specific CSP nonces | Resolved |
 | 6 | CSP uses `unsafe-inline` | 🟠 High | ✅ Replaced `'unsafe-inline'` with script nonces | Resolved |
 | 7 | `TrustHosts` disabled | 🟠 High | ✅ Resolved | Resolved |
@@ -469,14 +466,15 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 | 13 | Mattermost password = Aura password | 🟠 High | ⚠️ Accepted Risk | Wont Fix |
 | 14 | SSO PKCE `plain` method allowed | 🟠 High | ✅ Resolved | Resolved |
 | 15 | `extract-credentials.sh` in repo | 🟠 High | ✅ Resolved | Resolved |
+| - | SSO Authorization Code Replay attacks | 🟠 High | ✅ Resolved | Resolved |
 | 16 | Nginx missing security headers | 🟡 Medium | ❌ Unfixed | Sprint 2 |
-| 17 | Chatbot MIME validation gap | 🟡 Medium | ⚠️ Partial | Sprint 2 |
+| 17 | Chatbot MIME validation gap | 🟡 Medium | ✅ Resolved | Resolved |
 | 18 | 2FA per-email rate limit missing | 🟡 Medium | ✅ Resolved | Resolved |
 | 19 | Weak password policy (`min:8` only) | 🟡 Medium | ✅ Resolved | Resolved |
 | 20 | Zoho `state` used as user ID | 🟡 Medium | ✅ Resolved | Resolved |
 | 21 | `console.error` leaks API internals | 🔵 Low | ❌ Unfixed | Sprint 3 |
 | 22 | AI context snapshot info disclosure | 🔵 Low | ❌ New | Sprint 3 |
-| 23 | SSO scope separator not enforced | 🔵 Low | ❌ New | Sprint 3 |
+| 23 | SSO scope separator not enforced | 🔵 Low | ✅ Resolved | Resolved |
 | 24 | No automated dependency scanning | 🔵 Low | ❌ New | Sprint 3 |
 | 25 | Test scripts in repo root | 🔵 Low | ❌ New | Sprint 3 |
 
