@@ -38,6 +38,7 @@ The following issues from the previous audit have been **verified as resolved**:
 | 17 | Chatbot MIME validation gap | ✅ Implemented robust MIME validation using both `mimes:` and `mimetypes:` for chatbot attachments (PDF, DOCX, TXT, CSV, etc.) — `AIChatbotController.php:248` |
 | 23 | SSO scope separator not enforced | ✅ Added strict canonical OIDC scope character validation, whitespace normalization, deduplication, and client-level scope validation — `SSOController.php:453` |
 | - | SSO Auth Code Replay attacks | ✅ Implemented strict OAuth2 authorization code replay detection; reusing a code now automatically revokes all active access/refresh tokens for that client/user combo — `SSOController.php:222` |
+| 16 | Nginx missing security headers | ✅ Enforced security headers (`Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) at Nginx configuration level — `nginx_auraai_patched` |
 
 ---
 
@@ -308,31 +309,21 @@ This script reads Laravel logs to extract plaintext passwords and outputs them t
 
 ---
 
-### 16. Nginx Missing All Security Headers
+### 16. [RESOLVED] Nginx Missing All Security Headers
 
 **File:** `nginx_auraai_patched`
 
-The Nginx config has no security headers whatsoever:
-
+**Fix Applied:**
+Added standard defense-in-depth security headers directly to the primary Nginx SSL `server {}` block:
 ```nginx
-# MISSING:
-add_header X-Frame-Options "DENY";
-add_header X-Content-Type-Options "nosniff";
-add_header Referrer-Policy "strict-origin-when-cross-origin";
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
-add_header Permissions-Policy "geolocation=(), microphone=(), camera=()";
-```
-
-The CSP middleware only covers Laravel web routes. None of these headers are set at the Nginx level, which means static assets, WebSocket upgrades (`/app`), and PHP-FPM error pages have none of these protections.
-
-**Fix:** Add to the Nginx `server {}` block inside the SSL listener:
-```nginx
+# Security Headers
 add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 add_header X-Frame-Options "DENY" always;
 add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 ```
+This ensures WebSocket upgrades (`/app`), static assets, and custom error pages receive full security protection headers automatically at the gateway level.
 
 ---
 
@@ -467,7 +458,7 @@ Files like `test-attach-estimate-po.php`, `test-bulk-update.php`, `test-search-e
 | 14 | SSO PKCE `plain` method allowed | 🟠 High | ✅ Resolved | Resolved |
 | 15 | `extract-credentials.sh` in repo | 🟠 High | ✅ Resolved | Resolved |
 | - | SSO Authorization Code Replay attacks | 🟠 High | ✅ Resolved | Resolved |
-| 16 | Nginx missing security headers | 🟡 Medium | ❌ Unfixed | Sprint 2 |
+| 16 | Nginx missing security headers | 🟡 Medium | ✅ Resolved | Resolved |
 | 17 | Chatbot MIME validation gap | 🟡 Medium | ✅ Resolved | Resolved |
 | 18 | 2FA per-email rate limit missing | 🟡 Medium | ✅ Resolved | Resolved |
 | 19 | Weak password policy (`min:8` only) | 🟡 Medium | ✅ Resolved | Resolved |
