@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan route:list)",
+      "Bash(php artisan route:list *)",
+      "Bash(pm2 logs)",
+      "Bash(pm2 logs *)"
+    ]
+  }
+}
