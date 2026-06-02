@@ -8679,6 +8679,51 @@
                 ]
             }
         },
+        "/stages/{projectid}/stage/{id}": {
+            "get": {
+                "tags": [
+                    "Stages"
+                ],
+                "summary": "List all stages for a project using a stage context",
+                "operationId": "fbdd6ad1ec0b2f44a04c2ab85e20fc3d",
+                "parameters": [
+                    {
+                        "name": "projectid",
+                        "in": "path",
+                        "description": "Project ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Stage ID that must belong to the project",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of stages for the project"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Stage not found for project"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/stage-groups": {
             "get": {
                 "tags": [

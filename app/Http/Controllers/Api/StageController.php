@@ -159,6 +159,55 @@ class StageController extends Controller
         return response()->json($stage->load(['project', 'mainResponsible', 'backupResponsible1', 'backupResponsible2', 'stageGroup', 'tasks.assignee:id,name,email,is_active,avatar']));
     }
 
+    #[OA\Get(
+        path: "/stages/{projectid}/stage/{id}",
+        summary: "List all stages for a project using a stage context",
+        security: [["bearerAuth" => []]],
+        tags: ["Stages"],
+        parameters: [
+            new OA\Parameter(
+                name: "projectid",
+                in: "path",
+                required: true,
+                description: "Project ID",
+                schema: new OA\Schema(type: "integer")
+            ),
+            new OA\Parameter(
+                name: "id",
+                in: "path",
+                required: true,
+                description: "Stage ID that must belong to the project",
+                schema: new OA\Schema(type: "integer")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "List of stages for the project"),
+            new OA\Response(response: 401, description: "Unauthorized"),
+            new OA\Response(response: 404, description: "Stage not found for project")
+        ]
+    )]
+    public function stagesByProjectAndStage(int $projectid, int $id): JsonResponse
+    {
+   $stages = Stage::with([
+            'project',
+            'mainResponsible',
+            'backupResponsible1',
+            'backupResponsible2',
+            'stageGroup',
+            'tasks.assignee:id,name,email,is_active,avatar'
+        ])
+        ->where('project_id', $projectid)
+        ->where(function ($query) use ($id) {
+            $query->where('id', $id)
+                  ->orWhere('context_stage_id', $id);
+        })
+        ->distinct('id') // ensures no duplicates (Postgres-safe alternative below)
+        ->orderBy('order')
+        ->get();
+
+        return response()->json($stages);
+    }
+
     #[OA\Put(
         path: "/stages/{id}",
         summary: "Update stage",
