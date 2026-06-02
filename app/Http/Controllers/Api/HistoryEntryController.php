@@ -97,8 +97,8 @@ class HistoryEntryController extends Controller
         $validated = $request->validate([
             'action' => 'required|string|max:255',
             'entity_id' => 'required|integer',
-            'entity_type' => 'required|in:task,stage,project',
-            'project_id' => 'required|exists:projects,id',
+            'entity_type' => 'required|string|max:255',
+            'project_id' => 'nullable|exists:projects,id',
             'details' => 'nullable|array',
         ]);
 

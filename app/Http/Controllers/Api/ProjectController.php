@@ -346,6 +346,13 @@ class ProjectController extends Controller
         $project = Project::create($validated);
         \Illuminate\Support\Facades\Cache::forget("projects_version");
 
+        // Broadcast to all users' sidebars that the project list changed
+        try {
+            \App\Events\ProjectListUpdated::dispatch($project->id, $project->name, 'created');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast project list update: ' . $e->getMessage());
+        }
+
         // Notify Admins
         try {
             $admins = \App\Models\User::where('role', 'admin')->get();
@@ -752,7 +759,16 @@ class ProjectController extends Controller
     )]
     public function destroy(Project $project): JsonResponse
     {
+        $projectId = $project->id;
+        $projectName = $project->name;
         $project->delete();
+        \Illuminate\Support\Facades\Cache::forget("projects_version");
+        // Broadcast to all users' sidebars that the project list changed
+        try {
+            \App\Events\ProjectListUpdated::dispatch($projectId, $projectName, 'deleted');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to broadcast project list update: ' . $e->getMessage());
+        }
         return response()->json(null, 204);
     }
 

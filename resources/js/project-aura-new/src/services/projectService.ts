@@ -157,6 +157,8 @@ export const projectService = {
 	getSidebar: async (): Promise<Project[]> => {
 		const { data } = await api.get('/projects/sidebar', { params: { _t: Date.now() } });
 		const projects = Array.isArray(data) ? data.map(mapProject) : [];
+		// Cache individual projects by ID so ProjectKanbanFixed can find them
+		projects.forEach(p => cacheService.set(`project_${p.id}`, p));
 		return projects;
 	},
 

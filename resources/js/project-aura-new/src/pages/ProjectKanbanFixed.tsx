@@ -98,6 +98,18 @@ export default function ProjectKanbanFixed() {
 			}
 
 			try {
+				// If projectId is numeric, try getById directly first for speed
+				if (/^\d+$/.test(projectId)) {
+					try {
+						const directProject = await projectService.getById(projectId);
+						setProject(directProject || null);
+						setLoading(false);
+						return;
+					} catch {
+						// Fall through to getAll() search below
+					}
+				}
+
 				const allProjects = await projectService.getAll();
 				let found = null;
 				// Check if ID (all digits)
@@ -110,6 +122,15 @@ export default function ProjectKanbanFixed() {
 					if (!found) {
 						const slug = projectId.toLowerCase();
 						found = allProjects.find(p => p.name.toLowerCase().replace(/\s+/g, '-') === slug);
+					}
+					// Last resort: try getById in case it's a numeric ID that slipped through
+					if (!found) {
+						try {
+							const directProject = await projectService.getById(projectId);
+							found = directProject || null;
+						} catch {
+							// Not found
+						}
 					}
 				}
 				setProject(found || null);

@@ -968,7 +968,18 @@ export function ProjectDialog({
 										</div>
 										{isCreatingGroup ? (
 											<div className="flex flex-col gap-2 p-2 border rounded-md bg-muted/30">
-												<Input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Group Name" className="h-8 text-sm" />
+												<Input 
+													value={newGroupName} 
+													onChange={(e) => setNewGroupName(e.target.value)} 
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') {
+															e.preventDefault();
+															handleCreateGroup();
+														}
+													}}
+													placeholder="Group Name" 
+													className="h-8 text-sm" 
+												/>
 												<div className="flex justify-end gap-1">
 													<Button type="button" variant="ghost" size="sm" onClick={() => setIsCreatingGroup(false)}>Cancel</Button>
 													<Button type="button" size="sm" onClick={handleCreateGroup}>Create</Button>

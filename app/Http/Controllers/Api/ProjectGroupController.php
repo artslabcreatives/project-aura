@@ -84,6 +84,9 @@ class ProjectGroupController extends Controller
 
         $projectGroup = ProjectGroup::create($validated);
 
+        \Illuminate\Support\Facades\Cache::forget("project_groups_dept_{$projectGroup->department_id}");
+        \Illuminate\Support\Facades\Cache::forget("project_groups_dept_all");
+
         return response()->json($projectGroup, 201);
     }
 
@@ -96,6 +99,9 @@ class ProjectGroupController extends Controller
         ]);
 
         $projectGroup->update($validated);
+
+        \Illuminate\Support\Facades\Cache::forget("project_groups_dept_{$projectGroup->department_id}");
+        \Illuminate\Support\Facades\Cache::forget("project_groups_dept_all");
 
         return response()->json($projectGroup);
     }
@@ -116,7 +122,11 @@ class ProjectGroupController extends Controller
             ], 422);
         }
 
+        $deptId = $projectGroup->department_id;
         $projectGroup->delete();
+
+        \Illuminate\Support\Facades\Cache::forget("project_groups_dept_{$deptId}");
+        \Illuminate\Support\Facades\Cache::forget("project_groups_dept_all");
 
         return response()->noContent();
     }

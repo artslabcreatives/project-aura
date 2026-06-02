@@ -51,11 +51,14 @@ export const historyService = {
 
 	create: async (entry: Omit<HistoryEntry, 'id' | 'timestamp'>): Promise<HistoryEntry> => {
 		// user_id is automatically added by the backend from the authenticated user
+		const parsedEntityId = parseInt(entry.entityId, 10);
+		const parsedProjectId = parseInt(entry.projectId, 10);
+
 		const payload = {
 			action: entry.action,
-			entity_id: parseInt(entry.entityId, 10),
+			entity_id: isNaN(parsedEntityId) ? 0 : parsedEntityId,
 			entity_type: entry.entityType,
-			project_id: parseInt(entry.projectId, 10),
+			project_id: isNaN(parsedProjectId) ? null : parsedProjectId,
 			details: entry.details,
 		};
 		console.log('HistoryEntry create payload:', payload);

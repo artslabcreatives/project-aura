@@ -48,6 +48,7 @@ import { departmentService } from "@/services/departmentService";
 import { userService } from "@/services/userService";
 import { projectGroupService } from "@/services/projectGroupService";
 import { ProjectGroup } from "@/types/project-group";
+import { cacheService } from "@/services/cacheService";
 import { FolderPlus } from "lucide-react";
 import { echo } from "@/services/echoService";
 import {
@@ -369,7 +370,30 @@ export function AppSidebar() {
 				echo.leave(`project.${projectId}`);
 			});
 		};
-	}, [projects.map(p => p.id).join(',')]); // Re-subscribe if project list changes (added/removed)
+	}, [projects.map(p => p.id).join(',')]);
+
+	// Global channel: listen for new projects created/deleted by any user
+	useEffect(() => {
+		if (!echo) return;
+		let globalRefreshTimeout: any = null;
+		const debouncedGlobalFetch = () => {
+			if (globalRefreshTimeout) clearTimeout(globalRefreshTimeout);
+			globalRefreshTimeout = setTimeout(() => {
+				cacheService.remove('projects_all');
+				fetchData(true);
+			}, 800);
+		};
+		const globalChannel = echo.channel('projects');
+		globalChannel.listen('.ProjectListUpdated', (e: any) => {
+			console.log('Global project list updated:', e);
+			debouncedGlobalFetch();
+		});
+		return () => {
+			if (globalRefreshTimeout) clearTimeout(globalRefreshTimeout);
+			globalChannel.stopListening('.ProjectListUpdated');
+			echo.leave('projects');
+		};
+	}, [!!echo]);
 
 	const handleProjectSave = async (
 		name: string,
@@ -474,7 +498,12 @@ export function AppSidebar() {
 				}
 			}
 
-setProjects(prev => [newProject, ...prev]);
+			// Cache the new project so ProjectKanbanFixed can find it immediately
+			cacheService.set(`project_${newProject.id}`, newProject);
+			// Invalidate the full list cache so getAll() re-fetches fresh data
+			cacheService.remove('projects_all');
+
+			setProjects(prev => [newProject, ...prev]);
 
 			addHistoryEntry({
 				action: 'CREATE_PROJECT',
@@ -688,11 +717,10 @@ setProjects(prev => prev.map(p => String(p.id) === String(updatedProject.id) ? u
 		}
 	};
 
-	const getProjectSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
-	const getProjectUrl = (project: Project) => `/project/${getProjectSlug(project.name)}`;
+	const getProjectUrl = (project: Project) => `/project/${project.id}`;
 
 	const isProjectActive = (project: Project) => {
-		return location.pathname === getProjectUrl(project);
+		return location.pathname === `/project/${project.id}`;
 	};
 
 	const isStageActive = (projectId: string, stageId: string) => {
@@ -853,14 +881,14 @@ variant: "destructive",
 
 			// Filter projects by department for team-lead
 			if (userRole === "team-lead" && currentUser) {
-				const currentDept = departments.find(d => d.id === currentUser.department);
+				const currentDept = departments.find(d => String(d.id) === String(currentUser.department));
 				const currentDeptName = currentDept?.name.toLowerCase() || "";
 				const isDigitalDept = currentDeptName.includes('digital');
 				const isDesignDept = currentDeptName.includes('design');
 
 				filteredProjects = projectList.filter(project => {
 					const projectDeptName = project.department?.name.toLowerCase() || "";
-					const isOwnDepartment = project.department?.id === currentUser.department;
+					const isOwnDepartment = String(project.department?.id) === String(currentUser.department);
 					const hasNoDepartment = !project.department;
 					
 					const isDesignProject = projectDeptName.includes('design');
@@ -892,8 +920,9 @@ variant: "destructive",
 				const ungrouped: Project[] = [];
 
 				projects.forEach(project => {
-					if (project.group && project.group.id && groupMap.has(project.group.id)) {
-						groupMap.get(project.group.id)!.projects.push(project);
+					const groupId = project.group?.id ? String(project.group.id) : null;
+					if (groupId && groupMap.has(groupId)) {
+						groupMap.get(groupId)!.projects.push(project);
 					} else {
 						ungrouped.push(project);
 					}
@@ -913,10 +942,10 @@ variant: "destructive",
 				return { rootGroups, ungroupedProjects: ungrouped };
 			};
 
-			// For team-lead non-digital (flat view previously, now hierarchy for their dept)
+			// For team-lead non-digital (flat view - shows all dept projects with hierarchy)
 			if ((userRole === "team-lead" || userRole === "account-manager") && currentUser) {
-				const currentDept = departments.find(d => d.id === currentUser.department);
-				const isDigitalDept = currentDept?.name.toLowerCase() === "digital";
+				const currentDept = departments.find(d => String(d.id) === String(currentUser.department));
+				const isDigitalDept = currentDept?.name.toLowerCase().includes('digital') ?? false;
 
 				if (!isDigitalDept) {
 					const { rootGroups, ungroupedProjects } = buildTree(filteredProjects, 'flat');
@@ -1043,20 +1072,21 @@ variant: "destructive",
 	}, [projects]);
 
 	const userDepartmentGroups = useMemo(() => {
-		const deptId = currentUser?.department;
+		const deptId = currentUser?.department ? String(currentUser.department) : null;
 		// Filter groups to only show those in user's department
-		const relevantGroups = projectGroups.filter(g => g.departmentId === deptId);
+		const relevantGroups = projectGroups.filter(g => String(g.departmentId) === deptId);
 
 		const groupMap = new Map<string, TreeGroup>();
 		relevantGroups.forEach(g => {
-			groupMap.set(g.id, { ...g, projects: [], children: [] });
+			groupMap.set(String(g.id), { ...g, projects: [], children: [] });
 		});
 
 		const ungrouped: Project[] = [];
 
 		userDepartmentProjects.forEach(project => {
-			if (project.group && project.group.id && groupMap.has(project.group.id)) {
-				groupMap.get(project.group.id)!.projects.push(project);
+			const groupId = project.group?.id ? String(project.group.id) : null;
+			if (groupId && groupMap.has(groupId)) {
+				groupMap.get(groupId)!.projects.push(project);
 			} else {
 				ungrouped.push(project);
 			}
