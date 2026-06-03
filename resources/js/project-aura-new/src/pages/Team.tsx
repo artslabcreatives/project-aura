@@ -5,7 +5,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, ChevronDown } from "lucide-react";
-import { TeamDialog } from "@/components/TeamDialog";
 import { DepartmentDialog } from "@/components/DepartmentDialog";
 import { User, Task } from "@/types/task";
 import { Department } from "@/types/department";
@@ -33,9 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Team() {
 	const [teamMembers, setTeamMembers] = useState<User[]>([]);
 	const [departments, setDepartments] = useState<Department[]>([]);
-	const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
 	const [isDepartmentDialogOpen, setIsDepartmentDialogOpen] = useState(false);
-	const [editingUser, setEditingUser] = useState<User | null>(null);
 	const [userToDelete, setUserToDelete] = useState<User | null>(null);
 	const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 	const { toast } = useToast();
@@ -54,9 +51,9 @@ export default function Team() {
 				]);
 
 				// Filter out deactivated users and System Admin accounts
-				const activeMembers = usersData.filter((user: User) => 
-					user.is_active !== false && 
-					user.email !== 'system@artslabcreatives.com' && 
+				const activeMembers = usersData.filter((user: User) =>
+					user.is_active !== false &&
+					user.email !== 'system@artslabcreatives.com' &&
 					user.email !== 'systemadmin@artslabcreatives.com'
 				);
 				setTeamMembers(activeMembers);
@@ -78,44 +75,6 @@ export default function Team() {
 		loadData();
 	}, []);
 
-	const handleTeamMemberSave = async (userData: Omit<User, "id">) => {
-		try {
-			if (editingUser) {
-				// Update existing user
-				const updatedUser = await userService.update(editingUser.id, userData);
-				const updatedTeamMembers = teamMembers.map(member =>
-					member.id === editingUser.id ? updatedUser : member
-				);
-				setTeamMembers(updatedTeamMembers);
-				toast({
-					title: "Team member updated",
-					description: `${userData.name} has been updated successfully.`
-				});
-				setEditingUser(null);
-			} else {
-				// Add new user
-				const newMember = await userService.create(userData);
-				const updatedTeamMembers = [...teamMembers, newMember];
-				setTeamMembers(updatedTeamMembers);
-				toast({
-					title: "Team member added",
-					description: `${newMember.name} has been added to the team.`
-				});
-			}
-		} catch (error) {
-			console.error("Error saving team member:", error);
-			toast({
-				title: "Error",
-				description: "Failed to save team member. Please try again.",
-				variant: "destructive",
-			});
-		}
-	};
-
-	const handleEditUser = (user: User) => {
-		setEditingUser(user);
-		setIsTeamDialogOpen(true);
-	};
 
 	const handleDeleteUser = async () => {
 		if (!userToDelete) return;
@@ -262,12 +221,6 @@ export default function Team() {
 						}
 					</p>
 				</div>
-				{(activeRole === "admin" || activeRole === "team-lead" || activeRole === "account-manager") && (
-					<Button onClick={() => setIsTeamDialogOpen(true)} className="gap-2">
-						<Plus className="h-4 w-4" />
-						Add Team Member
-					</Button>
-				)}
 			</div>
 
 			{teamMembersByDepartment.map((departmentGroup) => (
@@ -305,7 +258,7 @@ export default function Team() {
 													</AvatarFallback>
 												</Avatar>
 												<div className="flex-1">
-													<CardTitle 
+													<CardTitle
 														className="text-base hover:text-primary cursor-pointer transition-colors"
 														onClick={() => navigate(`/tasks/filter/today-workload?userId=${member.id}`)}
 													>
@@ -318,15 +271,6 @@ export default function Team() {
 												{(activeRole === "admin" ||
 													((activeRole === "team-lead" || activeRole === "account-manager") && member.department === currentUser.department)) && (
 														<div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-															<Button
-																variant="ghost"
-																size="icon"
-																className="h-8 w-8"
-																onClick={() => handleEditUser(member)}
-																title="Edit member"
-															>
-																<Pencil className="h-4 w-4" />
-															</Button>
 															<Button
 																variant="ghost"
 																size="icon"
@@ -343,7 +287,7 @@ export default function Team() {
 										<CardContent>
 											<div className="flex items-center justify-between">
 												<Badge variant="outline">{member.role}</Badge>
-												<div 
+												<div
 													className="text-sm text-muted-foreground hover:text-primary cursor-pointer transition-colors flex items-center gap-2"
 													onClick={() => navigate(`/tasks/filter/today-workload?userId=${member.id}`)}
 												>
@@ -358,19 +302,6 @@ export default function Team() {
 					</div>
 				</Collapsible>
 			))}
-
-			<TeamDialog
-				open={isTeamDialogOpen}
-				onOpenChange={(open) => {
-					setIsTeamDialogOpen(open);
-					if (!open) setEditingUser(null);
-				}}
-				onSave={handleTeamMemberSave}
-				editUser={editingUser}
-				departments={departments}
-				onAddDepartment={() => setIsDepartmentDialogOpen(true)}
-				currentUser={currentUser}
-			/>
 
 			<DepartmentDialog
 				open={isDepartmentDialogOpen}
