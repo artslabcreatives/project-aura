@@ -93,7 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/sidebar', [ProjectController::class, 'sidebar']);
     Route::get('/projects/stages/{project}', [ProjectController::class, 'showWithStages']);
     Route::apiResource('projects', ProjectController::class)->only(['index', 'show'])->middleware('cache.headers:public;max_age=3600;etag');
-    Route::apiResource('projects', ProjectController::class)->only(['store', 'update', 'destroy'])->middleware('role:admin,team-lead,account-manager');
+    Route::apiResource('projects', ProjectController::class)->only(['store', 'update', 'destroy'])->middleware('role:admin,team-lead,account-manager,hr');
     Route::get('/stages/{projectid}/stage/{id}', [StageController::class, 'stagesByProjectAndStage']);
     Route::apiResource('stages', StageController::class);
     Route::apiResource('stage-groups', StageGroupController::class);
