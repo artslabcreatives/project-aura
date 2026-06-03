@@ -1412,7 +1412,7 @@ variant: "destructive",
 						</NavLink>
 					</SidebarMenuButton>
 
-					{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
+					{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager' || userRole === 'hr') && (
 						<div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project-item:opacity-100 transition-opacity bg-sidebar/80 backdrop-blur-sm rounded">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
@@ -1503,16 +1503,18 @@ variant: "destructive",
 											<span>Restore Project</span>
 										</DropdownMenuItem>
 									)}
-									<DropdownMenuItem
-										className="text-destructive focus:text-destructive"
-										onClick={(e) => {
-											e.stopPropagation();
-											setProjectToDelete(project);
-										}}
-									>
-										<Trash2 className="mr-2 h-4 w-4" />
-										<span>Delete Project</span>
-									</DropdownMenuItem>
+									{(userRole !== 'account-manager') && (
+										<DropdownMenuItem
+											className="text-destructive focus:text-destructive"
+											onClick={(e) => {
+												e.stopPropagation();
+												setProjectToDelete(project);
+											}}
+										>
+											<Trash2 className="mr-2 h-4 w-4" />
+											<span>Delete Project</span>
+										</DropdownMenuItem>
+									)}
 								</DropdownMenuContent>
 							</DropdownMenu>
 						</div>
@@ -1858,7 +1860,7 @@ variant: "destructive",
 											{projectGroupingMode === 'department' ? <Building2 className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
 										</Button>
 									)}
-									{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'hr') && (
+									{(userRole === 'admin' || userRole === 'team-lead' || userRole === 'account-manager' || userRole === 'hr') && (
 										<Button
 											variant="ghost"
 											size="icon"

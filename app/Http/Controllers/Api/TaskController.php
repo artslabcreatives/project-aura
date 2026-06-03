@@ -79,7 +79,7 @@ class TaskController extends Controller
                 ]);
             
             // Global filter for restricted roles
-            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
+            if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
                 $query->where(function($q) use ($user) {
                     // Always show tasks where explicitly assigned
                     $q->where('assignee_id', $user->id)
@@ -119,12 +119,12 @@ class TaskController extends Controller
                             });
                         }
                     } elseif ($user->department_id != 9) {
-                        // Non-Design users (user/account_manager) keep seeing their department tasks
+                        // Non-Design users (user/account-manager) keep seeing their department tasks
                         $q->orWhereHas('project', function($pq) use ($user) {
                             $pq->where('department_id', $user->department_id);
                         });
                     }
-                    // Design normal users (department_id 9, role user/account_manager) 
+                    // Design normal users (department_id 9, role user/account-manager) 
                     // only get the assigned tasks above (no orWhere added here).
                 });
             }

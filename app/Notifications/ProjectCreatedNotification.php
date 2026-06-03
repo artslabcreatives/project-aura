@@ -15,13 +15,15 @@ class ProjectCreatedNotification extends Notification
      * Create a new notification instance.
      */
     protected $project;
+    protected $creator;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct($project)
+    public function __construct($project, $creator = null)
     {
         $this->project = $project;
+        $this->creator = $creator;
     }
 
     /**
@@ -41,10 +43,14 @@ class ProjectCreatedNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
+        $message = $this->creator
+            ? "{$this->creator->name} created new project '{$this->project->name}' for your department."
+            : "New project '{$this->project->name}' has been created.";
+
         return [
             'project_id' => $this->project->id,
             'title' => 'New Project Created',
-            'message' => "New project '{$this->project->name}' has been created.",
+            'message' => $message,
             'type' => 'project_created',
             'link' => "/project/{$this->project->id}",
         ];

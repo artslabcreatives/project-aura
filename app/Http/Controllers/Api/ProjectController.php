@@ -74,7 +74,7 @@ class ProjectController extends Controller
                         });
                 }]);
 
-            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
+            if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
                 $query->where(function ($q) use ($user) {
                     $q->whereHas('tasks', function ($taskQuery) use ($user) {
                         $taskQuery->where('assignee_id', $user->id)
@@ -86,7 +86,7 @@ class ProjectController extends Controller
                         $collabQuery->where('users.id', $user->id);
                     });
 
-                    if ($user->role === 'team-lead') {
+                    if ($user->role === 'team-lead' || $user->role === 'account-manager') {
                         if ($user->department_id == 9) { // Design
                             $q->orWhereIn('department_id', [8, 9]);
                         } else {
@@ -230,7 +230,7 @@ class ProjectController extends Controller
                         });
                 }]);
 
-            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
+            if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
                 $query->where(function ($q) use ($user) {
                     $q->whereHas('tasks', function ($taskQuery) use ($user) {
                         $taskQuery->where('assignee_id', $user->id)
@@ -242,7 +242,7 @@ class ProjectController extends Controller
                         $collabQuery->where('users.id', $user->id);
                     });
 
-                    if ($user->role === 'team-lead') {
+                    if ($user->role === 'team-lead' || $user->role === 'account-manager') {
                         if ($user->department_id == 9) { // Design
                             $q->orWhereIn('department_id', [8, 9]);
                         } else {
@@ -364,6 +364,23 @@ class ProjectController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to send project notification: ' . $e->getMessage());
         }
 
+        // Notify Team Leads if created by Account Manager for their department
+        try {
+            $user = auth()->user();
+            if ($user && $user->role === 'account-manager') {
+                if ($project->department_id === $user->department_id) {
+                    $teamLeads = \App\Models\User::where('role', 'team-lead')
+                        ->where('department_id', $project->department_id)
+                        ->get();
+                    if ($teamLeads->isNotEmpty()) {
+                        \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\ProjectCreatedNotification($project, $user));
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send project notification to team leads: ' . $e->getMessage());
+        }
+
         // Email client when provisional PO is raised
         if ($request->hasFile('po_document') && $project->client_id) {
             try {
@@ -425,7 +442,7 @@ class ProjectController extends Controller
 
         $projectData = Cache::remember($cacheKey, 3600, function() use ($user, $project) {
             // Authorization check for restricted roles
-            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
+            if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
                 $isAuthorized = $project->tasks()->where(function($q) use ($user) {
                     $q->where('assignee_id', $user->id)
                       ->orWhereHas('assignedUsers', function($sq) use ($user) {
@@ -434,8 +451,8 @@ class ProjectController extends Controller
                 })->exists() 
                 || $project->collaborators()->where('users.id', $user->id)->exists();
 
-                // Department-based access for Team Leads
-                if (!$isAuthorized && $user->role === 'team-lead') {
+                // Department-based access for Team Leads and Account Managers
+                if (!$isAuthorized && ($user->role === 'team-lead' || $user->role === 'account-manager')) {
                     if ($user->department_id == 9) { // Design sees Design and Digital
                         $isAuthorized = in_array($project->department_id, [8, 9]);
                     } else {
@@ -478,8 +495,8 @@ class ProjectController extends Controller
                 }
             }
 
-            // Filter tasks relationship for user and account_manager
-            if (in_array($user->role, ['user', 'account_manager'])) {
+            // Filter tasks relationship for user and account-manager
+            if (in_array($user->role, ['user', 'account-manager'])) {
                 $project->load(['tasks' => function ($query) use ($user) {
                     $query->where('assignee_id', $user->id)
                         ->orWhereHas('assignedUsers', function ($sq) use ($user) {
@@ -555,7 +572,7 @@ class ProjectController extends Controller
 
         $projectData = Cache::remember($cacheKey, 3600, function() use ($user, $project) {
             // Authorization check for restricted roles
-            if (in_array($user->role, ['user', 'account_manager', 'team-lead'])) {
+            if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
                 $isAuthorized = $project->tasks()->where(function($q) use ($user) {
                     $q->where('assignee_id', $user->id)
                       ->orWhereHas('assignedUsers', function($sq) use ($user) {
@@ -564,8 +581,8 @@ class ProjectController extends Controller
                 })->exists()
                 || $project->collaborators()->where('users.id', $user->id)->exists();
 
-                // Department-based access for Team Leads
-                if (!$isAuthorized && $user->role === 'team-lead') {
+                // Department-based access for Team Leads and Account Managers
+                if (!$isAuthorized && ($user->role === 'team-lead' || $user->role === 'account-manager')) {
                     if ($user->department_id == 9) { // Design sees Design and Digital
                         $isAuthorized = in_array($project->department_id, [8, 9]);
                     } else {
@@ -879,7 +896,7 @@ class ProjectController extends Controller
                 $query->where('type', 'project');
             }]);
 
-        if (in_array($user->role, ['user', 'account_manager'])) {
+        if (in_array($user->role, ['user', 'account-manager'])) {
             $projectsQuery->where(function ($q) use ($user) {
                 $q->whereHas('tasks', function ($taskQuery) use ($user) {
                     $taskQuery->where('assignee_id', $user->id)
@@ -941,7 +958,7 @@ class ProjectController extends Controller
                 $query->where('type', 'project');
             }]);
 
-        if ($user && in_array($user->role, ['user', 'account_manager'])) {
+        if ($user && in_array($user->role, ['user', 'account-manager'])) {
             $projectsQuery->where(function ($q) use ($user) {
                 $q->whereHas('tasks', function ($taskQuery) use ($user) {
                     $taskQuery->where('assignee_id', $user->id)
