@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell, Mail, FileText, ClipboardList, TrendingUp, BarChart3, Shield, Bot } from "lucide-react";
+import { LayoutDashboard, Users, FolderKanban, Inbox, Plus, Layers, Pencil, Trash2, FileCog, Building2, FolderOpen, MoreHorizontal, Archive, RefreshCcw, Copy, Loader2, UserPlus, MessageSquare, Bell, Mail, FileText, ClipboardList, TrendingUp, BarChart3, Shield, Bot, Megaphone } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import Logo from "@/assets/Logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -146,6 +146,7 @@ export function AppSidebar() {
 	// Loading states for skeleton animations
 	const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 	const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
+	const [hasAdsAccess, setHasAdsAccess] = useState(false);
 
 	const userRole = activeRole ?? currentUser?.role;
 	const collaboratedProjects = useMemo(() => {
@@ -180,14 +181,18 @@ export function AppSidebar() {
 				}
 			}
 
-			const [projectsData, departmentsData, projectGroupsData] = await Promise.all([
+			const [projectsData, departmentsData, projectGroupsData, adsAccessData] = await Promise.all([
 				projectService.getSidebar(),
 				departmentService.getAll(),
 				projectGroupService.getAll(),
+				api.get('/ads-module/check-access').catch(() => ({ data: { has_access: false } })),
 			]);
 			setProjects(projectsData);
 			setDepartments(departmentsData);
 			setProjectGroups(projectGroupsData);
+			// The Axios api helper returns the unwrapped data, but our check-access returns `{has_access: true}` 
+			// if it was intercepted/raw we handle appropriately. The checkAccess returns `['has_access' => true]`.
+			setHasAdsAccess(!!(adsAccessData as any)?.has_access || !!(adsAccessData as any)?.data?.has_access);
 
 			if (userRole) { // Allow all roles to fetch team data (backend handles filtering)
 				const usersData = await userService.getAll();
@@ -1351,6 +1356,15 @@ variant: "destructive",
 		}
 		return userRole && item.roles.includes(userRole);
 	});
+
+	if (hasAdsAccess) {
+		filteredMainMenuItems.push({
+			title: "Ads Module",
+			url: "/ads",
+			icon: Megaphone,
+			roles: ["admin", "team-lead", "user", "account-manager", "hr"]
+		});
+	}
 
 	const renderProjectItem = (project: Project, showRole: boolean = false, showGroup: boolean = false) => {
 		let roleBadge = null;

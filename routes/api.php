@@ -140,6 +140,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class)->only(['store', 'update', 'destroy'])->middleware('role:admin,hr');
     Route::apiResource('project-groups', ProjectGroupController::class);
     Route::post('/users/{user}/avatar', [UserController::class, 'uploadAvatar']);
+    // Ads Module Access
+    Route::get('/ads-module/check-access', [\App\Http\Controllers\Api\AdsModuleAccessController::class, 'checkAccess']);
+    Route::middleware('role:admin')->group(function () {
+        Route::apiResource('ads-module-access', \App\Http\Controllers\Api\AdsModuleAccessController::class)->only(['index', 'store', 'destroy']);
+    });
+
+    Route::middleware('ads.access')->group(function () {
+        Route::apiResource('ad-profiles', \App\Http\Controllers\Api\AdProfileController::class);
+
+        // Ads Integrations (OAuth & Connections)
+        Route::get('ad-profiles/{profile}/integrations/{platform}/redirect', [\App\Http\Controllers\Api\AdsIntegrationController::class, 'redirect']);
+        Route::post('ad-profiles/{profile}/integrations/{platform}/callback', [\App\Http\Controllers\Api\AdsIntegrationController::class, 'callback']);
+        Route::delete('ad-profiles/{profile}/integrations/{platform}', [\App\Http\Controllers\Api\AdsIntegrationController::class, 'disconnect']);
+        
+        // SEMrush API Key connection
+        Route::post('ad-profiles/{profile}/integrations/semrush', [\App\Http\Controllers\Api\AdsIntegrationController::class, 'connectSemrush']);
+
+        // Analytics
+        Route::get('ad-profiles/{profile}/analytics', [\App\Http\Controllers\Api\AdAnalyticsController::class, 'getDashboard']);
+    });
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

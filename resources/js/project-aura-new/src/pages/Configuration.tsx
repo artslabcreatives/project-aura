@@ -15,6 +15,7 @@ import { api } from "@/lib/api";
 import { userService } from "@/services/userService";
 import { TwoFactorSection } from "@/components/profile/TwoFactorSection";
 import { XeroIntegration } from "@/components/XeroIntegration";
+import { AdsModuleAccessConfig } from "@/components/AdsModuleAccessConfig";
 
 export default function Configuration() {
 	const { currentUser, refreshUser, activeRole } = useUser();
@@ -26,6 +27,7 @@ export default function Configuration() {
 	const notificationsRef = useRef<HTMLDivElement>(null);
 	const securityRef = useRef<HTMLDivElement>(null);
 	const integrationsRef = useRef<HTMLDivElement>(null);
+	const adsModuleRef = useRef<HTMLDivElement>(null);
 
 	// State for notifications
 	const [notifications, setNotifications] = useState({
@@ -265,6 +267,15 @@ export default function Configuration() {
 							<DollarSign className="mr-2 h-4 w-4" /> Integrations
 						</Button>
 					)}
+					{activeRole === 'admin' && (
+						<Button
+							variant="ghost"
+							className="justify-start hover:bg-accent/50"
+							onClick={() => scrollToSection(adsModuleRef)}
+						>
+							<Settings className="mr-2 h-4 w-4" /> Ads Module
+						</Button>
+					)}
 				</nav>
 
 				<div className="space-y-6 h-full overflow-y-auto pr-6 pb-20">
@@ -492,6 +503,13 @@ export default function Configuration() {
 									<XeroIntegration />
 								</CardContent>
 							</Card>
+						</div>
+					)}
+
+					{/* Ads Module Section - Admin Only */}
+					{activeRole === 'admin' && (
+						<div ref={adsModuleRef}>
+							<AdsModuleAccessConfig />
 						</div>
 					)}
 				</div>

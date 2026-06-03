@@ -39,10 +39,15 @@ class SystemSettings extends Page
             $recipients    = [['email' => $fallbackEmail, 'name' => $fallbackName]];
         }
 
+        $adsAccesses = \App\Models\AdsModuleAccess::all()->map(function ($access) {
+            return ['email' => $access->email];
+        })->toArray();
+
         $this->form->fill(array_merge([
             'enable_chatbot'                   => SystemSetting::isEnabled('enable_chatbot', true),
             'enable_ai_scenarios'              => SystemSetting::isEnabled('enable_ai_scenarios', true),
             'grace_period_reminder_recipients' => $recipients,
+            'ads_module_accesses'              => $adsAccesses,
         ], $this->getRateLimitSettings()));
     }
 
@@ -120,6 +125,25 @@ class SystemSettings extends Page
                     ])
                     ->collapsible(),
 
+                Section::make('Ads Module Access')
+                    ->description('Manage which users have access to the Ads Module by their email addresses.')
+                    ->schema([
+                        Repeater::make('ads_module_accesses')
+                            ->label('Whitelisted Emails')
+                            ->schema([
+                                TextInput::make('email')
+                                    ->label('Email Address')
+                                    ->email()
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->placeholder('user@example.com'),
+                            ])
+                            ->addActionLabel('Add User Email')
+                            ->collapsible()
+                            ->cloneable(),
+                    ])
+                    ->columns(1),
+
                 Section::make('Grace Period Reminder — Notification Recipients')
                     ->description('These email addresses will receive automated notifications when a project\'s grace period is about to expire. Add as many recipients as needed.')
                     ->schema([
@@ -186,6 +210,25 @@ class SystemSettings extends Page
             ->all();
 
         SystemSetting::set('grace_period_reminder_recipients', json_encode($recipients));
+
+        // Ads module access sync
+        $adsAccessData = $data['ads_module_accesses'] ?? [];
+        $emailsToKeep = collect($adsAccessData)
+            ->filter(fn($row) => !empty($row['email']))
+            ->pluck('email')
+            ->map(fn($email) => trim(strtolower($email)))
+            ->toArray();
+
+        // Delete removed
+        \App\Models\AdsModuleAccess::whereNotIn('email', $emailsToKeep)->delete();
+
+        // Add new
+        foreach ($emailsToKeep as $email) {
+            \App\Models\AdsModuleAccess::firstOrCreate(
+                ['email' => $email],
+                ['added_by' => auth()->id()]
+            );
+        }
 
         Notification::make()
             ->title('Settings saved successfully.')

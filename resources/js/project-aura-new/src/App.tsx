@@ -277,6 +277,9 @@ const SSOClients = lazy(() => import("./pages/SSOClients"));
 const ReportManagement = lazy(() => import("./pages/ReportManagement"));
 const Documents = lazy(() => import("./pages/Documents"));
 const AIChatbot = lazy(() => import("./pages/AIChatbot"));
+const AdsModule = lazy(() => import("./pages/AdsModule"));
+const AdsProfileManager = lazy(() => import("./pages/AdsProfileManager"));
+const AdsOAuthCallback = lazy(() => import("./pages/AdsOAuthCallback"));
 
 const AiScenariosRoute = () => {
 	const { currentUser } = useUser();
@@ -388,6 +391,21 @@ const App = () => (
 										</ProtectedRoute>
 									} />
 									<Route path="/ai-scenarios" element={<AiScenariosRoute />} />
+									<Route path="/ads" element={
+										<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
+											<AdsModule />
+										</ProtectedRoute>
+									} />
+									<Route path="/ads/profiles/:id" element={
+										<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
+											<AdsProfileManager />
+										</ProtectedRoute>
+									} />
+									<Route path="/api/ads/:platform/callback" element={
+										<ProtectedRoute allowedRoles={['admin', 'team-lead', 'user', 'account-manager', 'hr']}>
+											<AdsOAuthCallback />
+										</ProtectedRoute>
+									} />
 
 									{/* Mattermost embedded routes (with /mattermost prefix) */}
 									<Route path="/mattermost" element={<Dashboard />} />
