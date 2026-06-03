@@ -96,6 +96,14 @@ class ResumableUploadService
 
         $baseName = pathinfo($originalName, PATHINFO_FILENAME);
         $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+
+        if (empty($extension)) {
+            $fallbackName = ($metadata['metadata']['filename'] ?? null) ?: ($metadata['metadata']['name'] ?? null) ?: ($metadata['name'] ?? null);
+            if (!empty($fallbackName)) {
+                $extension = pathinfo($fallbackName, PATHINFO_EXTENSION);
+            }
+        }
+
         $slug = Str::slug($baseName);
 
         if ($slug === '') {

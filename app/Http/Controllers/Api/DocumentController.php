@@ -206,10 +206,29 @@ class DocumentController extends Controller
         $mode = $request->query('mode', 'download');
         $options = [];
 
+        $extension = pathinfo($document->file_path, PATHINFO_EXTENSION);
+        
+        if (empty($extension)) {
+            try {
+                $mimeType = Storage::disk('s3')->mimeType($document->file_path);
+                if ($mimeType) {
+                    $extension = \Symfony\Component\Mime\MimeTypes::getDefault()->getExtensions($mimeType)[0] ?? '';
+                }
+            } catch (\Exception $e) {
+                // Ignore
+            }
+        }
+
+        $downloadName = $document->name;
+
+        if ($extension && !preg_match("/\." . preg_quote($extension) . "$/i", $downloadName)) {
+            $downloadName .= '.' . $extension;
+        }
+
         if ($mode === 'download') {
-            $options['ResponseContentDisposition'] = 'attachment; filename="' . $document->name . '"';
+            $options['ResponseContentDisposition'] = 'attachment; filename="' . addslashes($downloadName) . '"';
         } else {
-            $options['ResponseContentDisposition'] = 'inline';
+            $options['ResponseContentDisposition'] = 'inline; filename="' . addslashes($downloadName) . '"';
         }
 
         $url = Storage::disk('s3')->temporaryUrl(
@@ -220,7 +239,7 @@ class DocumentController extends Controller
 
         return response()->json([
             'url' => $url,
-            'name' => $document->name
+            'name' => $downloadName
         ]);
     }
 }
