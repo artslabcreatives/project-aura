@@ -750,7 +750,17 @@ export function ProjectDialog({
 		// FINAL STEP (Step 3) VALIDATIONS - Only run if we are actually on step 3
 		if (currentStep !== 3) return;
 
-		// 1. Stage name validation (cannot use system names)
+		// 1. Stage name validation (cannot use system names or be empty)
+		const emptyStages = middleStages.filter(s => !s.title.trim());
+		if (emptyStages.length > 0) {
+			toast({
+				title: "Validation Error",
+				description: "Stage name is required for all custom stages.",
+				variant: "destructive",
+			});
+			return;
+		}
+
 		const reservedNames = SYSTEM_STAGES;
 		const hasInvalidNames = middleStages.some(s => reservedNames.includes(s.title.toLowerCase().trim()));
 		if (hasInvalidNames) {
@@ -762,9 +772,9 @@ export function ProjectDialog({
 			return;
 		}
 
-		// 2. Guard against empty custom stages if it's a new project
+		// 2. Guard against empty custom stages
 		// We use middleStages which contains everything except system stages
-		if (middleStages.length === 0 && !editProject) {
+		if (middleStages.length === 0) {
 			toast({
 				title: "Validation Error",
 				description: "Please add at least one custom stage to define your project workflow.",
