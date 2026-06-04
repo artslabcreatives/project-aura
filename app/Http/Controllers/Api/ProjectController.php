@@ -52,7 +52,7 @@ class ProjectController extends Controller
                 ->select([
                     'id', 'name', 'status', 'is_archived', 'department_id', 
                     'client_id', 'project_group_id', 'deadline', 
-                    'is_internal_project', 'project_code'
+                    'is_internal_project', 'project_code', 'skip_po'
                 ])
                 ->with([
                     'department:id,name',
@@ -147,7 +147,7 @@ class ProjectController extends Controller
             ->select([
                 'id', 'name', 'status', 'is_archived', 'department_id',
                 'client_id', 'project_group_id', 'deadline',
-                'is_internal_project', 'project_code'
+                'is_internal_project', 'project_code', 'skip_po'
             ])
             ->where('department_id', $id)
             ->with([
@@ -208,7 +208,7 @@ class ProjectController extends Controller
             $query = Project::query()
                 ->select([
                     'id', 'name', 'status', 'is_archived', 'department_id', 
-                    'client_id', 'project_group_id', 'is_internal_project'
+                    'client_id', 'project_group_id', 'is_internal_project', 'skip_po'
                 ])
                 ->with([
                     'department:id,name',
@@ -335,6 +335,8 @@ class ProjectController extends Controller
             $validated['po_document'] = $path;
             $validated['is_locked_by_po'] = false;
         } elseif ($request->filled('po_number')) {
+            $validated['is_locked_by_po'] = false;
+        } elseif ($request->boolean('skip_po')) {
             $validated['is_locked_by_po'] = false;
         }
 
@@ -691,6 +693,8 @@ class ProjectController extends Controller
             $validated['po_document'] = $path;
             $validated['is_locked_by_po'] = false;
         } elseif ($request->filled('po_number')) {
+            $validated['is_locked_by_po'] = false;
+        } elseif ($request->boolean('skip_po')) {
             $validated['is_locked_by_po'] = false;
         }
 

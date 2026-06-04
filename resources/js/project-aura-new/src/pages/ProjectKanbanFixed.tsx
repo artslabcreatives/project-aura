@@ -51,12 +51,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-	Select, 
-	SelectContent, 
-	SelectItem, 
-	SelectTrigger, 
-	SelectValue 
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue
 } from "@/components/ui/select";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import { ImportTasksDialog } from "@/components/ImportTasksDialog";
@@ -68,12 +68,12 @@ import { ProjectLevelAttachmentsDialog } from "@/components/ProjectLevelAttachme
 import { ProjectSummary } from "@/components/ProjectSummary";
 import { ProjectCalendarView } from "@/components/ProjectCalendarView";
 import { Paperclip, Calendar as LucideCalendar } from "lucide-react";
-import { 
-	Dialog, 
-	DialogContent, 
-	DialogHeader, 
-	DialogTitle, 
-	DialogDescription 
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription
 } from "@/components/ui/dialog";
 
 export default function ProjectKanbanFixed() {
@@ -146,7 +146,7 @@ export default function ProjectKanbanFixed() {
 		// Layout Fix: Ensure horizontal scrollbar is at the bottom of the viewport
 		const mainElement = document.querySelector('main.flex-1.p-6.overflow-y-auto');
 		const rootDiv = document.querySelector('.min-h-screen');
-		
+
 		if (mainElement) {
 			const el = mainElement as HTMLElement;
 			const originalOverflow = el.style.overflowY;
@@ -255,7 +255,7 @@ function ProjectBoardContent({ project: initialProject }: { project: Project }) 
 	const [isReportsOpen, setIsReportsOpen] = useState(false);
 	const [isFinanceOpen, setIsFinanceOpen] = useState(false);
 	const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false);
-const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
+	const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const [isImportTasksOpen, setIsImportTasksOpen] = useState(false);
 	const [isImportReviewOpen, setIsImportReviewOpen] = useState(false);
 	const [importedTasks, setImportedTasks] = useState<ImportedTask[]>([]);
@@ -266,8 +266,8 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const hasXeroPO = xeroPOs.length > 0;
 
 	const handleViewXeroPO = (xeroPoId: string, poNumber: string) => {
-		const url = poNumber.toLowerCase().includes('qt') 
-			? `https://go.xero.com/Quotes/View/${xeroPoId}` 
+		const url = poNumber.toLowerCase().includes('qt')
+			? `https://go.xero.com/Quotes/View/${xeroPoId}`
 			: `https://go.xero.com/PO/View/${xeroPoId}`;
 		window.open(url, '_blank', 'noopener,noreferrer');
 	};
@@ -361,19 +361,19 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 				const currentDeptNameLower = currentDept?.name?.toLowerCase() || "";
 				const isDigitalDept = currentDeptNameLower.includes('digital');
 				const isDesignDept = currentDeptNameLower.includes('design');
-				
+
 				const projectDeptNameLower = currentProject?.department?.name?.toLowerCase() || "";
 				const isDesignProject = projectDeptNameLower.includes('design');
 				const isDigitalProject = projectDeptNameLower.includes('digital');
-				
+
 				const hasSpecialPermission = (isDigitalDept && isDesignProject) || (isDesignDept && isDigitalProject);
 				const isCollaborator = currentProject.collaborators?.some(c => String(c.id) === String(currentUser.id));
-				
+
 				// Staff and AM should be able to see their own projects and their department projects
-				if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) { 
-					setProject(null); 
-					if (!isBackground) setIsLoading(false); 
-					return; 
+				if (!hasMatchingDepartment && !hasSpecialPermission && !isCollaborator) {
+					setProject(null);
+					if (!isBackground) setIsLoading(false);
+					return;
 				}
 			}
 			setProject(currentProject);
@@ -565,9 +565,9 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 			const updatedProject = await projectService.update(String(project.id), {
 				status: newStatus,
 			});
-			
+
 			setProject(updatedProject);
-			
+
 			// Log project status change history
 			addHistoryEntry({
 				action: 'UPDATE_PROJECT',
@@ -603,8 +603,8 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 	const hasActiveProvisionalPO = !!project?.provisionalPoNumber && !!project?.provisionalPoExpiresAt && new Date(project.provisionalPoExpiresAt) >= new Date();
 	const isProjectActive = project && !project.isArchived && project.status !== 'completed';
 	const isProjectBlocked = project?.status === 'blocked' || project?.status === 'on-hold';
-	const isPORequired = isProjectActive && project && !project.isInternalProject && project.isLockedByPo && !hasPO && !hasActiveGracePeriod && !hasActiveProvisionalPO;
-	const canCreateTasks = isProjectActive && project && (project.isInternalProject || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
+	const isPORequired = isProjectActive && project && !project.isInternalProject && !project.skipPo && project.isLockedByPo && !hasPO && !hasActiveGracePeriod && !hasActiveProvisionalPO;
+	const canCreateTasks = isProjectActive && project && (project.isInternalProject || project.skipPo || !project.isLockedByPo || hasPO || hasActiveGracePeriod || hasActiveProvisionalPO);
 
 	const handleAddTaskToStage = (stageId: string) => {
 		if (!canCreateTasks) {
@@ -1093,9 +1093,9 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 											<Lock className="h-3 w-3" /> Awaiting PO
 										</Badge>
 										{(activeRole === 'admin' || activeRole === 'hr') && (
-											<Button 
-												variant="outline" 
-												size="sm" 
+											<Button
+												variant="outline"
+												size="sm"
 												className="h-5 text-[10px] px-2 py-0 border-red-500 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
 												onClick={() => setIsPOSelectOpen(true)}
 											>
@@ -1105,9 +1105,9 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 									</div>
 								) : ((project.poNumber || hasXeroPO) && activeRole !== 'user' && activeRole !== 'account-manager') ? (
 									<div className="flex items-center gap-2">
-										<Button 
-											variant="outline" 
-											size="sm" 
+										<Button
+											variant="outline"
+											size="sm"
 											className="h-5 text-[10px] px-2 py-0 border-green-600 text-green-600 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
 											onClick={() => setIsPOViewOpen(true)}
 										>
@@ -1230,21 +1230,21 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 											<DropdownMenuItem onClick={() => setIsAttachmentsOpen(true)} className="rounded-lg">
 												<Paperclip className="mr-2 h-4 w-4 text-orange-500" /> Task Attachments
 											</DropdownMenuItem>
-											
+
 											<div className="h-px bg-border my-1" />
-											
+
 											{(activeRole === 'admin' || activeRole === 'team-lead' || activeRole === 'account-manager') && (
 												<DropdownMenuItem onClick={() => setIsHistoryDialogOpen(true)} className="rounded-lg">
 													<MoreVertical className="mr-2 h-4 w-4 text-muted-foreground" /> View History
 												</DropdownMenuItem>
 											)}
-											
+
 											{!project.isArchived && project.status !== 'on-hold' && (activeRole === 'admin' || activeRole === 'team-lead') && (
 												<DropdownMenuItem onClick={() => setIsStageManagementOpen(true)} className="rounded-lg">
 													<LayoutGrid className="mr-2 h-4 w-4 text-muted-foreground" /> Manage Stages
 												</DropdownMenuItem>
 											)}
-											
+
 
 										</DropdownMenuContent>
 									</DropdownMenu>
@@ -1296,9 +1296,9 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 					</div>
 
 					<div className="flex justify-start gap-4">
-						<ToggleGroup 
-							type="single" 
-							value={activeTab} 
+						<ToggleGroup
+							type="single"
+							value={activeTab}
 							onValueChange={(v) => v && setActiveTab(v as 'summary' | 'board')}
 							className="bg-muted/50 p-1 rounded-xl border border-border/10"
 						>
@@ -1311,9 +1311,9 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 						</ToggleGroup>
 
 						{activeTab === "board" && (
-							<ToggleGroup 
-								type="single" 
-								value={view} 
+							<ToggleGroup
+								type="single"
+								value={view}
 								onValueChange={(v) => v && setView(v as 'kanban' | 'list' | 'calendar')}
 								className="bg-muted/50 p-1 rounded-xl border border-border/10"
 							>
@@ -1351,12 +1351,13 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 							<FileText className="h-8 w-8" />
 							<div className="text-center">
 								<p className="text-lg font-bold uppercase tracking-wider">PO Required</p>
-								<p className="text-xs opacity-80 mb-3">This project requires a Purchase Order to continue.</p>
+								<p className="text-xs opacity-80">This project requires a Purchase Order to continue.</p>
+								<p className="text-[11px] font-medium text-red-500/90 mt-1 mb-3 bg-red-500/10 px-2 py-1 rounded-md border border-red-500/20">Please Contact HR to unlock this Project.</p>
 								{(activeRole === 'admin' || activeRole === 'hr') && (
-									<Button 
-										variant="outline" 
-										size="sm" 
-										className="border-orange-500 text-orange-600 hover:bg-orange-50"
+									<Button
+										variant="outline"
+										size="sm"
+										className="border-orange-500 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-500 dark:hover:bg-orange-950 dark:hover:text-orange-400"
 										onClick={() => setIsPOSelectOpen(true)}
 									>
 										Select PO
@@ -1374,8 +1375,8 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 						{activeTab === "summary" ? (
 							<ProjectSummary project={project} tasks={tasks} />
 						) : view === 'calendar' ? (
-							<ProjectCalendarView 
-								tasks={tasks} 
+							<ProjectCalendarView
+								tasks={tasks}
 								onTaskClick={(task) => handleTaskEdit(task)}
 								onAddTask={(date) => {
 									setPreselectedStageId(visibleStages[0]?.id);
@@ -1547,7 +1548,7 @@ const [isProjectAttachmentsOpen, setIsProjectAttachmentsOpen] = useState(false);
 					</div>
 				</DialogContent>
 			</Dialog>
-			
+
 			{/* Task Attachments Dialog */}
 			<Dialog open={isAttachmentsOpen} onOpenChange={setIsAttachmentsOpen}>
 				<DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col p-0">
