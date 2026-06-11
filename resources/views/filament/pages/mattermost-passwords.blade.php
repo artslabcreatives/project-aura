@@ -6,6 +6,10 @@
             <x-filament::button type="submit" color="danger" icon="heroicon-o-key">
                 Retrieve Password
             </x-filament::button>
+
+            <x-filament::button type="button" wire:click="generate" color="warning" icon="heroicon-o-arrow-path">
+                Generate & Sync Password
+            </x-filament::button>
         </div>
     </x-filament-panels::form>
 
@@ -17,10 +21,18 @@
                 </div>
                 <div>
                     <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">
-                        Mattermost Credentials Decrypted
+                        @if ($isGenerated)
+                            Mattermost Credentials Generated & Synced
+                        @else
+                            Mattermost Credentials Decrypted
+                        @endif
                     </h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400 leading-normal">
-                        Decrypted value successfully retrieved.
+                        @if ($isGenerated)
+                            A new secure password was generated, saved locally, and synced to Mattermost.
+                        @else
+                            Decrypted value successfully retrieved.
+                        @endif
                     </p>
                 </div>
             </div>
@@ -46,7 +58,7 @@
             
             <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 font-medium">
                 @svg('heroicon-o-information-circle', 'h-4 w-4 text-gray-400')
-                Ensure you handle this password securely. All password retrieval requests are audited.
+                Ensure you handle this password securely. All password retrieval and generation requests are audited.
             </div>
         </div>
     @endif
