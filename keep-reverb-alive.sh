@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Path to the project
-PROJECT_PATH="/var/www/aura-staging"
+PROJECT_PATH="/var/www/project-aura"
 LOG_FILE="$PROJECT_PATH/storage/logs/reverb-monitor.log"
 
 # Check if reverb is running
