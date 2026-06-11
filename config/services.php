@@ -40,6 +40,7 @@ return [
         'plugin_id' => env('MATTERMOST_PLUGIN_ID', 'com.artslabcreatives.auraai'),
         'jwt_secret' => env('MATTERMOST_JWT_SECRET'),
         'bot_user_id' => env('MATTERMOST_BOT_USER_ID'),
+        'password_secret' => env('MATTERMOST_PASSWORD_SECRET'),
     ],
 
     'slack' => [

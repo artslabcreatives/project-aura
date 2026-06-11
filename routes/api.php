@@ -144,6 +144,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/ads-module/check-access', [\App\Http\Controllers\Api\AdsModuleAccessController::class, 'checkAccess']);
     Route::middleware('role:admin')->group(function () {
         Route::apiResource('ads-module-access', \App\Http\Controllers\Api\AdsModuleAccessController::class)->only(['index', 'store', 'destroy']);
+        Route::post('/admin/mattermost-password', [UserController::class, 'getMattermostPassword']);
     });
 
     Route::middleware('ads.access')->group(function () {

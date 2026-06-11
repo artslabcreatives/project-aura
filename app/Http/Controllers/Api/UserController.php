@@ -543,4 +543,42 @@ class UserController extends Controller
         
         return $path ?: null;
     }
+
+    /**
+     * Retrieve Mattermost password for a user using a secret key (admin only)
+     */
+    public function getMattermostPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'secret_key' => 'required|string',
+        ]);
+
+        $configuredSecret = config('services.mattermost.password_secret');
+
+        if (empty($configuredSecret) || $request->secret_key !== $configuredSecret) {
+            Log::warning('Unauthorized attempt to retrieve Mattermost password', [
+                'admin_id' => $request->user()->id,
+                'admin_email' => $request->user()->email,
+                'target_email' => $request->email,
+                'ip' => $request->ip(),
+            ]);
+            return response()->json(['message' => 'Invalid secret key.'], 403);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        Log::info('Admin successfully retrieved Mattermost password', [
+            'admin_id' => $request->user()->id,
+            'admin_email' => $request->user()->email,
+            'target_email' => $request->email,
+            'ip' => $request->ip(),
+        ]);
+
+        return response()->json([
+            'email' => $user->email,
+            'mattermost_password' => $user->mattermost_password,
+        ]);
+    }
 }
+
