@@ -12,9 +12,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        //backup database every daily at 2 AM
-        $schedule->command('backup:run')
-            ->dailyAt('02:00')
+        // Backup database and upload to Google Drive daily at 12:00 AM
+        $schedule->command('backup:google-drive')
+            ->dailyAt('00:00')
+            ->timezone('Asia/Colombo')
             ->runInBackground();
         
         // Move tasks to their start stage when start time arrives

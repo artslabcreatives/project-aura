@@ -31,6 +31,15 @@ Route::middleware('mattermost.api-key')->prefix('mattermost')->group(function ()
     })->where('any', '^(?!api).*$');
 });
 
+// Google Drive Backup OAuth callback landing route (stateless to preserve session cookie from overwrite)
+Route::get('/admin/google-drive/callback', [\App\Http\Controllers\GoogleDriveBackupController::class, 'callback'])->name('admin.google-drive.callback');
+
+// Google Drive Backup OAuth routes (Admin only check is inside controller)
+Route::middleware(['web'])->group(function () {
+    Route::get('/admin/google-drive/auth', [\App\Http\Controllers\GoogleDriveBackupController::class, 'redirect'])->name('admin.google-drive.auth');
+    Route::get('/admin/google-drive/callback-process', [\App\Http\Controllers\GoogleDriveBackupController::class, 'callbackProcess'])->name('admin.google-drive.callback-process');
+});
+
 // Regular app routes (with session authentication)
 // Serve the React app for all routes (React Router handles client-side routing)
 Route::get('/{any?}', function () {
