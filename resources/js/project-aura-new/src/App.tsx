@@ -225,7 +225,7 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 	const location = useLocation();
 
 	// Skip authentication for public routes
-	const publicPaths = ['/set-password', '/reset-password', '/sso/authorize', '/oauth/authorize'];
+	const publicPaths = ['/set-password', '/reset-password', '/sso/authorize', '/oauth/authorize', '/downloads/mattermost'];
 	const isPublicRoute = publicPaths.some(path => location.pathname.startsWith(path));
 
 	if (isPublicRoute) {
@@ -280,6 +280,7 @@ const AIChatbot = lazy(() => import("./pages/AIChatbot"));
 const AdsModule = lazy(() => import("./pages/AdsModule"));
 const AdsProfileManager = lazy(() => import("./pages/AdsProfileManager"));
 const AdsOAuthCallback = lazy(() => import("./pages/AdsOAuthCallback"));
+const DownloadMattermost = lazy(() => import("./pages/DownloadMattermost"));
 
 const AiScenariosRoute = () => {
 	const { currentUser } = useUser();
@@ -316,6 +317,7 @@ const App = () => (
 							<Routes>
 								{/* COMPLETELY PUBLIC ROUTE - NO AUTH */}
 								<Route path="/chat" element={<PublicMattermostChat />} />
+								<Route path="/downloads/mattermost" element={<DownloadMattermost />} />
 
 								{/* Public-ish routes handled by AuthWrapper skip logic */}
 								<Route path="/reset-password" element={<ResetPasswordPage />} />
