@@ -41,6 +41,8 @@ return [
         'jwt_secret' => env('MATTERMOST_JWT_SECRET'),
         'bot_user_id' => env('MATTERMOST_BOT_USER_ID'),
         'password_secret' => env('MATTERMOST_PASSWORD_SECRET'),
+        'credentials_email_webhook_url' => env('MATTERMOST_CREDENTIALS_EMAIL_WEBHOOK_URL'),
+        'credentials_email_webhook_pass' => env('MATTERMOST_CREDENTIALS_EMAIL_WEBHOOK_PASS'),
     ],
 
     'slack' => [

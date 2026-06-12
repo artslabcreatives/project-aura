@@ -5,19 +5,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUser } from "@/hooks/use-user";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "@/assets/Logo.png";
-import { 
-	Monitor, 
-	Smartphone, 
-	Download, 
-	Copy, 
-	Check, 
-	ExternalLink, 
-	ArrowRight, 
-	ChevronRight, 
-	Laptop, 
-	Terminal, 
-	ShieldCheck, 
-	ArrowLeft, 
+import {
+	Monitor,
+	Smartphone,
+	Download,
+	Copy,
+	Check,
+	ExternalLink,
+	ArrowRight,
+	ChevronRight,
+	Laptop,
+	Terminal,
+	ShieldCheck,
+	ArrowLeft,
 	Info,
 	Server
 } from "lucide-react";
@@ -80,7 +80,7 @@ export default function DownloadMattermost() {
 	}, []);
 
 	// Get server URL to copy (defaults to aura staging server URL or current domain)
-	const serverUrl = window.location.origin.replace("aura-staging", "mattermost") || "https://mattermost.artslabcreatives.com";
+	const serverUrl = "collab.artslabcreatives.com";
 
 	const handleCopyServerUrl = () => {
 		navigator.clipboard.writeText(serverUrl);
@@ -140,8 +140,8 @@ export default function DownloadMattermost() {
 
 					<div className="flex items-center gap-4">
 						{isAuthenticated ? (
-							<Button 
-								variant="outline" 
+							<Button
+								variant="outline"
 								size="sm"
 								className="gap-2 border-border/80 hover:bg-accent/50 text-xs sm:text-sm shadow-sm transition-all hover:translate-x-[-2px]"
 								onClick={() => navigate("/")}
@@ -151,8 +151,8 @@ export default function DownloadMattermost() {
 								Back to Dashboard
 							</Button>
 						) : (
-							<Button 
-								variant="default" 
+							<Button
+								variant="default"
 								size="sm"
 								className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm shadow-md transition-all hover:translate-y-[-1px]"
 								onClick={() => navigate("/")}
@@ -167,7 +167,7 @@ export default function DownloadMattermost() {
 
 			{/* Main Content Area */}
 			<main className="flex-1 relative z-10 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 flex flex-col items-center">
-				
+
 				{/* OS Auto-detection Alert / Hero banner */}
 				<div className="w-full text-center space-y-4 max-w-3xl mb-12 animate-in fade-in slide-in-from-bottom-5 duration-700">
 					<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 shadow-sm animate-pulse-slow">
@@ -197,7 +197,7 @@ export default function DownloadMattermost() {
 									<div className="font-semibold text-slate-800 dark:text-slate-100">{getOSLabel(detectedOS)}</div>
 								</div>
 							</div>
-							<Button 
+							<Button
 								asChild
 								className="w-full sm:w-auto bg-primary hover:bg-primary/95 text-primary-foreground gap-2 shadow-md hover:shadow-lg transition-all active:scale-95 group"
 								id="btn_auto_download"
@@ -230,7 +230,7 @@ export default function DownloadMattermost() {
 								<div className="flex items-center justify-between bg-accent/30 dark:bg-accent/10 border border-border/60 rounded-lg px-4 h-11 text-sm font-mono text-slate-700 dark:text-slate-200 select-all min-w-[240px] shadow-inner">
 									{serverUrl}
 								</div>
-								<Button 
+								<Button
 									onClick={handleCopyServerUrl}
 									variant={copied ? "default" : "outline"}
 									className={`h-11 px-4 gap-2 transition-all active:scale-95 ${copied ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' : 'border-border/80 hover:bg-accent/40'}`}
@@ -258,16 +258,16 @@ export default function DownloadMattermost() {
 					<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 						<div className="flex justify-center mb-8">
 							<TabsList className="bg-muted/60 dark:bg-muted/30 border border-border/50 p-1 rounded-xl glass shadow-sm">
-								<TabsTrigger 
-									value="desktop" 
+								<TabsTrigger
+									value="desktop"
 									className="rounded-lg px-6 py-2.5 text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:shadow-sm"
 									id="tab_desktop"
 								>
 									<Laptop className="h-4 w-4 mr-2" />
 									Desktop Apps (PC/Mac/Linux)
 								</TabsTrigger>
-								<TabsTrigger 
-									value="mobile" 
+								<TabsTrigger
+									value="mobile"
 									className="rounded-lg px-6 py-2.5 text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:shadow-sm"
 									id="tab_mobile"
 								>
@@ -280,7 +280,7 @@ export default function DownloadMattermost() {
 						{/* Desktop Clients Panel */}
 						<TabsContent value="desktop" className="outline-none">
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-								
+
 								{/* Windows Card */}
 								<Card className="glass border-border/40 hover-lift relative flex flex-col justify-between overflow-hidden group">
 									{detectedOS === "windows" && (
@@ -325,10 +325,10 @@ export default function DownloadMattermost() {
 												Download Portable (ZIP)
 											</a>
 										</Button>
-										<a 
-											href="https://apps.microsoft.com/store/detail/mattermost/XP8CG212M1N86X" 
-											target="_blank" 
-											rel="noopener noreferrer" 
+										<a
+											href="https://apps.microsoft.com/store/detail/mattermost/XP8CG212M1N86X"
+											target="_blank"
+											rel="noopener noreferrer"
 											className="text-[11px] text-muted-foreground hover:text-primary text-center mt-1 flex items-center justify-center gap-1 hover:underline"
 										>
 											Get from Microsoft Store <ExternalLink className="h-3 w-3" />
@@ -427,10 +427,10 @@ export default function DownloadMattermost() {
 												Download DEB Package (ARM64)
 											</a>
 										</Button>
-										<a 
-											href="https://github.com/mattermost/desktop/releases" 
-											target="_blank" 
-											rel="noopener noreferrer" 
+										<a
+											href="https://github.com/mattermost/desktop/releases"
+											target="_blank"
+											rel="noopener noreferrer"
 											className="text-[11px] text-muted-foreground hover:text-primary text-center mt-1 flex items-center justify-center gap-1 hover:underline"
 										>
 											View All Releases on GitHub <ExternalLink className="h-3 w-3" />
@@ -444,7 +444,7 @@ export default function DownloadMattermost() {
 						{/* Mobile Clients Panel */}
 						<TabsContent value="mobile" className="outline-none">
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-								
+
 								{/* iOS Card */}
 								<Card className="glass border-border/40 hover-lift relative flex flex-col justify-between overflow-hidden group p-2">
 									{detectedOS === "ios" && (
@@ -455,9 +455,9 @@ export default function DownloadMattermost() {
 									<div className="flex flex-col sm:flex-row items-center gap-6 p-6">
 										{/* QR code container */}
 										<div className="w-32 h-32 p-2 rounded-xl bg-white border border-border/80 flex flex-col items-center justify-center shadow-inner shrink-0 relative group overflow-hidden">
-											<img 
-												src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent("https://apps.apple.com/lk/app/mattermost/id1257222717")}`} 
-												alt="iOS App Store QR Code" 
+											<img
+												src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent("https://apps.apple.com/lk/app/mattermost/id1257222717")}`}
+												alt="iOS App Store QR Code"
 												className="w-full h-full object-contain"
 											/>
 											<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl p-1 text-center">
@@ -494,9 +494,9 @@ export default function DownloadMattermost() {
 									<div className="flex flex-col sm:flex-row items-center gap-6 p-6">
 										{/* QR code container */}
 										<div className="w-32 h-32 p-2 rounded-xl bg-white border border-border/80 flex flex-col items-center justify-center shadow-inner shrink-0 relative group overflow-hidden">
-											<img 
-												src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent("https://play.google.com/store/apps/details?id=com.mattermost.rn")}`} 
-												alt="Android Play Store QR Code" 
+											<img
+												src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent("https://play.google.com/store/apps/details?id=com.mattermost.rn")}`}
+												alt="Android Play Store QR Code"
 												className="w-full h-full object-contain"
 											/>
 											<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl p-1 text-center">
