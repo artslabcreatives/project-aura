@@ -38,6 +38,20 @@ Route::get('/admin/google-drive/callback', [\App\Http\Controllers\GoogleDriveBac
 Route::middleware(['web'])->group(function () {
     Route::get('/admin/google-drive/auth', [\App\Http\Controllers\GoogleDriveBackupController::class, 'redirect'])->name('admin.google-drive.auth');
     Route::get('/admin/google-drive/callback-process', [\App\Http\Controllers\GoogleDriveBackupController::class, 'callbackProcess'])->name('admin.google-drive.callback-process');
+    
+    // Serve invoice template PDFs for the backend visual mapper
+    Route::get('/admin/invoice-templates/{invoiceTemplate}/pdf', function (\App\Models\InvoiceTemplate $invoiceTemplate) {
+        if (!auth()->check()) {
+            abort(403, 'Unauthorized');
+        }
+        $path = $invoiceTemplate->absolute_pdf_path;
+        if (!file_exists($path)) {
+            abort(404, 'PDF file not found');
+        }
+        return response()->file($path, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    })->name('admin.invoice-templates.pdf');
 });
 
 // Regular app routes (with session authentication)

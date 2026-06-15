@@ -856,4 +856,64 @@ class XeroService
 
         return array_values($available);
     }
+
+    /**
+     * Fetch a single Xero Invoice by ID with full Contact and LineItems.
+     *
+     * @throws \RuntimeException
+     */
+    public function getInvoiceDetail(string $xeroInvoiceId): array
+    {
+        $bearer = $this->getBearerToken();
+        $token  = XeroToken::current();
+
+        $response = Http::withToken($bearer)
+            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+            ->get(self::API_BASE . '/Invoices/' . $xeroInvoiceId);
+
+        if ($response->failed()) {
+            Log::error('Xero Invoice detail fetch failed', ['body' => $response->body()]);
+            throw new \RuntimeException('Failed to fetch Invoice from Xero: ' . $response->body());
+        }
+
+        $invoices = $response->json('Invoices') ?? [];
+        if (empty($invoices)) {
+            throw new \RuntimeException('Invoice not found in Xero.');
+        }
+
+        return $invoices[0];
+    }
+
+    /**
+     * Fetch all authorised invoices from Xero for use in dropdowns.
+     * Returns a simplified array with ID, Number, Contact Name, and Total.
+     */
+    public function listInvoicesForDropdown(): array
+    {
+        $bearer = $this->getBearerToken();
+        $token  = XeroToken::current();
+
+        $response = Http::withToken($bearer)
+            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+            ->get(self::API_BASE . '/Invoices', [
+                'where'   => 'Type=="ACCREC"',
+                'order'   => 'Date DESC',
+            ]);
+
+        if ($response->failed()) {
+            Log::error('Xero Invoices list fetch failed', ['body' => $response->body()]);
+            return [];
+        }
+
+        $invoices = $response->json('Invoices') ?? [];
+
+        return collect($invoices)->map(fn ($inv) => [
+            'id'     => $inv['InvoiceID'],
+            'number' => $inv['InvoiceNumber'] ?? 'N/A',
+            'contact' => $inv['Contact']['Name'] ?? 'Unknown',
+            'total'  => number_format((float) ($inv['Total'] ?? 0), 2),
+            'status' => $inv['Status'] ?? '',
+            'date'   => $inv['DateString'] ?? '',
+        ])->toArray();
+    }
 }

@@ -55,4 +55,19 @@ export const estimateService = {
 		const { data } = await api.get<{ url: string }>('/xero/auth-url');
 		return data;
 	},
+
+	/** Download dynamic PDF invoice map for an estimate. */
+	downloadPdf: async (id: number | string, filename = 'estimate.pdf'): Promise<void> => {
+		const response = await api.get(`/estimates/${id}/download-pdf`, {
+			responseType: 'blob',
+		});
+		const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+		const link = document.createElement('a');
+		link.href = url;
+		link.setAttribute('download', filename);
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		window.URL.revokeObjectURL(url);
+	},
 };

@@ -359,4 +359,31 @@ class EstimateController extends Controller
             ]);
         }
     }
+
+    /**
+     * Generate and download the filled PDF invoice for an estimate.
+     */
+    public function downloadPdf(Estimate $estimate)
+    {
+        $template = \App\Models\InvoiceTemplate::getDefault();
+        if (!$template) {
+            return response()->json(['message' => 'No active PDF invoice template found.'], 404);
+        }
+
+        if (!$template->pdf_path || !file_exists($template->absolute_pdf_path)) {
+            return response()->json(['message' => 'Template PDF file not found.'], 404);
+        }
+
+        $pdfService = app(\App\Services\InvoicePdfService::class);
+        $data = $pdfService->buildDataFromLocalEstimate($estimate);
+
+        $pdfContent = $pdfService->generate($template, $data);
+        $filename   = 'Tax_Invoice_' . ($estimate->estimate_number ?? 'draft') . '.pdf';
+
+        return response()->streamDownload(function () use ($pdfContent) {
+            echo $pdfContent;
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
 }

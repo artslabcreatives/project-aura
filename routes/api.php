@@ -258,6 +258,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('estimates', EstimateController::class);
     Route::post('estimates/{estimate}/send', [EstimateController::class, 'send']);
     Route::post('estimates/{estimate}/approve', [EstimateController::class, 'approve']);
+    Route::get('estimates/{estimate}/download-pdf', [EstimateController::class, 'downloadPdf']);
 
     // Xero Integration
     Route::prefix('xero')->group(function () {

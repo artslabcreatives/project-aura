@@ -37,6 +37,7 @@ import {
 	FileText,
 	CheckCircle2,
 	FolderPlus,
+	Download,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -61,6 +62,7 @@ export default function EstimateDetail() {
 	const [isEditOpen, setIsEditOpen] = useState(false);
 	const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 	const [isConverting, setIsConverting] = useState(false);
+	const [isDownloading, setIsDownloading] = useState(false);
 	const { toast } = useToast();
 	const navigate = useNavigate();
 
@@ -126,6 +128,24 @@ export default function EstimateDetail() {
 			toast({ title: "Error", description: "Failed to create project from estimate.", variant: "destructive" });
 		} finally {
 			setIsConverting(false);
+		}
+	};
+
+	const handleDownloadPdf = async () => {
+		if (!estimate?.id) return;
+		setIsDownloading(true);
+		try {
+			const num = estimate.estimate_number || 'draft';
+			await estimateService.downloadPdf(estimate.id, `Tax_Invoice_${num}.pdf`);
+			toast({ title: "Tax Invoice PDF downloaded." });
+		} catch {
+			toast({
+				title: "Error",
+				description: "Failed to download PDF invoice. Please ensure an active template is configured.",
+				variant: "destructive"
+			});
+		} finally {
+			setIsDownloading(false);
 		}
 	};
 
@@ -213,6 +233,15 @@ export default function EstimateDetail() {
 							View Project
 						</Button>
 					)}
+
+					<Button
+						variant="outline"
+						onClick={handleDownloadPdf}
+						disabled={isDownloading}
+					>
+						<Download className="h-4 w-4 mr-2" />
+						{isDownloading ? "Downloading..." : "Download Tax Invoice"}
+					</Button>
 
 					<Button variant="outline" size="icon" onClick={() => setIsEditOpen(true)}>
 						<Edit className="h-4 w-4" />

@@ -48,6 +48,10 @@ class SystemSettings extends Page
             'enable_ai_scenarios'              => SystemSetting::isEnabled('enable_ai_scenarios', true),
             'grace_period_reminder_recipients' => $recipients,
             'ads_module_accesses'              => $adsAccesses,
+            'company_tin'                      => SystemSetting::get('company_tin', ''),
+            'company_name'                     => SystemSetting::get('company_name', ''),
+            'company_address'                  => SystemSetting::get('company_address', ''),
+            'company_phone'                    => SystemSetting::get('company_phone', ''),
         ], $this->getRateLimitSettings()));
     }
 
@@ -70,6 +74,29 @@ class SystemSettings extends Page
     {
         return $form
             ->schema([
+                Section::make('Company / Supplier Details')
+                    ->description('These details are used as the Supplier information when generating Tax Invoices from PDF templates.')
+                    ->schema([
+                        TextInput::make('company_tin')
+                            ->label('Company TIN')
+                            ->placeholder('e.g. 123456789-7000')
+                            ->maxLength(50),
+                        TextInput::make('company_name')
+                            ->label('Company Name')
+                            ->placeholder('e.g. Artslab Creatives (Pvt) Ltd')
+                            ->maxLength(255),
+                        TextInput::make('company_address')
+                            ->label('Company Address')
+                            ->placeholder('e.g. No. 10, Main Street, Colombo 03')
+                            ->maxLength(500),
+                        TextInput::make('company_phone')
+                            ->label('Company Phone')
+                            ->placeholder('e.g. +94 11 234 5678')
+                            ->maxLength(50),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
+
                 Section::make('AI & Chatbot Configuration')
                     ->description('Enable or disable artificial intelligence features globally in the application.')
                     ->schema([
@@ -191,6 +218,12 @@ class SystemSettings extends Page
 
         SystemSetting::set('enable_chatbot', $data['enable_chatbot'] ? 'true' : 'false');
         SystemSetting::set('enable_ai_scenarios', $data['enable_ai_scenarios'] ? 'true' : 'false');
+
+        // Company / Supplier details for invoice generation
+        SystemSetting::set('company_tin',     $data['company_tin'] ?? '');
+        SystemSetting::set('company_name',    $data['company_name'] ?? '');
+        SystemSetting::set('company_address', $data['company_address'] ?? '');
+        SystemSetting::set('company_phone',   $data['company_phone'] ?? '');
 
         foreach ($this->roles as $role) {
             SystemSetting::set("ai_rate_limit_session_{$role}", $data["ai_rate_limit_session_{$role}"] ?? 10);
