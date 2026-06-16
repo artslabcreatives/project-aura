@@ -60,6 +60,7 @@ class InvoiceTemplateManager extends Page
         $this->generateForm->fill([
             'xero_invoice_id' => '',
             'delivery_date'   => '',
+            'reference'       => '',
             'place_of_supply' => '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => '',
             'payment_mode'    => 'Bank Transfer',
@@ -242,11 +243,13 @@ class InvoiceTemplateManager extends Page
                             ->visible(fn (callable $get) => $get('data_source') === 'manual'),
 
                         // Always-visible override fields
-                        Grid::make(2)
+                        Grid::make(3)
                             ->schema([
                                 TextInput::make('delivery_date')
                                     ->label('Date of Delivery')
                                     ->placeholder('YYYY-MM-DD'),
+                                TextInput::make('reference')
+                                    ->label('Reference / PO No.'),
                                 TextInput::make('place_of_supply')
                                     ->label('Place of Supply')
                                     ->placeholder('e.g. Colombo'),
@@ -342,6 +345,7 @@ class InvoiceTemplateManager extends Page
 
         $overrides = [
             'delivery_date'   => $genData['delivery_date'] ?? '',
+            'reference'       => $genData['reference'] ?? '',
             'place_of_supply' => $genData['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $genData['additional_info'] ?? '',
             'payment_mode'    => $genData['payment_mode'] ?? '',
@@ -374,6 +378,7 @@ class InvoiceTemplateManager extends Page
                         $genData['manual_invoice_number'] ?? '',
                         $genData['manual_invoice_date'] ?? null
                     ),
+                    'reference'        => $overrides['reference'],
                     'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
                     'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
                     'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
@@ -445,6 +450,7 @@ class InvoiceTemplateManager extends Page
         // Sample data for preview
         $sampleData = [
             'invoice_date'     => now()->format('m/d/Y'),
+            'reference'        => 'PO 4562379790',
             'invoice_number'   => $pdfService->formatInvoiceSerialNumber('TI-0001', now()->toDateString()),
             'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),

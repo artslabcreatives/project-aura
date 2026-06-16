@@ -78,7 +78,16 @@ class InvoicePdfService
             return $this->generateDynamicGazettePdf($template, $data);
         }
 
-        $pdf = new Fpdi();
+        $pdf = new class extends Fpdi {
+            public function Footer()
+            {
+                $this->SetY(-15);
+                $this->SetX(15);
+                $this->SetFont('Helvetica', '', 8);
+                $this->SetTextColor(0, 0, 0);
+                $this->Cell(0, 10, 'Company Registration No: PV 114441.  Registered Office: No.110-3/1,, Colombo 05, Western Province, 00500, Sri Lanka.', 0, 0, 'L');
+            }
+        };
 
         $originalPath = $template->absolute_pdf_path;
         $workPath = self::decompressPdfIfNeeded($originalPath);
@@ -130,7 +139,16 @@ class InvoicePdfService
      */
     public function generateDynamicGazettePdf(InvoiceTemplate $template, array $data): string
     {
-        $pdf = new Fpdi();
+        $pdf = new class extends Fpdi {
+            public function Footer()
+            {
+                $this->SetY(-15);
+                $this->SetX(15);
+                $this->SetFont('Helvetica', '', 8);
+                $this->SetTextColor(0, 0, 0);
+                $this->Cell(0, 10, 'Company Registration No: PV 114441.  Registered Office: No.110-3/1,, Colombo 05, Western Province, 00500, Sri Lanka.', 0, 0, 'L');
+            }
+        };
         
         $originalPath = $template->absolute_pdf_path;
         $workPath = self::decompressPdfIfNeeded($originalPath);
@@ -163,25 +181,32 @@ class InvoicePdfService
             $pdf->Image($logoPath, 150, 12, 45);
         }
 
-        // Center Tax Invoice title box (Shifted up by 10mm, font size 12)
-        $pdf->SetXY(80, 34);
-        $pdf->SetFont('Helvetica', 'B', 12);
-        $pdf->Cell(50, 8, 'Tax Invoice', 1, 0, 'C');
+        // Center Tax Invoice title box (Shifted up by 10mm, font size 14)
+        $pdf->SetXY(80, 30);
+        $pdf->SetFont('Helvetica', 'B', 14);
+        $pdf->Cell(50, 10, 'Tax Invoice', 1, 0, 'C');
 
-        // Row 1: Date of Invoice & Tax Invoice No (Shifted up by 10mm)
-        $pdf->Rect(15, 46, 90, 8);
+        // Row 1: Date of Invoice, Reference & Tax Invoice No (Shifted up by 10mm)
+        $pdf->Rect(15, 46, 60, 8);
         $pdf->SetXY(17, 46);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(28, 8, 'Date of Invoice:', 0, 0, 'L');
+        $pdf->Cell(22, 8, 'Date of Invoice:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
-        $pdf->Cell(60, 8, $data['invoice_date'] ?? '', 0, 0, 'L');
+        $pdf->Cell(34, 8, $data['invoice_date'] ?? '', 0, 0, 'L');
 
-        $pdf->Rect(105, 46, 90, 8);
-        $pdf->SetXY(107, 46);
+        $pdf->Rect(75, 46, 60, 8);
+        $pdf->SetXY(77, 46);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(28, 8, 'Tax Invoice No.:', 0, 0, 'L');
+        $pdf->Cell(15, 8, 'Reference:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
-        $pdf->Cell(60, 8, $data['invoice_number'] ?? '', 0, 0, 'L');
+        $pdf->Cell(41, 8, $data['reference'] ?? '', 0, 0, 'L');
+
+        $pdf->Rect(135, 46, 60, 8);
+        $pdf->SetXY(137, 46);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(24, 8, 'Tax Invoice No.:', 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(32, 8, $data['invoice_number'] ?? '', 0, 0, 'L');
 
         // Row 2: Supplier & Purchaser details (Shifted up by 10mm)
         $pdf->Rect(15, 56, 90, 38);
@@ -618,6 +643,7 @@ class InvoicePdfService
 
         $data = [
             'invoice_date'   => $this->formatXeroDate($xeroInvoice['DateString'] ?? $xeroInvoice['Date'] ?? null),
+            'reference'      => $overrides['reference'] ?? ($xeroInvoice['Reference'] ?? ''),
             'invoice_number' => $this->formatInvoiceSerialNumber(
                 $xeroInvoice['InvoiceNumber'] ?? '',
                 $xeroInvoice['DateString'] ?? $xeroInvoice['Date'] ?? null
@@ -638,7 +664,7 @@ class InvoicePdfService
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : $this->formatXeroDate($xeroInvoice['DateString'] ?? null),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
-            'additional_info' => $overrides['additional_info'] ?? ($xeroInvoice['Reference'] ?? ''),
+            'additional_info' => $overrides['additional_info'] ?? '',
 
             // Totals
             'subtotal'       => number_format($subtotal, 2),
@@ -693,6 +719,7 @@ class InvoicePdfService
 
         return [
             'invoice_date'   => $invoice->issued_at?->format('m/d/Y') ?? '',
+            'reference'      => $overrides['reference'] ?? '',
             'invoice_number' => $this->formatInvoiceSerialNumber(
                 $invoice->invoice_number ?? '',
                 $invoice->issued_at?->toDateString()
@@ -738,6 +765,7 @@ class InvoicePdfService
         $data = [
             // Header
             'invoice_date'   => $estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y'),
+            'reference'      => array_key_exists('reference', $overrides) ? $overrides['reference'] : ($estimate->reference ?? $estimate->estimate_number ?? ''),
             'invoice_number' => $this->formatInvoiceSerialNumber(
                 $estimate->estimate_number ?? '',
                 $estimate->issue_date?->toDateString()
@@ -758,7 +786,7 @@ class InvoicePdfService
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y')),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
-            'additional_info' => $overrides['additional_info'] ?? ($estimate->reference ?? ''),
+            'additional_info' => $overrides['additional_info'] ?? '',
 
             // Totals
             'subtotal'       => number_format($subtotal, 2),

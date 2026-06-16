@@ -46,6 +46,7 @@ class InvoiceTemplate extends Model
         return [
             // Header
             ['key' => 'invoice_date',       'label' => 'Date of Invoice',          'group' => 'Header'],
+            ['key' => 'reference',          'label' => 'Reference / PO No.',       'group' => 'Header'],
             ['key' => 'invoice_number',     'label' => 'Tax Invoice No.',          'group' => 'Header'],
 
             // Supplier (your company)

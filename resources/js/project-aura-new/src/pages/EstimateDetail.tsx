@@ -80,6 +80,13 @@ export default function EstimateDetail() {
 	const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>("Bank Transfer");
 
 	const [additionalInfo, setAdditionalInfo] = useState<string>("");
+	const [referenceNumber, setReferenceNumber] = useState<string>("");
+
+	useEffect(() => {
+		if (isPaymentModeOpen && estimate) {
+			setReferenceNumber(estimate.reference || estimate.estimate_number || "");
+		}
+	}, [isPaymentModeOpen, estimate]);
 
 	const fetchEstimate = async () => {
 		if (!estimateId) return;
@@ -146,12 +153,12 @@ export default function EstimateDetail() {
 		}
 	};
 
-	const handleDownloadPdf = async (paymentMode: string, additionalInfoStr?: string) => {
+	const handleDownloadPdf = async (paymentMode: string, additionalInfoStr?: string, referenceStr?: string) => {
 		if (!estimate?.id) return;
 		setIsDownloading(true);
 		try {
 			const num = estimate.estimate_number || 'draft';
-			await estimateService.downloadPdf(estimate.id, paymentMode, additionalInfoStr, `Tax_Invoice_${num}.pdf`);
+			await estimateService.downloadPdf(estimate.id, paymentMode, additionalInfoStr, referenceStr, `Tax_Invoice_${num}.pdf`);
 			toast({ title: "Tax Invoice PDF downloaded." });
 		} catch {
 			toast({
@@ -482,6 +489,15 @@ export default function EstimateDetail() {
 							</Select>
 						</div>
 						<div className="grid gap-2">
+							<Label htmlFor="referenceNumber">Reference Number</Label>
+							<Input
+								id="referenceNumber"
+								placeholder="Enter reference number..."
+								value={referenceNumber}
+								onChange={(e) => setReferenceNumber(e.target.value)}
+							/>
+						</div>
+						<div className="grid gap-2">
 							<Label htmlFor="additionalInfo">Additional Information if any</Label>
 							<Input
 								id="additionalInfo"
@@ -498,7 +514,7 @@ export default function EstimateDetail() {
 						<Button
 							onClick={() => {
 								setIsPaymentModeOpen(false);
-								handleDownloadPdf(selectedPaymentMode, additionalInfo);
+								handleDownloadPdf(selectedPaymentMode, additionalInfo, referenceNumber);
 							}}
 						>
 							Download PDF

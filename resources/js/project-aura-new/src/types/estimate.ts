@@ -14,6 +14,7 @@ export interface Estimate {
 	id?: number;
 	xero_estimate_id?: string;
 	estimate_number?: string;
+	reference?: string;
 	client_id: number;
 	client?: Client;
 	title: string;
