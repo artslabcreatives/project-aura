@@ -110,8 +110,8 @@ $data['invoice_date'] = '2026-06-15';
 $data['invoice_number'] = 'TI-0001';
 $data['delivery_date'] = '2026-06-15';
 $data['place_of_supply'] = 'Colombo';
-// Use plain dash to avoid encoding issues
-$data['additional_info'] = 'Sample preview - not a real invoice';
+// Use long text from user's screenshot to test dynamic height and table shifting
+$data['additional_info'] = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since 1966, when designers at Letraset and James Mosley, the librarian at St Bride Printing Library in London, took a 1914 Cicero translation and scrambled it to make dummy text for Letraset's Body Type sheets. It has survived not only many decades, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised thanks to sheets...";
 
 $data['subtotal'] = '300,000.00';
 $data['vat_amount'] = '54,000.00';
@@ -124,7 +124,7 @@ $data['item_1_unit_price'] = '250,000.00';
 $data['item_1_amount'] = '250,000.00';
 
 $data['item_2_ref'] = '2';
-$data['item_2_description'] = 'SEO Optimization Package';
+$data['item_2_description'] = "SEO Optimization Package - High Quality Keywords Research and Analysis.\n- Off-page Link Building Campaign\n- On-page Content Optimization for 25 target pages\n- Weekly progress reports and monthly strategy consultation calls\n- Integration with Google Search Console & Analytics dashboard";
 $data['item_2_quantity'] = '1';
 $data['item_2_unit_price'] = '50,000.00';
 $data['item_2_amount'] = '50,000.00';
