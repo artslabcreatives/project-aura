@@ -382,7 +382,7 @@ class InvoiceTemplateManager extends Page
                     'purchaser_name'   => $genData['manual_purchaser_name'] ?? '',
                     'purchaser_address'=> $genData['manual_purchaser_address'] ?? '',
                     'purchaser_phone'  => $genData['manual_purchaser_phone'] ?? '',
-                    'delivery_date'    => $overrides['delivery_date'],
+                    'delivery_date'    => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : (!empty($genData['manual_invoice_date']) ? (preg_match('/^\d{4}-\d{2}-\d{2}$/', $genData['manual_invoice_date']) ? \Carbon\Carbon::parse($genData['manual_invoice_date'])->format('m/d/Y') : $genData['manual_invoice_date']) : ''),
                     'place_of_supply'  => $overrides['place_of_supply'],
                     'additional_info'  => $overrides['additional_info'],
                     'subtotal'         => number_format((float) ($genData['manual_subtotal'] ?? 0), 2),

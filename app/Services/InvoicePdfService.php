@@ -558,7 +558,7 @@ class InvoicePdfService
             'purchaser_phone'   => $this->formatXeroPhone($contact['Phones'] ?? []),
 
             // Details
-            'delivery_date'   => $overrides['delivery_date'] ?? $this->formatXeroDate($xeroInvoice['DateString'] ?? null),
+            'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : $this->formatXeroDate($xeroInvoice['DateString'] ?? null),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
@@ -630,7 +630,7 @@ class InvoicePdfService
             'purchaser_address' => $client?->address ?? '',
             'purchaser_phone'   => $client?->phone ?? '',
 
-            'delivery_date'   => $overrides['delivery_date'] ?? '',
+            'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($invoice->issued_at?->format('m/d/Y') ?? ''),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
@@ -678,7 +678,7 @@ class InvoicePdfService
             'purchaser_phone'   => $client?->phone ?? '',
 
             // Details
-            'delivery_date'   => $overrides['delivery_date'] ?? ($estimate->valid_until?->format('Y-m-d') ?? ''),
+            'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y')),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
