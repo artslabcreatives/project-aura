@@ -638,7 +638,7 @@ class InvoicePdfService
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : $this->formatXeroDate($xeroInvoice['DateString'] ?? null),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
-            'additional_info' => $overrides['additional_info'] ?? '',
+            'additional_info' => $overrides['additional_info'] ?? ($xeroInvoice['Reference'] ?? ''),
 
             // Totals
             'subtotal'       => number_format($subtotal, 2),
@@ -710,7 +710,7 @@ class InvoicePdfService
 
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($invoice->issued_at?->format('m/d/Y') ?? ''),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
-            'additional_info' => $overrides['additional_info'] ?? '',
+            'additional_info' => $overrides['additional_info'] ?? ($invoice->description ?? ''),
 
             'subtotal'       => number_format((float) $invoice->amount, 2),
             'vat_rate'       => ($overrides['vat_rate'] ?? '18') . '%',
@@ -758,7 +758,7 @@ class InvoicePdfService
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y')),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
-            'additional_info' => $overrides['additional_info'] ?? '',
+            'additional_info' => $overrides['additional_info'] ?? ($estimate->reference ?? ''),
 
             // Totals
             'subtotal'       => number_format($subtotal, 2),

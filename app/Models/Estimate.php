@@ -11,9 +11,11 @@ class Estimate extends Model
 {
     use HasFactory;
 
+
     protected $fillable = [
         'xero_estimate_id',
         'estimate_number',
+        'reference',
         'title',
         'description',
         'client_id',

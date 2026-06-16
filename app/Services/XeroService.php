@@ -560,6 +560,7 @@ class XeroService
         $data = [
             'xero_estimate_id'    => $xeroId,
             'estimate_number'     => $quote['QuoteNumber'] ?? null,
+            'reference'           => $this->nullableString($quote['Reference'] ?? null),
             'title'               => $this->resolveQuoteTitle($quote),
             'description'         => $this->nullableString($quote['Summary'] ?? null),
             'client_id'           => $clientId,
