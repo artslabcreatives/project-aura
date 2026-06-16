@@ -317,16 +317,27 @@ export default function EstimateDetail() {
 										<div className="col-span-2 text-right">Unit Price</div>
 										<div className="col-span-2 text-right">Total</div>
 									</div>
-									{lineItems.map((item, i) => (
-										<div key={i} className="grid grid-cols-12 gap-2 py-2 border-b last:border-b-0 text-sm">
-											<div className="col-span-6">{item.description}</div>
-											<div className="col-span-2 text-right">{item.quantity}</div>
-											<div className="col-span-2 text-right">{estimate.currency === "LKR" ? "Rs. " : "$"}{item.unit_price.toFixed(2)}</div>
-											<div className="col-span-2 text-right font-medium">
-												{estimate.currency === "LKR" ? "Rs. " : "$"}{(item.total !== undefined ? item.total : item.quantity * item.unit_price).toFixed(2)}
+									{lineItems.map((item, i) => {
+										const lineTotal = item.total !== undefined ? item.total : item.quantity * item.unit_price;
+										const originalTotal = item.quantity * item.unit_price;
+										const discountPercent = originalTotal > 0 && lineTotal < originalTotal 
+											? Math.round((1 - (lineTotal / originalTotal)) * 100) 
+											: 0;
+
+										return (
+											<div key={i} className="grid grid-cols-12 gap-2 py-2 border-b last:border-b-0 text-sm">
+												<div className="col-span-6">{item.description}</div>
+												<div className="col-span-2 text-right">{item.quantity}</div>
+												<div className="col-span-2 text-right">{estimate.currency === "LKR" ? "Rs. " : "$"}{item.unit_price.toFixed(2)}</div>
+												<div className="col-span-2 text-right font-medium">
+													<div>{estimate.currency === "LKR" ? "Rs. " : "$"}{lineTotal.toFixed(2)}</div>
+													{discountPercent > 0 && (
+														<span className="text-xs text-green-500 font-normal">({discountPercent}% off)</span>
+													)}
+												</div>
 											</div>
-										</div>
-									))}
+										);
+									})}
 								</div>
 							)}
 

@@ -582,8 +582,15 @@ class InvoicePdfService
                 $price    = (float) ($item['UnitAmount'] ?? 0);
                 $lineAmt  = (float) ($item['LineAmount'] ?? ($qty * $price));
 
+                $desc = $item['Description'] ?? '';
+                $origTotal = $qty * $price;
+                if ($origTotal > 0 && $lineAmt < $origTotal) {
+                    $pct = round((1 - ($lineAmt / $origTotal)) * 100);
+                    $desc .= " ({$pct}% discount)";
+                }
+
                 $data["item_{$n}_ref"]         = (string) $n;
-                $data["item_{$n}_description"] = $item['Description'] ?? '';
+                $data["item_{$n}_description"] = $desc;
                 $data["item_{$n}_quantity"]    = number_format($qty, 0);
                 $data["item_{$n}_unit_price"]  = number_format($price, 2);
                 $data["item_{$n}_amount"]      = number_format($lineAmt, 2);
@@ -695,8 +702,15 @@ class InvoicePdfService
                 $price    = (float) ($item->unit_price ?? 0);
                 $lineAmt  = (float) ($item->total ?? ($qty * $price));
 
+                $desc = $item->description ?? '';
+                $origTotal = $qty * $price;
+                if ($origTotal > 0 && $lineAmt < $origTotal) {
+                    $pct = round((1 - ($lineAmt / $origTotal)) * 100);
+                    $desc .= " ({$pct}% discount)";
+                }
+
                 $data["item_{$n}_ref"]         = (string) $n;
-                $data["item_{$n}_description"] = $item->description ?? '';
+                $data["item_{$n}_description"] = $desc;
                 $data["item_{$n}_quantity"]    = number_format($qty, 0);
                 $data["item_{$n}_unit_price"]  = number_format($price, 2);
                 $data["item_{$n}_amount"]      = number_format($lineAmt, 2);
