@@ -52,7 +52,7 @@ class XeroAuthTest extends TestCase
         $callbackResponse = $controller->callback($callbackRequest);
 
         $this->assertSame(
-            'http://frontend.test/settings/integrations?xero=error&reason=no_code'
+            'http://frontend.test/configuration?section=integrations&xero=error&reason=no_code'
             , $callbackResponse->getTargetUrl()
         );
 

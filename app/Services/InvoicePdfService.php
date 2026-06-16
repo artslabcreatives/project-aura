@@ -153,9 +153,9 @@ class InvoicePdfService
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.2);
 
-        // Draw a solid white rectangle to cover the rest of the template below Y = 40
+        // Draw a solid white rectangle to cover the entire template page (hiding the Gazette header)
         $pdf->SetFillColor(255, 255, 255);
-        $pdf->Rect(0, 40, 210, 257, 'F');
+        $pdf->Rect(0, 0, 210, 297, 'F');
 
         // Center Tax Invoice title box
         $pdf->SetXY(80, 44);
@@ -462,27 +462,6 @@ class InvoicePdfService
         $pdf->Cell(28, 8, 'Mode of Payment:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(148, 8, $data['payment_mode'] ?? '', 0, 0, 'L');
-
-        $currentY += 8;
-
-        // Draw Gazette footer details
-        $footerY = max($currentY + 12, 275);
-        if ($footerY > 282) {
-            $pdf->AddPage('P', 'A4');
-            $footerY = 275;
-        }
-
-        $pdf->SetFont('Helvetica', '', 8);
-        $pdf->SetXY(15, $footerY - 12);
-        $pdf->Cell(50, 4, 'EOG 11 - 0124', 0, 0, 'L');
-
-        // Draw double line divider
-        $pdf->Line(15, $footerY - 6, 195, $footerY - 6);
-        $pdf->Line(15, $footerY - 5.5, 195, $footerY - 5.5);
-
-        // Department center text
-        $pdf->SetXY(15, $footerY - 4);
-        $pdf->Cell(180, 4, 'PRINTED AT THE DEPARTMENT OF GOVERNMENT PRINTING, SRI LANKA.', 0, 0, 'C');
 
         return $pdf->Output('S');
     }
