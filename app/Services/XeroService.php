@@ -575,15 +575,17 @@ class XeroService
             'xero_last_synced_at' => now(),
         ];
 
-        if ($existing) {
-            $existing->update($data);
-            $this->syncLineItems($existing, $quote['LineItems'] ?? []);
-            return 'updated';
-        }
+        return DB::transaction(function () use ($existing, $data, $quote) {
+            if ($existing) {
+                $existing->update($data);
+                $this->syncLineItems($existing, $quote['LineItems'] ?? []);
+                return 'updated';
+            }
 
-        $estimate = Estimate::create($data);
-        $this->syncLineItems($estimate, $quote['LineItems'] ?? []);
-        return 'created';
+            $estimate = Estimate::create($data);
+            $this->syncLineItems($estimate, $quote['LineItems'] ?? []);
+            return 'created';
+        });
     }
 
     private function resolveQuoteTitle(array $quote): string

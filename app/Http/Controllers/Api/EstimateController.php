@@ -363,7 +363,7 @@ class EstimateController extends Controller
     /**
      * Generate and download the filled PDF invoice for an estimate.
      */
-    public function downloadPdf(Estimate $estimate)
+    public function downloadPdf(Request $request, Estimate $estimate)
     {
         $template = \App\Models\InvoiceTemplate::getDefault();
         if (!$template) {
@@ -375,7 +375,16 @@ class EstimateController extends Controller
         }
 
         $pdfService = app(\App\Services\InvoicePdfService::class);
-        $data = $pdfService->buildDataFromLocalEstimate($estimate);
+        
+        $overrides = [];
+        if ($request->has('payment_mode')) {
+            $overrides['payment_mode'] = $request->query('payment_mode');
+        }
+        if ($request->has('additional_info')) {
+            $overrides['additional_info'] = $request->query('additional_info');
+        }
+
+        $data = $pdfService->buildDataFromLocalEstimate($estimate, $overrides);
 
         $pdfContent = $pdfService->generate($template, $data);
         $filename   = 'Tax_Invoice_' . ($estimate->estimate_number ?? 'draft') . '.pdf';

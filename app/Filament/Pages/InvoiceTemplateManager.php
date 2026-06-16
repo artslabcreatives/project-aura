@@ -60,9 +60,9 @@ class InvoiceTemplateManager extends Page
         $this->generateForm->fill([
             'xero_invoice_id' => '',
             'delivery_date'   => '',
-            'place_of_supply' => '',
+            'place_of_supply' => '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => '',
-            'payment_mode'    => '',
+            'payment_mode'    => 'Bank Transfer',
         ]);
     }
 
@@ -256,9 +256,14 @@ class InvoiceTemplateManager extends Page
                             ->label('Additional Information')
                             ->rows(2),
 
-                        TextInput::make('payment_mode')
+                        Select::make('payment_mode')
                             ->label('Mode of Payment')
-                            ->placeholder('e.g. Bank Transfer / Cheque / Cash'),
+                            ->options([
+                                'Cheque' => 'Cheque',
+                                'Bank Transfer' => 'Bank Transfer',
+                            ])
+                            ->placeholder('Select payment mode')
+                            ->default('Bank Transfer'),
                     ])
                     ->columns(1),
             ])
@@ -337,7 +342,7 @@ class InvoiceTemplateManager extends Page
 
         $overrides = [
             'delivery_date'   => $genData['delivery_date'] ?? '',
-            'place_of_supply' => $genData['place_of_supply'] ?? '',
+            'place_of_supply' => $genData['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $genData['additional_info'] ?? '',
             'payment_mode'    => $genData['payment_mode'] ?? '',
         ];
@@ -360,12 +365,19 @@ class InvoiceTemplateManager extends Page
             } else {
                 // Manual entry
                 $data = [
-                    'invoice_date'     => $genData['manual_invoice_date'] ?? '',
-                    'invoice_number'   => $genData['manual_invoice_number'] ?? '',
-                    'supplier_tin'     => SystemSetting::get('company_tin', ''),
-                    'supplier_name'    => SystemSetting::get('company_name', ''),
-                    'supplier_address' => SystemSetting::get('company_address', ''),
-                    'supplier_phone'   => SystemSetting::get('company_phone', ''),
+                    'invoice_date'     => !empty($genData['manual_invoice_date'])
+                        ? (preg_match('/^\d{4}-\d{2}-\d{2}$/', $genData['manual_invoice_date'])
+                            ? \Carbon\Carbon::parse($genData['manual_invoice_date'])->format('m/d/Y')
+                            : $genData['manual_invoice_date'])
+                        : '',
+                    'invoice_number'   => $pdfService->formatInvoiceSerialNumber(
+                        $genData['manual_invoice_number'] ?? '',
+                        $genData['manual_invoice_date'] ?? null
+                    ),
+                    'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+                    'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
+                    'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+                    'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
                     'purchaser_tin'    => $genData['manual_purchaser_tin'] ?? '',
                     'purchaser_name'   => $genData['manual_purchaser_name'] ?? '',
                     'purchaser_address'=> $genData['manual_purchaser_address'] ?? '',
@@ -432,18 +444,18 @@ class InvoiceTemplateManager extends Page
 
         // Sample data for preview
         $sampleData = [
-            'invoice_date'     => now()->format('Y-m-d'),
-            'invoice_number'   => 'TI-0001',
-            'supplier_tin'     => SystemSetting::get('company_tin', '123456789-7000'),
-            'supplier_name'    => SystemSetting::get('company_name', 'Sample Company (Pvt) Ltd'),
-            'supplier_address' => SystemSetting::get('company_address', 'No. 10, Main Street, Colombo 03'),
-            'supplier_phone'   => SystemSetting::get('company_phone', '+94 11 234 5678'),
+            'invoice_date'     => now()->format('m/d/Y'),
+            'invoice_number'   => $pdfService->formatInvoiceSerialNumber('TI-0001', now()->toDateString()),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
+            'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+            'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
             'purchaser_tin'    => '987654321-7000',
             'purchaser_name'   => 'Sample Client Ltd',
             'purchaser_address'=> 'No. 5, Galle Road, Colombo 04',
             'purchaser_phone'  => '+94 11 987 6543',
-            'delivery_date'    => now()->format('Y-m-d'),
-            'place_of_supply'  => 'Colombo',
+            'delivery_date'    => now()->format('m/d/Y'),
+            'place_of_supply'  => '110-3/1, Havelock Road, Colombo 05',
             'additional_info'  => 'Sample preview — not a real invoice',
             'item_1_ref'       => '1',
             'item_1_description' => 'Web Design & Development',

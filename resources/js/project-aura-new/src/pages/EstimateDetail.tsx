@@ -29,6 +29,16 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
 	ArrowLeft,
 	Edit,
 	Trash2,
@@ -65,6 +75,11 @@ export default function EstimateDetail() {
 	const [isDownloading, setIsDownloading] = useState(false);
 	const { toast } = useToast();
 	const navigate = useNavigate();
+
+	const [isPaymentModeOpen, setIsPaymentModeOpen] = useState(false);
+	const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>("Bank Transfer");
+
+	const [additionalInfo, setAdditionalInfo] = useState<string>("");
 
 	const fetchEstimate = async () => {
 		if (!estimateId) return;
@@ -131,12 +146,12 @@ export default function EstimateDetail() {
 		}
 	};
 
-	const handleDownloadPdf = async () => {
+	const handleDownloadPdf = async (paymentMode: string, additionalInfoStr?: string) => {
 		if (!estimate?.id) return;
 		setIsDownloading(true);
 		try {
 			const num = estimate.estimate_number || 'draft';
-			await estimateService.downloadPdf(estimate.id, `Tax_Invoice_${num}.pdf`);
+			await estimateService.downloadPdf(estimate.id, paymentMode, additionalInfoStr, `Tax_Invoice_${num}.pdf`);
 			toast({ title: "Tax Invoice PDF downloaded." });
 		} catch {
 			toast({
@@ -236,7 +251,7 @@ export default function EstimateDetail() {
 
 					<Button
 						variant="outline"
-						onClick={handleDownloadPdf}
+						onClick={() => setIsPaymentModeOpen(true)}
 						disabled={isDownloading}
 					>
 						<Download className="h-4 w-4 mr-2" />
@@ -432,6 +447,54 @@ export default function EstimateDetail() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			{/* Payment Mode Selection Dialog */}
+			<Dialog open={isPaymentModeOpen} onOpenChange={setIsPaymentModeOpen}>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Select Mode of Payment</DialogTitle>
+						<DialogDescription>
+							Please select the Mode of Payment to include in the generated PDF invoice.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="paymentMode">Mode of Payment</Label>
+							<Select value={selectedPaymentMode} onValueChange={setSelectedPaymentMode}>
+								<SelectTrigger id="paymentMode" className="w-full">
+									<SelectValue placeholder="Select payment mode" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="Cheque">Cheque</SelectItem>
+									<SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="additionalInfo">Additional Information if any</Label>
+							<Input
+								id="additionalInfo"
+								placeholder="Enter additional info..."
+								value={additionalInfo}
+								onChange={(e) => setAdditionalInfo(e.target.value)}
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setIsPaymentModeOpen(false)}>
+							Cancel
+						</Button>
+						<Button
+							onClick={() => {
+								setIsPaymentModeOpen(false);
+								handleDownloadPdf(selectedPaymentMode, additionalInfo);
+							}}
+						>
+							Download PDF
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

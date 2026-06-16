@@ -68,6 +68,16 @@ class InvoicePdfService
      */
     public function generate(InvoiceTemplate $template, array $data): string
     {
+        // Clean all string values in $data to prevent UTF-8 characters from breaking FPDF
+        $data = array_map(function ($val) {
+            return is_string($val) ? $this->cleanPdfString($val) : $val;
+        }, $data);
+
+        // Intercept and handle the Gazette Tax Invoice format dynamically to avoid overlaps
+        if (str_contains(strtolower($template->name), 'tax vat') || str_contains(strtolower($template->pdf_path), 'tax vat')) {
+            return $this->generateDynamicGazettePdf($template, $data);
+        }
+
         $pdf = new Fpdi();
 
         $originalPath = $template->absolute_pdf_path;
@@ -116,6 +126,402 @@ class InvoicePdfService
     }
 
     /**
+     * Generate the Sri Lankan Gazette Tax Invoice PDF dynamically to avoid overlaps.
+     */
+    public function generateDynamicGazettePdf(InvoiceTemplate $template, array $data): string
+    {
+        $pdf = new Fpdi();
+        
+        $originalPath = $template->absolute_pdf_path;
+        $workPath = self::decompressPdfIfNeeded($originalPath);
+        
+        try {
+            // Import the template page to get the Gazette header with Sinhala text
+            $pdf->setSourceFile($workPath);
+            $templatePage = $pdf->importPage(1);
+            $size = $pdf->getTemplateSize($templatePage);
+
+            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+            $pdf->useTemplate($templatePage);
+        } finally {
+            if ($workPath !== $originalPath && file_exists($workPath)) {
+                @unlink($workPath);
+            }
+        }
+
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->SetLineWidth(0.2);
+
+        // Draw a solid white rectangle to cover the rest of the template below Y = 40
+        $pdf->SetFillColor(255, 255, 255);
+        $pdf->Rect(0, 40, 210, 257, 'F');
+
+        // Center Tax Invoice title box
+        $pdf->SetXY(80, 44);
+        $pdf->SetFont('Helvetica', 'B', 10);
+        $pdf->Cell(50, 8, 'Tax Invoice', 1, 0, 'C');
+
+        // Row 1: Date of Invoice & Tax Invoice No
+        $pdf->Rect(15, 56, 90, 8);
+        $pdf->SetXY(17, 56);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(28, 8, 'Date of Invoice:', 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(60, 8, $data['invoice_date'] ?? '', 0, 0, 'L');
+
+        $pdf->Rect(105, 56, 90, 8);
+        $pdf->SetXY(107, 56);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(28, 8, 'Tax Invoice No.:', 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(60, 8, $data['invoice_number'] ?? '', 0, 0, 'L');
+
+        // Row 2: Supplier & Purchaser details
+        $pdf->Rect(15, 66, 90, 38);
+        $pdf->Rect(105, 66, 90, 38);
+
+        // Supplier details inside box
+        $pdf->SetXY(17, 68);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(24, 4, "Supplier's TIN:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(62, 4, $data['supplier_tin'] ?? '', 0, 1, 'L');
+
+        $pdf->SetX(17);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(24, 4, "Supplier's Name:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(62, 4, $data['supplier_name'] ?? '', 0, 1, 'L');
+
+        $pdf->SetX(17);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(15, 4, "Address:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $addrY = $pdf->GetY();
+        $pdf->SetXY(32, $addrY);
+        $pdf->MultiCell(71, 4, $data['supplier_address'] ?? '', 0, 'L');
+
+        $pdf->SetXY(17, 98);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(24, 4, "Telephone No:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(62, 4, $data['supplier_phone'] ?? '', 0, 1, 'L');
+
+        // Purchaser details inside box
+        $pdf->SetXY(107, 68);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(26, 4, "Purchaser's TIN:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(60, 4, $data['purchaser_tin'] ?? '', 0, 1, 'L');
+
+        $pdf->SetX(107);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(26, 4, "Purchaser's Name:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(60, 4, $data['purchaser_name'] ?? '', 0, 1, 'L');
+
+        $pdf->SetX(107);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(15, 4, "Address:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $addrY = $pdf->GetY();
+        $pdf->SetXY(122, $addrY);
+        $pdf->MultiCell(71, 4, $data['purchaser_address'] ?? '', 0, 'L');
+
+        $pdf->SetXY(107, 98);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(26, 4, "Telephone No:", 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(60, 4, $data['purchaser_phone'] ?? '', 0, 1, 'L');
+
+        // Row 3: Date of Delivery & Place of Supply
+        $pdf->Rect(15, 106, 90, 8);
+        $pdf->SetXY(17, 106);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(28, 8, 'Date of Delivery:', 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(60, 8, $data['delivery_date'] ?? '', 0, 0, 'L');
+
+        $pdf->Rect(105, 106, 90, 8);
+        $pdf->SetXY(107, 106);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(28, 8, 'Place of Supply:', 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(60, 8, $data['place_of_supply'] ?? '', 0, 0, 'L');
+
+        // Row 4: Additional Information if any
+        $infoText = $data['additional_info'] ?? '';
+        $fullLabel = 'Additional Information if any: ';
+        $fullInfoText = $fullLabel . $infoText;
+        $pdf->SetFont('Helvetica', '', 8);
+        $infoLines = $this->calculateNbLines($pdf, 178, $fullInfoText);
+        $infoHeight = max(($infoLines * 4) + 4, 16);
+
+        $pdf->Rect(15, 116, 180, $infoHeight);
+
+        $pdf->SetLeftMargin(17);
+        $pdf->SetRightMargin(17);
+        $pdf->SetXY(17, 118);
+
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Write(4, $fullLabel);
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Write(4, $infoText);
+
+        $pdf->SetLeftMargin(10);
+        $pdf->SetRightMargin(10);
+
+        // Table Start Y
+        $tableY = 116 + $infoHeight + 2; // Dynamic offset + 2mm gap
+        $pdf->SetXY(15, $tableY);
+
+        // Draw header boxes
+        $pdf->Rect(15, $tableY, 20, 12);
+        $pdf->Rect(35, $tableY, 90, 12);
+        $pdf->Rect(125, $tableY, 20, 12);
+        $pdf->Rect(145, $tableY, 20, 12);
+        $pdf->Rect(165, $tableY, 30, 12);
+
+        // Header Text
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->SetXY(15, $tableY + 4);
+        $pdf->Cell(20, 4, 'Reference', 0, 0, 'C');
+        $pdf->SetXY(35, $tableY + 4);
+        $pdf->Cell(90, 4, 'Description of Goods or Services', 0, 0, 'C');
+        $pdf->SetXY(125, $tableY + 4);
+        $pdf->Cell(20, 4, 'Quantity', 0, 0, 'C');
+        $pdf->SetXY(145, $tableY + 4);
+        $pdf->Cell(20, 4, 'Unit Price', 0, 0, 'C');
+        $pdf->SetXY(165, $tableY + 1);
+        $pdf->MultiCell(30, 3.3, "Amount\nExcluding VAT\n(Rs.)", 0, 'C');
+
+        // Loop over line items
+        $currentY = $tableY + 12;
+        $pdf->SetFont('Helvetica', '', 8);
+
+        $lineHeight = 4.5;
+        $minRowHeight = 8;
+        $pageLimitY = 250; // Page break threshold
+
+        // Build list of items (ensure at least 5 rows exist)
+        $items = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $ref = $data["item_{$i}_ref"] ?? '';
+            $desc = $data["item_{$i}_description"] ?? '';
+            $qty = $data["item_{$i}_quantity"] ?? '';
+            $price = $data["item_{$i}_unit_price"] ?? '';
+            $amount = $data["item_{$i}_amount"] ?? '';
+
+            $items[] = [
+                'ref' => $ref,
+                'desc' => $desc,
+                'qty' => $qty,
+                'price' => $price,
+                'amount' => $amount
+            ];
+        }
+
+        foreach ($items as $item) {
+            $isEmpty = empty($item['ref']) && empty($item['desc']) && empty($item['qty']) && empty($item['price']) && empty($item['amount']);
+
+            if ($isEmpty) {
+                continue; // Skip empty rows completely
+            }
+
+            // Calculate lines of description
+            $nbLines = $this->calculateNbLines($pdf, 88, $item['desc']);
+            $rowHeight = max(($nbLines * $lineHeight) + 4, $minRowHeight);
+
+            // Check page break
+            if ($currentY + $rowHeight > $pageLimitY) {
+                // Add page break
+                $pdf->AddPage('P', 'A4');
+                $currentY = 20;
+
+                // Redraw table headers on new page
+                $pdf->Rect(15, $currentY, 20, 12);
+                $pdf->Rect(35, $currentY, 90, 12);
+                $pdf->Rect(125, $currentY, 20, 12);
+                $pdf->Rect(145, $currentY, 20, 12);
+                $pdf->Rect(165, $currentY, 30, 12);
+
+                $pdf->SetFont('Helvetica', 'B', 8);
+                $pdf->SetXY(15, $currentY + 4);
+                $pdf->Cell(20, 4, 'Reference', 0, 0, 'C');
+                $pdf->SetXY(35, $currentY + 4);
+                $pdf->Cell(90, 4, 'Description of Goods or Services', 0, 0, 'C');
+                $pdf->SetXY(125, $currentY + 4);
+                $pdf->Cell(20, 4, 'Quantity', 0, 0, 'C');
+                $pdf->SetXY(145, $currentY + 4);
+                $pdf->Cell(20, 4, 'Unit Price', 0, 0, 'C');
+                $pdf->SetXY(165, $currentY + 1);
+                $pdf->MultiCell(30, 3.3, "Amount\nExcluding VAT\n(Rs.)", 0, 'C');
+
+                $currentY += 12;
+                $pdf->SetFont('Helvetica', '', 8);
+            }
+
+            // Draw row borders
+            $pdf->Rect(15, $currentY, 20, $rowHeight);
+            $pdf->Rect(35, $currentY, 90, $rowHeight);
+            $pdf->Rect(125, $currentY, 20, $rowHeight);
+            $pdf->Rect(145, $currentY, 20, $rowHeight);
+            $pdf->Rect(165, $currentY, 30, $rowHeight);
+
+            // Draw content
+            if (!$isEmpty) {
+                // Reference (centered)
+                $pdf->SetXY(15, $currentY + ($rowHeight - 4) / 2);
+                $pdf->Cell(20, 4, $item['ref'], 0, 0, 'C');
+
+                // Description (left-aligned, multi-line)
+                $pdf->SetXY(36, $currentY + 2);
+                $pdf->MultiCell(88, $lineHeight, $item['desc'], 0, 'L');
+
+                // Quantity (centered)
+                $pdf->SetXY(125, $currentY + ($rowHeight - 4) / 2);
+                $pdf->Cell(20, 4, $item['qty'], 0, 0, 'C');
+
+                // Unit Price (right-aligned)
+                $pdf->SetXY(145, $currentY + ($rowHeight - 4) / 2);
+                $pdf->Cell(18, 4, $item['price'], 0, 0, 'R');
+
+                // Amount (right-aligned)
+                $pdf->SetXY(165, $currentY + ($rowHeight - 4) / 2);
+                $pdf->Cell(28, 4, $item['amount'], 0, 0, 'R');
+            }
+
+            $currentY += $rowHeight;
+        }
+
+        // Always force 18% VAT calculation for Gazette invoice format
+        $subtotalStr = $data['subtotal'] ?? '0.00';
+        $subtotalVal = (float) str_replace(',', '', $subtotalStr);
+        $vatVal = $subtotalVal * 0.18;
+        $totalVal = $subtotalVal + $vatVal;
+
+        $vatRateText = '18%';
+        $vatAmountText = number_format($vatVal, 2);
+        $totalWithVatText = number_format($totalVal, 2);
+        $totalInWordsText = $this->numberToWords($totalVal);
+
+        // Totals Rows (Subtotal, VAT, Grand Total)
+        $pdf->SetFont('Helvetica', 'B', 8);
+
+        // Total Value of Supply
+        $pdf->Rect(15, $currentY, 150, 8);
+        $pdf->SetXY(17, $currentY);
+        $pdf->Cell(148, 8, 'Total Value of Supply:', 0, 0, 'L');
+
+        $pdf->Rect(165, $currentY, 30, 8);
+        $pdf->SetXY(165, $currentY);
+        $pdf->Cell(28, 8, $subtotalStr, 0, 0, 'R');
+
+        $currentY += 8;
+
+        // VAT Amount
+        $pdf->Rect(15, $currentY, 150, 8);
+        $pdf->SetXY(17, $currentY);
+        $pdf->Cell(148, 8, "VAT Amount (Total Value of Supply @ {$vatRateText}):", 0, 0, 'L');
+
+        $pdf->Rect(165, $currentY, 30, 8);
+        $pdf->SetXY(165, $currentY);
+        $pdf->Cell(28, 8, $vatAmountText, 0, 0, 'R');
+
+        $currentY += 8;
+
+        // Total Amount including VAT
+        $pdf->Rect(15, $currentY, 150, 8);
+        $pdf->SetXY(17, $currentY);
+        $pdf->Cell(148, 8, 'Total Amount including VAT:', 0, 0, 'L');
+
+        $pdf->Rect(165, $currentY, 30, 8);
+        $pdf->SetXY(165, $currentY);
+        $pdf->Cell(28, 8, $totalWithVatText, 0, 0, 'R');
+
+        $currentY += 8;
+
+        // Bottom Boxes: Word Amount & Payment Mode
+        $currentY += 4; // 4mm space
+
+        // Total Amount in words
+        $pdf->Rect(15, $currentY, 180, 8);
+        $pdf->SetXY(17, $currentY);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(32, 8, 'Total Amount in words:', 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(144, 8, $totalInWordsText, 0, 0, 'L');
+
+        $currentY += 8;
+
+        // Mode of Payment
+        $pdf->Rect(15, $currentY, 180, 8);
+        $pdf->SetXY(17, $currentY);
+        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->Cell(28, 8, 'Mode of Payment:', 0, 0, 'L');
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->Cell(148, 8, $data['payment_mode'] ?? '', 0, 0, 'L');
+
+        $currentY += 8;
+
+        // Draw Gazette footer details
+        $footerY = max($currentY + 12, 275);
+        if ($footerY > 282) {
+            $pdf->AddPage('P', 'A4');
+            $footerY = 275;
+        }
+
+        $pdf->SetFont('Helvetica', '', 8);
+        $pdf->SetXY(15, $footerY - 12);
+        $pdf->Cell(50, 4, 'EOG 11 - 0124', 0, 0, 'L');
+
+        // Draw double line divider
+        $pdf->Line(15, $footerY - 6, 195, $footerY - 6);
+        $pdf->Line(15, $footerY - 5.5, 195, $footerY - 5.5);
+
+        // Department center text
+        $pdf->SetXY(15, $footerY - 4);
+        $pdf->Cell(180, 4, 'PRINTED AT THE DEPARTMENT OF GOVERNMENT PRINTING, SRI LANKA.', 0, 0, 'C');
+
+        return $pdf->Output('S');
+    }
+
+    /**
+     * Compute number of wrapped lines for a given text.
+     */
+    private function calculateNbLines($pdf, float $w, string $txt): int
+    {
+        $txt = str_replace("\r\n", "\n", $txt);
+        $txt = str_replace("\r", "\n", $txt);
+        $cMargin = isset($pdf->cMargin) ? $pdf->cMargin : 1.0;
+        $wmax = $w - 2 * $cMargin; // Subtract cell margins on both sides
+        $lines = 0;
+        $paragraphs = explode("\n", $txt);
+        foreach ($paragraphs as $para) {
+            if ($para === '') {
+                $lines++;
+                continue;
+            }
+            $words = explode(' ', $para);
+            $currentLine = '';
+            foreach ($words as $word) {
+                $testLine = $currentLine === '' ? $word : $currentLine . ' ' . $word;
+                if ($pdf->GetStringWidth($testLine) > $wmax) {
+                    $lines++;
+                    $currentLine = $word;
+                } else {
+                    $currentLine = $testLine;
+                }
+            }
+            if ($currentLine !== '') {
+                $lines++;
+            }
+        }
+        return max($lines, 1);
+    }
+
+    /**
      * Build the data array from Xero invoice details + system settings.
      *
      * @param  array  $xeroInvoice    Full Xero invoice (with Contact + LineItems)
@@ -133,15 +539,17 @@ class InvoicePdfService
         $vatRate   = $subtotal > 0 ? round($taxAmount / $subtotal * 100, 0) : 18;
 
         $data = [
-            // Header
             'invoice_date'   => $this->formatXeroDate($xeroInvoice['DateString'] ?? $xeroInvoice['Date'] ?? null),
-            'invoice_number' => $xeroInvoice['InvoiceNumber'] ?? '',
+            'invoice_number' => $this->formatInvoiceSerialNumber(
+                $xeroInvoice['InvoiceNumber'] ?? '',
+                $xeroInvoice['DateString'] ?? $xeroInvoice['Date'] ?? null
+            ),
 
             // Supplier (from system settings)
-            'supplier_tin'     => SystemSetting::get('company_tin', ''),
-            'supplier_name'    => SystemSetting::get('company_name', ''),
-            'supplier_address' => SystemSetting::get('company_address', ''),
-            'supplier_phone'   => SystemSetting::get('company_phone', ''),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
+            'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+            'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
             // Purchaser (from Xero Contact)
             'purchaser_tin'     => $contact['TaxNumber'] ?? '',
@@ -151,7 +559,7 @@ class InvoicePdfService
 
             // Details
             'delivery_date'   => $overrides['delivery_date'] ?? $this->formatXeroDate($xeroInvoice['DateString'] ?? null),
-            'place_of_supply' => $overrides['place_of_supply'] ?? '',
+            'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
             // Totals
@@ -199,13 +607,16 @@ class InvoicePdfService
         $client = $invoice->client;
 
         return [
-            'invoice_date'   => $invoice->issued_at?->format('Y-m-d') ?? '',
-            'invoice_number' => $invoice->invoice_number ?? '',
+            'invoice_date'   => $invoice->issued_at?->format('m/d/Y') ?? '',
+            'invoice_number' => $this->formatInvoiceSerialNumber(
+                $invoice->invoice_number ?? '',
+                $invoice->issued_at?->toDateString()
+            ),
 
-            'supplier_tin'     => SystemSetting::get('company_tin', ''),
-            'supplier_name'    => SystemSetting::get('company_name', ''),
-            'supplier_address' => SystemSetting::get('company_address', ''),
-            'supplier_phone'   => SystemSetting::get('company_phone', ''),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
+            'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+            'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
             'purchaser_tin'     => $overrides['purchaser_tin'] ?? '',
             'purchaser_name'    => $client?->company_name ?? '',
@@ -213,7 +624,7 @@ class InvoicePdfService
             'purchaser_phone'   => $client?->phone ?? '',
 
             'delivery_date'   => $overrides['delivery_date'] ?? '',
-            'place_of_supply' => $overrides['place_of_supply'] ?? '',
+            'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
             'subtotal'       => number_format((float) $invoice->amount, 2),
@@ -241,14 +652,17 @@ class InvoicePdfService
 
         $data = [
             // Header
-            'invoice_date'   => $estimate->issue_date?->format('Y-m-d') ?? now()->format('Y-m-d'),
-            'invoice_number' => $estimate->estimate_number ?? '',
+            'invoice_date'   => $estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y'),
+            'invoice_number' => $this->formatInvoiceSerialNumber(
+                $estimate->estimate_number ?? '',
+                $estimate->issue_date?->toDateString()
+            ),
 
             // Supplier (from system settings)
-            'supplier_tin'     => SystemSetting::get('company_tin', ''),
-            'supplier_name'    => SystemSetting::get('company_name', ''),
-            'supplier_address' => SystemSetting::get('company_address', ''),
-            'supplier_phone'   => SystemSetting::get('company_phone', ''),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
+            'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+            'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
             // Purchaser (from Client model)
             'purchaser_tin'     => $overrides['purchaser_tin'] ?? '',
@@ -258,7 +672,7 @@ class InvoicePdfService
 
             // Details
             'delivery_date'   => $overrides['delivery_date'] ?? ($estimate->valid_until?->format('Y-m-d') ?? ''),
-            'place_of_supply' => $overrides['place_of_supply'] ?? '',
+            'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
             // Totals
@@ -307,10 +721,49 @@ class InvoicePdfService
             return '';
         }
         try {
-            return \Carbon\Carbon::parse($dateString)->format('Y-m-d');
+            return \Carbon\Carbon::parse($dateString)->format('m/d/Y');
         } catch (\Throwable) {
             return $dateString;
         }
+    }
+
+    /**
+     * Format the Invoice Serial Number to YYMMM_QQQQ_XXXXX format.
+     */
+    public function formatInvoiceSerialNumber(?string $rawNumber, ?string $dateStr): string
+    {
+        if (empty($rawNumber)) {
+            return '';
+        }
+
+        // If it is already in the target format (e.g. 26MAY_MAIN_01769), return it as is
+        if (preg_match('/^\d{2}[A-Z]{3}_[A-Z0-9]{4}_\d{5}$/', $rawNumber)) {
+            return $rawNumber;
+        }
+
+        // Extract the numeric part
+        preg_match('/\d+/', $rawNumber, $matches);
+        $numPart = $matches[0] ?? '00000';
+        $paddedNum = str_pad($numPart, 5, '0', STR_PAD_LEFT);
+
+        // Get the date
+        $date = null;
+        if ($dateStr) {
+            try {
+                $date = \Carbon\Carbon::parse($dateStr);
+            } catch (\Throwable) {
+                // Ignore parsing errors
+            }
+        }
+        if (!$date) {
+            $date = now();
+        }
+
+        $yy = $date->format('y');
+        $mmm = strtoupper($date->format('M'));
+        $qqqq = 'MAIN';
+
+        return "{$yy}{$mmm}_{$qqqq}_{$paddedNum}";
     }
 
     /**
@@ -395,19 +848,53 @@ class InvoicePdfService
             return $ones[(int) ($number / 100)] . ' Hundred' .
                 ($number % 100 ? ' and ' . $this->convertWholeNumber($number % 100, $ones, $tens) : '');
         }
-        if ($number < 100000) {
+        if ($number < 1000000) {
             return $this->convertWholeNumber((int) ($number / 1000), $ones, $tens) . ' Thousand' .
                 ($number % 1000 ? ' ' . $this->convertWholeNumber($number % 1000, $ones, $tens) : '');
         }
-        if ($number < 10000000) {
-            return $this->convertWholeNumber((int) ($number / 100000), $ones, $tens) . ' Lakh' .
-                ($number % 100000 ? ' ' . $this->convertWholeNumber($number % 100000, $ones, $tens) : '');
-        }
         if ($number < 1000000000) {
-            return $this->convertWholeNumber((int) ($number / 10000000), $ones, $tens) . ' Crore' .
-                ($number % 10000000 ? ' ' . $this->convertWholeNumber($number % 10000000, $ones, $tens) : '');
+            return $this->convertWholeNumber((int) ($number / 1000000), $ones, $tens) . ' Million' .
+                ($number % 1000000 ? ' ' . $this->convertWholeNumber($number % 1000000, $ones, $tens) : '');
+        }
+        if ($number < 1000000000000) {
+            return $this->convertWholeNumber((int) ($number / 1000000000), $ones, $tens) . ' Billion' .
+                ($number % 1000000000 ? ' ' . $this->convertWholeNumber($number % 1000000000, $ones, $tens) : '');
         }
 
         return (string) $number;
+    }
+
+    /**
+     * Clean and convert a UTF-8 string to Windows-1252 for FPDF compatibility.
+     */
+    private function cleanPdfString(?string $str): string
+    {
+        if ($str === null || $str === '') {
+            return '';
+        }
+
+        // Map common UTF-8 punctuation to ASCII equivalents
+        $replacements = [
+            "\xE2\x80\x93" => '-',     // en-dash (UTF-8)
+            "\xE2\x80\x94" => '-',     // em-dash (UTF-8)
+            "\xE2\x80\x98" => "'",     // smart left single quote (UTF-8)
+            "\xE2\x80\x99" => "'",     // smart right single quote (UTF-8)
+            "\xE2\x80\x9C" => '"',     // smart left double quote (UTF-8)
+            "\xE2\x80\x9D" => '"',     // smart right double quote (UTF-8)
+            "\xE2\x80\xA2" => '*',     // bullet point (UTF-8)
+            "\xC2\xA0"     => ' ',     // non-breaking space (UTF-8)
+        ];
+
+        $str = str_replace(array_keys($replacements), array_values($replacements), $str);
+
+        // Convert the rest from UTF-8 to Windows-1252 (transliterating or ignoring unsupported chars)
+        if (function_exists('iconv')) {
+            $converted = @iconv('UTF-8', 'windows-1252//TRANSLIT//IGNORE', $str);
+            if ($converted !== false) {
+                return $converted;
+            }
+        }
+
+        return mb_convert_encoding($str, 'Windows-1252', 'UTF-8');
     }
 }
