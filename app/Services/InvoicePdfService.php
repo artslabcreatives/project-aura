@@ -157,32 +157,38 @@ class InvoicePdfService
         $pdf->SetFillColor(255, 255, 255);
         $pdf->Rect(0, 0, 210, 297, 'F');
 
-        // Center Tax Invoice title box
-        $pdf->SetXY(80, 44);
-        $pdf->SetFont('Helvetica', 'B', 10);
+        // Draw Artslab logo at top right
+        $logoPath = public_path('logo-artslab.png');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 150, 12, 45);
+        }
+
+        // Center Tax Invoice title box (Shifted up by 10mm, font size 12)
+        $pdf->SetXY(80, 34);
+        $pdf->SetFont('Helvetica', 'B', 12);
         $pdf->Cell(50, 8, 'Tax Invoice', 1, 0, 'C');
 
-        // Row 1: Date of Invoice & Tax Invoice No
-        $pdf->Rect(15, 56, 90, 8);
-        $pdf->SetXY(17, 56);
+        // Row 1: Date of Invoice & Tax Invoice No (Shifted up by 10mm)
+        $pdf->Rect(15, 46, 90, 8);
+        $pdf->SetXY(17, 46);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(28, 8, 'Date of Invoice:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 8, $data['invoice_date'] ?? '', 0, 0, 'L');
 
-        $pdf->Rect(105, 56, 90, 8);
-        $pdf->SetXY(107, 56);
+        $pdf->Rect(105, 46, 90, 8);
+        $pdf->SetXY(107, 46);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(28, 8, 'Tax Invoice No.:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 8, $data['invoice_number'] ?? '', 0, 0, 'L');
 
-        // Row 2: Supplier & Purchaser details
-        $pdf->Rect(15, 66, 90, 38);
-        $pdf->Rect(105, 66, 90, 38);
+        // Row 2: Supplier & Purchaser details (Shifted up by 10mm)
+        $pdf->Rect(15, 56, 90, 38);
+        $pdf->Rect(105, 56, 90, 38);
 
         // Supplier details inside box
-        $pdf->SetXY(17, 68);
+        $pdf->SetXY(17, 58);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(24, 4, "Supplier's TIN:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
@@ -202,14 +208,14 @@ class InvoicePdfService
         $pdf->SetXY(32, $addrY);
         $pdf->MultiCell(71, 4, $data['supplier_address'] ?? '', 0, 'L');
 
-        $pdf->SetXY(17, 98);
+        $pdf->SetXY(17, 88);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(24, 4, "Telephone No:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(62, 4, $data['supplier_phone'] ?? '', 0, 1, 'L');
 
         // Purchaser details inside box
-        $pdf->SetXY(107, 68);
+        $pdf->SetXY(107, 58);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(26, 4, "Purchaser's TIN:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
@@ -229,51 +235,56 @@ class InvoicePdfService
         $pdf->SetXY(122, $addrY);
         $pdf->MultiCell(71, 4, $data['purchaser_address'] ?? '', 0, 'L');
 
-        $pdf->SetXY(107, 98);
+        $pdf->SetXY(107, 88);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(26, 4, "Telephone No:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 4, $data['purchaser_phone'] ?? '', 0, 1, 'L');
 
-        // Row 3: Date of Delivery & Place of Supply
-        $pdf->Rect(15, 106, 90, 8);
-        $pdf->SetXY(17, 106);
+        // Row 3: Date of Delivery & Place of Supply (Shifted up by 10mm)
+        $pdf->Rect(15, 96, 90, 8);
+        $pdf->SetXY(17, 96);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(28, 8, 'Date of Delivery:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 8, $data['delivery_date'] ?? '', 0, 0, 'L');
 
-        $pdf->Rect(105, 106, 90, 8);
-        $pdf->SetXY(107, 106);
+        $pdf->Rect(105, 96, 90, 8);
+        $pdf->SetXY(107, 96);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(28, 8, 'Place of Supply:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 8, $data['place_of_supply'] ?? '', 0, 0, 'L');
 
-        // Row 4: Additional Information if any
-        $infoText = $data['additional_info'] ?? '';
-        $fullLabel = 'Additional Information if any: ';
-        $fullInfoText = $fullLabel . $infoText;
-        $pdf->SetFont('Helvetica', '', 8);
-        $infoLines = $this->calculateNbLines($pdf, 178, $fullInfoText);
-        $infoHeight = max(($infoLines * 4) + 4, 16);
+        // Row 4: Additional Information if any (Conditional)
+        $infoText = trim($data['additional_info'] ?? '');
+        if ($infoText !== '') {
+            $fullLabel = 'Additional Information if any: ';
+            $fullInfoText = $fullLabel . $infoText;
+            $pdf->SetFont('Helvetica', '', 8);
+            $infoLines = $this->calculateNbLines($pdf, 178, $fullInfoText);
+            $infoHeight = max(($infoLines * 4) + 4, 16);
 
-        $pdf->Rect(15, 116, 180, $infoHeight);
+            $pdf->Rect(15, 106, 180, $infoHeight);
 
-        $pdf->SetLeftMargin(17);
-        $pdf->SetRightMargin(17);
-        $pdf->SetXY(17, 118);
+            $pdf->SetLeftMargin(17);
+            $pdf->SetRightMargin(17);
+            $pdf->SetXY(17, 108);
 
-        $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Write(4, $fullLabel);
-        $pdf->SetFont('Helvetica', '', 8);
-        $pdf->Write(4, $infoText);
+            $pdf->SetFont('Helvetica', 'B', 8);
+            $pdf->Write(4, $fullLabel);
+            $pdf->SetFont('Helvetica', '', 8);
+            $pdf->Write(4, $infoText);
 
-        $pdf->SetLeftMargin(10);
-        $pdf->SetRightMargin(10);
+            $pdf->SetLeftMargin(10);
+            $pdf->SetRightMargin(10);
 
-        // Table Start Y
-        $tableY = 116 + $infoHeight + 2; // Dynamic offset + 2mm gap
+            // Table Start Y
+            $tableY = 106 + $infoHeight + 2; // Dynamic offset + 2mm gap
+        } else {
+            // Table Start Y if no Additional Information
+            $tableY = 106;
+        }
         $pdf->SetXY(15, $tableY);
 
         // Draw header boxes
@@ -462,6 +473,94 @@ class InvoicePdfService
         $pdf->Cell(28, 8, 'Mode of Payment:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(148, 8, $data['payment_mode'] ?? '', 0, 0, 'L');
+
+        $currentY += 8;
+
+        // Calculate due date (delivery date + 15 working days)
+        $dueDateText = '';
+        $deliveryDateStr = $data['delivery_date'] ?? '';
+        $deliveryDate = null;
+        if (!empty($deliveryDateStr)) {
+            try {
+                // Try to parse 'm/d/Y' format first
+                $deliveryDate = \Carbon\Carbon::createFromFormat('m/d/Y', $deliveryDateStr);
+            } catch (\Exception $e) {
+                try {
+                    $deliveryDate = \Carbon\Carbon::parse($deliveryDateStr);
+                } catch (\Exception $ex) {
+                    $deliveryDate = null;
+                }
+            }
+        }
+
+        if (!$deliveryDate && !empty($data['invoice_date'])) {
+            try {
+                $deliveryDate = \Carbon\Carbon::createFromFormat('m/d/Y', $data['invoice_date']);
+            } catch (\Exception $e) {
+                try {
+                    $deliveryDate = \Carbon\Carbon::parse($data['invoice_date']);
+                } catch (\Exception $ex) {
+                    $deliveryDate = null;
+                }
+            }
+        }
+
+        if (!$deliveryDate) {
+            $deliveryDate = \Carbon\Carbon::now();
+        }
+
+        // Add 15 weekdays (working/business days)
+        $dueDate = $deliveryDate->copy()->addWeekdays(15);
+        $dueDateText = $dueDate->format('d M Y');
+
+        $blockHeight = 55;
+        if ($currentY + $blockHeight > 280) {
+            $pdf->AddPage('P', 'A4');
+            $currentY = 20;
+        } else {
+            $currentY += 10;
+        }
+
+        // Paragraph 1: Due Date & settlement terms
+        $pdf->SetXY(15, $currentY);
+        $pdf->SetFont('Helvetica', 'B', 10);
+        $pdf->Cell(180, 5, 'Due Date: ' . $dueDateText, 0, 1, 'L');
+        $pdf->SetX(15);
+        $pdf->SetFont('Helvetica', '', 8.5);
+        $pdf->Cell(180, 4, 'Payments need to be settled within 15 business days from the invoice date.', 0, 1, 'L');
+
+        $currentY = $pdf->GetY() + 4;
+
+        // Paragraph 2: Bank Details
+        $pdf->SetXY(15, $currentY);
+        $pdf->SetFont('Helvetica', '', 8.5);
+        $pdf->Cell(180, 4, 'White Star Web Solutions (Pvt) Ltd', 0, 1, 'L');
+        $pdf->SetX(15);
+        $pdf->Cell(180, 4, '103414008857', 0, 1, 'L');
+        $pdf->SetX(15);
+        $pdf->Cell(180, 4, 'Sampath Bank', 0, 1, 'L');
+        $pdf->SetX(15);
+        $pdf->Cell(180, 4, 'Thimbirigasyaya Branch', 0, 1, 'L');
+        $pdf->SetX(15);
+        $pdf->Cell(180, 4, 'SWIFT Code : BSAMLKLX', 0, 1, 'L');
+
+        $currentY = $pdf->GetY() + 4;
+
+        // Paragraph 3: Cheques
+        $pdf->SetXY(15, $currentY);
+        $pdf->Cell(180, 4, 'All cheques to be drawn in favour of White Star Web Solutions (Pvt) Ltd.', 0, 1, 'L');
+
+        $currentY = $pdf->GetY() + 4;
+
+        // Paragraph 4: Invoice ref in description
+        $pdf->SetXY(15, $currentY);
+        $pdf->Cell(180, 4, "Please use your invoice number in the transaction description so we can see when you've paid.", 0, 1, 'L');
+
+        $currentY = $pdf->GetY() + 4;
+
+        // Paragraph 5: Computer generated warning
+        $pdf->SetXY(15, $currentY);
+        $pdf->Cell(180, 4, 'This document is computer generated. No signature is required.', 0, 1, 'L');
 
         return $pdf->Output('S');
     }
