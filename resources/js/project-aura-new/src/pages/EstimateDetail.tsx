@@ -323,7 +323,7 @@ export default function EstimateDetail() {
 											<div className="col-span-2 text-right">{item.quantity}</div>
 											<div className="col-span-2 text-right">{estimate.currency === "LKR" ? "Rs. " : "$"}{item.unit_price.toFixed(2)}</div>
 											<div className="col-span-2 text-right font-medium">
-												{estimate.currency === "LKR" ? "Rs. " : "$"}{(item.quantity * item.unit_price).toFixed(2)}
+												{estimate.currency === "LKR" ? "Rs. " : "$"}{(item.total !== undefined ? item.total : item.quantity * item.unit_price).toFixed(2)}
 											</div>
 										</div>
 									))}

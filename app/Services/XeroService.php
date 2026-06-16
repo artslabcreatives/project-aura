@@ -626,12 +626,13 @@ class XeroService
         foreach ($lineItems as $idx => $item) {
             $qty   = (float) ($item['Quantity'] ?? 1);
             $price = (float) ($item['UnitAmount'] ?? 0);
+            $lineAmt = (float) ($item['LineAmount'] ?? ($qty * $price));
 
             $estimate->items()->create([
                 'description' => $item['Description'] ?? '',
                 'quantity'    => $qty,
                 'unit_price'  => $price,
-                'total'       => round($qty * $price, 2),
+                'total'       => round($lineAmt, 2),
                 'sort_order'  => $idx,
             ]);
         }
