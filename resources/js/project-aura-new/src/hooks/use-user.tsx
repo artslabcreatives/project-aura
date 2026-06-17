@@ -159,7 +159,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 			const token = getToken();
 
 			// Skip token check for public routes
-			const publicPaths = ['/set-password', '/reset-password'];
+			const publicPaths = ['/set-password', '/reset-password', '/sso/authorize', '/oauth/authorize', '/downloads/mattermost'];
 			const isPublicRoute = publicPaths.some(path => window.location.pathname.startsWith(path));
 			if (isPublicRoute) {
 				return; // Don't check token for public routes
