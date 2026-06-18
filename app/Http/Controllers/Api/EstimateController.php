@@ -386,6 +386,9 @@ class EstimateController extends Controller
         if ($request->has('reference')) {
             $overrides['reference'] = $request->query('reference');
         }
+        if ($request->has('due_days')) {
+            $overrides['due_days'] = $request->query('due_days');
+        }
 
         $data = $pdfService->buildDataFromLocalEstimate($estimate, $overrides);
 

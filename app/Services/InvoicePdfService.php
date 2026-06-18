@@ -534,8 +534,9 @@ class InvoicePdfService
             $deliveryDate = \Carbon\Carbon::now();
         }
 
-        // Add 15 weekdays (working/business days)
-        $dueDate = $deliveryDate->copy()->addWeekdays(15);
+        // Add weekdays (working/business days)
+        $dueDays = isset($data['due_days']) ? (int) $data['due_days'] : 15;
+        $dueDate = $deliveryDate->copy()->addWeekdays($dueDays);
         $dueDateText = $dueDate->format('d M Y');
 
         $blockHeight = 55;
@@ -552,7 +553,7 @@ class InvoicePdfService
         $pdf->Cell(180, 5, 'Due Date: ' . $dueDateText, 0, 1, 'L');
         $pdf->SetX(15);
         $pdf->SetFont('Helvetica', '', 8.5);
-        $pdf->Cell(180, 4, 'Payments need to be settled within 15 business days from the invoice date.', 0, 1, 'L');
+        $pdf->Cell(180, 4, "Payments need to be settled within {$dueDays} business days from the invoice date.", 0, 1, 'L');
 
         $currentY = $pdf->GetY() + 4;
 
@@ -675,6 +676,7 @@ class InvoicePdfService
 
             // Footer
             'payment_mode' => $overrides['payment_mode'] ?? '',
+            'due_days'     => $overrides['due_days'] ?? 15,
         ];
 
         // Line items (up to 5)
@@ -746,6 +748,7 @@ class InvoicePdfService
             'total_in_words' => $this->numberToWords((float) $invoice->amount),
 
             'payment_mode' => $overrides['payment_mode'] ?? '',
+            'due_days'     => $overrides['due_days'] ?? 15,
         ];
     }
 
@@ -797,6 +800,7 @@ class InvoicePdfService
 
             // Footer
             'payment_mode' => $overrides['payment_mode'] ?? '',
+            'due_days'     => $overrides['due_days'] ?? 15,
         ];
 
         // Line items (up to 5)

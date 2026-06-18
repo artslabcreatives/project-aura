@@ -57,11 +57,12 @@ export const estimateService = {
 	},
 
 	/** Download dynamic PDF invoice map for an estimate. */
-	downloadPdf: async (id: number | string, paymentMode?: string, additionalInfo?: string, reference?: string, filename = 'estimate.pdf'): Promise<void> => {
+	downloadPdf: async (id: number | string, paymentMode?: string, additionalInfo?: string, reference?: string, dueDays?: string, filename = 'estimate.pdf'): Promise<void> => {
 		const params: Record<string, string> = {};
 		if (paymentMode) params.payment_mode = paymentMode;
 		if (additionalInfo) params.additional_info = additionalInfo;
 		if (reference) params.reference = reference;
+		if (dueDays) params.due_days = dueDays;
 
 		const response = await api.get(`/estimates/${id}/download-pdf`, {
 			params,

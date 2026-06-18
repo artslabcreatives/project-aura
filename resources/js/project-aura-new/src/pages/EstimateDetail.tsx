@@ -78,6 +78,7 @@ export default function EstimateDetail() {
 
 	const [isPaymentModeOpen, setIsPaymentModeOpen] = useState(false);
 	const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>("Bank Transfer");
+	const [dueDays, setDueDays] = useState<string>("15");
 
 	const [additionalInfo, setAdditionalInfo] = useState<string>("");
 	const [referenceNumber, setReferenceNumber] = useState<string>("");
@@ -153,12 +154,12 @@ export default function EstimateDetail() {
 		}
 	};
 
-	const handleDownloadPdf = async (paymentMode: string, additionalInfoStr?: string, referenceStr?: string) => {
+	const handleDownloadPdf = async (paymentMode: string, additionalInfoStr?: string, referenceStr?: string, dueDaysStr?: string) => {
 		if (!estimate?.id) return;
 		setIsDownloading(true);
 		try {
 			const num = estimate.estimate_number || 'draft';
-			await estimateService.downloadPdf(estimate.id, paymentMode, additionalInfoStr, referenceStr, `Tax_Invoice_${num}.pdf`);
+			await estimateService.downloadPdf(estimate.id, paymentMode, additionalInfoStr, referenceStr, dueDaysStr, `Tax_Invoice_${num}.pdf`);
 			toast({ title: "Tax Invoice PDF downloaded." });
 		} catch {
 			toast({
@@ -489,6 +490,18 @@ export default function EstimateDetail() {
 							</Select>
 						</div>
 						<div className="grid gap-2">
+							<Label htmlFor="dueDays">Due Date / Payment Terms</Label>
+							<Select value={dueDays} onValueChange={setDueDays}>
+								<SelectTrigger id="dueDays" className="w-full">
+									<SelectValue placeholder="Select payment terms" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="15">15 business days</SelectItem>
+									<SelectItem value="30">30 business days</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="grid gap-2">
 							<Label htmlFor="referenceNumber">Reference Number</Label>
 							<Input
 								id="referenceNumber"
@@ -514,7 +527,7 @@ export default function EstimateDetail() {
 						<Button
 							onClick={() => {
 								setIsPaymentModeOpen(false);
-								handleDownloadPdf(selectedPaymentMode, additionalInfo, referenceNumber);
+								handleDownloadPdf(selectedPaymentMode, additionalInfo, referenceNumber, dueDays);
 							}}
 						>
 							Download PDF
