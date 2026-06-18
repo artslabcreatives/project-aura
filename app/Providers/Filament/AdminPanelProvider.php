@@ -17,6 +17,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\View\PanelsRenderHook;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -30,6 +31,10 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Aura')
             ->brandLogo(fn () => view('filament.admin.logo'))
             ->brandLogoHeight('3rem')
+            ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): string => view('filament.admin.lms-button'),
+            )
             ->colors([
                 'primary' => Color::Amber,
             ])

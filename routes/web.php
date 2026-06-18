@@ -52,6 +52,52 @@ Route::middleware(['web'])->group(function () {
             'Content-Type' => 'application/pdf',
         ]);
     })->name('admin.invoice-templates.pdf');
+
+    // Sync users to LMS
+    Route::post('/admin/sync-lms-users', function () {
+        if (!auth()->check() || auth()->user()->role !== 'admin') {
+            abort(403, 'Unauthorized');
+        }
+
+        $users = \App\Models\User::with('department')->get();
+        $synced = 0;
+        $failed = 0;
+
+        foreach ($users as $user) {
+            $role = $user->role === 'admin' ? 'admin' : 'learner';
+            $department = $user->department?->name;
+            $status = $user->is_active ? 'active' : 'inactive';
+
+            try {
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'x-sync-secret' => 'aura_sync_secret_token_abc123',
+                ])->post('http://localhost:3000/auth/sync-user', [
+                    'id' => (string) $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'department' => $department,
+                    'role' => $role,
+                    'status' => $status,
+                ]);
+
+                if ($response->successful()) {
+                    $synced++;
+                } else {
+                    $failed++;
+                }
+            } catch (\Exception $e) {
+                $failed++;
+            }
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title('LMS User Synchronization')
+            ->body("Synchronization complete. Synced: {$synced}, Failed: {$failed}.")
+            ->success()
+            ->send();
+
+        return back();
+    })->name('admin.sync-lms-users');
 });
 
 // Regular app routes (with session authentication)

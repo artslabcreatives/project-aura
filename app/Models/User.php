@@ -150,4 +150,32 @@ class User extends Authenticatable implements FilamentUser
             ->withPivot('invited_by')
             ->withTimestamps();
     }
+
+    /**
+     * Bootstrap the model and add the LMS sync event hook.
+     */
+    protected static function booted()
+    {
+        static::saved(function ($user) {
+            try {
+                $role = $user->role === 'admin' ? 'admin' : 'learner';
+                $department = $user->department?->name;
+                $status = $user->is_active ? 'active' : 'inactive';
+
+                // Sync with LMS backend API
+                \Illuminate\Support\Facades\Http::withHeaders([
+                    'x-sync-secret' => 'aura_sync_secret_token_abc123',
+                ])->post('http://localhost:3000/auth/sync-user', [
+                    'id' => (string) $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'department' => $department,
+                    'role' => $role,
+                    'status' => $status,
+                ]);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('LMS User Sync failed: ' . $e->getMessage());
+            }
+        });
+    }
 }

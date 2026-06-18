@@ -25,8 +25,6 @@ class OAuthClient extends Model
     ];
 
     protected $casts = [
-        'redirect_uris' => 'array',
-        'allowed_scopes' => 'array',
         'is_active' => 'boolean',
         'is_confidential' => 'boolean',
         'client_secret' => 'encrypted',
@@ -47,6 +45,66 @@ class OAuthClient extends Model
     public function accessTokens(): HasMany
     {
         return $this->hasMany(OAuthAccessToken::class, 'client_id');
+    }
+
+    public function getRedirectUrisAttribute($value): array
+    {
+        if (empty($value)) {
+            return [];
+        }
+        $decoded = json_decode($value, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+        return array_values(array_filter(array_map('trim', preg_split('/[\n,]+/', $value))));
+    }
+
+    public function setRedirectUrisAttribute($value): void
+    {
+        if (is_array($value)) {
+            $this->attributes['redirect_uris'] = json_encode(array_values(array_filter(array_map('trim', $value))));
+        } elseif (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $this->attributes['redirect_uris'] = json_encode($decoded);
+            } else {
+                $uris = array_values(array_filter(array_map('trim', preg_split('/[\n,]+/', $value))));
+                $this->attributes['redirect_uris'] = json_encode($uris);
+            }
+        } else {
+            $this->attributes['redirect_uris'] = json_encode([]);
+        }
+    }
+
+    public function getAllowedScopesAttribute($value): ?array
+    {
+        if ($value === null) {
+            return null;
+        }
+        $decoded = json_decode($value, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+        return array_values(array_filter(array_map('trim', preg_split('/[\n,]+/', $value))));
+    }
+
+    public function setAllowedScopesAttribute($value): void
+    {
+        if ($value === null) {
+            $this->attributes['allowed_scopes'] = null;
+        } elseif (is_array($value)) {
+            $this->attributes['allowed_scopes'] = json_encode(array_values(array_filter(array_map('trim', $value))));
+        } elseif (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $this->attributes['allowed_scopes'] = json_encode($decoded);
+            } else {
+                $scopes = array_values(array_filter(array_map('trim', preg_split('/[\n,]+/', $value))));
+                $this->attributes['allowed_scopes'] = json_encode($scopes);
+            }
+        } else {
+            $this->attributes['allowed_scopes'] = null;
+        }
     }
 
     public function isRedirectUriAllowed(string $uri): bool

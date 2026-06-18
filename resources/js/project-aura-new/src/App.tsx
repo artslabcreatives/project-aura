@@ -19,7 +19,7 @@ const FilteredTasksPage = lazy(() => import("./pages/FilteredTasksPage"));
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { Login } from "@/components/Login";
 import { Button } from "@/components/ui/button";
-import { LogOut, HelpCircle } from "lucide-react";
+import { LogOut, HelpCircle, GraduationCap } from "lucide-react";
 
 import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
 import { userTourSteps } from "@/components/tourSteps";
@@ -115,6 +115,15 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 						</div>
 
 						<div className="flex items-center mr-2 gap-1">
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => window.open("https://artslab-lms.netlify.app", "_blank")}
+								title="Go to LMS"
+								className="text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+							>
+								<GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+							</Button>
 							<Button
 								variant="ghost"
 								size="icon"
