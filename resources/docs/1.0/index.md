@@ -15,3 +15,4 @@
 
 - [Backend Admin Manual](/{{route}}/{{version}}/backend-admin/overview)
 - [Developer Documentation](/{{route}}/{{version}}/developer/overview)
+- [Login with Aura Guide](/{{route}}/{{version}}/developer/login-with-aura)
