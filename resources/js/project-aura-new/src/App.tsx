@@ -118,7 +118,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 							<Button
 								variant="ghost"
 								size="icon"
-								onClick={() => window.open("https://artslab-lms.netlify.app", "_blank")}
+								onClick={() => window.open("https://lms.artslabcreatives.com/", "_blank")}
 								title="Go to LMS"
 								className="text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
 							>
