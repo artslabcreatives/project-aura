@@ -61,5 +61,16 @@ class AppServiceProvider extends ServiceProvider
         Task::observe(CacheInvalidationObserver::class);
         Stage::observe(CacheInvalidationObserver::class);
         ProjectPurchaseOrder::observe(CacheInvalidationObserver::class);
+
+        // Register safe typesense scout engine
+        if (class_exists(\Laravel\Scout\EngineManager::class)) {
+            resolve(\Laravel\Scout\EngineManager::class)->extend('typesense', function ($app) {
+                $config = config('scout.typesense');
+                return new \App\Search\SafeTypesenseEngine(
+                    new \Typesense\Client($config['client-settings']),
+                    $config['max_total_results'] ?? 1000
+                );
+            });
+        }
     }
 }
