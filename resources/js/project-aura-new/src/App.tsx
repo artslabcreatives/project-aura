@@ -118,7 +118,19 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 							<Button
 								variant="ghost"
 								size="icon"
-								onClick={() => window.open("https://lms.artslabcreatives.com/", "_blank")}
+								onClick={async () => {
+									try {
+										const { autoAuthorize } = await import("@/services/ssoService");
+										const { redirect_to } = await autoAuthorize(
+											"artslab_lms_sso",
+											"https://lms.artslabcreatives.com/auth/callback"
+										);
+										window.open(redirect_to, "_blank");
+									} catch (e) {
+										console.error("SSO auto-authorize failed, falling back:", e);
+										window.open("https://lms.artslabcreatives.com/", "_blank");
+									}
+								}}
 								title="Go to LMS"
 								className="text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
 							>

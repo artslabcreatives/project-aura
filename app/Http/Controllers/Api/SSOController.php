@@ -397,6 +397,79 @@ class SSOController extends Controller
             ->header('Cache-Control', 'public, max-age=3600');
     }
 
+    /**
+     * Auto-authorize for trusted first-party clients.
+     * Generates an authorization code without showing the consent screen.
+     * Used when a logged-in Aura user clicks "Go to LMS" etc.
+     */
+    #[OA\Post(
+        path: "/sso/auto-authorize",
+        summary: "Auto-authorize for trusted first-party apps",
+        description: "Generates an authorization code for a trusted client without showing the consent screen. Requires Sanctum authentication.",
+        security: [["bearerAuth" => []]],
+        tags: ["SSO / OAuth"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["client_id"],
+                properties: [
+                    new OA\Property(property: "client_id", type: "string", description: "The OAuth client_id to auto-authorize"),
+                    new OA\Property(property: "redirect_uri", type: "string", format: "uri", description: "Optional override redirect URI"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Redirect URL with authorization code"),
+            new OA\Response(response: 400, description: "Invalid client or configuration"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
+    public function autoAuthorize(Request $request): JsonResponse
+    {
+        $params = $request->validate([
+            'client_id'    => 'required|string',
+            'redirect_uri' => 'nullable|url',
+        ]);
+
+        $client = OAuthClient::where('client_id', $params['client_id'])
+            ->where('is_active', true)
+            ->first();
+
+        if (!$client) {
+            return response()->json(['error' => 'invalid_client'], 400);
+        }
+
+        // Use the first registered redirect URI if none specified
+        $redirectUri = $params['redirect_uri'] ?? ($client->redirect_uris[0] ?? null);
+
+        if (!$redirectUri || !$client->isRedirectUriAllowed($redirectUri)) {
+            return response()->json(['error' => 'invalid_redirect_uri'], 400);
+        }
+
+        // Default scopes for auto-authorize
+        $scopes = ['openid', 'profile', 'email'];
+
+        // Generate authorization code
+        $code = Str::random(64);
+
+        OAuthAuthorizationCode::create([
+            'code'                  => $code,
+            'user_id'               => $request->user()->id,
+            'client_id'             => $client->id,
+            'scopes'                => $scopes,
+            'redirect_uri'          => $redirectUri,
+            'code_challenge'        => null,
+            'code_challenge_method' => null,
+            'expires_at'            => now()->addSeconds($this->sso->getAuthCodeTtl()),
+        ]);
+
+        $url = $this->buildRedirectUrl($redirectUri, [
+            'code' => $code,
+        ]);
+
+        return response()->json(['redirect_to' => $url]);
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private function resolveClient(Request $request, string $clientId, ?string $clientSecret): OAuthClient|JsonResponse

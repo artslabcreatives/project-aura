@@ -98,6 +98,42 @@ Route::middleware(['web'])->group(function () {
 
         return back();
     })->name('admin.sync-lms-users');
+
+    // SSO auto-authorize redirect for LMS (Filament admin button)
+    Route::get('/sso/auto-authorize-lms', function () {
+        if (!auth()->check()) {
+            return redirect('/admin/login');
+        }
+
+        $client = \App\Models\OAuthClient::where('client_id', 'artslab_lms_sso')
+            ->where('is_active', true)
+            ->first();
+
+        if (!$client) {
+            return redirect('https://lms.artslabcreatives.com/');
+        }
+
+        $redirectUri = 'https://lms.artslabcreatives.com/auth/callback';
+
+        if (!$client->isRedirectUriAllowed($redirectUri)) {
+            return redirect('https://lms.artslabcreatives.com/');
+        }
+
+        $code = \Illuminate\Support\Str::random(64);
+
+        \App\Models\OAuthAuthorizationCode::create([
+            'code'                  => $code,
+            'user_id'               => auth()->id(),
+            'client_id'             => $client->id,
+            'scopes'                => ['openid', 'profile', 'email'],
+            'redirect_uri'          => $redirectUri,
+            'code_challenge'        => null,
+            'code_challenge_method' => null,
+            'expires_at'            => now()->addSeconds(300),
+        ]);
+
+        return redirect($redirectUri . '?code=' . $code);
+    })->name('sso.auto-authorize-lms');
 });
 
 // Regular app routes (with session authentication)

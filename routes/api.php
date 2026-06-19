@@ -311,6 +311,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // SSO — user approves/denies the consent screen (requires logged-in Sanctum session)
     Route::post('/oauth/authorize', [SSOController::class, 'approve']);
 
+    // SSO — auto-authorize for trusted first-party apps (e.g. Go to LMS button)
+    Route::post('/sso/auto-authorize', [SSOController::class, 'autoAuthorize']);
+
     // SSO — OAuth client management (admin only)
     Route::middleware('role:admin')->prefix('oauth')->group(function () {
         Route::apiResource('clients', OAuthClientController::class)->parameter('clients', 'oauthClient');

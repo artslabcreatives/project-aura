@@ -58,6 +58,15 @@ export async function approveAuthorize(payload: {
     return data;
 }
 
+/** Auto-authorize for trusted first-party apps (skips consent screen). */
+export async function autoAuthorize(clientId: string, redirectUri?: string): Promise<{ redirect_to: string }> {
+    const { data } = await api.post<{ redirect_to: string }>('/sso/auto-authorize', {
+        client_id: clientId,
+        redirect_uri: redirectUri,
+    });
+    return data;
+}
+
 // ─── Admin Client Management ─────────────────────────────────────────────────
 
 export async function listClients(): Promise<OAuthClient[]> {
