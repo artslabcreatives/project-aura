@@ -150,6 +150,61 @@ class TaskResource extends Resource
                         'high' => 'High',
                     ]),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('export_filtered_csv')
+                    ->label('Export to CSV')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->action(function ($livewire) {
+                        $records = $livewire->getFilteredTableQuery()
+                            ->with(['project', 'assignee', 'projectStage'])
+                            ->get();
+
+                        return response()->streamDownload(function () use ($records) {
+                            $handle = fopen('php://output', 'w');
+                            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM for Excel UTF-8 support
+
+                            fputcsv($handle, [
+                                'ID',
+                                'Title',
+                                'Description',
+                                'Project',
+                                'Assignee',
+                                'User Status',
+                                'Priority',
+                                'Stage',
+                                'Due Date',
+                                'Start Date',
+                                'Completed At',
+                                'Estimated Hours',
+                                'Actual Hours Worked',
+                                'Task Cost',
+                                'Created At',
+                            ]);
+
+                            foreach ($records as $record) {
+                                fputcsv($handle, [
+                                    $record->id,
+                                    $record->title,
+                                    $record->description,
+                                    $record->project?->name,
+                                    $record->assignee?->name,
+                                    $record->user_status,
+                                    $record->priority,
+                                    $record->projectStage?->title,
+                                    $record->due_date?->toDateTimeString(),
+                                    $record->start_date?->toDateTimeString(),
+                                    $record->completed_at?->toDateTimeString(),
+                                    $record->estimated_hours,
+                                    $record->actual_hours_worked,
+                                    $record->task_cost,
+                                    $record->created_at?->toDateTimeString(),
+                                ]);
+                            }
+
+                            fclose($handle);
+                        }, 'tasks_export_' . now()->format('Y-m-d_H-i-s') . '.csv');
+                    })
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
@@ -157,6 +212,55 @@ class TaskResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('export_selected_csv')
+                        ->label('Export Selected to CSV')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            return response()->streamDownload(function () use ($records) {
+                                $handle = fopen('php://output', 'w');
+                                fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM for Excel UTF-8 support
+
+                                fputcsv($handle, [
+                                    'ID',
+                                    'Title',
+                                    'Description',
+                                    'Project',
+                                    'Assignee',
+                                    'User Status',
+                                    'Priority',
+                                    'Stage',
+                                    'Due Date',
+                                    'Start Date',
+                                    'Completed At',
+                                    'Estimated Hours',
+                                    'Actual Hours Worked',
+                                    'Task Cost',
+                                    'Created At',
+                                ]);
+
+                                foreach ($records as $record) {
+                                    fputcsv($handle, [
+                                        $record->id,
+                                        $record->title,
+                                        $record->description,
+                                        $record->project?->name,
+                                        $record->assignee?->name,
+                                        $record->user_status,
+                                        $record->priority,
+                                        $record->projectStage?->title,
+                                        $record->due_date?->toDateTimeString(),
+                                        $record->start_date?->toDateTimeString(),
+                                        $record->completed_at?->toDateTimeString(),
+                                        $record->estimated_hours,
+                                        $record->actual_hours_worked,
+                                        $record->task_cost,
+                                        $record->created_at?->toDateTimeString(),
+                                    ]);
+                                }
+
+                                fclose($handle);
+                            }, 'tasks_export_selected_' . now()->format('Y-m-d_H-i-s') . '.csv');
+                        }),
                 ]),
             ]);
     }
