@@ -71,6 +71,13 @@ export default function SSOAuthorize() {
             .finally(() => setValidating(false));
     }, [isAuthenticated]);
 
+    // Auto-approve for trusted first-party clients (e.g. LMS) — skip consent screen
+    useEffect(() => {
+        if (clientInfo?.is_first_party) {
+            handleDecision(true);
+        }
+    }, [clientInfo]);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoginLoading(true);

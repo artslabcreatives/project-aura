@@ -98,6 +98,16 @@ Route::middleware(['web'])->group(function () {
 
         return back();
     })->name('admin.sync-lms-users');
+
+    // SSO redirect for LMS — opens the LMS login page; Aura auto-approves when
+    // the LMS initiates the OAuth flow back (see config/sso.php first_party_clients)
+    Route::get('/sso/auto-authorize-lms', function () {
+        if (!auth()->check()) {
+            return redirect('/admin/login');
+        }
+
+        return redirect('https://lms.artslabcreatives.com/');
+    })->name('sso.auto-authorize-lms');
 });
 
 // Regular app routes (with session authentication)
