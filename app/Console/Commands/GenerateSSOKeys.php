@@ -41,11 +41,19 @@ class GenerateSSOKeys extends Command
         $details   = openssl_pkey_get_details($resource);
         $publicKey = $details['key'];
 
+        // Remove existing files first so new files are owned by the current user
+        if (file_exists($privatePath)) {
+            @unlink($privatePath);
+        }
+        if (file_exists($publicPath)) {
+            @unlink($publicPath);
+        }
+
         file_put_contents($privatePath, $privateKey);
-        chmod($privatePath, 0600);
+        @chmod($privatePath, 0600);
 
         file_put_contents($publicPath, $publicKey);
-        chmod($publicPath, 0644);
+        @chmod($publicPath, 0644);
 
         $this->info("Private key: {$privatePath}");
         $this->info("Public key:  {$publicPath}");

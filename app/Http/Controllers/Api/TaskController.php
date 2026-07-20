@@ -1035,11 +1035,16 @@ class TaskController extends Controller
             'due_date' => 'nullable|date',
             'extend_days' => 'nullable|integer',
             'clear_due_date' => 'nullable|boolean',
+            'project_stage_id' => 'nullable|exists:stages,id',
         ]);
 
         $user = $request->user();
         if (!in_array($user->role, ['admin', 'team-lead'])) {
             return response()->json(['message' => 'Unauthorized. Only Admins and Team Leads can bulk update tasks.'], 403);
+        }
+
+        if (isset($validated['project_stage_id']) && $user->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized. Only admins can bulk update task stages.'], 403);
         }
 
         $taskIds = $validated['task_ids'];
@@ -1066,6 +1071,28 @@ class TaskController extends Controller
             } elseif (isset($validated['extend_days'])) {
                 if ($task->due_date) {
                     $task->due_date = $task->due_date->addDays($validated['extend_days']);
+                }
+            }
+
+            // Update stage if provided
+            if (isset($validated['project_stage_id'])) {
+                $task->project_stage_id = $validated['project_stage_id'];
+                
+                // Set appropriate user status and auto-assign
+                $stage = \App\Models\Stage::find($validated['project_stage_id']);
+                if ($stage) {
+                    $stageTitleLower = strtolower(trim($stage->title));
+                    if (in_array($stageTitleLower, ['complete', 'completed', 'archive', 'archived'])) {
+                        $task->user_status = 'complete';
+                        $task->completed_at = now();
+                    } else {
+                        $task->user_status = 'pending';
+                        // Auto-assign to main responsible person of target stage if assignment is not locked
+                        if ($stage->main_responsible_id && !$task->is_assignee_locked) {
+                            $task->assignee_id = $stage->main_responsible_id;
+                            $task->assignedUsers()->sync([$stage->main_responsible_id]);
+                        }
+                    }
                 }
             }
 

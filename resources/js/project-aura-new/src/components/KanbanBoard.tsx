@@ -342,7 +342,7 @@ export function KanbanBoard({
 		setIsBulkEditDialogOpen(true);
 	};
 
-	const onBulkSave = async (updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean }) => {
+	const onBulkSave = async (updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean; projectStageId?: number }) => {
 		if (!bulkEditStageId) return;
 
 		// Find task details for all selected IDs by searching both primary tasks and allTasks (for subtasks)
@@ -923,6 +923,8 @@ export function KanbanBoard({
 								selectedCount={getColumnTasks(bulkEditStageId).filter(t => selectedTaskIds.has(t.id)).length}
 								teamMembers={teamMembers || []}
 								departments={departments || []}
+								stages={stages}
+								isAdmin={activeRole === 'admin'}
 							/>
 						)}
 					</div>

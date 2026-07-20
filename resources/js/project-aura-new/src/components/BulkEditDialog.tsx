@@ -15,14 +15,24 @@ import { Input } from "@/components/ui/input";
 import { Calendar, User as UserIcon, Clock, AlertCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Stage } from "@/types/stage";
 
 interface BulkEditDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onSave: (updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean }) => Promise<void>;
+	onSave: (updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean; projectStageId?: number }) => Promise<void>;
 	teamMembers: User[];
 	selectedCount: number;
 	departments: { id: string; name: string }[];
+	stages?: Stage[];
+	isAdmin?: boolean;
 }
 
 export function BulkEditDialog({
@@ -32,6 +42,8 @@ export function BulkEditDialog({
 	teamMembers,
 	selectedCount,
 	departments,
+	stages = [],
+	isAdmin = false,
 }: BulkEditDialogProps) {
 	const [assigneeId, setAssigneeId] = useState<string>("");
 	const [dueDate, setDueDate] = useState<string>("");
@@ -42,6 +54,8 @@ export function BulkEditDialog({
 	const [updateDueDate, setUpdateDueDate] = useState(false);
 	const [dateMode, setDateMode] = useState<"set" | "extend" | "clear">("set");
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [projectStageId, setProjectStageId] = useState<string>("");
+	const [updateStage, setUpdateStage] = useState(false);
 
 	useEffect(() => {
 		if (open) {
@@ -54,15 +68,18 @@ export function BulkEditDialog({
 			setUpdateDueDate(false);
 			setDateMode("set");
 			setIsSubmitting(false);
+			setProjectStageId("");
+			setUpdateStage(false);
 		}
 	}, [open]);
 
+	// @ts-ignore
 	const handleSave = async () => {
-		if (!updateAssignee && !updateDueDate) return;
+		if (!updateAssignee && !updateDueDate && !updateStage) return;
 
 		setIsSubmitting(true);
 		try {
-			const updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean } = {};
+			const updates: { assigneeId?: number; dueDate?: string; extendDays?: number; clearDueDate?: boolean; projectStageId?: number } = {};
 			if (updateAssignee && assigneeId) {
 				updates.assigneeId = parseInt(assigneeId);
 			}
@@ -74,6 +91,9 @@ export function BulkEditDialog({
 				} else if (dateMode === "set" && dueDate) {
 					updates.dueDate = `${dueDate}T${dueTime || "00:00"}:00`;
 				}
+			}
+			if (updateStage && projectStageId) {
+				updates.projectStageId = parseInt(projectStageId);
 			}
 			await onSave(updates);
 			onOpenChange(false);
@@ -245,7 +265,39 @@ export function BulkEditDialog({
 						</div>
 					</div>
 
-					{updateAssignee || updateDueDate ? (
+					{/* Stage Update Section - Admin Only */}
+					{isAdmin && stages.length > 0 && (
+						<>
+							<Separator />
+							<div className="space-y-4">
+								<div className="flex items-center space-x-2">
+									<Checkbox 
+										id="updateStage" 
+										checked={updateStage} 
+										onCheckedChange={(checked) => setUpdateStage(checked as boolean)} 
+									/>
+									<Label htmlFor="updateStage" className="font-semibold cursor-pointer">Update Stage</Label>
+								</div>
+								
+								<div className={`pl-6 space-y-2 transition-all ${updateStage ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+									<Select value={projectStageId} onValueChange={setProjectStageId}>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Select target stage" />
+										</SelectTrigger>
+										<SelectContent>
+											{stages.map((stage) => (
+												<SelectItem key={stage.id} value={stage.id}>
+													{stage.title}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</>
+					)}
+
+					{updateAssignee || updateDueDate || updateStage ? (
 						<div className="bg-blue-50 border border-blue-100 p-3 rounded-md flex items-start gap-2 animate-in fade-in slide-in-from-top-2">
 							<AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
 							<p className="text-xs text-blue-700">
@@ -259,7 +311,14 @@ export function BulkEditDialog({
 					<Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
 					<Button 
 						onClick={handleSave} 
-						disabled={isSubmitting || (!updateAssignee && !updateDueDate)}
+						disabled={
+							isSubmitting || 
+							(!updateAssignee && !updateDueDate && !updateStage) ||
+							(updateAssignee && !assigneeId) ||
+							(updateDueDate && dateMode === "set" && !dueDate) ||
+							(updateDueDate && dateMode === "extend" && !extendDays) ||
+							(updateStage && !projectStageId)
+						}
 					>
 						{isSubmitting ? "Updating..." : `Apply to ${selectedCount} Tasks`}
 					</Button>
