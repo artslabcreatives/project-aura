@@ -20,6 +20,292 @@ class TaskController extends Controller
     {
     }
     #[OA\Get(
+        path: "/tasks/analytics",
+        summary: "Get task analytics",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Task analytics",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "due_today", type: "integer"),
+                        new OA\Property(property: "overdue", type: "integer"),
+                        new OA\Property(property: "upcoming_7_days", type: "integer"),
+                        new OA\Property(property: "completed", type: "integer"),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
+    public function analytics(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $cacheKey = "tasks_analytics_user_{$user->id}_{$user->role}";
+        
+        $data = Cache::remember($cacheKey, 300, function() use ($user) {
+            $baseQuery = Task::query()
+                ->whereNull('parent_id')
+                ->where(function($q) use ($user) {
+                    $q->where('assignee_id', $user->id)
+                      ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                          $sq->where('users.id', $user->id);
+                      });
+                });
+                
+            $this->applyVisibilityFilter($baseQuery, $user);
+            
+            $today = \Carbon\Carbon::today();
+            
+            $dueToday = (clone $baseQuery)
+                ->whereDate('due_date', $today)
+                ->where(function($q) {
+                    $q->doesntHave('projectStage')
+                      ->orWhereHas('projectStage', function ($sq) {
+                          $sq->where('title', 'not like', '%Completed%')
+                             ->where('title', 'not like', '%complete%')
+                             ->where('title', 'not like', '%archive%')
+                             ->where('title', 'not like', '%done%')
+                             ->where('title', 'not like', '%finished%')
+                             ->where('title', 'not like', '%closed%');
+                      });
+                })
+                ->count();
+                
+            $overdue = (clone $baseQuery)
+                ->whereDate('due_date', '<', $today)
+                ->where(function($q) {
+                    $q->doesntHave('projectStage')
+                      ->orWhereHas('projectStage', function ($sq) {
+                          $sq->where('title', 'not like', '%Backlog%')
+                             ->where('title', 'not like', '%Suggested%')
+                             ->where('title', 'not like', '%Completed%')
+                             ->where('title', 'not like', '%complete%')
+                             ->where('title', 'not like', '%archive%')
+                             ->where('title', 'not like', '%done%')
+                             ->where('title', 'not like', '%finished%')
+                             ->where('title', 'not like', '%closed%');
+                      });
+                })
+                ->count();
+                
+            $upcoming7Days = (clone $baseQuery)
+                ->whereDate('due_date', '>', $today)
+                ->whereDate('due_date', '<=', $today->copy()->addDays(7))
+                ->where(function($q) {
+                    $q->doesntHave('projectStage')
+                      ->orWhereHas('projectStage', function ($sq) {
+                          $sq->where('title', 'not like', '%Completed%')
+                             ->where('title', 'not like', '%complete%')
+                             ->where('title', 'not like', '%archive%')
+                             ->where('title', 'not like', '%done%')
+                             ->where('title', 'not like', '%finished%')
+                             ->where('title', 'not like', '%closed%');
+                      });
+                })
+                ->count();
+                
+            $completed = (clone $baseQuery)
+                ->whereHas('projectStage', function ($q) {
+                    $q->where('title', 'Completed');
+                })
+                ->where(function($q) use ($today) {
+                    $q->where('completed_at', '>=', $today->copy()->startOfMonth())
+                      ->orWhere(function($sq) use ($today) {
+                          $sq->whereNull('completed_at')
+                             ->where('updated_at', '>=', $today->copy()->startOfMonth());
+                      });
+                })
+                ->count();
+                
+            return [
+                'due_today' => $dueToday,
+                'overdue' => $overdue,
+                'upcoming_7_days' => $upcoming7Days,
+                'completed' => $completed,
+            ];
+        });
+        
+        return response()->json($data);
+    }
+
+    #[OA\Get(
+        path: "/tasks/analytics/list",
+        summary: "Get filtered tasks list for analytics",
+        security: [["bearerAuth" => []]],
+        tags: ["Tasks"],
+        parameters: [
+            new OA\Parameter(name: "preset", in: "query", required: false, schema: new OA\Schema(type: "string", enum: ["due_today", "overdue", "upcoming_7_days", "completed_this_month", "due_this_week", "due_this_month"])),
+            new OA\Parameter(name: "status", in: "query", required: false, schema: new OA\Schema(type: "string", enum: ["active", "completed", "all"])),
+            new OA\Parameter(name: "due_date_start", in: "query", required: false, schema: new OA\Schema(type: "string", format: "date")),
+            new OA\Parameter(name: "due_date_end", in: "query", required: false, schema: new OA\Schema(type: "string", format: "date")),
+            new OA\Parameter(name: "completed_date_start", in: "query", required: false, schema: new OA\Schema(type: "string", format: "date")),
+            new OA\Parameter(name: "completed_date_end", in: "query", required: false, schema: new OA\Schema(type: "string", format: "date")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "List of filtered tasks"),
+            new OA\Response(response: 401, description: "Unauthorized")
+        ]
+    )]
+    public function analyticsList(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $version = Cache::rememberForever('tasks_version', fn() => time());
+        $filters = md5(json_encode($request->all()));
+        $cacheKey = "tasks_analytics_list_user_{$user->id}_{$user->role}_f{$filters}_v{$version}";
+
+        $tasks = Cache::remember($cacheKey, 300, function() use ($request, $user) {
+            $query = Task::query()
+                ->with([
+                    'project:id,name,department_id,status,is_archived', 
+                    'assignee:id,name,avatar', 
+                    'projectStage:id,title,context_stage_id',
+                    'assignedUsers:id,name,avatar'
+                ])
+                ->whereNull('parent_id')
+                ->where(function($q) use ($user) {
+                    $q->where('assignee_id', $user->id)
+                      ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                          $sq->where('users.id', $user->id);
+                      });
+                });
+                
+            $this->applyVisibilityFilter($query, $user);
+            
+            $today = \Carbon\Carbon::today();
+            $preset = $request->input('preset');
+            
+            // Preset filters mapping to exact logic used in analytics counts
+            if ($preset === 'due_today') {
+                $query->whereDate('due_date', $today)
+                      ->where(function($q) {
+                          $q->doesntHave('projectStage')
+                            ->orWhereHas('projectStage', function ($sq) {
+                                $sq->where('title', 'not like', '%Completed%')
+                                   ->where('title', 'not like', '%complete%')
+                                   ->where('title', 'not like', '%archive%')
+                                   ->where('title', 'not like', '%done%')
+                                   ->where('title', 'not like', '%finished%')
+                                   ->where('title', 'not like', '%closed%');
+                            });
+                      });
+            } elseif ($preset === 'overdue') {
+                $query->whereDate('due_date', '<', $today)
+                      ->where(function($q) {
+                          $q->doesntHave('projectStage')
+                            ->orWhereHas('projectStage', function ($sq) {
+                                $sq->where('title', 'not like', '%Backlog%')
+                                   ->where('title', 'not like', '%Suggested%')
+                                   ->where('title', 'not like', '%Completed%')
+                                   ->where('title', 'not like', '%complete%')
+                                   ->where('title', 'not like', '%archive%')
+                                   ->where('title', 'not like', '%done%')
+                                   ->where('title', 'not like', '%finished%')
+                                   ->where('title', 'not like', '%closed%');
+                            });
+                      });
+            } elseif ($preset === 'upcoming_7_days') {
+                $query->whereDate('due_date', '>', $today)
+                      ->whereDate('due_date', '<=', $today->copy()->addDays(7))
+                      ->where(function($q) {
+                          $q->doesntHave('projectStage')
+                            ->orWhereHas('projectStage', function ($sq) {
+                                $sq->where('title', 'not like', '%Completed%')
+                                   ->where('title', 'not like', '%complete%')
+                                   ->where('title', 'not like', '%archive%')
+                                   ->where('title', 'not like', '%done%')
+                                   ->where('title', 'not like', '%finished%')
+                                   ->where('title', 'not like', '%closed%');
+                            });
+                      });
+            } elseif ($preset === 'completed_this_month') {
+                $query->whereHas('projectStage', function ($q) {
+                          $q->where('title', 'Completed');
+                      })
+                      ->where(function($q) use ($today) {
+                          $q->where('completed_at', '>=', $today->copy()->startOfMonth())
+                            ->orWhere(function($sq) use ($today) {
+                                $sq->whereNull('completed_at')
+                                   ->where('updated_at', '>=', $today->copy()->startOfMonth());
+                            });
+                      });
+            } elseif ($preset === 'due_this_week') {
+                $query->whereBetween('due_date', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])
+                      ->where(function($q) {
+                          $q->doesntHave('projectStage')
+                            ->orWhereHas('projectStage', function ($sq) {
+                                $sq->where('title', 'not like', '%Completed%')
+                                   ->where('title', 'not like', '%complete%')
+                                   ->where('title', 'not like', '%archive%')
+                                   ->where('title', 'not like', '%done%')
+                                   ->where('title', 'not like', '%finished%')
+                                   ->where('title', 'not like', '%closed%');
+                            });
+                      });
+            } elseif ($preset === 'due_this_month') {
+                $query->whereBetween('due_date', [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()])
+                      ->where(function($q) {
+                          $q->doesntHave('projectStage')
+                            ->orWhereHas('projectStage', function ($sq) {
+                                $sq->where('title', 'not like', '%Completed%')
+                                   ->where('title', 'not like', '%complete%')
+                                   ->where('title', 'not like', '%archive%')
+                                   ->where('title', 'not like', '%done%')
+                                   ->where('title', 'not like', '%finished%')
+                                   ->where('title', 'not like', '%closed%');
+                            });
+                      });
+            }
+
+            // Generic filters
+            if ($request->has('status')) {
+                $status = $request->input('status');
+                if ($status === 'completed') {
+                    $query->whereHas('projectStage', function ($q) {
+                        $q->where('title', 'Completed')
+                          ->orWhere('title', 'like', '%complete%')
+                          ->orWhere('title', 'like', '%done%');
+                    });
+                } elseif ($status === 'active') {
+                    $query->where(function($q) {
+                        $q->doesntHave('projectStage')
+                          ->orWhereHas('projectStage', function ($sq) {
+                              $sq->where('title', 'not like', '%Completed%')
+                                 ->where('title', 'not like', '%complete%')
+                                 ->where('title', 'not like', '%archive%')
+                                 ->where('title', 'not like', '%done%')
+                                 ->where('title', 'not like', '%finished%')
+                                 ->where('title', 'not like', '%closed%');
+                          });
+                    });
+                }
+            }
+
+            if ($request->has('due_date_start')) {
+                $query->whereDate('due_date', '>=', $request->input('due_date_start'));
+            }
+            if ($request->has('due_date_end')) {
+                $query->whereDate('due_date', '<=', $request->input('due_date_end'));
+            }
+
+            if ($request->has('completed_date_start')) {
+                $query->whereDate('completed_at', '>=', $request->input('completed_date_start'));
+            }
+            if ($request->has('completed_date_end')) {
+                $query->whereDate('completed_at', '<=', $request->input('completed_date_end'));
+            }
+
+            return $query->orderBy('due_date', 'asc')->get();
+        });
+        
+        return response()->json($tasks);
+    }
+
+    #[OA\Get(
         path: "/tasks",
         summary: "List all tasks",
         security: [["bearerAuth" => []]],
@@ -74,60 +360,11 @@ class TaskController extends Controller
                 ->with([
                     'project:id,name,department_id,status,is_archived', 
                     'assignee:id,name', 
-                    'projectStage:id,title',
+                    'projectStage:id,title,context_stage_id',
                     'assignedUsers:id,name'
                 ]);
             
-            // Global filter for restricted roles
-            if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
-                $query->where(function($q) use ($user) {
-                    // Always show tasks where explicitly assigned
-                    $q->where('assignee_id', $user->id)
-                      ->orWhereHas('assignedUsers', function($sq) use ($user) {
-                          $sq->where('users.id', $user->id);
-                      });
-
-                    // Show tasks in stages where user is responsible
-                    $q->orWhereHas('projectStage', function($sq) use ($user) {
-                        $sq->where('main_responsible_id', $user->id)
-                          ->orWhere('backup_responsible_id_1', $user->id)
-                          ->orWhere('backup_responsible_id_2', $user->id);
-                    });
-
-                    // Role/Department based visibility
-                    if ($user->role === 'team-lead') {
-                        if ($user->department_id == 9) { // Design Team Lead
-                            $q->orWhere(function($sq) {
-                                // Sees tasks in Design (9) or Digital Marketing (8) projects
-                                $sq->whereHas('project', function($pq) {
-                                    $pq->whereIn('department_id', [8, 9]);
-                                })
-                                // But only if the task is assigned to someone in Design (9)
-                                ->where(function($qq) {
-                                    $qq->whereHas('assignee', function($aq) {
-                                        $aq->where('department_id', 9);
-                                    })
-                                    ->orWhereHas('assignedUsers', function($auq) {
-                                        $auq->where('users.department_id', 9);
-                                    });
-                                });
-                            });
-                        } else {
-                            // Other Team Leads see all tasks in their own department
-                            $q->orWhereHas('project', function($pq) use ($user) {
-                                $pq->where('department_id', $user->department_id);
-                            });
-                        }
-                    } elseif ($user->department_id != 9) {
-                        // Non-Design users (user/account-manager) keep seeing their department tasks
-                        $q->orWhereHas('project', function($pq) use ($user) {
-                            $pq->where('department_id', $user->department_id);
-                        });
-                    }
-                    // Design normal users (department_id 9, role user/account-manager) 
-                    // only get the assigned tasks above (no orWhere added here).
-                });
-            }
+            $this->applyVisibilityFilter($query, $user);
             
             if ($request->has('project_id')) {
                 $query->where('project_id', $request->project_id);
@@ -1387,5 +1624,59 @@ class TaskController extends Controller
             default:
                 return $base->addWeek();
         }
+    }
+    private function applyVisibilityFilter($query, $user)
+    {
+        // Global filter for restricted roles
+        if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
+            $query->where(function($q) use ($user) {
+                // Always show tasks where explicitly assigned
+                $q->where('assignee_id', $user->id)
+                  ->orWhereHas('assignedUsers', function($sq) use ($user) {
+                      $sq->where('users.id', $user->id);
+                  });
+
+                // Show tasks in stages where user is responsible
+                $q->orWhereHas('projectStage', function($sq) use ($user) {
+                    $sq->where('main_responsible_id', $user->id)
+                      ->orWhere('backup_responsible_id_1', $user->id)
+                      ->orWhere('backup_responsible_id_2', $user->id);
+                });
+
+                // Role/Department based visibility
+                if ($user->role === 'team-lead') {
+                    if ($user->department_id == 9) { // Design Team Lead
+                        $q->orWhere(function($sq) {
+                            // Sees tasks in Design (9) or Digital Marketing (8) projects
+                            $sq->whereHas('project', function($pq) {
+                                $pq->whereIn('department_id', [8, 9]);
+                            })
+                            // But only if the task is assigned to someone in Design (9)
+                            ->where(function($qq) {
+                                $qq->whereHas('assignee', function($aq) {
+                                    $aq->where('department_id', 9);
+                                })
+                                ->orWhereHas('assignedUsers', function($auq) {
+                                    $auq->where('users.department_id', 9);
+                                });
+                            });
+                        });
+                    } else {
+                        // Other Team Leads see all tasks in their own department
+                        $q->orWhereHas('project', function($pq) use ($user) {
+                            $pq->where('department_id', $user->department_id);
+                        });
+                    }
+                } elseif ($user->department_id != 9) {
+                    // Non-Design users (user/account-manager) keep seeing their department tasks
+                    $q->orWhereHas('project', function($pq) use ($user) {
+                        $pq->where('department_id', $user->department_id);
+                    });
+                }
+                // Design normal users (department_id 9, role user/account-manager) 
+                // only get the assigned tasks above (no orWhere added here).
+            });
+        }
+        return $query;
     }
 }

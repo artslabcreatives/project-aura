@@ -121,11 +121,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 								onClick={async () => {
 									try {
 										const { autoAuthorize } = await import("@/services/ssoService");
-										const { redirect_to } = await autoAuthorize(
-											"artslab_lms_sso",
-											"https://lms.artslabcreatives.com/auth/callback"
-										);
-										window.open(redirect_to, "_blank");
+										const { redirect_to } = await autoAuthorize("artslab_lms_sso", "https://lms.artslabcreatives.com/auth/callback");
+										const url = new URL(redirect_to);
+										const code = url.searchParams.get("code");
+										if (code) {
+											window.open(`https://lms.artslabcreatives.com/auth/auto-login?code=${encodeURIComponent(code)}`, "_blank");
+										} else {
+											window.open("https://lms.artslabcreatives.com/", "_blank");
+										}
 									} catch (e) {
 										console.error("SSO auto-authorize failed, falling back:", e);
 										window.open("https://lms.artslabcreatives.com/", "_blank");

@@ -9,6 +9,7 @@ export interface SSOClientInfo {
     };
     scopes: string[];
     redirect_uri: string;
+    is_first_party: boolean;
 }
 
 export interface OAuthClient {

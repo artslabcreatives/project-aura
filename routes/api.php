@@ -99,6 +99,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('stage-groups', StageGroupController::class);
     Route::post('/tasks/process-recurring', [TaskController::class, 'processRecurring']);
     Route::post('/tasks/bulk-update', [TaskController::class, 'bulkUpdate']);
+    Route::get('/tasks/analytics', [TaskController::class, 'analytics']);
+    Route::get('/tasks/analytics/list', [TaskController::class, 'analyticsList']);
+
     Route::apiResource('tasks', TaskController::class)->middleware('cache.headers:public;max_age=3600;etag');
     Route::post('/tasks/{task}/duplicate', [TaskController::class, 'duplicate']);
     Route::post('/tasks/{task}/complete', [TaskController::class, 'complete']);

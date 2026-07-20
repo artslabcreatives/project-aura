@@ -27,7 +27,7 @@ class ResetAllPasswords extends Command
      */
     public function handle()
     {
-        $password = 'admin@1234';
+        $password = 'admin@123456';
         $hashedPassword = Hash::make($password);
         
         $count = User::count();

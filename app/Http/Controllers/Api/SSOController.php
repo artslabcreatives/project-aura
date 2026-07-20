@@ -69,6 +69,8 @@ class SSOController extends Controller
             return $scopes;
         }
 
+        $firstPartyClients = config('sso.first_party_clients', []);
+
         return response()->json([
             'client' => [
                 'name'         => $client->name,
@@ -76,8 +78,9 @@ class SSOController extends Controller
                 'logo_url'     => $client->logo_url,
                 'homepage_url' => $client->homepage_url,
             ],
-            'scopes'       => $scopes,
-            'redirect_uri' => $params['redirect_uri'],
+            'scopes'         => $scopes,
+            'redirect_uri'   => $params['redirect_uri'],
+            'is_first_party' => in_array($params['client_id'], $firstPartyClients),
         ]);
     }
 
