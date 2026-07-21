@@ -70,8 +70,8 @@ Route::middleware(['web'])->group(function () {
 
             try {
                 $response = \Illuminate\Support\Facades\Http::withHeaders([
-                    'x-sync-secret' => 'aura_sync_secret_token_abc123',
-                ])->post('http://localhost:3000/auth/sync-user', [
+                    'x-sync-secret' => config('services.lms.sync_secret'),
+                ])->post(config('services.lms.sync_url'), [
                     'id' => (string) $user->id,
                     'name' => $user->name,
                     'email' => $user->email,

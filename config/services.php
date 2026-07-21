@@ -92,4 +92,9 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
+
+    'lms' => [
+        'sync_url' => env('LMS_SYNC_URL', 'https://api-lms.artslabcreatives.com/auth/sync-user'),
+        'sync_secret' => env('LMS_SYNC_SECRET', 'aura_sync_secret_token_abc123'),
+    ],
 ];
