@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Fortify\RecoveryCode;
 use PragmaRX\Google2FA\Google2FA;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -145,10 +146,14 @@ class TwoFactorController extends Controller
     public function disable(Request $request): JsonResponse
     {
         $request->validate([
-            'password' => ['required', 'current_password'],
+            'password' => ['required', 'string'],
         ]);
 
         $user = $request->user();
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'The provided password was incorrect.'], 422);
+        }
 
         $user->forceFill([
             'two_factor_secret' => null,
@@ -180,10 +185,14 @@ class TwoFactorController extends Controller
     public function recoveryCodes(Request $request): JsonResponse
     {
         $request->validate([
-           'password' => ['required', 'current_password'], // Optional: require password to view codes
+            'password' => ['required', 'string'],
         ]);
 
         $user = $request->user();
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'The provided password was incorrect.'], 422);
+        }
 
         if (!$user->two_factor_recovery_codes) {
             return response()->json(['recovery_codes' => []]);
@@ -215,10 +224,14 @@ class TwoFactorController extends Controller
     public function regenerateRecoveryCodes(Request $request): JsonResponse
     {
         $request->validate([
-            'password' => ['required', 'current_password'],
+            'password' => ['required', 'string'],
         ]);
 
         $user = $request->user();
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'The provided password was incorrect.'], 422);
+        }
 
         if (!$user->hasEnabledTwoFactorAuthentication()) {
              return response()->json(['message' => 'Two-factor authentication is not enabled.'], 400);
