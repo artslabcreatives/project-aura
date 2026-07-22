@@ -79,16 +79,18 @@ class ApiClient {
 					errorData = {};
 				}
 
-				let errorMessage = errorData.message || errorData.error;
-				if (!errorMessage && errorData.errors) {
-					const firstKey = Object.keys(errorData.errors)[0];
-					if (firstKey && Array.isArray(errorData.errors[firstKey]) && errorData.errors[firstKey].length > 0) {
-						errorMessage = errorData.errors[firstKey][0];
+				let errorMessage = '';
+				if (errorData.errors && typeof errorData.errors === 'object') {
+					const errorValues = Object.values(errorData.errors).flat();
+					if (errorValues.length > 0) {
+						errorMessage = errorValues.join(' ');
 					}
 				}
-
 				if (!errorMessage) {
-					errorMessage = response.statusText ? `API Error: ${response.statusText}` : `API Error (${response.status})`;
+					errorMessage =
+						errorData.message ||
+						errorData.error ||
+						(response.statusText ? `API Error: ${response.statusText}` : `API Error (${response.status})`);
 				}
 
 				const error: any = new Error(errorMessage);

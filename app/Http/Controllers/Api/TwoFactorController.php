@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\RecoveryCode;
 use PragmaRX\Google2FA\Google2FA;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -152,7 +153,9 @@ class TwoFactorController extends Controller
         $user = $request->user();
 
         if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'The provided password was incorrect.'], 422);
+            throw ValidationException::withMessages([
+                'password' => ['The provided password was incorrect.'],
+            ]);
         }
 
         $user->forceFill([
@@ -191,7 +194,9 @@ class TwoFactorController extends Controller
         $user = $request->user();
 
         if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'The provided password was incorrect.'], 422);
+            throw ValidationException::withMessages([
+                'password' => ['The provided password was incorrect.'],
+            ]);
         }
 
         if (!$user->two_factor_recovery_codes) {
@@ -230,7 +235,9 @@ class TwoFactorController extends Controller
         $user = $request->user();
 
         if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'The provided password was incorrect.'], 422);
+            throw ValidationException::withMessages([
+                'password' => ['The provided password was incorrect.'],
+            ]);
         }
 
         if (!$user->hasEnabledTwoFactorAuthentication()) {
@@ -251,3 +258,4 @@ class TwoFactorController extends Controller
         ]);
     }
 }
+

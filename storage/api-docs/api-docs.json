@@ -9493,6 +9493,95 @@
                 ]
             }
         },
+        "/tasks/analytics/list": {
+            "get": {
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Get filtered tasks list for analytics",
+                "operationId": "52bb773be186793d6543f2978066f02f",
+                "parameters": [
+                    {
+                        "name": "preset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "due_today",
+                                "overdue",
+                                "upcoming_7_days",
+                                "completed_this_month",
+                                "due_this_week",
+                                "due_this_month"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "completed",
+                                "all"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "due_date_start",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "due_date_end",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "completed_date_start",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "completed_date_end",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of filtered tasks"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/tasks": {
             "get": {
                 "tags": [
