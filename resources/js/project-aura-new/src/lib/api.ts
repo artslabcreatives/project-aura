@@ -79,7 +79,13 @@ class ApiClient {
 					errorData = { error: response.statusText };
 				}
 
-				const error: any = new Error(errorData.error || `API Error: ${response.statusText}`);
+				const errorMessage =
+					errorData.message ||
+					(errorData.errors ? Object.values(errorData.errors).flat().join(' ') : null) ||
+					errorData.error ||
+					`API Error: ${response.statusText}`;
+
+				const error: any = new Error(errorMessage);
 				error.response = {
 					status: response.status,
 					data: errorData,
