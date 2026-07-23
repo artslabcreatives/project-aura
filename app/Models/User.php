@@ -17,7 +17,7 @@ class User extends Authenticatable implements FilamentUser
 {
     public function canAccessPanel(Panel $panel): bool
     {
-        return str_ends_with($this->email, '@artslabcreatives.com');
+        return $this->role === 'admin' && $this->is_active && str_ends_with($this->email, '@artslabcreatives.com');
     }
 
     use HasApiTokens, HasFactory, Notifiable;
