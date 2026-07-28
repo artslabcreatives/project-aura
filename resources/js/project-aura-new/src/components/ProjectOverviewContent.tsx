@@ -312,7 +312,7 @@ toast({ title: "Error", description: "Could not remove attachment.", variant: "d
 	const canChangeStatus =
 		activeRole === "admin" || activeRole === "hr" || activeRole === "team-lead";
 	const canSeeClientInfo =
-		activeRole === "admin" || activeRole === "hr";
+		activeRole === "admin" || activeRole === "hr" || activeRole === "team-lead" || activeRole === "account-manager";
 	const canManageFinance =
 		activeRole === "admin" || activeRole === "hr";
 	const isBlocked =
@@ -898,12 +898,12 @@ toast({ title: "Error", description: "Could not remove attachment.", variant: "d
 			/>
 
 			{/* Project Profitability Section */}
-			{canSeeClientInfo && project.client && (
+			{canManageFinance && project.client && (
 				<ProjectProfitability projectId={project.id} />
 			)}
 
 			{/* Project Invoices - Unified Invoice List */}
-			{canSeeClientInfo && project.client && (
+			{canManageFinance && project.client && (
 				<InvoiceList
 					clientId={project.clientId}
 					showFilters={true}

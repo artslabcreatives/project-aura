@@ -22,6 +22,14 @@ class ClientController extends Controller
     }
 
     /**
+     * Check if the user has permission to read client details.
+     */
+    protected function checkReadPermission()
+    {
+        abort_if(!in_array(auth()->user()->role, ['admin', 'hr', 'team-lead', 'account-manager']), 403, 'Unauthorized.');
+    }
+
+    /**
      * Record an action in the client history.
      */
     protected function recordHistory($clientId, $action, $targetName, $details = null)
@@ -48,7 +56,7 @@ class ClientController extends Controller
     )]
     public function index(Request $request)
     {
-        $this->checkPermission();
+        $this->checkReadPermission();
 
         $query = Client::withCount(['contacts', 'projects'])
             ->with(['projects' => function ($query) {
@@ -148,7 +156,7 @@ class ClientController extends Controller
     )]
     public function show(Client $client): JsonResponse
     {
-        $this->checkPermission();
+        $this->checkReadPermission();
         return response()->json($client->load(['contacts', 'projects' => function ($query) {
             $query->with(['department', 'group']);
         }]));

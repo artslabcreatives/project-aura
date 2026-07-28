@@ -457,7 +457,7 @@ export function ProjectDialog({
 	onGroupCreated,
 }: ProjectDialogProps) {
 	const { activeRole } = useUser();
-	const canSeeClientInfo = activeRole === 'admin' || activeRole === 'hr';
+	const canSeeClientInfo = activeRole === 'admin' || activeRole === 'hr' || activeRole === 'team-lead' || activeRole === 'account-manager';
 	const { toast } = useToast();
 	const [formData, setFormData] = useState<ProjectFormData & { clientId?: string, estimatedHours?: number, status?: string, poNumber?: string, deadline?: string, poDocument?: File, currency?: string, isInternalProject?: boolean, skipPo?: boolean }>({
 		name: "",

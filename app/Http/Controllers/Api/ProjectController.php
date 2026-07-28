@@ -52,7 +52,7 @@ class ProjectController extends Controller
                 ->select([
                     'id', 'name', 'status', 'is_archived', 'department_id', 
                     'client_id', 'project_group_id', 'deadline', 
-                    'is_internal_project', 'project_code', 'skip_po'
+                    'is_internal_project', 'project_code', 'skip_po','estimated_hours'
                 ])
                 ->with([
                     'department:id,name',
@@ -147,7 +147,7 @@ class ProjectController extends Controller
             ->select([
                 'id', 'name', 'status', 'is_archived', 'department_id',
                 'client_id', 'project_group_id', 'deadline',
-                'is_internal_project', 'project_code', 'skip_po'
+                'is_internal_project', 'project_code', 'skip_po', 'estimated_hours'
             ])
             ->where('department_id', $id)
             ->with([
@@ -208,7 +208,7 @@ class ProjectController extends Controller
             $query = Project::query()
                 ->select([
                     'id', 'name', 'status', 'is_archived', 'department_id', 
-                    'client_id', 'project_group_id', 'is_internal_project', 'skip_po'
+                    'client_id', 'project_group_id', 'is_internal_project', 'skip_po', 'estimated_hours'
                 ])
                 ->with([
                     'department:id,name',
