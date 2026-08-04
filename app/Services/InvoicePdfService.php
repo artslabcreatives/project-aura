@@ -460,10 +460,10 @@ class InvoicePdfService
 
         $currentY += 8;
 
-        // SSCL - 2.5%
+        // SSCL 2.5%
         $pdf->Rect(15, $currentY, 150, 8);
         $pdf->SetXY(17, $currentY);
-        $pdf->Cell(148, 8, 'SSCL - 2.5%:', 0, 0, 'L');
+        $pdf->Cell(148, 8, 'SSCL 2.5%:', 0, 0, 'L');
 
         $pdf->Rect(165, $currentY, 30, 8);
         $pdf->SetXY(165, $currentY);
@@ -474,7 +474,7 @@ class InvoicePdfService
         // VAT Amount
         $pdf->Rect(15, $currentY, 150, 8);
         $pdf->SetXY(17, $currentY);
-        $pdf->Cell(148, 8, "VAT Amount (Total Value of Supply @ {$vatRateText}):", 0, 0, 'L');
+        $pdf->Cell(148, 8, "VAT {$vatRateText}", 0, 0, 'L');
 
         $pdf->Rect(165, $currentY, 30, 8);
         $pdf->SetXY(165, $currentY);
