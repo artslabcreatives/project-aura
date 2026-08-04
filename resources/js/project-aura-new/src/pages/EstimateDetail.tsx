@@ -82,6 +82,8 @@ export default function EstimateDetail() {
 
 	const [additionalInfo, setAdditionalInfo] = useState<string>("");
 	const [referenceNumber, setReferenceNumber] = useState<string>("");
+	const [discountType, setDiscountType] = useState<string>("none");
+	const [discountValue, setDiscountValue] = useState<string>("");
 
 	useEffect(() => {
 		if (isPaymentModeOpen && estimate) {
@@ -154,12 +156,28 @@ export default function EstimateDetail() {
 		}
 	};
 
-	const handleDownloadPdf = async (paymentMode: string, additionalInfoStr?: string, referenceStr?: string, dueDaysStr?: string) => {
+	const handleDownloadPdf = async (
+		paymentMode: string,
+		additionalInfoStr?: string,
+		referenceStr?: string,
+		dueDaysStr?: string,
+		discountTypeStr?: string,
+		discountValueStr?: string
+	) => {
 		if (!estimate?.id) return;
 		setIsDownloading(true);
 		try {
 			const num = estimate.estimate_number || 'draft';
-			await estimateService.downloadPdf(estimate.id, paymentMode, additionalInfoStr, referenceStr, dueDaysStr, `Tax_Invoice_${num}.pdf`);
+			await estimateService.downloadPdf(
+				estimate.id,
+				paymentMode,
+				additionalInfoStr,
+				referenceStr,
+				dueDaysStr,
+				discountTypeStr,
+				discountValueStr,
+				`Tax_Invoice_${num}.pdf`
+			);
 			toast({ title: "Tax Invoice PDF downloaded." });
 		} catch {
 			toast({
@@ -519,6 +537,35 @@ export default function EstimateDetail() {
 								onChange={(e) => setAdditionalInfo(e.target.value)}
 							/>
 						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="discountType">Discount Type</Label>
+							<Select value={discountType} onValueChange={setDiscountType}>
+								<SelectTrigger id="discountType" className="w-full">
+									<SelectValue placeholder="Select discount type" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">No Discount</SelectItem>
+									<SelectItem value="percentage">Percentage (%)</SelectItem>
+									<SelectItem value="fixed">Fixed Amount (LKR)</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						{discountType !== "none" && (
+							<div className="grid gap-2">
+								<Label htmlFor="discountValue">
+									{discountType === "percentage" ? "Discount Percentage (%)" : "Discount Amount (LKR)"}
+								</Label>
+								<Input
+									id="discountValue"
+									type="number"
+									step="any"
+									min="0"
+									placeholder={discountType === "percentage" ? "e.g. 10" : "e.g. 5000"}
+									value={discountValue}
+									onChange={(e) => setDiscountValue(e.target.value)}
+								/>
+							</div>
+						)}
 					</div>
 					<DialogFooter>
 						<Button variant="outline" onClick={() => setIsPaymentModeOpen(false)}>
@@ -527,7 +574,7 @@ export default function EstimateDetail() {
 						<Button
 							onClick={() => {
 								setIsPaymentModeOpen(false);
-								handleDownloadPdf(selectedPaymentMode, additionalInfo, referenceNumber, dueDays);
+								handleDownloadPdf(selectedPaymentMode, additionalInfo, referenceNumber, dueDays, discountType, discountValue);
 							}}
 						>
 							Download PDF

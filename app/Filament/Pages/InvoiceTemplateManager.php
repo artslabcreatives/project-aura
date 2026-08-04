@@ -259,6 +259,24 @@ class InvoiceTemplateManager extends Page
                             ->label('Additional Information')
                             ->rows(2),
 
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('discount_type')
+                                    ->label('Discount Type')
+                                    ->options([
+                                        'none'       => 'No Discount',
+                                        'percentage' => 'Percentage (%)',
+                                        'fixed'      => 'Fixed Amount (LKR)',
+                                    ])
+                                    ->default('none')
+                                    ->reactive(),
+                                TextInput::make('discount_value')
+                                    ->label('Discount Value')
+                                    ->numeric()
+                                    ->placeholder('e.g. 10 or 5000')
+                                    ->visible(fn (callable $get) => $get('discount_type') !== 'none'),
+                            ]),
+
                         Select::make('payment_mode')
                             ->label('Mode of Payment')
                             ->options([
@@ -349,6 +367,8 @@ class InvoiceTemplateManager extends Page
             'place_of_supply' => $genData['place_of_supply'] ?? '110, Havelock Road, Colombo 05',
             'additional_info' => $genData['additional_info'] ?? '',
             'payment_mode'    => $genData['payment_mode'] ?? '',
+            'discount_type'   => $genData['discount_type'] ?? 'none',
+            'discount_value'  => $genData['discount_value'] ?? 0,
         ];
 
         try {

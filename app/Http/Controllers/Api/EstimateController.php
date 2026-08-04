@@ -389,6 +389,12 @@ class EstimateController extends Controller
         if ($request->has('due_days')) {
             $overrides['due_days'] = $request->query('due_days');
         }
+        if ($request->has('discount_type')) {
+            $overrides['discount_type'] = $request->query('discount_type');
+        }
+        if ($request->has('discount_value')) {
+            $overrides['discount_value'] = $request->query('discount_value');
+        }
 
         $data = $pdfService->buildDataFromLocalEstimate($estimate, $overrides);
 

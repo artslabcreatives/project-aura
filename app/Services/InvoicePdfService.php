@@ -431,14 +431,28 @@ class InvoicePdfService
             $currentY += $rowHeight;
         }
 
-        // Always force 18% VAT and 2.5% SSCL calculation for Gazette invoice format
+        // Compute Totals (Subtotal, Discount, Total after discount, SSCL 2.5%, VAT 18%, Grand Total)
         $subtotalStr = $data['subtotal'] ?? '0.00';
         $subtotalVal = (float) str_replace(',', '', $subtotalStr);
+
+        $discountAmtVal = (float) str_replace(',', '', (string) ($data['discount_amount'] ?? '0'));
+        $hasDiscount = !empty($data['has_discount']) || ($discountAmtVal > 0);
+
+        $discountLabel = !empty($data['discount_label']) ? $data['discount_label'] : 'Discount';
+        $discountAmtStr = $data['discount_amount'] ?? number_format($discountAmtVal, 2);
+
+        $totalAfterDiscountVal = isset($data['total_after_discount'])
+            ? (float) str_replace(',', '', (string) $data['total_after_discount'])
+            : max(0, $subtotalVal - $discountAmtVal);
+        $totalAfterDiscountStr = number_format($totalAfterDiscountVal, 2);
+
         $ssclVal = isset($data['sscl_amount']) && $data['sscl_amount'] !== ''
             ? (float) str_replace(',', '', (string) $data['sscl_amount'])
-            : ($subtotalVal * 0.025);
-        $vatVal = $subtotalVal * 0.18;
-        $totalVal = $subtotalVal + $ssclVal + $vatVal;
+            : ($totalAfterDiscountVal * 0.025);
+        $vatVal = isset($data['vat_amount']) && $data['vat_amount'] !== ''
+            ? (float) str_replace(',', '', (string) $data['vat_amount'])
+            : ($totalAfterDiscountVal * 0.18);
+        $totalVal = $totalAfterDiscountVal + $ssclVal + $vatVal;
 
         $ssclAmountText = number_format($ssclVal, 2);
         $vatRateText = '18%';
@@ -446,19 +460,54 @@ class InvoicePdfService
         $totalWithVatText = number_format($totalVal, 2);
         $totalInWordsText = $this->numberToWords($totalVal);
 
-        // Totals Rows (Subtotal, SSCL, VAT, Grand Total)
+        // Totals Rows
         $pdf->SetFont('Helvetica', 'B', 8);
 
-        // Total Value of Supply
-        $pdf->Rect(15, $currentY, 150, 8);
-        $pdf->SetXY(17, $currentY);
-        $pdf->Cell(148, 8, 'Total Value of Supply', 0, 0, 'L');
+        if ($hasDiscount) {
+            // Row 1: Sub Total
+            $pdf->Rect(15, $currentY, 150, 8);
+            $pdf->SetXY(17, $currentY);
+            $pdf->Cell(148, 8, 'Sub Total', 0, 0, 'L');
 
-        $pdf->Rect(165, $currentY, 30, 8);
-        $pdf->SetXY(165, $currentY);
-        $pdf->Cell(28, 8, $subtotalStr, 0, 0, 'R');
+            $pdf->Rect(165, $currentY, 30, 8);
+            $pdf->SetXY(165, $currentY);
+            $pdf->Cell(28, 8, $subtotalStr, 0, 0, 'R');
 
-        $currentY += 8;
+            $currentY += 8;
+
+            // Row 2: Discount
+            $pdf->Rect(15, $currentY, 150, 8);
+            $pdf->SetXY(17, $currentY);
+            $pdf->Cell(148, 8, $discountLabel, 0, 0, 'L');
+
+            $pdf->Rect(165, $currentY, 30, 8);
+            $pdf->SetXY(165, $currentY);
+            $pdf->Cell(28, 8, $discountAmtStr, 0, 0, 'R');
+
+            $currentY += 8;
+
+            // Row 3: Total
+            $pdf->Rect(15, $currentY, 150, 8);
+            $pdf->SetXY(17, $currentY);
+            $pdf->Cell(148, 8, 'Total', 0, 0, 'L');
+
+            $pdf->Rect(165, $currentY, 30, 8);
+            $pdf->SetXY(165, $currentY);
+            $pdf->Cell(28, 8, $totalAfterDiscountStr, 0, 0, 'R');
+
+            $currentY += 8;
+        } else {
+            // Row 1: Total Value of Supply
+            $pdf->Rect(15, $currentY, 150, 8);
+            $pdf->SetXY(17, $currentY);
+            $pdf->Cell(148, 8, 'Total Value of Supply', 0, 0, 'L');
+
+            $pdf->Rect(165, $currentY, 30, 8);
+            $pdf->SetXY(165, $currentY);
+            $pdf->Cell(28, 8, $subtotalStr, 0, 0, 'R');
+
+            $currentY += 8;
+        }
 
         // SSCL 2.5%
         $pdf->Rect(15, $currentY, 150, 8);
@@ -695,6 +744,12 @@ class InvoicePdfService
             'due_days'     => $overrides['due_days'] ?? 15,
         ];
 
+        // Apply discount overrides if present
+        $discountType = $overrides['discount_type'] ?? 'none';
+        $discountValue = (float) ($overrides['discount_value'] ?? 0);
+        $totals = $this->calculateTotals($subtotal, $discountType, $discountValue);
+        $data = array_merge($data, $totals);
+
         // Line items (up to 5)
         for ($i = 0; $i < 5; $i++) {
             $n = $i + 1;
@@ -767,6 +822,12 @@ class InvoicePdfService
             'payment_mode' => $overrides['payment_mode'] ?? '',
             'due_days'     => $overrides['due_days'] ?? 15,
         ];
+
+        // Apply discount overrides if present
+        $discountType = $overrides['discount_type'] ?? 'none';
+        $discountValue = (float) ($overrides['discount_value'] ?? 0);
+        $totals = $this->calculateTotals((float) $invoice->amount, $discountType, $discountValue);
+        $data = array_merge($data, $totals);
     }
 
     /**
@@ -821,6 +882,15 @@ class InvoicePdfService
             'due_days'     => $overrides['due_days'] ?? 15,
         ];
 
+        // Apply discount overrides if present
+        if ($subtotal <= 0 && $items->count() > 0) {
+            $subtotal = (float) $items->sum(fn($it) => (float)($it->total ?? ($it->quantity * $it->unit_price)));
+        }
+        $discountType = $overrides['discount_type'] ?? 'none';
+        $discountValue = (float) ($overrides['discount_value'] ?? 0);
+        $totals = $this->calculateTotals($subtotal, $discountType, $discountValue);
+        $data = array_merge($data, $totals);
+
         // Line items (up to 5)
         for ($i = 0; $i < 5; $i++) {
             $n = $i + 1;
@@ -852,6 +922,45 @@ class InvoicePdfService
         }
 
         return $data;
+    }
+
+    /**
+     * Calculate invoice totals with optional discount, SSCL (2.5%), and VAT (18%).
+     */
+    public function calculateTotals(float $rawSubtotal, ?string $discountType = 'none', float $discountValue = 0): array
+    {
+        $discountAmount = 0.0;
+        $discountLabel = '';
+
+        if (!empty($discountType) && $discountType !== 'none' && $discountValue > 0) {
+            if ($discountType === 'percentage' || $discountType === 'percent') {
+                $discountAmount = $rawSubtotal * ($discountValue / 100);
+                $discountLabel = 'Discount (' . rtrim(rtrim(number_format($discountValue, 2), '0'), '.') . '%)';
+            } elseif ($discountType === 'fixed') {
+                $discountAmount = min($rawSubtotal, $discountValue);
+                $discountLabel = 'Discount';
+            }
+        }
+
+        $totalAfterDiscount = max(0, $rawSubtotal - $discountAmount);
+        $ssclAmount = $totalAfterDiscount * 0.025;
+        $vatAmount = $totalAfterDiscount * 0.18;
+        $totalWithVat = $totalAfterDiscount + $ssclAmount + $vatAmount;
+
+        return [
+            'subtotal'             => number_format($rawSubtotal, 2),
+            'discount_type'        => $discountType ?? 'none',
+            'discount_value'       => $discountValue,
+            'discount_amount'      => number_format($discountAmount, 2),
+            'discount_label'       => $discountLabel,
+            'has_discount'         => $discountAmount > 0,
+            'total_after_discount' => number_format($totalAfterDiscount, 2),
+            'sscl_amount'          => number_format($ssclAmount, 2),
+            'vat_rate'             => '18%',
+            'vat_amount'           => number_format($vatAmount, 2),
+            'total_with_vat'       => number_format($totalWithVat, 2),
+            'total_in_words'       => $this->numberToWords($totalWithVat),
+        ];
     }
 
     /**
