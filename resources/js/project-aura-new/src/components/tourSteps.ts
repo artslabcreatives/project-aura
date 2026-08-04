@@ -58,6 +58,14 @@ export const userTourSteps: TourStep[] = [
         placement: 'bottom',
         spotlightPadding: 8
     },
+    // LMS Portal
+    {
+        target: '[data-tour="lms-button"]',
+        title: '🎓 Learning Management System (LMS)',
+        content: 'Access the Artslab Learning Management System with a single click. Single-sign-on automatically logs you into LMS to access courses, training modules, and skill development resources.',
+        placement: 'bottom',
+        spotlightPadding: 8
+    },
     // User menu
     {
         target: '[data-tour="user-menu"]',
@@ -142,6 +150,14 @@ export const teamLeadTourSteps: TourStep[] = [
         placement: 'bottom',
         spotlightPadding: 8
     },
+    // LMS Portal
+    {
+        target: '[data-tour="lms-button"]',
+        title: '🎓 Learning Management System (LMS)',
+        content: 'Access the Artslab Learning Portal directly via SSO. Explore training courses, upskill your team, and track learning progress.',
+        placement: 'bottom',
+        spotlightPadding: 8
+    },
     // User Menu
     {
         target: '[data-tour="user-menu"]',
@@ -223,6 +239,14 @@ export const adminTourSteps: TourStep[] = [
         target: '[data-tour="global-search"]',
         title: '🔍 Master Search',
         content: 'Locate any entity in the database instantly. Tasks, projects, users - if it exists, you can find it here with Ctrl+K.',
+        placement: 'bottom',
+        spotlightPadding: 8
+    },
+    // LMS Portal
+    {
+        target: '[data-tour="lms-button"]',
+        title: '🎓 Learning Management System (LMS)',
+        content: 'Direct link to the Artslab Learning Management System (LMS). Single-sign-on seamlessly connects you to the LMS portal for company-wide training and course management.',
         placement: 'bottom',
         spotlightPadding: 8
     },
@@ -315,6 +339,14 @@ export const accountManagerTourSteps: TourStep[] = [
         target: '[data-tour="global-search"]',
         title: '🔍 Quick Find',
         content: 'Instantly find any task, project or file. Essential for those quick answers when you\'re on a call.',
+        placement: 'bottom',
+        spotlightPadding: 8
+    },
+    // LMS Portal
+    {
+        target: '[data-tour="lms-button"]',
+        title: '🎓 Learning Management System (LMS)',
+        content: 'Access the Artslab Learning Portal via SSO. Browse training resources, client onboarding courses, and learning materials anytime.',
         placement: 'bottom',
         spotlightPadding: 8
     },

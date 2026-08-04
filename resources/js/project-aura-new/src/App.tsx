@@ -116,6 +116,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
 						<div className="flex items-center mr-2 gap-1">
 							<Button
+								data-tour="lms-button"
 								variant="ghost"
 								size="icon"
 								onClick={async () => {
