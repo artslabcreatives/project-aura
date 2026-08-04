@@ -431,18 +431,22 @@ class InvoicePdfService
             $currentY += $rowHeight;
         }
 
-        // Always force 18% VAT calculation for Gazette invoice format
+        // Always force 18% VAT and 2.5% SSCL calculation for Gazette invoice format
         $subtotalStr = $data['subtotal'] ?? '0.00';
         $subtotalVal = (float) str_replace(',', '', $subtotalStr);
+        $ssclVal = isset($data['sscl_amount']) && $data['sscl_amount'] !== ''
+            ? (float) str_replace(',', '', (string) $data['sscl_amount'])
+            : ($subtotalVal * 0.025);
         $vatVal = $subtotalVal * 0.18;
-        $totalVal = $subtotalVal + $vatVal;
+        $totalVal = $subtotalVal + $ssclVal + $vatVal;
 
+        $ssclAmountText = number_format($ssclVal, 2);
         $vatRateText = '18%';
         $vatAmountText = number_format($vatVal, 2);
         $totalWithVatText = number_format($totalVal, 2);
         $totalInWordsText = $this->numberToWords($totalVal);
 
-        // Totals Rows (Subtotal, VAT, Grand Total)
+        // Totals Rows (Subtotal, SSCL, VAT, Grand Total)
         $pdf->SetFont('Helvetica', 'B', 8);
 
         // Total Value of Supply
@@ -453,6 +457,17 @@ class InvoicePdfService
         $pdf->Rect(165, $currentY, 30, 8);
         $pdf->SetXY(165, $currentY);
         $pdf->Cell(28, 8, $subtotalStr, 0, 0, 'R');
+
+        $currentY += 8;
+
+        // SSCL - 2.5%
+        $pdf->Rect(15, $currentY, 150, 8);
+        $pdf->SetXY(17, $currentY);
+        $pdf->Cell(148, 8, 'SSCL - 2.5%:', 0, 0, 'L');
+
+        $pdf->Rect(165, $currentY, 30, 8);
+        $pdf->SetXY(165, $currentY);
+        $pdf->Cell(28, 8, $ssclAmountText, 0, 0, 'R');
 
         $currentY += 8;
 
@@ -467,10 +482,10 @@ class InvoicePdfService
 
         $currentY += 8;
 
-        // Total Amount including VAT
+        // Total Amount including TAX
         $pdf->Rect(15, $currentY, 150, 8);
         $pdf->SetXY(17, $currentY);
-        $pdf->Cell(148, 8, 'Total Amount including VAT:', 0, 0, 'L');
+        $pdf->Cell(148, 8, 'Total Amount including TAX:', 0, 0, 'L');
 
         $pdf->Rect(165, $currentY, 30, 8);
         $pdf->SetXY(165, $currentY);
@@ -669,6 +684,7 @@ class InvoicePdfService
 
             // Totals
             'subtotal'       => number_format($subtotal, 2),
+            'sscl_amount'    => number_format($subtotal * 0.025, 2),
             'vat_rate'       => $vatRate . '%',
             'vat_amount'     => number_format($taxAmount, 2),
             'total_with_vat' => number_format($total, 2),
@@ -742,6 +758,7 @@ class InvoicePdfService
             'additional_info' => $overrides['additional_info'] ?? ($invoice->description ?? ''),
 
             'subtotal'       => number_format((float) $invoice->amount, 2),
+            'sscl_amount'    => number_format(((float) $invoice->amount) * 0.025, 2),
             'vat_rate'       => ($overrides['vat_rate'] ?? '18') . '%',
             'vat_amount'     => $overrides['vat_amount'] ?? '',
             'total_with_vat' => $overrides['total_with_vat'] ?? number_format((float) $invoice->amount, 2),
@@ -793,6 +810,7 @@ class InvoicePdfService
 
             // Totals
             'subtotal'       => number_format($subtotal, 2),
+            'sscl_amount'    => number_format($subtotal * 0.025, 2),
             'vat_rate'       => $vatRate . '%',
             'vat_amount'     => number_format($taxAmount, 2),
             'total_with_vat' => number_format($total, 2),

@@ -99,9 +99,10 @@ class InvoiceTemplate extends Model
 
             // Totals
             ['key' => 'subtotal',           'label' => 'Total Value of Supply (excl. VAT)', 'group' => 'Totals'],
+            ['key' => 'sscl_amount',        'label' => 'SSCL Amount (2.5%)',        'group' => 'Totals'],
             ['key' => 'vat_rate',           'label' => 'VAT Rate (%)',              'group' => 'Totals'],
             ['key' => 'vat_amount',         'label' => 'VAT Amount',                'group' => 'Totals'],
-            ['key' => 'total_with_vat',     'label' => 'Total (incl. VAT)',         'group' => 'Totals'],
+            ['key' => 'total_with_vat',     'label' => 'Total (incl. TAX)',         'group' => 'Totals'],
             ['key' => 'total_in_words',     'label' => 'Total Amount in Words',     'group' => 'Totals'],
 
             // Footer
