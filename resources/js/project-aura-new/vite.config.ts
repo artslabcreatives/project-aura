@@ -10,11 +10,7 @@ export default defineConfig(({ mode }) => ({
 		port: 8080,
 	},
 	plugins: [
-		react({
-			swc: {
-				minify: false,
-			},
-		}),
+		react(),
 		mode === "development" && componentTagger()
 	].filter(Boolean),
 	resolve: {
@@ -23,6 +19,15 @@ export default defineConfig(({ mode }) => ({
 		},
 	},
 	build: {
-		minify: false,
+		minify: 'esbuild',
+		rollupOptions: {
+			output: {
+				manualChunks: {
+					'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+					'vendor-recharts': ['recharts'],
+					'vendor-lucide': ['lucide-react'],
+				},
+			},
+		},
 	},
 }));

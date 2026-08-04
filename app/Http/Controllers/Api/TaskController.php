@@ -351,9 +351,11 @@ class TaskController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $userId = $user?->id ?? 'guest';
+        $userRole = $user?->role ?? 'guest';
         $version = Cache::rememberForever('tasks_version', fn() => time());
         $filters = md5(json_encode($request->all()));
-        $cacheKey = "tasks_user_{$user->id}_{$user->role}_f{$filters}_v{$version}";
+        $cacheKey = "tasks_user_{$userId}_{$userRole}_f{$filters}_v{$version}";
 
         $tasks = Cache::remember($cacheKey, 3600, function() use ($request, $user) {
             $query = Task::query()
@@ -1654,6 +1656,10 @@ class TaskController extends Controller
     }
     private function applyVisibilityFilter($query, $user)
     {
+        if (!$user) {
+            return;
+        }
+
         // Global filter for restricted roles
         if (in_array($user->role, ['user', 'account-manager', 'team-lead'])) {
             $query->where(function($q) use ($user) {

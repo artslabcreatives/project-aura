@@ -44,8 +44,10 @@ class ProjectController extends Controller
     public function index(): JsonResponse
     {
         $user = auth()->user();
+        $userId = $user?->id ?? 'guest';
+        $userRole = $user?->role ?? 'guest';
         $version = Cache::rememberForever('projects_version', fn() => microtime(true));
-        $cacheKey = "projects_user_{$user->id}_{$user->role}_v{$version}";
+        $cacheKey = "projects_user_{$userId}_{$userRole}_v{$version}";
 
         $projects = Cache::remember($cacheKey, 3600, function() use ($user) {
             $query = Project::query()

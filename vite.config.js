@@ -17,6 +17,15 @@ export default defineConfig({
 		},
 	},
 	build: {
-		minify: false,
+		minify: 'esbuild',
+		rollupOptions: {
+			output: {
+				manualChunks: {
+					'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+					'vendor-recharts': ['recharts'],
+					'vendor-lucide': ['lucide-react'],
+				},
+			},
+		},
 	},
 });

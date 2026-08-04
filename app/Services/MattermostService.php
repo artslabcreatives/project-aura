@@ -1030,7 +1030,7 @@ class MattermostService
         // Use user's personal token if provided and available, otherwise use admin token
         $token = ($user && $user->mattermost_token) ? $user->mattermost_token : $this->token;
 
-        $http = Http::timeout(30)->withToken($token)->accept('application/json');
+        $http = Http::timeout(5)->connectTimeout(2)->withToken($token)->accept('application/json');
 
         // For DELETE requests, don't send data in the body
         if (strtoupper($method) === 'DELETE') {
@@ -1199,7 +1199,7 @@ class MattermostService
     public function loginUser(string $email, string $password): ?array
     {
         try {
-            $response = Http::timeout(30)
+            $response = Http::timeout(3)->connectTimeout(2)
                 ->acceptJson()
                 ->post("{$this->baseUrl}/api/v4/users/login", [
                     'login_id' => $email,
