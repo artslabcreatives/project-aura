@@ -85,7 +85,7 @@ class InvoicePdfService
                 $this->SetX(15);
                 $this->SetFont('Helvetica', '', 8);
                 $this->SetTextColor(0, 0, 0);
-                $this->Cell(0, 10, 'Company Registration No: PV 114441.  Registered Office: No.110-3/1,, Colombo 05, Western Province, 00500, Sri Lanka.', 0, 0, 'L');
+                $this->Cell(0, 10, 'Company Registration No: PV 114441.  Registered Office: 110, Havelock Road, Colombo 05', 0, 0, 'L');
             }
         };
 
@@ -146,7 +146,7 @@ class InvoicePdfService
                 $this->SetX(15);
                 $this->SetFont('Helvetica', '', 8);
                 $this->SetTextColor(0, 0, 0);
-                $this->Cell(0, 10, 'Company Registration No: PV 114441.  Registered Office: No.110-3/1,, Colombo 05, Western Province, 00500, Sri Lanka.', 0, 0, 'L');
+                $this->Cell(0, 10, 'Company Registration No: PV 114441.  Registered Office: 110, Havelock Road, Colombo 05, Western Province, 00500, Sri Lanka.', 0, 0, 'L');
             }
         };
         
@@ -668,7 +668,7 @@ class InvoicePdfService
             // Supplier (from system settings)
             'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
-            'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+            'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
             'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
             // Purchaser (from Xero Contact)
@@ -679,7 +679,7 @@ class InvoicePdfService
 
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : $this->formatXeroDate($xeroInvoice['DateString'] ?? null),
-            'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
+            'place_of_supply' => $overrides['place_of_supply'] ?? '110, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
             // Totals
@@ -745,7 +745,7 @@ class InvoicePdfService
 
             'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
-            'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+            'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
             'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
             'purchaser_tin'     => $overrides['purchaser_tin'] ?? '',
@@ -754,7 +754,7 @@ class InvoicePdfService
             'purchaser_phone'   => $client?->phone ?? '',
 
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($invoice->issued_at?->format('m/d/Y') ?? ''),
-            'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
+            'place_of_supply' => $overrides['place_of_supply'] ?? '110, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? ($invoice->description ?? ''),
 
             'subtotal'       => number_format((float) $invoice->amount, 2),
@@ -794,7 +794,7 @@ class InvoicePdfService
             // Supplier (from system settings)
             'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
-            'supplier_address' => SystemSetting::get('company_address', '110-3/1, Havelock Road, Colombo 05'),
+            'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
             'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
             // Purchaser (from Client model)
@@ -805,7 +805,7 @@ class InvoicePdfService
 
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y')),
-            'place_of_supply' => $overrides['place_of_supply'] ?? '110-3/1, Havelock Road, Colombo 05',
+            'place_of_supply' => $overrides['place_of_supply'] ?? '110, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? '',
 
             // Totals
@@ -878,7 +878,7 @@ class InvoicePdfService
             return '';
         }
 
-        // If it is already in the target format (e.g. 26MAY_MAIN_01769), return it as is
+        // If it is already in the target format (e.g. 26MAY_ARTS_01769), return it as is
         if (preg_match('/^\d{2}[A-Z]{3}_[A-Z0-9]{4}_\d{5}$/', $rawNumber)) {
             return $rawNumber;
         }
@@ -903,7 +903,7 @@ class InvoicePdfService
 
         $yy = $date->format('y');
         $mmm = strtoupper($date->format('M'));
-        $qqqq = 'MAIN';
+        $qqqq = 'ARTS';
 
         return "{$yy}{$mmm}_{$qqqq}_{$paddedNum}";
     }
