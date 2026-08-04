@@ -208,9 +208,9 @@ class InvoicePdfService
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(32, 8, $data['invoice_number'] ?? '', 0, 0, 'L');
 
-        // Row 2: Supplier & Purchaser details (Shifted up by 10mm)
-        $pdf->Rect(15, 56, 90, 38);
-        $pdf->Rect(105, 56, 90, 38);
+        // Row 2: Supplier & Purchaser details (Dynamic height to remove gap above Telephone No)
+        $suppAddr = $data['supplier_address'] ?? '';
+        $purchAddr = $data['purchaser_address'] ?? '';
 
         // Supplier details inside box
         $pdf->SetXY(17, 58);
@@ -229,15 +229,17 @@ class InvoicePdfService
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(15, 4, "Address:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
-        $addrY = $pdf->GetY();
-        $pdf->SetXY(32, $addrY);
-        $pdf->MultiCell(71, 4, $data['supplier_address'] ?? '', 0, 'L');
+        $suppAddrY = $pdf->GetY();
+        $pdf->SetXY(32, $suppAddrY);
+        $pdf->MultiCell(71, 4, $suppAddr, 0, 'L');
 
-        $pdf->SetXY(17, 88);
+        $suppPhoneY = $pdf->GetY();
+        $pdf->SetXY(17, $suppPhoneY);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(24, 4, "Telephone No:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(62, 4, $data['supplier_phone'] ?? '', 0, 1, 'L');
+        $suppFinalY = $pdf->GetY();
 
         // Purchaser details inside box
         $pdf->SetXY(107, 58);
@@ -256,32 +258,42 @@ class InvoicePdfService
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(15, 4, "Address:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
-        $addrY = $pdf->GetY();
-        $pdf->SetXY(122, $addrY);
-        $pdf->MultiCell(71, 4, $data['purchaser_address'] ?? '', 0, 'L');
+        $purchAddrY = $pdf->GetY();
+        $pdf->SetXY(122, $purchAddrY);
+        $pdf->MultiCell(71, 4, $purchAddr, 0, 'L');
 
-        $pdf->SetXY(107, 88);
+        $purchPhoneY = $pdf->GetY();
+        $pdf->SetXY(107, $purchPhoneY);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(26, 4, "Telephone No:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 4, $data['purchaser_phone'] ?? '', 0, 1, 'L');
+        $purchFinalY = $pdf->GetY();
 
-        // Row 3: Date of Delivery & Place of Supply (Shifted up by 10mm)
-        $pdf->Rect(15, 96, 90, 8);
-        $pdf->SetXY(17, 96);
+        // Draw Row 2 outer rectangles dynamically based on content height
+        $maxY = max($suppFinalY, $purchFinalY);
+        $row2Height = max(24, ($maxY - 56) + 2);
+        $pdf->Rect(15, 56, 90, $row2Height);
+        $pdf->Rect(105, 56, 90, $row2Height);
+
+        // Row 3: Date of Delivery & Place of Supply
+        $row3Y = 56 + $row2Height + 2;
+        $pdf->Rect(15, $row3Y, 90, 8);
+        $pdf->SetXY(17, $row3Y);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(28, 8, 'Date of Delivery:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 8, $data['delivery_date'] ?? '', 0, 0, 'L');
 
-        $pdf->Rect(105, 96, 90, 8);
-        $pdf->SetXY(107, 96);
+        $pdf->Rect(105, $row3Y, 90, 8);
+        $pdf->SetXY(107, $row3Y);
         $pdf->SetFont('Helvetica', 'B', 8);
         $pdf->Cell(28, 8, 'Place of Supply:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 8, $data['place_of_supply'] ?? '', 0, 0, 'L');
 
         // Row 4: Additional Information if any (Conditional)
+        $row4Y = $row3Y + 8 + 2;
         $infoText = trim($data['additional_info'] ?? '');
         if ($infoText !== '') {
             $fullLabel = 'Additional Information if any: ';
@@ -290,11 +302,11 @@ class InvoicePdfService
             $infoLines = $this->calculateNbLines($pdf, 178, $fullInfoText);
             $infoHeight = max(($infoLines * 4) + 4, 16);
 
-            $pdf->Rect(15, 106, 180, $infoHeight);
+            $pdf->Rect(15, $row4Y, 180, $infoHeight);
 
             $pdf->SetLeftMargin(17);
             $pdf->SetRightMargin(17);
-            $pdf->SetXY(17, 108);
+            $pdf->SetXY(17, $row4Y + 2);
 
             $pdf->SetFont('Helvetica', 'B', 8);
             $pdf->Write(4, $fullLabel);
@@ -305,10 +317,10 @@ class InvoicePdfService
             $pdf->SetRightMargin(10);
 
             // Table Start Y
-            $tableY = 106 + $infoHeight + 2; // Dynamic offset + 2mm gap
+            $tableY = $row4Y + $infoHeight + 2;
         } else {
             // Table Start Y if no Additional Information
-            $tableY = 106;
+            $tableY = $row4Y;
         }
         $pdf->SetXY(15, $tableY);
 
