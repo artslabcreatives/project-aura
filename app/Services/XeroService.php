@@ -504,6 +504,9 @@ class XeroService
             $clientId = $project->client_id;
         } elseif (isset($invoice['Contact'])) {
             $clientId = $this->resolveClientId($invoice['Contact']);
+            if (!$clientId) {
+                $clientId = $this->resolveOrCreateClient($invoice['Contact'], null);
+            }
         }
 
         // Update or create Invoice record

@@ -27,6 +27,51 @@ class InvoiceController extends Controller
             new OA\Response(response: 401, description: "Unauthenticated"),
         ]
     )]
+    #[OA\Get(
+        path: "/invoices/stats",
+        summary: "Get invoice statistics",
+        security: [["bearerAuth" => []]],
+        tags: ["Invoices"],
+        responses: [new OA\Response(response: 200, description: "Invoice statistics")]
+    )]
+    public function stats(): JsonResponse
+    {
+        $paid = Invoice::where('status', 'paid')->count();
+        $authorised = Invoice::where('status', 'authorised')->count();
+        $draft = Invoice::where('status', 'draft')->count();
+        $voided = Invoice::whereIn('status', ['voided', 'deleted'])->count();
+        $total = Invoice::count();
+        $totalAmount = (float) Invoice::whereNotIn('status', ['voided', 'deleted'])->sum('amount');
+
+        return response()->json([
+            'paid' => $paid,
+            'authorised' => $authorised,
+            'draft' => $draft,
+            'voided' => $voided,
+            'total' => $total,
+            'total_amount' => $totalAmount,
+        ]);
+    }
+
+    #[OA\Get(
+        path: "/invoices",
+        summary: "List invoices",
+        description: "Returns paginated invoices with optional filters",
+        security: [["bearerAuth" => []]],
+        tags: ["Invoices"],
+        parameters: [
+            new OA\Parameter(name: "source", in: "query", required: false, schema: new OA\Schema(type: "string", enum: ["manual", "xero"])),
+            new OA\Parameter(name: "project_id", in: "query", required: false, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "client_id", in: "query", required: false, schema: new OA\Schema(type: "integer")),
+            new OA\Parameter(name: "status", in: "query", required: false, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "search", in: "query", required: false, schema: new OA\Schema(type: "string")),
+            new OA\Parameter(name: "per_page", in: "query", required: false, schema: new OA\Schema(type: "integer", default: 20)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Paginated invoice list"),
+            new OA\Response(response: 401, description: "Unauthenticated"),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $query = Invoice::with(['project:id,name', 'client:id,company_name']);
@@ -40,14 +85,34 @@ class InvoiceController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            if ($request->status === 'voided') {
+                $query->whereIn('status', ['voided', 'deleted']);
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
         if ($request->filled('client_id')) {
             $query->where('client_id', $request->client_id);
         }
 
-        $invoices = $query->orderBy('created_at', 'desc')->paginate($request->per_page ?? 20);
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('currency', 'like', "%{$search}%")
+                  ->orWhereHas('client', function ($cq) use ($search) {
+                      $cq->where('company_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('project', function ($pq) use ($search) {
+                      $pq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $perPage = $request->per_page ? (int)$request->per_page : 15;
+        $invoices = $query->orderByRaw('COALESCE(issued_at, created_at) DESC')->paginate($perPage);
 
         return response()->json($invoices);
     }
@@ -125,7 +190,142 @@ class InvoiceController extends Controller
     )]
     public function show(Invoice $invoice): JsonResponse
     {
-        return response()->json($invoice->load(['project:id,name', 'client:id,company_name']));
+        $invoice->load(['project:id,name', 'client:id,company_name,email,phone,address']);
+        $response = $invoice->toArray();
+
+        // If it is a Xero invoice, fetch line items and tax breakdown from Xero
+        if ($invoice->xero_invoice_id) {
+            try {
+                $xeroService = app(\App\Services\XeroService::class);
+                if ($xeroService->isConnected()) {
+                    $xeroDetail = $xeroService->getInvoiceDetail($invoice->xero_invoice_id);
+                    $response['xero_detail'] = $xeroDetail;
+                    $response['items'] = collect($xeroDetail['LineItems'] ?? [])->map(function ($item, $idx) {
+                        $qty = (float) ($item['Quantity'] ?? 1);
+                        $price = (float) ($item['UnitAmount'] ?? 0);
+                        $lineAmt = (float) ($item['LineAmount'] ?? ($qty * $price));
+                        return [
+                            'id' => $idx + 1,
+                            'description' => $item['Description'] ?? '',
+                            'quantity' => $qty,
+                            'unit_price' => $price,
+                            'total' => round($lineAmt, 2),
+                            'tax_amount' => (float) ($item['TaxAmount'] ?? 0),
+                        ];
+                    })->values()->all();
+                    $response['subtotal'] = (float) ($xeroDetail['SubTotal'] ?? $invoice->amount);
+                    $response['total_tax'] = (float) ($xeroDetail['TotalTax'] ?? 0);
+                    $response['total'] = (float) ($xeroDetail['Total'] ?? $invoice->amount);
+
+                    if (empty($response['client']) && !empty($xeroDetail['Contact'])) {
+                        $contact = $xeroDetail['Contact'];
+                        $phones = $contact['Phones'] ?? [];
+                        $phoneNum = null;
+                        foreach ($phones as $p) {
+                            if (!empty($p['PhoneNumber'])) {
+                                $phoneNum = trim(($p['PhoneAreaCode'] ?? '') . ' ' . $p['PhoneNumber']);
+                                break;
+                            }
+                        }
+                        $response['client'] = [
+                            'id' => null,
+                            'company_name' => $contact['Name'] ?? 'Unknown Client',
+                            'email' => $contact['EmailAddress'] ?? null,
+                            'phone' => $phoneNum,
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Could not load Xero invoice detail for show: ' . $e->getMessage());
+            }
+        }
+
+        // Fallback items if no items loaded
+        if (empty($response['items'])) {
+            $amount = (float) ($invoice->amount ?? 0);
+            $response['items'] = [
+                [
+                    'id' => 1,
+                    'description' => $invoice->description ?: ($invoice->invoice_number ?: 'Invoice item'),
+                    'quantity' => 1,
+                    'unit_price' => $amount,
+                    'total' => $amount,
+                    'tax_amount' => 0,
+                ]
+            ];
+            $response['subtotal'] = $amount;
+            $response['total_tax'] = 0;
+            $response['total'] = $amount;
+        }
+
+        return response()->json($response);
+    }
+
+    #[OA\Get(
+        path: "/invoices/{invoice}/download-pdf",
+        summary: "Download tax invoice PDF",
+        security: [["bearerAuth" => []]],
+        tags: ["Invoices"],
+        parameters: [new OA\Parameter(name: "invoice", in: "path", required: true, schema: new OA\Schema(type: "integer"))],
+        responses: [new OA\Response(response: 200, description: "PDF stream")]
+    )]
+    public function downloadPdf(Request $request, Invoice $invoice)
+    {
+        $template = \App\Models\InvoiceTemplate::getDefault();
+        if (!$template) {
+            return response()->json(['message' => 'No active PDF invoice template found.'], 404);
+        }
+
+        if (!$template->pdf_path || !file_exists($template->absolute_pdf_path)) {
+            return response()->json(['message' => 'Template PDF file not found.'], 404);
+        }
+
+        $pdfService = app(\App\Services\InvoicePdfService::class);
+        $xeroService = app(\App\Services\XeroService::class);
+
+        $overrides = [];
+        if ($request->has('payment_mode')) {
+            $overrides['payment_mode'] = $request->query('payment_mode');
+        }
+        if ($request->has('additional_info')) {
+            $overrides['additional_info'] = $request->query('additional_info');
+        }
+        if ($request->has('reference')) {
+            $overrides['reference'] = $request->query('reference');
+        }
+        if ($request->has('due_days')) {
+            $overrides['due_days'] = $request->query('due_days');
+        }
+        if ($request->has('discount_type')) {
+            $overrides['discount_type'] = $request->query('discount_type');
+        }
+        if ($request->has('discount_value')) {
+            $overrides['discount_value'] = $request->query('discount_value');
+        }
+
+        $data = null;
+        // If it is a Xero invoice and Xero is connected, fetch fresh details from Xero
+        if ($invoice->xero_invoice_id && $xeroService->isConnected()) {
+            try {
+                $xeroInvoice = $xeroService->getInvoiceDetail($invoice->xero_invoice_id);
+                $data = $pdfService->buildDataFromXeroInvoice($xeroInvoice, $overrides);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to fetch Xero invoice detail for PDF, falling back to local: ' . $e->getMessage());
+            }
+        }
+
+        if (!$data) {
+            $data = $pdfService->buildDataFromLocalInvoice($invoice->load(['client', 'project']), $overrides);
+        }
+
+        $pdfContent = $pdfService->generate($template, $data);
+        $filename   = 'Tax_Invoice_' . ($invoice->invoice_number ?? $invoice->id) . '.pdf';
+
+        return response()->streamDownload(function () use ($pdfContent) {
+            echo $pdfContent;
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 
     #[OA\Post(

@@ -231,6 +231,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/reminders/{reminder}/override', [\App\Http\Controllers\Api\ReminderOverrideController::class, 'revert']);
 
     // Invoices
+    Route::get('/invoices/stats', [\App\Http\Controllers\Api\InvoiceController::class, 'stats']);
+    Route::get('invoices/{invoice}/download-pdf', [\App\Http\Controllers\Api\InvoiceController::class, 'downloadPdf']);
     Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
 
     // Clients

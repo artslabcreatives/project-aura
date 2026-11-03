@@ -293,6 +293,7 @@ const Clients = lazy(() => import("./pages/Clients"));
 const ClientProfile = lazy(() => import("./pages/ClientProfile"));
 const Estimates = lazy(() => import("./pages/Estimates"));
 const EstimateDetail = lazy(() => import("./pages/EstimateDetail"));
+const InvoiceDetail = lazy(() => import("./pages/InvoiceDetail"));
 const TaskEfficiency = lazy(() => import("./pages/TaskEfficiency"));
 const DepartmentEfficiency = lazy(() => import("./pages/DepartmentEfficiency"));
 const PublicMattermostChat = lazy(() => import("./pages/PublicMattermostChat").then(m => ({ default: m.PublicMattermostChat })));
@@ -408,6 +409,11 @@ const App = () => (
 									<Route path="/estimates/:estimateId" element={
 										<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
 											<EstimateDetail />
+										</ProtectedRoute>
+									} />
+									<Route path="/invoices/:invoiceId" element={
+										<ProtectedRoute allowedRoles={['admin', 'team-lead', 'account-manager', 'hr']}>
+											<InvoiceDetail />
 										</ProtectedRoute>
 									} />
 									<Route path="/emails" element={<Emails />} />

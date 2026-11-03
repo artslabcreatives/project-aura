@@ -29,7 +29,7 @@ class InvoicePdfService
             return $filePath;
         }
 
-        $decryptedPath = $filePath . '.decrypted.pdf';
+        $decryptedPath = sys_get_temp_dir() . '/' . md5($filePath) . '.decrypted.pdf';
 
         // 1. Try node.js conversion with pdf-lib (highly reliable and project-packaged)
         $nodeScript = base_path('scratch/convert_pdf_cli.cjs');
@@ -46,7 +46,7 @@ class InvoicePdfService
         // 2. Fallback to system qpdf if available
         $hasQpdf = trim(@\shell_exec('which qpdf 2>/dev/null') ?? '');
         if (!empty($hasQpdf)) {
-            $cmd = "qpdf --decrypt " . escapeshellarg($filePath) . " " . escapeshellarg($decryptedPath) . " 2>&1";
+            $cmd = "qpdf --qdf --object-streams=disable " . escapeshellarg($filePath) . " " . escapeshellarg($decryptedPath) . " 2>&1";
             $output = [];
             $returnCode = -1;
             @\exec($cmd, $output, $returnCode);
@@ -801,10 +801,11 @@ class InvoicePdfService
     public function buildDataFromLocalInvoice(\App\Models\Invoice $invoice, array $overrides = []): array
     {
         $client = $invoice->client;
+        $amount = (float) ($invoice->amount ?? 0);
 
-        return [
-            'invoice_date'   => $invoice->issued_at?->format('m/d/Y') ?? '',
-            'reference'      => $overrides['reference'] ?? '',
+        $data = [
+            'invoice_date'   => $invoice->issued_at?->format('m/d/Y') ?? now()->format('m/d/Y'),
+            'reference'      => $overrides['reference'] ?? ($invoice->description ?? ''),
             'invoice_number' => $this->formatInvoiceSerialNumber(
                 $invoice->invoice_number ?? '',
                 $invoice->issued_at?->toDateString()
@@ -820,16 +821,16 @@ class InvoicePdfService
             'purchaser_address' => $client?->address ?? '',
             'purchaser_phone'   => $client?->phone ?? '',
 
-            'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($invoice->issued_at?->format('m/d/Y') ?? ''),
+            'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($invoice->issued_at?->format('m/d/Y') ?? now()->format('m/d/Y')),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110, Havelock Road, Colombo 05',
             'additional_info' => $overrides['additional_info'] ?? ($invoice->description ?? ''),
 
-            'subtotal'       => number_format((float) $invoice->amount, 2),
-            'sscl_amount'    => number_format(((float) $invoice->amount) * 0.025, 2),
+            'subtotal'       => number_format($amount, 2),
+            'sscl_amount'    => number_format($amount * 0.025, 2),
             'vat_rate'       => ($overrides['vat_rate'] ?? '18') . '%',
             'vat_amount'     => $overrides['vat_amount'] ?? '',
-            'total_with_vat' => $overrides['total_with_vat'] ?? number_format((float) $invoice->amount, 2),
-            'total_in_words' => $this->numberToWords((float) $invoice->amount),
+            'total_with_vat' => $overrides['total_with_vat'] ?? number_format($amount, 2),
+            'total_in_words' => $this->numberToWords($amount),
 
             'payment_mode' => $overrides['payment_mode'] ?? '',
             'due_days'     => $overrides['due_days'] ?? 15,
@@ -838,8 +839,28 @@ class InvoicePdfService
         // Apply discount overrides if present
         $discountType = $overrides['discount_type'] ?? 'none';
         $discountValue = (float) ($overrides['discount_value'] ?? 0);
-        $totals = $this->calculateTotals((float) $invoice->amount, $discountType, $discountValue);
+        $totals = $this->calculateTotals($amount, $discountType, $discountValue);
         $data = array_merge($data, $totals);
+
+        for ($i = 0; $i < 5; $i++) {
+            $n = $i + 1;
+            if ($i === 0) {
+                $desc = $invoice->description ?: ($invoice->invoice_number ?: 'Invoice Item');
+                $data["item_{$n}_ref"]         = '1';
+                $data["item_{$n}_description"] = $desc;
+                $data["item_{$n}_quantity"]    = '1';
+                $data["item_{$n}_unit_price"]  = number_format($amount, 2);
+                $data["item_{$n}_amount"]      = number_format($amount, 2);
+            } else {
+                $data["item_{$n}_ref"]         = '';
+                $data["item_{$n}_description"] = '';
+                $data["item_{$n}_quantity"]    = '';
+                $data["item_{$n}_unit_price"]  = '';
+                $data["item_{$n}_amount"]      = '';
+            }
+        }
+
+        return $data;
     }
 
     /**
