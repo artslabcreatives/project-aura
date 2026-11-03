@@ -461,9 +461,10 @@ class InvoicePdfService
         $ssclVal = isset($data['sscl_amount']) && $data['sscl_amount'] !== ''
             ? (float) str_replace(',', '', (string) $data['sscl_amount'])
             : ($totalAfterDiscountVal * 0.025);
+        $vatBaseVal = $totalAfterDiscountVal + $ssclVal;
         $vatVal = isset($data['vat_amount']) && $data['vat_amount'] !== ''
             ? (float) str_replace(',', '', (string) $data['vat_amount'])
-            : ($totalAfterDiscountVal * 0.18);
+            : ($vatBaseVal * 0.18);
         $totalVal = $totalAfterDiscountVal + $ssclVal + $vatVal;
 
         $ssclAmountText = number_format($ssclVal, 2);
@@ -977,7 +978,8 @@ class InvoicePdfService
 
         $totalAfterDiscount = max(0, $rawSubtotal - $discountAmount);
         $ssclAmount = $totalAfterDiscount * 0.025;
-        $vatAmount = $totalAfterDiscount * 0.18;
+        $vatBase = $totalAfterDiscount + $ssclAmount;
+        $vatAmount = $vatBase * 0.18;
         $totalWithVat = $totalAfterDiscount + $ssclAmount + $vatAmount;
 
         return [
