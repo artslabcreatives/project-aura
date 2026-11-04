@@ -26,6 +26,10 @@ type RawInvoice = {
 	client?: {
 		id: number;
 		company_name: string;
+		tax_number?: string;
+		email?: string;
+		phone?: string;
+		address?: string;
 	};
 	invoice_document?: string;
 	invoice_document_url?: string;
@@ -56,7 +60,12 @@ const transformInvoice = (raw: RawInvoice): Invoice => ({
 	client: raw.client ? {
 		id: raw.client.id,
 		companyName: raw.client.company_name,
-	} : undefined,
+		company_name: raw.client.company_name,
+		tax_number: raw.client.tax_number,
+		email: raw.client.email,
+		phone: raw.client.phone,
+		address: raw.client.address,
+	} as any : undefined,
 	invoiceDocument: raw.invoice_document_url || raw.invoice_document,
 	isPhysicalInvoice: Boolean(raw.is_physical_invoice),
 	courierTrackingNumber: raw.courier_tracking_number,
@@ -201,7 +210,12 @@ export const invoiceService = {
 		dueDays?: string,
 		discountType?: string,
 		discountValue?: number | string,
-		filename = 'invoice.pdf'
+		filename = 'invoice.pdf',
+		purchaserDetails?: {
+			tin?: string;
+			address?: string;
+			phone?: string;
+		}
 	): Promise<void> {
 		const params = new URLSearchParams();
 		if (paymentMode) params.append('payment_mode', paymentMode);
@@ -210,6 +224,9 @@ export const invoiceService = {
 		if (dueDays) params.append('due_days', dueDays);
 		if (discountType && discountType !== 'none') params.append('discount_type', discountType);
 		if (discountValue !== undefined && discountValue !== '') params.append('discount_value', String(discountValue));
+		if (purchaserDetails?.tin) params.append('purchaser_tin', purchaserDetails.tin);
+		if (purchaserDetails?.address) params.append('purchaser_address', purchaserDetails.address);
+		if (purchaserDetails?.phone) params.append('purchaser_phone', purchaserDetails.phone);
 
 		const token = localStorage.getItem('auth_token');
 		const res = await fetch(`/api/invoices/${id}/download-pdf?${params.toString()}`, {

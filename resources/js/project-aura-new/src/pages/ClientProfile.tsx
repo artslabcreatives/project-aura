@@ -410,6 +410,13 @@ export default function ClientProfile() {
 						<CardContent className="space-y-6">
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
 								<div className="space-y-1">
+									<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">VAT / Tax Number</p>
+									<div className="flex items-center">
+										<p className="text-sm font-medium">{client.tax_number || 'Not specified'}</p>
+										{client.tax_number && <CopyButton text={client.tax_number} label="VAT Number" />}
+									</div>
+								</div>
+								<div className="space-y-1">
 									<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Industry</p>
 									<p className="text-sm font-medium">{client.industry || 'Not specified'}</p>
 								</div>
@@ -437,7 +444,7 @@ export default function ClientProfile() {
 										{client.phone && <CopyButton text={client.phone} label="Primary Phone" />}
 									</div>
 								</div>
-								<div className="space-y-1 md:col-span-2">
+								<div className="space-y-1">
 									<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Address</p>
 									<p className="text-sm font-medium whitespace-pre-line">{client.address || 'No address provided'}</p>
 								</div>

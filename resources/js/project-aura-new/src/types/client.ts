@@ -15,6 +15,7 @@ import { Project } from "./project";
 export interface Client {
     id: number | string;
     company_name: string;
+    tax_number?: string;
     industry?: string;
     website?: string;
     phone?: string;

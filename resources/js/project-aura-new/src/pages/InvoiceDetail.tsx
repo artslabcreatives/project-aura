@@ -108,7 +108,7 @@ export default function InvoiceDetail() {
 
 	useEffect(() => {
 		fetchInvoice();
-		projectService.getAll().then(setProjects).catch(() => {});
+		projectService.getAll().then(setProjects).catch(() => { });
 	}, [invoiceId]);
 
 	const handleStatusChange = async (newStatus: string) => {
@@ -402,11 +402,17 @@ export default function InvoiceDetail() {
 										{invoice.client?.companyName || invoice.client?.company_name || "Unknown Client"}
 									</span>
 								</div>
-								{invoice.client?.email && (
-									<p className="text-xs text-muted-foreground mt-0.5">{invoice.client.email}</p>
+								{invoice.client?.tax_number && (
+									<p className="text-xs text-muted-foreground mt-0.5">VAT: {invoice.client.tax_number}</p>
+								)}
+								{invoice.client?.address && (
+									<p className="text-xs text-muted-foreground mt-0.5">{invoice.client.address}</p>
 								)}
 								{invoice.client?.phone && (
-									<p className="text-xs text-muted-foreground">{invoice.client.phone}</p>
+									<p className="text-xs text-muted-foreground mt-0.5">Tel: {invoice.client.phone}</p>
+								)}
+								{invoice.client?.email && (
+									<p className="text-xs text-muted-foreground mt-0.5">{invoice.client.email}</p>
 								)}
 							</div>
 
@@ -498,11 +504,11 @@ export default function InvoiceDetail() {
 
 			{/* ── Payment Mode / Tax Invoice Modal ───────────────────────────── */}
 			<Dialog open={isPaymentModeOpen} onOpenChange={setIsPaymentModeOpen}>
-				<DialogContent className="sm:max-w-md">
+				<DialogContent className="sm:max-w-[425px]">
 					<DialogHeader>
 						<DialogTitle>Download Tax Invoice</DialogTitle>
 						<DialogDescription>
-							Customize payment mode and terms before generating the PDF invoice.
+							Customize payment terms and optional discount before generating the PDF invoice.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -523,16 +529,6 @@ export default function InvoiceDetail() {
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="inv-reference-num">Reference Number / PO Number</Label>
-							<Input
-								id="inv-reference-num"
-								value={referenceNumber}
-								onChange={(e) => setReferenceNumber(e.target.value)}
-								placeholder="e.g. PO-12345 or Ref #"
-							/>
-						</div>
-
-						<div className="space-y-2">
 							<Label htmlFor="inv-due-days">Payment Due (Days)</Label>
 							<Input
 								id="inv-due-days"
@@ -541,6 +537,16 @@ export default function InvoiceDetail() {
 								value={dueDays}
 								onChange={(e) => setDueDays(e.target.value)}
 								placeholder="15"
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="inv-reference-num">Reference Number / PO Number</Label>
+							<Input
+								id="inv-reference-num"
+								value={referenceNumber}
+								onChange={(e) => setReferenceNumber(e.target.value)}
+								placeholder="e.g. PO-12345 or Ref #"
 							/>
 						</div>
 

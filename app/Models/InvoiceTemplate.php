@@ -50,13 +50,13 @@ class InvoiceTemplate extends Model
             ['key' => 'invoice_number',     'label' => 'Tax Invoice No.',          'group' => 'Header'],
 
             // Supplier (your company)
-            ['key' => 'supplier_tin',       'label' => "Supplier's TIN",           'group' => 'Supplier'],
+            ['key' => 'supplier_tin',       'label' => "Supplier's VAT",           'group' => 'Supplier'],
             ['key' => 'supplier_name',      'label' => "Supplier's Name",          'group' => 'Supplier'],
             ['key' => 'supplier_address',   'label' => "Supplier's Address",       'group' => 'Supplier'],
             ['key' => 'supplier_phone',     'label' => "Supplier's Telephone No.", 'group' => 'Supplier'],
 
             // Purchaser (client)
-            ['key' => 'purchaser_tin',      'label' => "Purchaser's TIN",          'group' => 'Purchaser'],
+            ['key' => 'purchaser_tin',      'label' => "Purchaser's VAT",          'group' => 'Purchaser'],
             ['key' => 'purchaser_name',     'label' => "Purchaser's Name",         'group' => 'Purchaser'],
             ['key' => 'purchaser_address',  'label' => "Purchaser's Address",      'group' => 'Purchaser'],
             ['key' => 'purchaser_phone',    'label' => "Purchaser's Telephone No.",'group' => 'Purchaser'],

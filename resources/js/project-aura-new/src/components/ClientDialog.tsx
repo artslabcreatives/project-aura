@@ -28,6 +28,7 @@ export function ClientDialog({
 }: ClientDialogProps) {
     const [formData, setFormData] = useState({
         company_name: "",
+        tax_number: "",
         industry: "",
         website: "",
         phone: "",
@@ -40,6 +41,7 @@ export function ClientDialog({
         if (editClient) {
             setFormData({
                 company_name: editClient.company_name,
+                tax_number: editClient.tax_number || "",
                 industry: editClient.industry || "",
                 website: editClient.website || "",
                 phone: editClient.phone || "",
@@ -50,6 +52,7 @@ export function ClientDialog({
         } else {
             setFormData({
                 company_name: "",
+                tax_number: "",
                 industry: "",
                 website: "",
                 phone: "",
@@ -77,15 +80,26 @@ export function ClientDialog({
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4 px-1 max-h-[70vh] overflow-y-auto">
-                        <div className="grid gap-2">
-                            <Label htmlFor="company_name">Company Name *</Label>
-                            <Input
-                                id="company_name"
-                                value={formData.company_name}
-                                onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                                placeholder="Acme Corp"
-                                required
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="company_name">Company Name *</Label>
+                                <Input
+                                    id="company_name"
+                                    value={formData.company_name}
+                                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                                    placeholder="Acme Corp"
+                                    required
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="tax_number">VAT / Tax Number</Label>
+                                <Input
+                                    id="tax_number"
+                                    value={formData.tax_number}
+                                    onChange={(e) => setFormData({ ...formData, tax_number: e.target.value })}
+                                    placeholder="e.g. 104025536 - 7000"
+                                />
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">

@@ -13,6 +13,7 @@ class Client extends Model
 
     protected $fillable = [
         'company_name',
+        'tax_number',
         'industry',
         'website',
         'phone',
@@ -45,5 +46,21 @@ class Client extends Model
     public function projects(): HasMany
     {
         return $this->hasMany(Project::class);
+    }
+
+    /**
+     * Get the estimates for the client.
+     */
+    public function estimates(): HasMany
+    {
+        return $this->hasMany(Estimate::class);
+    }
+
+    /**
+     * Get the invoices for the client.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 }

@@ -242,6 +242,9 @@ class XeroService
         $toDelete = Client::whereNotNull('xero_contact_id')
             ->whereNotIn('xero_contact_id', $customerXeroIds)
             ->whereIn('id', $xeroCreatedClientIds)
+            ->whereDoesntHave('estimates')
+            ->whereDoesntHave('projects')
+            ->whereDoesntHave('invoices')
             ->get();
 
         foreach ($toDelete as $client) {
@@ -308,7 +311,7 @@ class XeroService
         Supplier::create([
             'company_name'    => $name,
             'email'           => $this->nullableString($contact['EmailAddress'] ?? null),
-            'phone'           => $this->nullableString($contact['Phones'][0]['PhoneNumber'] ?? null),
+            'phone'           => $this->extractXeroPhone($contact['Phones'] ?? []),
             'xero_contact_id' => $xeroContactId,
         ]);
 
@@ -329,9 +332,10 @@ class XeroService
             return 'skipped';
         }
 
-        // 1. Already linked by xero_contact_id → nothing to do
+        // 1. Already linked by xero_contact_id → enrich missing fields
         $existing = Client::where('xero_contact_id', $xeroContactId)->first();
         if ($existing) {
+            $this->enrichClientFromXeroContact($existing, $contact);
             return 'already_linked';
         }
 
@@ -339,6 +343,7 @@ class XeroService
         $nameMatch = Client::whereRaw('LOWER(company_name) = ?', [strtolower($name)])->first();
         if ($nameMatch) {
             $nameMatch->update(['xero_contact_id' => $xeroContactId]);
+            $this->enrichClientFromXeroContact($nameMatch, $contact);
 
             ClientHistory::create([
                 'user_id'     => $actorId,
@@ -357,8 +362,10 @@ class XeroService
         // 3. No match → create new client
         $client = Client::create([
             'company_name'    => $name,
+            'tax_number'      => $this->nullableString($contact['TaxNumber'] ?? null),
             'email'           => $this->nullableString($contact['EmailAddress'] ?? null),
-            'phone'           => $this->nullableString($contact['Phones'][0]['PhoneNumber'] ?? null),
+            'phone'           => $this->extractXeroPhone($contact['Phones'] ?? []),
+            'address'         => $this->extractXeroAddress($contact['Addresses'] ?? []),
             'xero_contact_id' => $xeroContactId,
         ]);
 
@@ -398,8 +405,12 @@ class XeroService
         $updated = 0;
         $skipped = 0;
 
+        $contactIds = [];
         foreach ($quotes as $quote) {
             try {
+                if (!empty($quote['Contact']['ContactID'])) {
+                    $contactIds[] = $quote['Contact']['ContactID'];
+                }
                 $result = $this->upsertEstimate($quote, $actorId);
                 match ($result) {
                     'created' => $created++,
@@ -413,6 +424,12 @@ class XeroService
                 ]);
                 $skipped++;
             }
+        }
+
+        // Xero /Quotes only returns minimal Contact data (ContactID & Name).
+        // Batch-fetch full Contacts from Xero so VAT (TaxNumber), Address, and Phone are synced.
+        if (!empty($contactIds)) {
+            $this->enrichClientsByXeroContactIds(array_values(array_unique($contactIds)));
         }
 
         return compact('created', 'updated', 'skipped');
@@ -665,6 +682,7 @@ class XeroService
         if ($xeroContactId) {
             $linked = Client::where('xero_contact_id', $xeroContactId)->first();
             if ($linked) {
+                $this->enrichClientFromXeroContact($linked, $contact);
                 return $linked->id;
             }
         }
@@ -686,14 +704,17 @@ class XeroService
                     ],
                 ]);
             }
+            $this->enrichClientFromXeroContact($nameMatch, $contact);
             return $nameMatch->id;
         }
 
         // 3. No match → create new client
         $client = Client::create([
             'company_name'    => $name,
+            'tax_number'      => $this->nullableString($contact['TaxNumber'] ?? null),
             'email'           => $this->nullableString($contact['EmailAddress'] ?? null),
-            'phone'           => $this->nullableString($contact['Phones'][0]['PhoneNumber'] ?? null),
+            'phone'           => $this->extractXeroPhone($contact['Phones'] ?? []),
+            'address'         => $this->extractXeroAddress($contact['Addresses'] ?? []),
             'xero_contact_id' => $xeroContactId,
         ]);
 
@@ -706,6 +727,186 @@ class XeroService
         ]);
 
         return $client->id;
+    }
+
+    /**
+     * Fetch a single Contact from Xero by ContactID and update the local Client record.
+     */
+    public function syncClientFromXero(Client $client): Client
+    {
+        if (!$client->xero_contact_id || !$this->isConnected()) {
+            return $client;
+        }
+
+        try {
+            $bearer = $this->getBearerToken();
+            $token  = XeroToken::current();
+
+            $response = Http::withToken($bearer)
+                ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+                ->get(self::API_BASE . '/Contacts/' . $client->xero_contact_id);
+
+            if ($response->successful()) {
+                $contact = $response->json('Contacts.0');
+                if ($contact) {
+                    $this->enrichClientFromXeroContact($client, $contact);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync single client from Xero: ' . $e->getMessage());
+        }
+
+        return $client->fresh();
+    }
+
+    /**
+     * Batch-fetch Contacts from Xero by ContactIDs and enrich local Client records.
+     */
+    public function enrichClientsByXeroContactIds(array $contactIds): void
+    {
+        if (empty($contactIds) || !$this->isConnected()) {
+            return;
+        }
+
+        try {
+            $bearer = $this->getBearerToken();
+            $token  = XeroToken::current();
+
+            foreach (array_chunk($contactIds, 40) as $chunk) {
+                $response = Http::withToken($bearer)
+                    ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+                    ->get(self::API_BASE . '/Contacts', [
+                        'IDs' => implode(',', $chunk),
+                    ]);
+
+                if ($response->successful()) {
+                    foreach ($response->json('Contacts') ?? [] as $contact) {
+                        $xeroContactId = $contact['ContactID'] ?? null;
+                        if (!$xeroContactId) {
+                            continue;
+                        }
+                        $client = Client::where('xero_contact_id', $xeroContactId)->first();
+                        if ($client) {
+                            $this->enrichClientFromXeroContact($client, $contact);
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to batch enrich clients from Xero: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Update a local Client's fields (tax_number, address, phone, email) from a Xero Contact payload.
+     */
+    public function enrichClientFromXeroContact(Client $client, array $contact): void
+    {
+        $updates = [];
+
+        $taxNumber = $this->nullableString($contact['TaxNumber'] ?? null);
+        $address   = $this->extractXeroAddress($contact['Addresses'] ?? []);
+        $phone     = $this->extractXeroPhone($contact['Phones'] ?? []);
+        $email     = $this->nullableString($contact['EmailAddress'] ?? null);
+
+        if ($taxNumber !== null && $taxNumber !== $client->tax_number) {
+            $updates['tax_number'] = $taxNumber;
+        }
+        if ($address !== null && $address !== $client->address) {
+            $updates['address'] = $address;
+        }
+        if ($phone !== null && $phone !== $client->phone) {
+            $updates['phone'] = $phone;
+        }
+        if ($email !== null && $email !== $client->email) {
+            $updates['email'] = $email;
+        }
+
+        if (!empty($updates)) {
+            $client->update($updates);
+        }
+    }
+
+    /**
+     * Extract formatted address from Xero Contact Addresses array.
+     */
+    public function extractXeroAddress(array $addresses): ?string
+    {
+        if (empty($addresses)) {
+            return null;
+        }
+
+        $ordered = array_merge(
+            array_filter($addresses, fn($a) => ($a['AddressType'] ?? '') === 'STREET'),
+            array_filter($addresses, fn($a) => ($a['AddressType'] ?? '') === 'POBOX'),
+            $addresses
+        );
+
+        foreach ($ordered as $addr) {
+            $rawParts = [
+                $addr['AddressLine1'] ?? '',
+                $addr['AddressLine2'] ?? '',
+                $addr['AddressLine3'] ?? '',
+                $addr['AddressLine4'] ?? '',
+                $addr['City'] ?? '',
+                $addr['Region'] ?? '',
+                $addr['PostalCode'] ?? '',
+                $addr['Country'] ?? '',
+            ];
+
+            $cleanParts = [];
+            foreach ($rawParts as $part) {
+                $lines = preg_split('/[\r\n]+/', (string) $part);
+                foreach ($lines as $line) {
+                    $line = trim($line, " \t\n\r\0\x0B,");
+                    if ($line !== '') {
+                        $cleanParts[] = $line;
+                    }
+                }
+            }
+
+            if (!empty($cleanParts)) {
+                return implode(', ', $cleanParts);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract formatted phone number from Xero Contact Phones array.
+     */
+    public function extractXeroPhone(array $phones): ?string
+    {
+        if (empty($phones)) {
+            return null;
+        }
+
+        $ordered = array_merge(
+            array_filter($phones, fn($p) => ($p['PhoneType'] ?? '') === 'DEFAULT'),
+            array_filter($phones, fn($p) => ($p['PhoneType'] ?? '') === 'MOBILE'),
+            array_filter($phones, fn($p) => ($p['PhoneType'] ?? '') === 'DDI'),
+            $phones
+        );
+
+        foreach ($ordered as $phone) {
+            $num = trim((string) ($phone['PhoneNumber'] ?? ''));
+            if ($num === '') {
+                continue;
+            }
+
+            $country = trim((string) ($phone['PhoneCountryCode'] ?? ''));
+            $area    = trim((string) ($phone['PhoneAreaCode'] ?? ''));
+
+            if (preg_match('/^[a-zA-Z\s:.\-]+$/', $area)) {
+                $area = '';
+            }
+
+            $parts = array_filter([$country, $area, $num], fn($v) => $v !== '');
+            return implode(' ', $parts);
+        }
+
+        return null;
     }
 
     /**

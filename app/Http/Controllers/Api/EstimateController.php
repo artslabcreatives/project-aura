@@ -159,7 +159,12 @@ class EstimateController extends Controller
     )]
     public function show(Estimate $estimate): JsonResponse
     {
-        return response()->json($estimate->load(['client', 'project', 'creator', 'items']));
+        $estimate->load(['client', 'project', 'creator', 'items']);
+        if ($estimate->client && $estimate->client->xero_contact_id) {
+            app(\App\Services\XeroService::class)->syncClientFromXero($estimate->client);
+            $estimate->load('client');
+        }
+        return response()->json($estimate);
     }
 
     #[OA\Put(
@@ -394,6 +399,31 @@ class EstimateController extends Controller
         }
         if ($request->has('discount_value')) {
             $overrides['discount_value'] = $request->query('discount_value');
+        }
+        if ($request->filled('purchaser_tin')) {
+            $overrides['purchaser_tin'] = trim((string) $request->query('purchaser_tin'));
+        }
+        if ($request->filled('purchaser_address')) {
+            $overrides['purchaser_address'] = trim((string) $request->query('purchaser_address'));
+        }
+        if ($request->filled('purchaser_phone')) {
+            $overrides['purchaser_phone'] = trim((string) $request->query('purchaser_phone'));
+        }
+
+        if ($estimate->client) {
+            $clientUpdates = [];
+            if (!empty($overrides['purchaser_tin']) && $overrides['purchaser_tin'] !== $estimate->client->tax_number) {
+                $clientUpdates['tax_number'] = $overrides['purchaser_tin'];
+            }
+            if (!empty($overrides['purchaser_address']) && $overrides['purchaser_address'] !== $estimate->client->address) {
+                $clientUpdates['address'] = $overrides['purchaser_address'];
+            }
+            if (!empty($overrides['purchaser_phone']) && $overrides['purchaser_phone'] !== $estimate->client->phone) {
+                $clientUpdates['phone'] = $overrides['purchaser_phone'];
+            }
+            if (!empty($clientUpdates)) {
+                $estimate->client->update($clientUpdates);
+            }
         }
 
         $data = $pdfService->buildDataFromLocalEstimate($estimate, $overrides);

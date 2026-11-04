@@ -190,7 +190,7 @@ class InvoiceController extends Controller
     )]
     public function show(Invoice $invoice): JsonResponse
     {
-        $invoice->load(['project:id,name', 'client:id,company_name,email,phone,address']);
+        $invoice->load(['project:id,name', 'client:id,company_name,tax_number,email,phone,address,xero_contact_id']);
         $response = $invoice->toArray();
 
         // If it is a Xero invoice, fetch line items and tax breakdown from Xero
@@ -217,27 +217,30 @@ class InvoiceController extends Controller
                     $response['total_tax'] = (float) ($xeroDetail['TotalTax'] ?? 0);
                     $response['total'] = (float) ($xeroDetail['Total'] ?? $invoice->amount);
 
-                    if (empty($response['client']) && !empty($xeroDetail['Contact'])) {
+                    if (!empty($xeroDetail['Contact'])) {
                         $contact = $xeroDetail['Contact'];
-                        $phones = $contact['Phones'] ?? [];
-                        $phoneNum = null;
-                        foreach ($phones as $p) {
-                            if (!empty($p['PhoneNumber'])) {
-                                $phoneNum = trim(($p['PhoneAreaCode'] ?? '') . ' ' . $p['PhoneNumber']);
-                                break;
-                            }
+                        if ($invoice->client) {
+                            $xeroService->enrichClientFromXeroContact($invoice->client, $contact);
+                            $response['client'] = $invoice->client->fresh()->only(['id', 'company_name', 'tax_number', 'email', 'phone', 'address']);
+                        } else {
+                            $response['client'] = [
+                                'id' => null,
+                                'company_name' => $contact['Name'] ?? 'Unknown Client',
+                                'tax_number' => $contact['TaxNumber'] ?? null,
+                                'email' => $contact['EmailAddress'] ?? null,
+                                'phone' => $xeroService->extractXeroPhone($contact['Phones'] ?? []),
+                                'address' => $xeroService->extractXeroAddress($contact['Addresses'] ?? []),
+                            ];
                         }
-                        $response['client'] = [
-                            'id' => null,
-                            'company_name' => $contact['Name'] ?? 'Unknown Client',
-                            'email' => $contact['EmailAddress'] ?? null,
-                            'phone' => $phoneNum,
-                        ];
                     }
                 }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Could not load Xero invoice detail for show: ' . $e->getMessage());
             }
+        } elseif ($invoice->client && $invoice->client->xero_contact_id) {
+            $xeroService = app(\App\Services\XeroService::class);
+            $updatedClient = $xeroService->syncClientFromXero($invoice->client);
+            $response['client'] = $updatedClient->only(['id', 'company_name', 'tax_number', 'email', 'phone', 'address']);
         }
 
         // Fallback items if no items loaded
@@ -302,6 +305,32 @@ class InvoiceController extends Controller
         if ($request->has('discount_value')) {
             $overrides['discount_value'] = $request->query('discount_value');
         }
+        if ($request->filled('purchaser_tin')) {
+            $overrides['purchaser_tin'] = trim((string) $request->query('purchaser_tin'));
+        }
+        if ($request->filled('purchaser_address')) {
+            $overrides['purchaser_address'] = trim((string) $request->query('purchaser_address'));
+        }
+        if ($request->filled('purchaser_phone')) {
+            $overrides['purchaser_phone'] = trim((string) $request->query('purchaser_phone'));
+        }
+
+        $invoice->load(['client', 'project']);
+        if ($invoice->client) {
+            $clientUpdates = [];
+            if (!empty($overrides['purchaser_tin']) && $overrides['purchaser_tin'] !== $invoice->client->tax_number) {
+                $clientUpdates['tax_number'] = $overrides['purchaser_tin'];
+            }
+            if (!empty($overrides['purchaser_address']) && $overrides['purchaser_address'] !== $invoice->client->address) {
+                $clientUpdates['address'] = $overrides['purchaser_address'];
+            }
+            if (!empty($overrides['purchaser_phone']) && $overrides['purchaser_phone'] !== $invoice->client->phone) {
+                $clientUpdates['phone'] = $overrides['purchaser_phone'];
+            }
+            if (!empty($clientUpdates)) {
+                $invoice->client->update($clientUpdates);
+            }
+        }
 
         $data = null;
         // If it is a Xero invoice and Xero is connected, fetch fresh details from Xero
@@ -309,13 +338,24 @@ class InvoiceController extends Controller
             try {
                 $xeroInvoice = $xeroService->getInvoiceDetail($invoice->xero_invoice_id);
                 $data = $pdfService->buildDataFromXeroInvoice($xeroInvoice, $overrides);
+                if ($invoice->client) {
+                    if (empty($data['purchaser_tin']) && !empty($invoice->client->tax_number)) {
+                        $data['purchaser_tin'] = $invoice->client->tax_number;
+                    }
+                    if (empty($data['purchaser_address']) && !empty($invoice->client->address)) {
+                        $data['purchaser_address'] = $invoice->client->address;
+                    }
+                    if (empty($data['purchaser_phone']) && !empty($invoice->client->phone)) {
+                        $data['purchaser_phone'] = $invoice->client->phone;
+                    }
+                }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Failed to fetch Xero invoice detail for PDF, falling back to local: ' . $e->getMessage());
             }
         }
 
         if (!$data) {
-            $data = $pdfService->buildDataFromLocalInvoice($invoice->load(['client', 'project']), $overrides);
+            $data = $pdfService->buildDataFromLocalInvoice($invoice, $overrides);
         }
 
         $pdfContent = $pdfService->generate($template, $data);

@@ -124,6 +124,7 @@ class ClientController extends Controller
 
         $validated = $request->validate([
             'company_name' => 'required|string|max:255|unique:clients,company_name',
+            'tax_number' => 'nullable|string|max:100',
             'industry' => 'nullable|string|max:255',
             'website' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:255',
@@ -157,6 +158,9 @@ class ClientController extends Controller
     public function show(Client $client): JsonResponse
     {
         $this->checkReadPermission();
+        if ($client->xero_contact_id) {
+            $client = app(\App\Services\XeroService::class)->syncClientFromXero($client);
+        }
         return response()->json($client->load(['contacts', 'projects' => function ($query) {
             $query->with(['department', 'group']);
         }]));
@@ -196,6 +200,7 @@ class ClientController extends Controller
 
         $validated = $request->validate([
             'company_name' => 'required|string|max:255|unique:clients,company_name,' . $client->id,
+            'tax_number' => 'nullable|string|max:100',
             'industry' => 'nullable|string|max:255',
             'website' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:255',

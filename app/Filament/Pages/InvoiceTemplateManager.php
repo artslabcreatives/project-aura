@@ -399,7 +399,7 @@ class InvoiceTemplateManager extends Page
                         $genData['manual_invoice_date'] ?? null
                     ),
                     'reference'        => $overrides['reference'],
-                    'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+                    'supplier_tin'     => SystemSetting::get('company_tin', '103262879 - 7000'),
                     'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
                     'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
                     'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
@@ -472,7 +472,7 @@ class InvoiceTemplateManager extends Page
             'invoice_date'     => now()->format('m/d/Y'),
             'reference'        => 'PO 4562379790',
             'invoice_number'   => $pdfService->formatInvoiceSerialNumber('TI-0001', now()->toDateString()),
-            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879 - 7000'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
             'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
             'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),

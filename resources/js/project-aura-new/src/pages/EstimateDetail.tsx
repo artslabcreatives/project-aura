@@ -409,11 +409,23 @@ export default function EstimateDetail() {
 							<CardTitle className="text-base">Details</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-3 text-sm">
-							<div className="flex items-center gap-2">
-								<Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-								<div>
+							<div className="flex items-start gap-2">
+								<Building2 className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+								<div className="space-y-0.5">
 									<div className="text-xs text-muted-foreground">Client</div>
 									<div className="font-medium">{estimate.client?.company_name ?? "—"}</div>
+									{estimate.client?.tax_number && (
+										<div className="text-xs text-muted-foreground">VAT: {estimate.client.tax_number}</div>
+									)}
+									{estimate.client?.address && (
+										<div className="text-xs text-muted-foreground">{estimate.client.address}</div>
+									)}
+									{estimate.client?.phone && (
+										<div className="text-xs text-muted-foreground">Tel: {estimate.client.phone}</div>
+									)}
+									{estimate.client?.email && (
+										<div className="text-xs text-muted-foreground">{estimate.client.email}</div>
+									)}
 								</div>
 							</div>
 							{estimate.estimate_number && (
@@ -489,9 +501,9 @@ export default function EstimateDetail() {
 			<Dialog open={isPaymentModeOpen} onOpenChange={setIsPaymentModeOpen}>
 				<DialogContent className="sm:max-w-[425px]">
 					<DialogHeader>
-						<DialogTitle>Select Mode of Payment</DialogTitle>
+						<DialogTitle>Download Tax Invoice</DialogTitle>
 						<DialogDescription>
-							Please select the Mode of Payment to include in the generated PDF invoice.
+							Select the Mode of Payment and Due Date to include in the generated Tax Invoice PDF.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-4">
@@ -574,7 +586,14 @@ export default function EstimateDetail() {
 						<Button
 							onClick={() => {
 								setIsPaymentModeOpen(false);
-								handleDownloadPdf(selectedPaymentMode, additionalInfo, referenceNumber, dueDays, discountType, discountValue);
+								handleDownloadPdf(
+									selectedPaymentMode,
+									additionalInfo,
+									referenceNumber,
+									dueDays,
+									discountType,
+									discountValue
+								);
 							}}
 						>
 							Download PDF

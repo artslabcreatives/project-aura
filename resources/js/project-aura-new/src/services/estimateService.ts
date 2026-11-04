@@ -65,7 +65,12 @@ export const estimateService = {
 		dueDays?: string,
 		discountType?: string,
 		discountValue?: number | string,
-		filename = 'estimate.pdf'
+		filename = 'estimate.pdf',
+		purchaserDetails?: {
+			tin?: string;
+			address?: string;
+			phone?: string;
+		}
 	): Promise<void> => {
 		const params: Record<string, string> = {};
 		if (paymentMode) params.payment_mode = paymentMode;
@@ -74,6 +79,9 @@ export const estimateService = {
 		if (dueDays) params.due_days = dueDays;
 		if (discountType && discountType !== 'none') params.discount_type = discountType;
 		if (discountValue !== undefined && discountValue !== '') params.discount_value = String(discountValue);
+		if (purchaserDetails?.tin) params.purchaser_tin = purchaserDetails.tin;
+		if (purchaserDetails?.address) params.purchaser_address = purchaserDetails.address;
+		if (purchaserDetails?.phone) params.purchaser_phone = purchaserDetails.phone;
 
 		const response = await api.get(`/estimates/${id}/download-pdf`, {
 			params,

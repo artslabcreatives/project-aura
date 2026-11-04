@@ -215,7 +215,7 @@ class InvoicePdfService
         // Supplier details inside box
         $pdf->SetXY(17, 58);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(24, 4, "Supplier's TIN:", 0, 0, 'L');
+        $pdf->Cell(24, 4, "Supplier's VAT:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(62, 4, $data['supplier_tin'] ?? '', 0, 1, 'L');
 
@@ -244,7 +244,7 @@ class InvoicePdfService
         // Purchaser details inside box
         $pdf->SetXY(107, 58);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(26, 4, "Purchaser's TIN:", 0, 0, 'L');
+        $pdf->Cell(26, 4, "Purchaser's VAT:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 4, $data['purchaser_tin'] ?? '', 0, 1, 'L');
 
@@ -719,6 +719,22 @@ class InvoicePdfService
         $total     = (float) ($xeroInvoice['Total'] ?? 0);
         $vatRate   = $subtotal > 0 ? round($taxAmount / $subtotal * 100, 0) : 18;
 
+        $localClient = null;
+        if (!empty($contact['ContactID'])) {
+            $localClient = \App\Models\Client::where('xero_contact_id', $contact['ContactID'])->first();
+        }
+        if (!$localClient && !empty($contact['Name'])) {
+            $localClient = \App\Models\Client::whereRaw('LOWER(company_name) = ?', [strtolower(trim($contact['Name']))])->first();
+        }
+        if ($localClient && !empty($contact)) {
+            app(\App\Services\XeroService::class)->enrichClientFromXeroContact($localClient, $contact);
+            $localClient->refresh();
+        }
+
+        $xeroTin   = trim((string) ($contact['TaxNumber'] ?? ''));
+        $xeroAddr  = $this->formatXeroAddress($contact['Addresses'] ?? []);
+        $xeroPhone = $this->formatXeroPhone($contact['Phones'] ?? []);
+
         $data = [
             'invoice_date'   => $this->formatXeroDate($xeroInvoice['DateString'] ?? $xeroInvoice['Date'] ?? null),
             'reference'      => $overrides['reference'] ?? ($xeroInvoice['Reference'] ?? ''),
@@ -728,16 +744,16 @@ class InvoicePdfService
             ),
 
             // Supplier (from system settings)
-            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879 - 7000'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
             'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
             'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
-            // Purchaser (from Xero Contact)
-            'purchaser_tin'     => $contact['TaxNumber'] ?? '',
-            'purchaser_name'    => $contact['Name'] ?? '',
-            'purchaser_address' => $this->formatXeroAddress($contact['Addresses'] ?? []),
-            'purchaser_phone'   => $this->formatXeroPhone($contact['Phones'] ?? []),
+            // Purchaser (from overrides -> Xero Contact -> local Client)
+            'purchaser_tin'     => !empty($overrides['purchaser_tin']) ? $overrides['purchaser_tin'] : ($xeroTin !== '' ? $xeroTin : ($localClient?->tax_number ?? '')),
+            'purchaser_name'    => !empty($overrides['purchaser_name']) ? $overrides['purchaser_name'] : (($contact['Name'] ?? '') ?: ($localClient?->company_name ?? '')),
+            'purchaser_address' => !empty($overrides['purchaser_address']) ? $overrides['purchaser_address'] : ($xeroAddr !== '' ? $xeroAddr : ($localClient?->address ?? '')),
+            'purchaser_phone'   => !empty($overrides['purchaser_phone']) ? $overrides['purchaser_phone'] : ($xeroPhone !== '' ? $xeroPhone : ($localClient?->phone ?? '')),
 
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : $this->formatXeroDate($xeroInvoice['DateString'] ?? null),
@@ -802,6 +818,9 @@ class InvoicePdfService
     public function buildDataFromLocalInvoice(\App\Models\Invoice $invoice, array $overrides = []): array
     {
         $client = $invoice->client;
+        if ($client && $client->xero_contact_id) {
+            $client = app(\App\Services\XeroService::class)->syncClientFromXero($client);
+        }
         $amount = (float) ($invoice->amount ?? 0);
 
         $data = [
@@ -812,15 +831,15 @@ class InvoicePdfService
                 $invoice->issued_at?->toDateString()
             ),
 
-            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879 - 7000'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
             'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
             'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
-            'purchaser_tin'     => $overrides['purchaser_tin'] ?? '',
-            'purchaser_name'    => $client?->company_name ?? '',
-            'purchaser_address' => $client?->address ?? '',
-            'purchaser_phone'   => $client?->phone ?? '',
+            'purchaser_tin'     => !empty($overrides['purchaser_tin']) ? $overrides['purchaser_tin'] : ($client?->tax_number ?? ''),
+            'purchaser_name'    => !empty($overrides['purchaser_name']) ? $overrides['purchaser_name'] : ($client?->company_name ?? ''),
+            'purchaser_address' => !empty($overrides['purchaser_address']) ? $overrides['purchaser_address'] : ($client?->address ?? ''),
+            'purchaser_phone'   => !empty($overrides['purchaser_phone']) ? $overrides['purchaser_phone'] : ($client?->phone ?? ''),
 
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($invoice->issued_at?->format('m/d/Y') ?? now()->format('m/d/Y')),
             'place_of_supply' => $overrides['place_of_supply'] ?? '110, Havelock Road, Colombo 05',
@@ -870,6 +889,9 @@ class InvoicePdfService
     public function buildDataFromLocalEstimate(\App\Models\Estimate $estimate, array $overrides = []): array
     {
         $client = $estimate->client;
+        if ($client && $client->xero_contact_id) {
+            $client = app(\App\Services\XeroService::class)->syncClientFromXero($client);
+        }
         $items = $estimate->items()->get();
 
         $subtotal  = (float) ($estimate->subtotal ?? 0);
@@ -887,16 +909,16 @@ class InvoicePdfService
             ),
 
             // Supplier (from system settings)
-            'supplier_tin'     => SystemSetting::get('company_tin', '103262879'),
+            'supplier_tin'     => SystemSetting::get('company_tin', '103262879 - 7000'),
             'supplier_name'    => SystemSetting::get('company_name', 'WHITE STAR WEB SOLUTIONS PVT LTD'),
             'supplier_address' => SystemSetting::get('company_address', '110, Havelock Road, Colombo 05'),
             'supplier_phone'   => SystemSetting::get('company_phone', '0776273901'),
 
             // Purchaser (from Client model)
-            'purchaser_tin'     => $overrides['purchaser_tin'] ?? '',
-            'purchaser_name'    => $client?->company_name ?? '',
-            'purchaser_address' => $client?->address ?? '',
-            'purchaser_phone'   => $client?->phone ?? '',
+            'purchaser_tin'     => !empty($overrides['purchaser_tin']) ? $overrides['purchaser_tin'] : ($client?->tax_number ?? ''),
+            'purchaser_name'    => !empty($overrides['purchaser_name']) ? $overrides['purchaser_name'] : ($client?->company_name ?? ''),
+            'purchaser_address' => !empty($overrides['purchaser_address']) ? $overrides['purchaser_address'] : ($client?->address ?? ''),
+            'purchaser_phone'   => !empty($overrides['purchaser_phone']) ? $overrides['purchaser_phone'] : ($client?->phone ?? ''),
 
             // Details
             'delivery_date'   => !empty($overrides['delivery_date']) ? $overrides['delivery_date'] : ($estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y')),
@@ -1057,21 +1079,7 @@ class InvoicePdfService
      */
     private function formatXeroAddress(array $addresses): string
     {
-        // Prefer STREET type, fallback to POBOX or first
-        $address = collect($addresses)->firstWhere('AddressType', 'STREET')
-            ?? collect($addresses)->firstWhere('AddressType', 'POBOX')
-            ?? ($addresses[0] ?? []);
-
-        $parts = array_filter([
-            $address['AddressLine1'] ?? '',
-            $address['AddressLine2'] ?? '',
-            $address['City'] ?? '',
-            $address['Region'] ?? '',
-            $address['PostalCode'] ?? '',
-            $address['Country'] ?? '',
-        ]);
-
-        return implode(', ', $parts);
+        return app(\App\Services\XeroService::class)->extractXeroAddress($addresses) ?? '';
     }
 
     /**
@@ -1079,16 +1087,7 @@ class InvoicePdfService
      */
     private function formatXeroPhone(array $phones): string
     {
-        $phone = collect($phones)->firstWhere('PhoneType', 'DEFAULT')
-            ?? ($phones[0] ?? []);
-
-        $parts = array_filter([
-            $phone['PhoneCountryCode'] ?? '',
-            $phone['PhoneAreaCode'] ?? '',
-            $phone['PhoneNumber'] ?? '',
-        ]);
-
-        return implode(' ', $parts);
+        return app(\App\Services\XeroService::class)->extractXeroPhone($phones) ?? '';
     }
 
     /**
