@@ -16,7 +16,7 @@
 		"filament/filament": "^3.3",
 		"firebase/php-jwt": "^7.0",
 		"guzzlehttp/guzzle": "^7.2",
-		"laravel/framework": "^11.0",
+		"laravel/framework": "^12.69",
 		"laravel/mcp": "^0.4.0",
 		"laravel/reverb": "^1.7",
 		"laravel/sanctum": "^4.0",
