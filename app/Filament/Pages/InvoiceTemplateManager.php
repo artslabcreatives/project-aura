@@ -246,7 +246,7 @@ class InvoiceTemplateManager extends Page
                         Grid::make(3)
                             ->schema([
                                 TextInput::make('delivery_date')
-                                    ->label('Date of Delivery')
+                                    ->label('Date of Supply')
                                     ->placeholder('YYYY-MM-DD'),
                                 TextInput::make('reference')
                                     ->label('Reference / PO No.'),

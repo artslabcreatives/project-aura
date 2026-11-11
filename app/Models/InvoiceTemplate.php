@@ -62,7 +62,7 @@ class InvoiceTemplate extends Model
             ['key' => 'purchaser_phone',    'label' => "Purchaser's Telephone No.",'group' => 'Purchaser'],
 
             // Details
-            ['key' => 'delivery_date',      'label' => 'Date of Delivery',         'group' => 'Details'],
+            ['key' => 'delivery_date',      'label' => 'Date of Supply',           'group' => 'Details'],
             ['key' => 'place_of_supply',    'label' => 'Place of Supply',          'group' => 'Details'],
             ['key' => 'additional_info',    'label' => 'Additional Information',   'group' => 'Details'],
 

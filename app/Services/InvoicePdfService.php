@@ -69,9 +69,13 @@ class InvoicePdfService
     public function generate(InvoiceTemplate $template, array $data): string
     {
         // Clean all string values in $data to prevent UTF-8 characters from breaking FPDF
-        $data = array_map(function ($val) {
+        $cleanFn = function ($val) use (&$cleanFn) {
+            if (is_array($val)) {
+                return array_map($cleanFn, $val);
+            }
             return is_string($val) ? $this->cleanPdfString($val) : $val;
-        }, $data);
+        };
+        $data = array_map($cleanFn, $data);
 
         // Intercept and handle the Gazette Tax Invoice format dynamically to avoid overlaps
         if (str_contains(strtolower($template->name), 'tax vat') || str_contains(strtolower($template->pdf_path), 'tax vat')) {
@@ -276,12 +280,12 @@ class InvoicePdfService
         $pdf->Rect(15, 56, 90, $row2Height);
         $pdf->Rect(105, 56, 90, $row2Height);
 
-        // Row 3: Date of Delivery & Place of Supply
+        // Row 3: Date of Supply & Place of Supply
         $row3Y = 56 + $row2Height + 2;
         $pdf->Rect(15, $row3Y, 90, 8);
         $pdf->SetXY(17, $row3Y);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(28, 8, 'Date of Delivery:', 0, 0, 'L');
+        $pdf->Cell(28, 8, 'Date of Supply:', 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 8, $data['delivery_date'] ?? '', 0, 0, 'L');
 
@@ -352,33 +356,45 @@ class InvoicePdfService
         $minRowHeight = 8;
         $pageLimitY = 250; // Page break threshold
 
-        // Build list of items (ensure at least 5 rows exist)
+        // Build list of items
         $items = [];
-        for ($i = 1; $i <= 5; $i++) {
-            $ref = $data["item_{$i}_ref"] ?? '';
-            $desc = $data["item_{$i}_description"] ?? '';
-            $qty = $data["item_{$i}_quantity"] ?? '';
-            $price = $data["item_{$i}_unit_price"] ?? '';
-            $amount = $data["item_{$i}_amount"] ?? '';
-
-            $items[] = [
-                'ref' => $ref,
-                'desc' => $desc,
-                'qty' => $qty,
-                'price' => $price,
-                'amount' => $amount
-            ];
+        if (!empty($data['items']) && is_array($data['items'])) {
+            $items = $data['items'];
+        } else {
+            // Find all numbered items in $data
+            $maxItem = 0;
+            foreach ($data as $k => $v) {
+                if (preg_match('/^item_(\d+)_(?:ref|description|quantity|unit_price|amount)$/', (string) $k, $matches)) {
+                    $maxItem = max($maxItem, (int) $matches[1]);
+                }
+            }
+            $limit = max(5, $maxItem);
+            for ($i = 1; $i <= $limit; $i++) {
+                $items[] = [
+                    'ref'    => $data["item_{$i}_ref"] ?? '',
+                    'desc'   => $data["item_{$i}_description"] ?? '',
+                    'qty'    => $data["item_{$i}_quantity"] ?? '',
+                    'price'  => $data["item_{$i}_unit_price"] ?? '',
+                    'amount' => $data["item_{$i}_amount"] ?? '',
+                ];
+            }
         }
 
-        foreach ($items as $item) {
-            $isEmpty = empty($item['ref']) && empty($item['desc']) && empty($item['qty']) && empty($item['price']) && empty($item['amount']);
+        foreach ($items as $idx => $item) {
+            $ref    = $item['ref'] ?? (string) ($idx + 1);
+            $desc   = $item['desc'] ?? ($item['description'] ?? '');
+            $qty    = $item['qty'] ?? ($item['quantity'] ?? '');
+            $price  = $item['price'] ?? ($item['unit_price'] ?? '');
+            $amount = $item['amount'] ?? '';
+
+            $isEmpty = empty($ref) && empty($desc) && empty($qty) && empty($price) && empty($amount);
 
             if ($isEmpty) {
                 continue; // Skip empty rows completely
             }
 
             // Calculate lines of description
-            $nbLines = $this->calculateNbLines($pdf, 88, $item['desc']);
+            $nbLines = $this->calculateNbLines($pdf, 88, $desc);
             $rowHeight = max(($nbLines * $lineHeight) + 4, $minRowHeight);
 
             // Check page break
@@ -386,6 +402,14 @@ class InvoicePdfService
                 // Add page break
                 $pdf->AddPage('P', 'A4');
                 $currentY = 20;
+
+                // Running header on continuation page
+                $pdf->SetFont('Helvetica', '', 8);
+                $pdf->SetXY(15, 12);
+                $pdf->Cell(90, 5, 'Tax Invoice: ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
+                if (!empty($data['reference'])) {
+                    $pdf->Cell(90, 5, 'Ref: ' . $data['reference'], 0, 0, 'R');
+                }
 
                 // Redraw table headers on new page
                 $pdf->Rect(15, $currentY, 20, 12);
@@ -418,27 +442,25 @@ class InvoicePdfService
             $pdf->Rect(165, $currentY, 30, $rowHeight);
 
             // Draw content
-            if (!$isEmpty) {
-                // Reference (centered)
-                $pdf->SetXY(15, $currentY + ($rowHeight - 4) / 2);
-                $pdf->Cell(20, 4, $item['ref'], 0, 0, 'C');
+            // Reference (centered)
+            $pdf->SetXY(15, $currentY + ($rowHeight - 4) / 2);
+            $pdf->Cell(20, 4, (string) $ref, 0, 0, 'C');
 
-                // Description (left-aligned, multi-line)
-                $pdf->SetXY(36, $currentY + 2);
-                $pdf->MultiCell(88, $lineHeight, $item['desc'], 0, 'L');
+            // Description (left-aligned, multi-line)
+            $pdf->SetXY(36, $currentY + 2);
+            $pdf->MultiCell(88, $lineHeight, (string) $desc, 0, 'L');
 
-                // Quantity (centered)
-                $pdf->SetXY(125, $currentY + ($rowHeight - 4) / 2);
-                $pdf->Cell(20, 4, $item['qty'], 0, 0, 'C');
+            // Quantity (centered)
+            $pdf->SetXY(125, $currentY + ($rowHeight - 4) / 2);
+            $pdf->Cell(20, 4, (string) $qty, 0, 0, 'C');
 
-                // Unit Price (right-aligned)
-                $pdf->SetXY(145, $currentY + ($rowHeight - 4) / 2);
-                $pdf->Cell(18, 4, $item['price'], 0, 0, 'R');
+            // Unit Price (right-aligned)
+            $pdf->SetXY(145, $currentY + ($rowHeight - 4) / 2);
+            $pdf->Cell(18, 4, (string) $price, 0, 0, 'R');
 
-                // Amount (right-aligned)
-                $pdf->SetXY(165, $currentY + ($rowHeight - 4) / 2);
-                $pdf->Cell(28, 4, $item['amount'], 0, 0, 'R');
-            }
+            // Amount (right-aligned)
+            $pdf->SetXY(165, $currentY + ($rowHeight - 4) / 2);
+            $pdf->Cell(28, 4, (string) $amount, 0, 0, 'R');
 
             $currentY += $rowHeight;
         }
@@ -472,6 +494,23 @@ class InvoicePdfService
         $vatAmountText = number_format($vatVal, 2);
         $totalWithVatText = number_format($totalVal, 2);
         $totalInWordsText = $this->numberToWords($totalVal);
+
+        // Check if totals block (including word amount & payment mode) fits on current page
+        $totalsRowCount = $hasDiscount ? 6 : 4;
+        $fullTotalsHeight = ($totalsRowCount * 8) + 4 + 8 + 8; // 68 or 52 mm
+
+        if ($currentY + $fullTotalsHeight > 265) {
+            $pdf->AddPage('P', 'A4');
+            $currentY = 20;
+
+            // Running header on continuation page
+            $pdf->SetFont('Helvetica', '', 8);
+            $pdf->SetXY(15, 12);
+            $pdf->Cell(90, 5, 'Tax Invoice: ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
+            if (!empty($data['reference'])) {
+                $pdf->Cell(90, 5, 'Ref: ' . $data['reference'], 0, 0, 'R');
+            }
+        }
 
         // Totals Rows
         $pdf->SetFont('Helvetica', 'B', 8);
@@ -617,9 +656,17 @@ class InvoicePdfService
         $dueDateText = $dueDate->format('d M Y');
 
         $blockHeight = 55;
-        if ($currentY + $blockHeight > 280) {
+        if ($currentY + 10 + $blockHeight > 270) {
             $pdf->AddPage('P', 'A4');
             $currentY = 20;
+
+            // Running header on continuation page
+            $pdf->SetFont('Helvetica', '', 8);
+            $pdf->SetXY(15, 12);
+            $pdf->Cell(90, 5, 'Tax Invoice: ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
+            if (!empty($data['reference'])) {
+                $pdf->Cell(90, 5, 'Ref: ' . $data['reference'], 0, 0, 'R');
+            }
         } else {
             $currentY += 10;
         }
@@ -779,35 +826,50 @@ class InvoicePdfService
         $totals = $this->calculateTotals($subtotal, $discountType, $discountValue);
         $data = array_merge($data, $totals);
 
-        // Line items (up to 5)
-        for ($i = 0; $i < 5; $i++) {
+        // Line items
+        $itemsData = [];
+        foreach ($lineItems as $i => $item) {
             $n = $i + 1;
-            if (isset($lineItems[$i])) {
-                $item     = $lineItems[$i];
-                $qty      = (float) ($item['Quantity'] ?? 0);
-                $price    = (float) ($item['UnitAmount'] ?? 0);
-                $lineAmt  = (float) ($item['LineAmount'] ?? ($qty * $price));
+            $qty = (float) ($item['Quantity'] ?? 0);
+            $price = (float) ($item['UnitAmount'] ?? 0);
+            $lineAmt = (float) ($item['LineAmount'] ?? ($qty * $price));
 
-                $desc = $item['Description'] ?? '';
-                $origTotal = $qty * $price;
-                if ($origTotal > 0 && $lineAmt < $origTotal) {
-                    $pct = round((1 - ($lineAmt / $origTotal)) * 100);
-                    $desc .= " ({$pct}% discount)";
-                }
-
-                $data["item_{$n}_ref"]         = (string) $n;
-                $data["item_{$n}_description"] = $desc;
-                $data["item_{$n}_quantity"]    = number_format($qty, 0);
-                $data["item_{$n}_unit_price"]  = number_format($price, 2);
-                $data["item_{$n}_amount"]      = number_format($lineAmt, 2);
-            } else {
-                $data["item_{$n}_ref"]         = '';
-                $data["item_{$n}_description"] = '';
-                $data["item_{$n}_quantity"]    = '';
-                $data["item_{$n}_unit_price"]  = '';
-                $data["item_{$n}_amount"]      = '';
+            $desc = $item['Description'] ?? '';
+            $origTotal = $qty * $price;
+            if ($origTotal > 0 && $lineAmt < $origTotal) {
+                $pct = round((1 - ($lineAmt / $origTotal)) * 100);
+                $desc .= " ({$pct}% discount)";
             }
+
+            $qtyFormatted = ((float) $qty == (int) $qty) ? number_format($qty, 0) : rtrim(rtrim(number_format($qty, 2), '0'), '.');
+            $priceFormatted = number_format($price, 2);
+            $amountFormatted = number_format($lineAmt, 2);
+
+            $data["item_{$n}_ref"]         = (string) $n;
+            $data["item_{$n}_description"] = $desc;
+            $data["item_{$n}_quantity"]    = $qtyFormatted;
+            $data["item_{$n}_unit_price"]  = $priceFormatted;
+            $data["item_{$n}_amount"]      = $amountFormatted;
+
+            $itemsData[] = [
+                'ref'    => (string) $n,
+                'desc'   => $desc,
+                'qty'    => $qtyFormatted,
+                'price'  => $priceFormatted,
+                'amount' => $amountFormatted,
+            ];
         }
+
+        // Backwards compatibility for static templates: ensure keys item_1 through item_5 exist
+        for ($k = count($lineItems) + 1; $k <= 5; $k++) {
+            $data["item_{$k}_ref"]         = '';
+            $data["item_{$k}_description"] = '';
+            $data["item_{$k}_quantity"]    = '';
+            $data["item_{$k}_unit_price"]  = '';
+            $data["item_{$k}_amount"]      = '';
+        }
+
+        $data['items'] = $itemsData;
 
         return $data;
     }
@@ -862,10 +924,19 @@ class InvoicePdfService
         $totals = $this->calculateTotals($amount, $discountType, $discountValue);
         $data = array_merge($data, $totals);
 
+        $desc = $invoice->description ?: ($invoice->invoice_number ?: 'Invoice Item');
+        $itemRow = [
+            'ref'    => '1',
+            'desc'   => $desc,
+            'qty'    => '1',
+            'price'  => number_format($amount, 2),
+            'amount' => number_format($amount, 2),
+        ];
+        $data['items'] = [$itemRow];
+
         for ($i = 0; $i < 5; $i++) {
             $n = $i + 1;
             if ($i === 0) {
-                $desc = $invoice->description ?: ($invoice->invoice_number ?: 'Invoice Item');
                 $data["item_{$n}_ref"]         = '1';
                 $data["item_{$n}_description"] = $desc;
                 $data["item_{$n}_quantity"]    = '1';
@@ -947,35 +1018,50 @@ class InvoicePdfService
         $totals = $this->calculateTotals($subtotal, $discountType, $discountValue);
         $data = array_merge($data, $totals);
 
-        // Line items (up to 5)
-        for ($i = 0; $i < 5; $i++) {
+        // Line items
+        $itemsData = [];
+        foreach ($items as $i => $item) {
             $n = $i + 1;
-            if (isset($items[$i])) {
-                $item     = $items[$i];
-                $qty      = (float) ($item->quantity ?? 0);
-                $price    = (float) ($item->unit_price ?? 0);
-                $lineAmt  = (float) ($item->total ?? ($qty * $price));
+            $qty = (float) ($item->quantity ?? 0);
+            $price = (float) ($item->unit_price ?? 0);
+            $lineAmt = (float) ($item->total ?? ($qty * $price));
 
-                $desc = $item->description ?? '';
-                $origTotal = $qty * $price;
-                if ($origTotal > 0 && $lineAmt < $origTotal) {
-                    $pct = round((1 - ($lineAmt / $origTotal)) * 100);
-                    $desc .= " ({$pct}% discount)";
-                }
-
-                $data["item_{$n}_ref"]         = (string) $n;
-                $data["item_{$n}_description"] = $desc;
-                $data["item_{$n}_quantity"]    = number_format($qty, 0);
-                $data["item_{$n}_unit_price"]  = number_format($price, 2);
-                $data["item_{$n}_amount"]      = number_format($lineAmt, 2);
-            } else {
-                $data["item_{$n}_ref"]         = '';
-                $data["item_{$n}_description"] = '';
-                $data["item_{$n}_quantity"]    = '';
-                $data["item_{$n}_unit_price"]  = '';
-                $data["item_{$n}_amount"]      = '';
+            $desc = $item->description ?? '';
+            $origTotal = $qty * $price;
+            if ($origTotal > 0 && $lineAmt < $origTotal) {
+                $pct = round((1 - ($lineAmt / $origTotal)) * 100);
+                $desc .= " ({$pct}% discount)";
             }
+
+            $qtyFormatted = ((float) $qty == (int) $qty) ? number_format($qty, 0) : rtrim(rtrim(number_format($qty, 2), '0'), '.');
+            $priceFormatted = number_format($price, 2);
+            $amountFormatted = number_format($lineAmt, 2);
+
+            $data["item_{$n}_ref"]         = (string) $n;
+            $data["item_{$n}_description"] = $desc;
+            $data["item_{$n}_quantity"]    = $qtyFormatted;
+            $data["item_{$n}_unit_price"]  = $priceFormatted;
+            $data["item_{$n}_amount"]      = $amountFormatted;
+
+            $itemsData[] = [
+                'ref'    => (string) $n,
+                'desc'   => $desc,
+                'qty'    => $qtyFormatted,
+                'price'  => $priceFormatted,
+                'amount' => $amountFormatted,
+            ];
         }
+
+        // Backwards compatibility for static templates: ensure keys item_1 through item_5 exist
+        for ($k = count($items) + 1; $k <= 5; $k++) {
+            $data["item_{$k}_ref"]         = '';
+            $data["item_{$k}_description"] = '';
+            $data["item_{$k}_quantity"]    = '';
+            $data["item_{$k}_unit_price"]  = '';
+            $data["item_{$k}_amount"]      = '';
+        }
+
+        $data['items'] = $itemsData;
 
         return $data;
     }
