@@ -188,6 +188,35 @@ class XeroService
     }
 
     /**
+     * Fetch every Quote from Xero. The Quotes endpoint returns at most 100 per page,
+     * so keep requesting pages until a short page comes back.
+     *
+     * @throws \RuntimeException
+     */
+    private function fetchAllXeroQuotes(string $bearer, string $tenantId): array
+    {
+        $all  = [];
+        $page = 1;
+
+        do {
+            $response = Http::withToken($bearer)
+                ->withHeaders(['Xero-tenant-id' => $tenantId])
+                ->get(self::API_BASE . '/Quotes', ['page' => $page]);
+
+            if ($response->failed()) {
+                Log::error('Xero Quotes fetch failed', ['page' => $page, 'body' => $response->body()]);
+                throw new \RuntimeException('Failed to fetch Quotes from Xero: ' . $response->body());
+            }
+
+            $batch = $response->json('Quotes') ?? [];
+            $all   = array_merge($all, $batch);
+            $page++;
+        } while (count($batch) === 100);
+
+        return $all;
+    }
+
+    /**
      * Sync only Xero Customers → local clients table.
      * Also removes any previously-imported non-customer contacts from the clients table.
      *
@@ -391,16 +420,7 @@ class XeroService
         $bearer = $this->getBearerToken();
         $token  = XeroToken::current();
 
-        $response = Http::withToken($bearer)
-            ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
-            ->get(self::API_BASE . '/Quotes', ['Status' => '']);
-
-        if ($response->failed()) {
-            Log::error('Xero Quotes fetch failed', ['body' => $response->body()]);
-            throw new \RuntimeException('Failed to fetch Quotes from Xero: ' . $response->body());
-        }
-
-        $quotes  = $response->json('Quotes') ?? [];
+        $quotes  = $this->fetchAllXeroQuotes($bearer, $token->tenant_id);
         $created = 0;
         $updated = 0;
         $skipped = 0;

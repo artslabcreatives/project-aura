@@ -495,9 +495,16 @@ class InvoicePdfService
         $totalWithVatText = number_format($totalVal, 2);
         $totalInWordsText = $this->numberToWords($totalVal);
 
+        $isQuotation = ($data['document_type'] ?? '') === 'quotation';
+        $vatBaseText = number_format($vatBaseVal, 2);
+
         // Check if totals block (including word amount & payment mode) fits on current page
-        $totalsRowCount = $hasDiscount ? 6 : 4;
-        $fullTotalsHeight = ($totalsRowCount * 8) + 4 + 8 + 8; // 68 or 52 mm
+        if ($isQuotation) {
+            $totalsRowCount = $hasDiscount ? 7 : 5;
+        } else {
+            $totalsRowCount = $hasDiscount ? 6 : 4;
+        }
+        $fullTotalsHeight = ($totalsRowCount * 8) + 4 + 8 + 8;
 
         if ($currentY + $fullTotalsHeight > 265) {
             $pdf->AddPage('P', 'A4');
@@ -515,84 +522,42 @@ class InvoicePdfService
         // Totals Rows
         $pdf->SetFont('Helvetica', 'B', 8);
 
-        if ($hasDiscount) {
-            // Row 1: Sub Total
+        $drawTotalsRow = function (string $label, string $value) use ($pdf, &$currentY) {
             $pdf->Rect(15, $currentY, 150, 8);
             $pdf->SetXY(17, $currentY);
-            $pdf->Cell(148, 8, 'Sub Total', 0, 0, 'L');
+            $pdf->Cell(148, 8, $label, 0, 0, 'L');
 
             $pdf->Rect(165, $currentY, 30, 8);
             $pdf->SetXY(165, $currentY);
-            $pdf->Cell(28, 8, $subtotalStr, 0, 0, 'R');
+            $pdf->Cell(28, 8, $value, 0, 0, 'R');
 
             $currentY += 8;
+        };
 
-            // Row 2: Discount
-            $pdf->Rect(15, $currentY, 150, 8);
-            $pdf->SetXY(17, $currentY);
-            $pdf->Cell(148, 8, $discountLabel, 0, 0, 'L');
-
-            $pdf->Rect(165, $currentY, 30, 8);
-            $pdf->SetXY(165, $currentY);
-            $pdf->Cell(28, 8, $discountAmtStr, 0, 0, 'R');
-
-            $currentY += 8;
-
-            // Row 3: Total
-            $pdf->Rect(15, $currentY, 150, 8);
-            $pdf->SetXY(17, $currentY);
-            $pdf->Cell(148, 8, 'Total', 0, 0, 'L');
-
-            $pdf->Rect(165, $currentY, 30, 8);
-            $pdf->SetXY(165, $currentY);
-            $pdf->Cell(28, 8, $totalAfterDiscountStr, 0, 0, 'R');
-
-            $currentY += 8;
+        if ($isQuotation) {
+            // Quotation layout: Subtotal -> SSCL -> Subtotal with SSCL -> VAT -> TOTAL
+            $drawTotalsRow('Subtotal', $subtotalStr);
+            if ($hasDiscount) {
+                $drawTotalsRow($discountLabel, $discountAmtStr);
+                $drawTotalsRow('Subtotal after Discount', $totalAfterDiscountStr);
+            }
+            $drawTotalsRow('TOTAL SSCL 2.5%', $ssclAmountText);
+            $drawTotalsRow('Subtotal with TOTAL SSCL 2.5%', $vatBaseText);
+            $drawTotalsRow("TOTAL VAT {$vatRateText}", $vatAmountText);
+            $drawTotalsRow('TOTAL', $totalWithVatText);
         } else {
-            // Row 1: Total Value of Supply
-            $pdf->Rect(15, $currentY, 150, 8);
-            $pdf->SetXY(17, $currentY);
-            $pdf->Cell(148, 8, 'Total Value of Supply', 0, 0, 'L');
-
-            $pdf->Rect(165, $currentY, 30, 8);
-            $pdf->SetXY(165, $currentY);
-            $pdf->Cell(28, 8, $subtotalStr, 0, 0, 'R');
-
-            $currentY += 8;
+            // Tax invoice layout
+            if ($hasDiscount) {
+                $drawTotalsRow('Sub Total', $subtotalStr);
+                $drawTotalsRow($discountLabel, $discountAmtStr);
+                $drawTotalsRow('Total', $totalAfterDiscountStr);
+            } else {
+                $drawTotalsRow('Total Value of Supply', $subtotalStr);
+            }
+            $drawTotalsRow('SSCL 2.5%', $ssclAmountText);
+            $drawTotalsRow("VAT {$vatRateText}", $vatAmountText);
+            $drawTotalsRow('Total Amount including TAX', $totalWithVatText);
         }
-
-        // SSCL 2.5%
-        $pdf->Rect(15, $currentY, 150, 8);
-        $pdf->SetXY(17, $currentY);
-        $pdf->Cell(148, 8, 'SSCL 2.5%', 0, 0, 'L');
-
-        $pdf->Rect(165, $currentY, 30, 8);
-        $pdf->SetXY(165, $currentY);
-        $pdf->Cell(28, 8, $ssclAmountText, 0, 0, 'R');
-
-        $currentY += 8;
-
-        // VAT Amount
-        $pdf->Rect(15, $currentY, 150, 8);
-        $pdf->SetXY(17, $currentY);
-        $pdf->Cell(148, 8, "VAT {$vatRateText}", 0, 0, 'L');
-
-        $pdf->Rect(165, $currentY, 30, 8);
-        $pdf->SetXY(165, $currentY);
-        $pdf->Cell(28, 8, $vatAmountText, 0, 0, 'R');
-
-        $currentY += 8;
-
-        // Total Amount including TAX
-        $pdf->Rect(15, $currentY, 150, 8);
-        $pdf->SetXY(17, $currentY);
-        $pdf->Cell(148, 8, 'Total Amount including TAX', 0, 0, 'L');
-
-        $pdf->Rect(165, $currentY, 30, 8);
-        $pdf->SetXY(165, $currentY);
-        $pdf->Cell(28, 8, $totalWithVatText, 0, 0, 'R');
-
-        $currentY += 8;
 
         // Bottom Boxes: Word Amount & Payment Mode
         $currentY += 4; // 4mm space
@@ -971,6 +936,9 @@ class InvoicePdfService
         $vatRate   = $estimate->tax_rate ?? 0;
 
         $data = [
+            // Marks this as a quotation so the PDF renders the quotation totals layout
+            'document_type'  => 'quotation',
+
             // Header
             'invoice_date'   => $estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y'),
             'reference'      => array_key_exists('reference', $overrides) ? $overrides['reference'] : ($estimate->reference ?? $estimate->estimate_number ?? ''),
