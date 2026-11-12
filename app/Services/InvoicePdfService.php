@@ -185,18 +185,25 @@ class InvoicePdfService
             $pdf->Image($logoPath, 150, 12, 45);
         }
 
-        // Center Tax Invoice title box (Shifted up by 10mm, font size 14)
+        // Quotations (estimates) reuse this layout with their own labels
+        $isQuotation = ($data['document_type'] ?? '') === 'quotation';
+        $docTitle    = $isQuotation ? 'Quotation' : 'Tax Invoice';
+
+        // Center title box (Shifted up by 10mm, font size 14)
         $pdf->SetXY(80, 30);
         $pdf->SetFont('Helvetica', 'B', 14);
-        $pdf->Cell(50, 10, 'Tax Invoice', 1, 0, 'C');
+        $pdf->Cell(50, 10, $docTitle, 1, 0, 'C');
 
         // Row 1: Date of Invoice, Reference & Tax Invoice No (Shifted up by 10mm)
         $pdf->Rect(15, 46, 60, 8);
         $pdf->SetXY(17, 46);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(22, 8, 'Date of Invoice:', 0, 0, 'L');
+        // Quotation labels are shorter, so size their cells to the text to keep values close
+        $dateLabel  = $isQuotation ? 'Date of Quote:' : 'Date of Invoice:';
+        $dateLabelW = $isQuotation ? $pdf->GetStringWidth($dateLabel) + 2 : 22;
+        $pdf->Cell($dateLabelW, 8, $dateLabel, 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
-        $pdf->Cell(34, 8, $data['invoice_date'] ?? '', 0, 0, 'L');
+        $pdf->Cell(56 - $dateLabelW, 8, $data['invoice_date'] ?? '', 0, 0, 'L');
 
         $pdf->Rect(75, 46, 60, 8);
         $pdf->SetXY(77, 46);
@@ -208,9 +215,11 @@ class InvoicePdfService
         $pdf->Rect(135, 46, 60, 8);
         $pdf->SetXY(137, 46);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(24, 8, 'Tax Invoice No.:', 0, 0, 'L');
+        $numberLabel  = $isQuotation ? 'Quote No.:' : 'Tax Invoice No.:';
+        $numberLabelW = $isQuotation ? $pdf->GetStringWidth($numberLabel) + 2 : 24;
+        $pdf->Cell($numberLabelW, 8, $numberLabel, 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
-        $pdf->Cell(32, 8, $data['invoice_number'] ?? '', 0, 0, 'L');
+        $pdf->Cell(56 - $numberLabelW, 8, $data['invoice_number'] ?? '', 0, 0, 'L');
 
         // Row 2: Supplier & Purchaser details (Dynamic height to remove gap above Telephone No)
         $suppAddr = $data['supplier_address'] ?? '';
@@ -406,7 +415,7 @@ class InvoicePdfService
                 // Running header on continuation page
                 $pdf->SetFont('Helvetica', '', 8);
                 $pdf->SetXY(15, 12);
-                $pdf->Cell(90, 5, 'Tax Invoice: ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
+                $pdf->Cell(90, 5, $docTitle . ': ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
                 if (!empty($data['reference'])) {
                     $pdf->Cell(90, 5, 'Ref: ' . $data['reference'], 0, 0, 'R');
                 }
@@ -495,7 +504,6 @@ class InvoicePdfService
         $totalWithVatText = number_format($totalVal, 2);
         $totalInWordsText = $this->numberToWords($totalVal);
 
-        $isQuotation = ($data['document_type'] ?? '') === 'quotation';
         $vatBaseText = number_format($vatBaseVal, 2);
 
         // Check if totals block (including word amount & payment mode) fits on current page
@@ -513,7 +521,7 @@ class InvoicePdfService
             // Running header on continuation page
             $pdf->SetFont('Helvetica', '', 8);
             $pdf->SetXY(15, 12);
-            $pdf->Cell(90, 5, 'Tax Invoice: ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
+            $pdf->Cell(90, 5, $docTitle . ': ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
             if (!empty($data['reference'])) {
                 $pdf->Cell(90, 5, 'Ref: ' . $data['reference'], 0, 0, 'R');
             }
@@ -628,7 +636,7 @@ class InvoicePdfService
             // Running header on continuation page
             $pdf->SetFont('Helvetica', '', 8);
             $pdf->SetXY(15, 12);
-            $pdf->Cell(90, 5, 'Tax Invoice: ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
+            $pdf->Cell(90, 5, $docTitle . ': ' . ($data['invoice_number'] ?? ''), 0, 0, 'L');
             if (!empty($data['reference'])) {
                 $pdf->Cell(90, 5, 'Ref: ' . $data['reference'], 0, 0, 'R');
             }

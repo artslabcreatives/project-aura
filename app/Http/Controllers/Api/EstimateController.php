@@ -429,7 +429,7 @@ class EstimateController extends Controller
         $data = $pdfService->buildDataFromLocalEstimate($estimate, $overrides);
 
         $pdfContent = $pdfService->generate($template, $data);
-        $filename   = 'Tax_Invoice_' . ($estimate->estimate_number ?? 'draft') . '.pdf';
+        $filename   = 'Quotation_' . ($estimate->estimate_number ?? 'draft') . '.pdf';
 
         return response()->streamDownload(function () use ($pdfContent) {
             echo $pdfContent;

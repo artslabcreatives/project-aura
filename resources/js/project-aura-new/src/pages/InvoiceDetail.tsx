@@ -89,7 +89,10 @@ export default function InvoiceDetail() {
 
 	useEffect(() => {
 		if (isPaymentModeOpen && invoice) {
-			setReferenceNumber(invoice.invoiceNumber || invoice.description || "");
+			// Xero invoices keep the PO number in their Reference (synced into description),
+			// so prefer it; fall back to the invoice number when there is no PO.
+			const xeroReference = invoice.xeroInvoiceId ? (invoice.description || "").trim() : "";
+			setReferenceNumber(xeroReference || invoice.invoiceNumber || invoice.description || "");
 		}
 	}, [isPaymentModeOpen, invoice]);
 

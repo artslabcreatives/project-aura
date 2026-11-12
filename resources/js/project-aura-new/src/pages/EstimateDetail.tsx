@@ -176,13 +176,13 @@ export default function EstimateDetail() {
 				dueDaysStr,
 				discountTypeStr,
 				discountValueStr,
-				`Tax_Invoice_${num}.pdf`
+				`Quotation_${num}.pdf`
 			);
-			toast({ title: "Tax Invoice PDF downloaded." });
+			toast({ title: "Quotation PDF downloaded." });
 		} catch {
 			toast({
 				title: "Error",
-				description: "Failed to download PDF invoice. Please ensure an active template is configured.",
+				description: "Failed to download quotation PDF. Please ensure an active template is configured.",
 				variant: "destructive"
 			});
 		} finally {
