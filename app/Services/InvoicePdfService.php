@@ -549,9 +549,9 @@ class InvoicePdfService
                 $drawTotalsRow($discountLabel, $discountAmtStr);
                 $drawTotalsRow('Subtotal after Discount', $totalAfterDiscountStr);
             }
-            $drawTotalsRow('TOTAL SSCL 2.5%', $ssclAmountText);
-            $drawTotalsRow('Subtotal with TOTAL SSCL 2.5%', $vatBaseText);
-            $drawTotalsRow("TOTAL VAT {$vatRateText}", $vatAmountText);
+            $drawTotalsRow('SSCL 2.5%', $ssclAmountText);
+            $drawTotalsRow('Subtotal with SSCL 2.5%', $vatBaseText);
+            $drawTotalsRow("VAT {$vatRateText}", $vatAmountText);
             $drawTotalsRow('TOTAL', $totalWithVatText);
         } else {
             // Tax invoice layout
