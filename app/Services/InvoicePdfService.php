@@ -481,6 +481,14 @@ class InvoicePdfService
         $discountAmtVal = (float) str_replace(',', '', (string) ($data['discount_amount'] ?? '0'));
         $hasDiscount = !empty($data['has_discount']) || ($discountAmtVal > 0);
 
+        // Line-item discount inclusion or overall discount note
+        $totalLineDiscountVal = isset($data['total_line_discount'])
+            ? (float) str_replace(',', '', (string) $data['total_line_discount'])
+            : 0.0;
+        $totalDiscountIncludedVal = $totalLineDiscountVal > 0 ? $totalLineDiscountVal : ($hasDiscount ? $discountAmtVal : 0.0);
+        $hasDiscountNote = $totalDiscountIncludedVal > 0.001;
+        $discountNoteText = 'Includes discount of ' . number_format($totalDiscountIncludedVal, 2);
+
         $discountLabel = !empty($data['discount_label']) ? $data['discount_label'] : 'Discount';
         $discountAmtStr = $data['discount_amount'] ?? number_format($discountAmtVal, 2);
 
@@ -507,12 +515,13 @@ class InvoicePdfService
         $vatBaseText = number_format($vatBaseVal, 2);
 
         // Check if totals block (including word amount & payment mode) fits on current page
+        $extraHeightForDiscountNote = $hasDiscountNote ? 3 : 0;
         if ($isQuotation) {
             $totalsRowCount = $hasDiscount ? 7 : 5;
         } else {
             $totalsRowCount = $hasDiscount ? 6 : 4;
         }
-        $fullTotalsHeight = ($totalsRowCount * 8) + 4 + 8 + 8;
+        $fullTotalsHeight = ($totalsRowCount * 8) + $extraHeightForDiscountNote + 4 + 8 + 8;
 
         if ($currentY + $fullTotalsHeight > 265) {
             $pdf->AddPage('P', 'A4');
@@ -530,21 +539,43 @@ class InvoicePdfService
         // Totals Rows
         $pdf->SetFont('Helvetica', 'B', 8);
 
-        $drawTotalsRow = function (string $label, string $value) use ($pdf, &$currentY) {
-            $pdf->Rect(15, $currentY, 150, 8);
-            $pdf->SetXY(17, $currentY);
-            $pdf->Cell(148, 8, $label, 0, 0, 'L');
+        $drawTotalsRow = function (string $label, string $value, ?string $subNote = null) use ($pdf, &$currentY) {
+            $rowH = $subNote ? 11 : 8;
 
-            $pdf->Rect(165, $currentY, 30, 8);
-            $pdf->SetXY(165, $currentY);
-            $pdf->Cell(28, 8, $value, 0, 0, 'R');
+            $pdf->Rect(15, $currentY, 150, $rowH);
+            $pdf->Rect(165, $currentY, 30, $rowH);
 
-            $currentY += 8;
+            if ($subNote) {
+                // Top line: primary label
+                $pdf->SetFont('Helvetica', 'B', 8);
+                $pdf->SetXY(17, $currentY + 1.2);
+                $pdf->Cell(148, 4.2, $label, 0, 0, 'L');
+
+                // Bottom line: discount note (regular Helvetica 7pt)
+                $pdf->SetFont('Helvetica', '', 7);
+                $pdf->SetXY(17, $currentY + 5.6);
+                $pdf->Cell(148, 4, $subNote, 0, 0, 'L');
+                $pdf->SetFont('Helvetica', 'B', 8);
+
+                // Value vertically aligned
+                $pdf->SetXY(165, $currentY + ($rowH - 4) / 2);
+                $pdf->Cell(28, 4, $value, 0, 0, 'R');
+            } else {
+                $pdf->SetXY(17, $currentY);
+                $pdf->Cell(148, 8, $label, 0, 0, 'L');
+
+                $pdf->SetXY(165, $currentY);
+                $pdf->Cell(28, 8, $value, 0, 0, 'R');
+            }
+
+            $currentY += $rowH;
         };
+
+        $subtotalSubNote = $hasDiscountNote ? $discountNoteText : null;
 
         if ($isQuotation) {
             // Quotation layout: Subtotal -> SSCL -> Subtotal with SSCL -> VAT -> TOTAL
-            $drawTotalsRow('Subtotal', $subtotalStr);
+            $drawTotalsRow('Subtotal', $subtotalStr, $subtotalSubNote);
             if ($hasDiscount) {
                 $drawTotalsRow($discountLabel, $discountAmtStr);
                 $drawTotalsRow('Subtotal after Discount', $totalAfterDiscountStr);
@@ -556,11 +587,11 @@ class InvoicePdfService
         } else {
             // Tax invoice layout
             if ($hasDiscount) {
-                $drawTotalsRow('Sub Total', $subtotalStr);
+                $drawTotalsRow('Sub Total', $subtotalStr, $subtotalSubNote);
                 $drawTotalsRow($discountLabel, $discountAmtStr);
                 $drawTotalsRow('Total', $totalAfterDiscountStr);
             } else {
-                $drawTotalsRow('Total Value of Supply', $subtotalStr);
+                $drawTotalsRow('Total Value of Supply', $subtotalStr, $subtotalSubNote);
             }
             $drawTotalsRow('SSCL 2.5%', $ssclAmountText);
             $drawTotalsRow("VAT {$vatRateText}", $vatAmountText);
@@ -801,6 +832,7 @@ class InvoicePdfService
 
         // Line items
         $itemsData = [];
+        $totalLineDiscount = 0.0;
         foreach ($lineItems as $i => $item) {
             $n = $i + 1;
             $qty = (float) ($item['Quantity'] ?? 0);
@@ -812,6 +844,7 @@ class InvoicePdfService
             if ($origTotal > 0 && $lineAmt < $origTotal) {
                 $pct = round((1 - ($lineAmt / $origTotal)) * 100);
                 $desc .= " ({$pct}% discount)";
+                $totalLineDiscount += max(0, $origTotal - $lineAmt);
             }
 
             $qtyFormatted = ((float) $qty == (int) $qty) ? number_format($qty, 0) : rtrim(rtrim(number_format($qty, 2), '0'), '.');
@@ -832,6 +865,8 @@ class InvoicePdfService
                 'amount' => $amountFormatted,
             ];
         }
+
+        $data['total_line_discount'] = number_format($totalLineDiscount, 2);
 
         // Backwards compatibility for static templates: ensure keys item_1 through item_5 exist
         for ($k = count($lineItems) + 1; $k <= 5; $k++) {
@@ -996,6 +1031,7 @@ class InvoicePdfService
 
         // Line items
         $itemsData = [];
+        $totalLineDiscount = 0.0;
         foreach ($items as $i => $item) {
             $n = $i + 1;
             $qty = (float) ($item->quantity ?? 0);
@@ -1007,6 +1043,7 @@ class InvoicePdfService
             if ($origTotal > 0 && $lineAmt < $origTotal) {
                 $pct = round((1 - ($lineAmt / $origTotal)) * 100);
                 $desc .= " ({$pct}% discount)";
+                $totalLineDiscount += max(0, $origTotal - $lineAmt);
             }
 
             $qtyFormatted = ((float) $qty == (int) $qty) ? number_format($qty, 0) : rtrim(rtrim(number_format($qty, 2), '0'), '.');
@@ -1027,6 +1064,8 @@ class InvoicePdfService
                 'amount' => $amountFormatted,
             ];
         }
+
+        $data['total_line_discount'] = number_format($totalLineDiscount, 2);
 
         // Backwards compatibility for static templates: ensure keys item_1 through item_5 exist
         for ($k = count($items) + 1; $k <= 5; $k++) {
