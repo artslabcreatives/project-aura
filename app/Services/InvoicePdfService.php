@@ -479,22 +479,37 @@ class InvoicePdfService
         $subtotalVal = (float) str_replace(',', '', $subtotalStr);
 
         $discountAmtVal = (float) str_replace(',', '', (string) ($data['discount_amount'] ?? '0'));
-        $hasDiscount = !empty($data['has_discount']) || ($discountAmtVal > 0);
+        $hasOverrideDiscount = !empty($data['has_discount']) || ($discountAmtVal > 0);
 
-        // Line-item discount inclusion or overall discount note
+        // Line-item discount inclusion or overall discount
         $totalLineDiscountVal = isset($data['total_line_discount'])
             ? (float) str_replace(',', '', (string) $data['total_line_discount'])
             : 0.0;
-        $totalDiscountIncludedVal = $totalLineDiscountVal > 0 ? $totalLineDiscountVal : ($hasDiscount ? $discountAmtVal : 0.0);
-        $hasDiscountNote = $totalDiscountIncludedVal > 0.001;
-        $discountNoteText = 'Includes discount of ' . number_format($totalDiscountIncludedVal, 2);
 
-        $discountLabel = !empty($data['discount_label']) ? $data['discount_label'] : 'Discount';
-        $discountAmtStr = $data['discount_amount'] ?? number_format($discountAmtVal, 2);
+        if ($totalLineDiscountVal > 0) {
+            $hasDiscount = true;
+            $discountVal = $totalLineDiscountVal;
+            $grossSubtotalVal = $subtotalVal + $totalLineDiscountVal;
+            $totalAfterDiscountVal = $subtotalVal;
+            $discountLabel = 'Discount';
+        } elseif ($hasOverrideDiscount) {
+            $hasDiscount = true;
+            $discountVal = $discountAmtVal;
+            $grossSubtotalVal = $subtotalVal;
+            $totalAfterDiscountVal = isset($data['total_after_discount'])
+                ? (float) str_replace(',', '', (string) $data['total_after_discount'])
+                : max(0, $subtotalVal - $discountAmtVal);
+            $discountLabel = !empty($data['discount_label']) ? $data['discount_label'] : 'Discount';
+        } else {
+            $hasDiscount = false;
+            $discountVal = 0.0;
+            $grossSubtotalVal = $subtotalVal;
+            $totalAfterDiscountVal = $subtotalVal;
+            $discountLabel = 'Discount';
+        }
 
-        $totalAfterDiscountVal = isset($data['total_after_discount'])
-            ? (float) str_replace(',', '', (string) $data['total_after_discount'])
-            : max(0, $subtotalVal - $discountAmtVal);
+        $grossSubtotalStr = number_format($grossSubtotalVal, 2);
+        $discountAmtStr = number_format($discountVal, 2);
         $totalAfterDiscountStr = number_format($totalAfterDiscountVal, 2);
 
         $ssclVal = isset($data['sscl_amount']) && $data['sscl_amount'] !== ''
@@ -515,13 +530,12 @@ class InvoicePdfService
         $vatBaseText = number_format($vatBaseVal, 2);
 
         // Check if totals block (including word amount & payment mode) fits on current page
-        $extraHeightForDiscountNote = $hasDiscountNote ? 3 : 0;
         if ($isQuotation) {
             $totalsRowCount = $hasDiscount ? 7 : 5;
         } else {
             $totalsRowCount = $hasDiscount ? 6 : 4;
         }
-        $fullTotalsHeight = ($totalsRowCount * 8) + $extraHeightForDiscountNote + 4 + 8 + 8;
+        $fullTotalsHeight = ($totalsRowCount * 8) + 4 + 8 + 8;
 
         if ($currentY + $fullTotalsHeight > 265) {
             $pdf->AddPage('P', 'A4');
@@ -539,59 +553,41 @@ class InvoicePdfService
         // Totals Rows
         $pdf->SetFont('Helvetica', 'B', 8);
 
-        $drawTotalsRow = function (string $label, string $value, ?string $subNote = null) use ($pdf, &$currentY) {
-            $rowH = $subNote ? 11 : 8;
+        $drawTotalsRow = function (string $label, string $value) use ($pdf, &$currentY) {
+            $rowH = 8;
 
             $pdf->Rect(15, $currentY, 150, $rowH);
+            $pdf->SetXY(17, $currentY);
+            $pdf->Cell(148, 8, $label, 0, 0, 'L');
+
             $pdf->Rect(165, $currentY, 30, $rowH);
-
-            if ($subNote) {
-                // Top line: primary label
-                $pdf->SetFont('Helvetica', 'B', 8);
-                $pdf->SetXY(17, $currentY + 1.2);
-                $pdf->Cell(148, 4.2, $label, 0, 0, 'L');
-
-                // Bottom line: discount note (regular Helvetica 7pt)
-                $pdf->SetFont('Helvetica', '', 7);
-                $pdf->SetXY(17, $currentY + 5.6);
-                $pdf->Cell(148, 4, $subNote, 0, 0, 'L');
-                $pdf->SetFont('Helvetica', 'B', 8);
-
-                // Value vertically aligned
-                $pdf->SetXY(165, $currentY + ($rowH - 4) / 2);
-                $pdf->Cell(28, 4, $value, 0, 0, 'R');
-            } else {
-                $pdf->SetXY(17, $currentY);
-                $pdf->Cell(148, 8, $label, 0, 0, 'L');
-
-                $pdf->SetXY(165, $currentY);
-                $pdf->Cell(28, 8, $value, 0, 0, 'R');
-            }
+            $pdf->SetXY(165, $currentY);
+            $pdf->Cell(28, 8, $value, 0, 0, 'R');
 
             $currentY += $rowH;
         };
 
-        $subtotalSubNote = $hasDiscountNote ? $discountNoteText : null;
-
         if ($isQuotation) {
-            // Quotation layout: Subtotal -> SSCL -> Subtotal with SSCL -> VAT -> TOTAL
-            $drawTotalsRow('Subtotal', $subtotalStr, $subtotalSubNote);
+            // Quotation layout: Subtotal -> Discount -> Subtotal after Discount -> SSCL -> Subtotal with SSCL -> VAT -> TOTAL
             if ($hasDiscount) {
+                $drawTotalsRow('Subtotal', $grossSubtotalStr);
                 $drawTotalsRow($discountLabel, $discountAmtStr);
                 $drawTotalsRow('Subtotal after Discount', $totalAfterDiscountStr);
+            } else {
+                $drawTotalsRow('Subtotal', $grossSubtotalStr);
             }
             $drawTotalsRow('SSCL 2.5%', $ssclAmountText);
             $drawTotalsRow('Subtotal with SSCL 2.5%', $vatBaseText);
             $drawTotalsRow("VAT {$vatRateText}", $vatAmountText);
             $drawTotalsRow('TOTAL', $totalWithVatText);
         } else {
-            // Tax invoice layout
+            // Tax invoice layout: Sub Total -> Discount -> Total -> SSCL -> VAT -> Total Amount including TAX
             if ($hasDiscount) {
-                $drawTotalsRow('Sub Total', $subtotalStr, $subtotalSubNote);
+                $drawTotalsRow('Sub Total', $grossSubtotalStr);
                 $drawTotalsRow($discountLabel, $discountAmtStr);
                 $drawTotalsRow('Total', $totalAfterDiscountStr);
             } else {
-                $drawTotalsRow('Total Value of Supply', $subtotalStr, $subtotalSubNote);
+                $drawTotalsRow('Total Value of Supply', $grossSubtotalStr);
             }
             $drawTotalsRow('SSCL 2.5%', $ssclAmountText);
             $drawTotalsRow("VAT {$vatRateText}", $vatAmountText);
@@ -842,14 +838,12 @@ class InvoicePdfService
             $desc = $item['Description'] ?? '';
             $origTotal = $qty * $price;
             if ($origTotal > 0 && $lineAmt < $origTotal) {
-                $pct = round((1 - ($lineAmt / $origTotal)) * 100);
-                $desc .= " ({$pct}% discount)";
                 $totalLineDiscount += max(0, $origTotal - $lineAmt);
             }
 
             $qtyFormatted = ((float) $qty == (int) $qty) ? number_format($qty, 0) : rtrim(rtrim(number_format($qty, 2), '0'), '.');
             $priceFormatted = number_format($price, 2);
-            $amountFormatted = number_format($lineAmt, 2);
+            $amountFormatted = number_format($origTotal, 2);
 
             $data["item_{$n}_ref"]         = (string) $n;
             $data["item_{$n}_description"] = $desc;
@@ -1041,14 +1035,12 @@ class InvoicePdfService
             $desc = $item->description ?? '';
             $origTotal = $qty * $price;
             if ($origTotal > 0 && $lineAmt < $origTotal) {
-                $pct = round((1 - ($lineAmt / $origTotal)) * 100);
-                $desc .= " ({$pct}% discount)";
                 $totalLineDiscount += max(0, $origTotal - $lineAmt);
             }
 
             $qtyFormatted = ((float) $qty == (int) $qty) ? number_format($qty, 0) : rtrim(rtrim(number_format($qty, 2), '0'), '.');
             $priceFormatted = number_format($price, 2);
-            $amountFormatted = number_format($lineAmt, 2);
+            $amountFormatted = number_format($origTotal, 2);
 
             $data["item_{$n}_ref"]         = (string) $n;
             $data["item_{$n}_description"] = $desc;
