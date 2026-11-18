@@ -2,9 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Client;
+use App\Models\Estimate;
+use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
 use App\Models\SystemSetting;
+use Illuminate\Http\Request;
 use setasign\Fpdi\Fpdi;
+use setasign\Fpdi\PdfParser\StreamReader;
 
 class InvoicePdfService
 {
@@ -228,7 +233,7 @@ class InvoicePdfService
         // Supplier details inside box
         $pdf->SetXY(17, 58);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(24, 4, "Supplier's VAT:", 0, 0, 'L');
+        $pdf->Cell(24, 4, "Supplier's TIN:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(62, 4, $data['supplier_tin'] ?? '', 0, 1, 'L');
 
@@ -257,7 +262,7 @@ class InvoicePdfService
         // Purchaser details inside box
         $pdf->SetXY(107, 58);
         $pdf->SetFont('Helvetica', 'B', 8);
-        $pdf->Cell(26, 4, "Purchaser's VAT:", 0, 0, 'L');
+        $pdf->Cell(26, 4, "Purchaser's TIN:", 0, 0, 'L');
         $pdf->SetFont('Helvetica', '', 8);
         $pdf->Cell(60, 4, $data['purchaser_tin'] ?? '', 0, 1, 'L');
 
@@ -486,7 +491,15 @@ class InvoicePdfService
             ? (float) str_replace(',', '', (string) $data['total_line_discount'])
             : 0.0;
 
-        if ($totalLineDiscountVal > 0) {
+        if ($totalLineDiscountVal > 0 && $hasOverrideDiscount) {
+            $hasDiscount = true;
+            $discountVal = $totalLineDiscountVal + $discountAmtVal;
+            $grossSubtotalVal = $subtotalVal + $totalLineDiscountVal;
+            $totalAfterDiscountVal = isset($data['total_after_discount'])
+                ? (float) str_replace(',', '', (string) $data['total_after_discount'])
+                : max(0, $subtotalVal - $discountAmtVal);
+            $discountLabel = !empty($data['discount_label']) ? $data['discount_label'] : 'Discount';
+        } elseif ($totalLineDiscountVal > 0) {
             $hasDiscount = true;
             $discountVal = $totalLineDiscountVal;
             $grossSubtotalVal = $subtotalVal + $totalLineDiscountVal;
@@ -784,7 +797,9 @@ class InvoicePdfService
 
         $data = [
             'invoice_date'   => $this->formatXeroDate($xeroInvoice['DateString'] ?? $xeroInvoice['Date'] ?? null),
-            'reference'      => $overrides['reference'] ?? ($xeroInvoice['Reference'] ?? ''),
+            'reference'      => (array_key_exists('reference', $overrides) && $overrides['reference'] !== null)
+                ? $overrides['reference']
+                : ($xeroInvoice['Reference'] ?? ''),
             'invoice_number' => $this->formatInvoiceSerialNumber(
                 $xeroInvoice['InvoiceNumber'] ?? '',
                 $xeroInvoice['DateString'] ?? $xeroInvoice['Date'] ?? null
@@ -882,14 +897,16 @@ class InvoicePdfService
     public function buildDataFromLocalInvoice(\App\Models\Invoice $invoice, array $overrides = []): array
     {
         $client = $invoice->client;
-        if ($client && $client->xero_contact_id) {
+        if ($client && $client->xero_contact_id && empty($overrides['_skip_client_xero_sync'])) {
             $client = app(\App\Services\XeroService::class)->syncClientFromXero($client);
         }
         $amount = (float) ($invoice->amount ?? 0);
 
         $data = [
             'invoice_date'   => $invoice->issued_at?->format('m/d/Y') ?? now()->format('m/d/Y'),
-            'reference'      => $overrides['reference'] ?? ($invoice->description ?? ''),
+            'reference'      => (array_key_exists('reference', $overrides) && $overrides['reference'] !== null)
+                ? $overrides['reference']
+                : ($invoice->description ?? ''),
             'invoice_number' => $this->formatInvoiceSerialNumber(
                 $invoice->invoice_number ?? '',
                 $invoice->issued_at?->toDateString()
@@ -962,7 +979,7 @@ class InvoicePdfService
     public function buildDataFromLocalEstimate(\App\Models\Estimate $estimate, array $overrides = []): array
     {
         $client = $estimate->client;
-        if ($client && $client->xero_contact_id) {
+        if ($client && $client->xero_contact_id && empty($overrides['_skip_client_xero_sync'])) {
             $client = app(\App\Services\XeroService::class)->syncClientFromXero($client);
         }
         $items = $estimate->items()->get();
@@ -978,7 +995,9 @@ class InvoicePdfService
 
             // Header
             'invoice_date'   => $estimate->issue_date?->format('m/d/Y') ?? now()->format('m/d/Y'),
-            'reference'      => array_key_exists('reference', $overrides) ? $overrides['reference'] : ($estimate->reference ?? $estimate->estimate_number ?? ''),
+            'reference'      => (array_key_exists('reference', $overrides) && $overrides['reference'] !== null)
+                ? $overrides['reference']
+                : ($estimate->reference ?? $estimate->estimate_number ?? ''),
             'invoice_number' => $this->formatInvoiceSerialNumber(
                 $estimate->estimate_number ?? '',
                 $estimate->issue_date?->toDateString()
@@ -1274,5 +1293,285 @@ class InvoicePdfService
         }
 
         return mb_convert_encoding($str, 'Windows-1252', 'UTF-8');
+    }
+
+    /**
+     * Extract previously saved PDF download modal settings from an Invoice or Estimate.
+     */
+    public function extractSavedOverrides(Invoice|Estimate $model): array
+    {
+        $overrides = [];
+
+        if ($model->pdf_payment_mode !== null) {
+            $overrides['payment_mode'] = $model->pdf_payment_mode;
+        }
+        if ($model->pdf_due_days !== null) {
+            $overrides['due_days'] = (int) $model->pdf_due_days;
+        }
+        if ($model->pdf_reference !== null) {
+            $overrides['reference'] = $model->pdf_reference;
+        }
+        if ($model->pdf_discount_type !== null) {
+            $overrides['discount_type'] = $model->pdf_discount_type;
+        }
+        if ($model->pdf_discount_value !== null) {
+            $overrides['discount_value'] = (float) $model->pdf_discount_value;
+        }
+        if ($model->pdf_additional_info !== null) {
+            $overrides['additional_info'] = $model->pdf_additional_info;
+        }
+
+        return $overrides;
+    }
+
+    /**
+     * Resolve PDF overrides from request + saved model settings, persist any submitted
+     * PDF form fields onto the model for future reuse, and update client purchaser fields if sent.
+     */
+    public function resolveAndPersistOverrides(Invoice|Estimate $model, Request $request): array
+    {
+        $overrides = $this->extractSavedOverrides($model);
+        $updates = [];
+        $saveSettings = $request->boolean('save_settings');
+
+        if ($request->exists('payment_mode')) {
+            $val = $request->input('payment_mode');
+            $strVal = $val !== null ? (string) $val : '';
+            $overrides['payment_mode'] = $strVal;
+            $updates['pdf_payment_mode'] = $strVal;
+        }
+
+        if ($request->exists('due_days')) {
+            $rawDue = $request->input('due_days');
+            if ($rawDue !== null && $rawDue !== '') {
+                $dueInt = max(0, (int) $rawDue);
+                $overrides['due_days'] = $dueInt;
+                $updates['pdf_due_days'] = $dueInt;
+            } elseif ($saveSettings) {
+                unset($overrides['due_days']);
+                $updates['pdf_due_days'] = null;
+            }
+        }
+
+        if ($request->exists('reference')) {
+            $rawRef = $request->input('reference');
+            $refStr = $rawRef !== null ? (string) $rawRef : '';
+            $overrides['reference'] = $refStr;
+            $updates['pdf_reference'] = $refStr;
+        }
+
+        if ($request->exists('discount_type')) {
+            $dt = $request->input('discount_type') ?: 'none';
+            $overrides['discount_type'] = $dt;
+            $updates['pdf_discount_type'] = $dt;
+            if ($dt === 'none') {
+                $overrides['discount_value'] = 0;
+                $updates['pdf_discount_value'] = null;
+            }
+        }
+
+        if ($request->exists('discount_value') && (($overrides['discount_type'] ?? 'none') !== 'none')) {
+            $dv = $request->input('discount_value');
+            if ($dv !== null && $dv !== '') {
+                $dvFloat = max(0, (float) $dv);
+                $overrides['discount_value'] = $dvFloat;
+                $updates['pdf_discount_value'] = $dvFloat;
+            } elseif ($saveSettings) {
+                $overrides['discount_value'] = 0;
+                $updates['pdf_discount_value'] = null;
+            }
+        }
+
+        if ($request->exists('additional_info')) {
+            $ai = $request->input('additional_info');
+            $aiStr = $ai !== null ? (string) $ai : '';
+            $overrides['additional_info'] = $aiStr;
+            $updates['pdf_additional_info'] = $aiStr;
+        }
+
+        if ($request->filled('purchaser_tin')) {
+            $overrides['purchaser_tin'] = trim((string) $request->input('purchaser_tin'));
+        }
+        if ($request->filled('purchaser_address')) {
+            $overrides['purchaser_address'] = trim((string) $request->input('purchaser_address'));
+        }
+        if ($request->filled('purchaser_phone')) {
+            $overrides['purchaser_phone'] = trim((string) $request->input('purchaser_phone'));
+        }
+
+        if (!empty($updates)) {
+            $model->update($updates);
+        }
+
+        $this->applyPurchaserOverridesToClient($model->client, $overrides);
+
+        return $overrides;
+    }
+
+    /**
+     * Persist purchaser details onto the linked Client when explicitly provided.
+     */
+    private function applyPurchaserOverridesToClient(?Client $client, array $overrides): void
+    {
+        if (!$client) {
+            return;
+        }
+
+        $clientUpdates = [];
+        if (!empty($overrides['purchaser_tin']) && $overrides['purchaser_tin'] !== $client->tax_number) {
+            $clientUpdates['tax_number'] = $overrides['purchaser_tin'];
+        }
+        if (!empty($overrides['purchaser_address']) && $overrides['purchaser_address'] !== $client->address) {
+            $clientUpdates['address'] = $overrides['purchaser_address'];
+        }
+        if (!empty($overrides['purchaser_phone']) && $overrides['purchaser_phone'] !== $client->phone) {
+            $clientUpdates['phone'] = $overrides['purchaser_phone'];
+        }
+
+        if (!empty($clientUpdates)) {
+            $client->update($clientUpdates);
+        }
+    }
+
+    /**
+     * Generate raw PDF bytes for an Invoice (supporting Xero detail or preloaded batch payload).
+     */
+    public function generateInvoicePdfContent(
+        Invoice $invoice,
+        InvoiceTemplate $template,
+        array $overrides = [],
+        ?array $preloadedXeroInvoice = null
+    ): string {
+        $data = null;
+
+        if ($preloadedXeroInvoice !== null) {
+            $data = $this->buildDataFromXeroInvoice($preloadedXeroInvoice, $overrides);
+        } elseif ($invoice->xero_invoice_id) {
+            $xeroService = app(XeroService::class);
+            if ($xeroService->isConnected()) {
+                try {
+                    $xeroInvoice = $xeroService->getInvoiceDetail($invoice->xero_invoice_id);
+                    $data = $this->buildDataFromXeroInvoice($xeroInvoice, $overrides);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to fetch Xero invoice detail for PDF, falling back to local: ' . $e->getMessage());
+                }
+            }
+        }
+
+        if ($data !== null && $invoice->client) {
+            if (empty($data['purchaser_tin']) && !empty($invoice->client->tax_number)) {
+                $data['purchaser_tin'] = $invoice->client->tax_number;
+            }
+            if (empty($data['purchaser_address']) && !empty($invoice->client->address)) {
+                $data['purchaser_address'] = $invoice->client->address;
+            }
+            if (empty($data['purchaser_phone']) && !empty($invoice->client->phone)) {
+                $data['purchaser_phone'] = $invoice->client->phone;
+            }
+        }
+
+        if ($data === null) {
+            $data = $this->buildDataFromLocalInvoice($invoice, $overrides);
+        }
+
+        return $this->generate($template, $data);
+    }
+
+    /**
+     * Generate raw PDF bytes for an Estimate / Quotation.
+     */
+    public function generateEstimatePdfContent(
+        Estimate $estimate,
+        InvoiceTemplate $template,
+        array $overrides = []
+    ): string {
+        $data = $this->buildDataFromLocalEstimate($estimate, $overrides);
+
+        return $this->generate($template, $data);
+    }
+
+    /**
+     * Merge multiple PDF binary strings into a single multi-page PDF.
+     *
+     * @param  string[]  $pdfContents
+     */
+    public function mergePdfs(array $pdfContents): string
+    {
+        $merged = new Fpdi();
+
+        foreach ($pdfContents as $content) {
+            if ($content === '') {
+                continue;
+            }
+            $pageCount = $merged->setSourceFile(StreamReader::createByString($content));
+            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+                $tplId = $merged->importPage($pageNo);
+                $size = $merged->getTemplateSize($tplId);
+                $merged->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                $merged->useTemplate($tplId);
+            }
+        }
+
+        return $merged->Output('S');
+    }
+
+    /**
+     * Build a ZIP archive binary string from an array of ['filename' => string, 'content' => string].
+     */
+    public function buildZipArchive(array $files): string
+    {
+        $tmpFile = tempnam(sys_get_temp_dir(), 'aura_pdf_zip_');
+        if ($tmpFile === false) {
+            throw new \RuntimeException('Unable to allocate temporary file for ZIP archive.');
+        }
+
+        try {
+            $zip = new \ZipArchive();
+            $opened = $zip->open($tmpFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+            if ($opened !== true) {
+                throw new \RuntimeException('Failed to create ZIP archive.');
+            }
+
+            $usedNames = [];
+            foreach ($files as $file) {
+                $rawName = $this->sanitizeFilename($file['filename'] ?? 'document.pdf');
+                if (!str_ends_with(strtolower($rawName), '.pdf')) {
+                    $rawName .= '.pdf';
+                }
+
+                $name = $rawName;
+                $suffix = 2;
+                while (isset($usedNames[strtolower($name)])) {
+                    $base = substr($rawName, 0, -4);
+                    $name = "{$base}_{$suffix}.pdf";
+                    $suffix++;
+                }
+                $usedNames[strtolower($name)] = true;
+
+                $zip->addFromString($name, $file['content']);
+            }
+
+            $zip->close();
+
+            $contents = file_get_contents($tmpFile);
+            if ($contents === false) {
+                throw new \RuntimeException('Failed to read generated ZIP archive.');
+            }
+
+            return $contents;
+        } finally {
+            if (file_exists($tmpFile)) {
+                @unlink($tmpFile);
+            }
+        }
+    }
+
+    /**
+     * Sanitize a filename for downloads and ZIP entries.
+     */
+    public function sanitizeFilename(string $name): string
+    {
+        $sanitized = preg_replace('/[\/\\\\:*?"<>|\x00-\x1F]+/', '_', trim($name));
+        return $sanitized !== '' && $sanitized !== null ? $sanitized : 'document';
     }
 }

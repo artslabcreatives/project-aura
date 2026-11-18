@@ -780,12 +780,17 @@ class XeroService
     }
 
     /**
-     * Batch-fetch Contacts from Xero by ContactIDs and enrich local Client records.
+     * Batch-fetch Contacts from Xero by ContactIDs, enrich local Client records,
+     * and return a map keyed by Xero ContactID.
+     *
+     * @return array<string, array>
      */
-    public function enrichClientsByXeroContactIds(array $contactIds): void
+    public function enrichClientsByXeroContactIds(array $contactIds): array
     {
+        $contactsById = [];
+        $contactIds = array_values(array_unique(array_filter($contactIds)));
         if (empty($contactIds) || !$this->isConnected()) {
-            return;
+            return $contactsById;
         }
 
         try {
@@ -805,6 +810,7 @@ class XeroService
                         if (!$xeroContactId) {
                             continue;
                         }
+                        $contactsById[$xeroContactId] = $contact;
                         $client = Client::where('xero_contact_id', $xeroContactId)->first();
                         if ($client) {
                             $this->enrichClientFromXeroContact($client, $contact);
@@ -815,6 +821,8 @@ class XeroService
         } catch (\Throwable $e) {
             Log::warning('Failed to batch enrich clients from Xero: ' . $e->getMessage());
         }
+
+        return $contactsById;
     }
 
     /**
@@ -1110,6 +1118,65 @@ class XeroService
         }
 
         return $invoices[0];
+    }
+
+    /**
+     * Batch-fetch Xero Invoices with full LineItems and enriched Contacts,
+     * returning a map keyed by Xero InvoiceID.
+     *
+     * @param  string[]  $xeroInvoiceIds
+     * @return array<string, array>
+     */
+    public function getInvoicesBatch(array $xeroInvoiceIds): array
+    {
+        $invoicesById = [];
+        $ids = array_values(array_unique(array_filter($xeroInvoiceIds)));
+        if (empty($ids) || !$this->isConnected()) {
+            return $invoicesById;
+        }
+
+        try {
+            $bearer = $this->getBearerToken();
+            $token  = XeroToken::current();
+
+            foreach (array_chunk($ids, 40) as $chunk) {
+                $response = Http::withToken($bearer)
+                    ->withHeaders(['Xero-tenant-id' => $token->tenant_id])
+                    ->get(self::API_BASE . '/Invoices', [
+                        'IDs' => implode(',', $chunk),
+                    ]);
+
+                if ($response->successful()) {
+                    foreach ($response->json('Invoices') ?? [] as $inv) {
+                        $xeroId = $inv['InvoiceID'] ?? null;
+                        if ($xeroId) {
+                            $invoicesById[$xeroId] = $inv;
+                        }
+                    }
+                } else {
+                    Log::warning('Xero batch invoices fetch failed', ['body' => $response->body()]);
+                }
+            }
+
+            // Batch endpoint omits TaxNumber/Addresses/Phones on Contact; hydrate from /Contacts
+            $contactIds = [];
+            foreach ($invoicesById as $inv) {
+                if (!empty($inv['Contact']['ContactID'])) {
+                    $contactIds[] = $inv['Contact']['ContactID'];
+                }
+            }
+            $contactsById = $this->enrichClientsByXeroContactIds($contactIds);
+            foreach ($invoicesById as $id => $inv) {
+                $cid = $inv['Contact']['ContactID'] ?? null;
+                if ($cid && isset($contactsById[$cid])) {
+                    $invoicesById[$id]['Contact'] = $contactsById[$cid];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to batch fetch Xero invoices: ' . $e->getMessage());
+        }
+
+        return $invoicesById;
     }
 
     /**

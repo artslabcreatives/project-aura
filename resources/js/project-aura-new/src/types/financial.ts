@@ -66,6 +66,12 @@ export interface Invoice {
 	isPhysicalInvoice?: boolean;
 	courierTrackingNumber?: string;
 	courierDeliveryStatus?: string;
+	pdfPaymentMode?: string | null;
+	pdfDueDays?: number | null;
+	pdfReference?: string | null;
+	pdfDiscountType?: string | null;
+	pdfDiscountValue?: number | null;
+	pdfAdditionalInfo?: string | null;
 }
 
 export interface InvoiceInfo {

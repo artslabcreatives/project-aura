@@ -14,6 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+	PdfDownloadDialog,
+	PdfDownloadSettings,
+	getEstimateInitialPdfSettings,
+	getInvoiceInitialPdfSettings,
+} from "@/components/PdfDownloadDialog";
+import { BulkPdfActionBar } from "@/components/BulkPdfActionBar";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -179,6 +187,10 @@ export default function Estimates() {
 	const [deleteTarget, setDeleteTarget] = useState<Estimate | null>(null);
 	const [isSyncingXero, setIsSyncingXero] = useState(false);
 	const [xeroConnected, setXeroConnected] = useState<boolean | null>(null);
+	const [selectedEstimateIds, setSelectedEstimateIds] = useState<number[]>([]);
+	const [estimateDownloadTarget, setEstimateDownloadTarget] = useState<Estimate | null>(null);
+	const [isEstimateDownloading, setIsEstimateDownloading] = useState(false);
+	const [isBulkDownloadingEstimates, setIsBulkDownloadingEstimates] = useState(false);
 
 	// ── Invoices State ────────────────────────────────────────────────────────
 	const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -206,6 +218,10 @@ export default function Estimates() {
 	const [deleteInvoiceTarget, setDeleteInvoiceTarget] = useState<Invoice | null>(null);
 	const [isInvoiceUploadOpen, setIsInvoiceUploadOpen] = useState(false);
 	const [isSyncingInvoices, setIsSyncingInvoices] = useState(false);
+	const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<number[]>([]);
+	const [invoiceDownloadTarget, setInvoiceDownloadTarget] = useState<Invoice | null>(null);
+	const [isInvoiceDownloading, setIsInvoiceDownloading] = useState(false);
+	const [isBulkDownloadingInvoices, setIsBulkDownloadingInvoices] = useState(false);
 
 	const { toast } = useToast();
 	const navigate = useNavigate();
@@ -358,12 +374,99 @@ export default function Estimates() {
 		if (!deleteTarget?.id) return;
 		try {
 			await estimateService.delete(deleteTarget.id);
+			setSelectedEstimateIds((prev) => prev.filter((id) => id !== deleteTarget.id));
 			toast({ title: "Estimate deleted." });
 			fetchEstimates();
 		} catch {
 			toast({ title: "Error", description: "Failed to delete estimate.", variant: "destructive" });
 		} finally {
 			setDeleteTarget(null);
+		}
+	};
+
+	const toggleEstimateSelection = (id: number) => {
+		setSelectedEstimateIds((prev) =>
+			prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+		);
+	};
+
+	const toggleSelectAllEstimates = (visibleIds: number[]) => {
+		setSelectedEstimateIds((prev) => {
+			const allSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+			if (allSelected) {
+				return prev.filter((id) => !visibleIds.includes(id));
+			}
+			const next = new Set(prev);
+			visibleIds.forEach((id) => next.add(id));
+			return Array.from(next);
+		});
+	};
+
+	const handleConfirmEstimateDownload = async (settings: PdfDownloadSettings) => {
+		if (!estimateDownloadTarget?.id) return;
+		const targetId = estimateDownloadTarget.id;
+		const num = estimateDownloadTarget.estimate_number || "draft";
+		setIsEstimateDownloading(true);
+		try {
+			await estimateService.downloadPdf(
+				targetId,
+				settings.paymentMode,
+				settings.additionalInfo,
+				settings.reference,
+				settings.dueDays,
+				settings.discountType,
+				settings.discountValue,
+				`Quotation_${num}.pdf`,
+				undefined,
+				true
+			);
+			setEstimates((prev) =>
+				prev.map((est) =>
+					est.id === targetId
+						? {
+								...est,
+								pdf_payment_mode: settings.paymentMode,
+								pdf_due_days: settings.dueDays ? Number(settings.dueDays) : null,
+								pdf_reference: settings.reference,
+								pdf_discount_type: settings.discountType || "none",
+								pdf_discount_value:
+									settings.discountType !== "none" && settings.discountValue !== ""
+										? Number(settings.discountValue)
+										: null,
+								pdf_additional_info: settings.additionalInfo,
+							}
+						: est
+				)
+			);
+			setEstimateDownloadTarget(null);
+			toast({ title: "Quotation PDF downloaded." });
+		} catch {
+			toast({
+				title: "Error",
+				description: "Failed to download quotation PDF. Please ensure an active template is configured.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsEstimateDownloading(false);
+		}
+	};
+
+	const handleBulkDownloadEstimates = async (format: "zip" | "pdf") => {
+		if (selectedEstimateIds.length === 0) return;
+		setIsBulkDownloadingEstimates(true);
+		try {
+			await estimateService.bulkDownloadPdf(selectedEstimateIds, format);
+			toast({
+				title: `Downloaded ${selectedEstimateIds.length} quotation(s).`,
+			});
+		} catch (err: any) {
+			toast({
+				title: "Error",
+				description: err?.response?.data?.message || err?.message || "Failed to bulk download quotations.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsBulkDownloadingEstimates(false);
 		}
 	};
 
@@ -393,6 +496,7 @@ export default function Estimates() {
 		if (!deleteInvoiceTarget?.id) return;
 		try {
 			await invoiceService.delete(deleteInvoiceTarget.id);
+			setSelectedInvoiceIds((prev) => prev.filter((id) => id !== deleteInvoiceTarget.id));
 			toast({ title: "Invoice deleted successfully." });
 			fetchInvoices();
 			fetchInvoiceStats();
@@ -400,6 +504,92 @@ export default function Estimates() {
 			toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
 		} finally {
 			setDeleteInvoiceTarget(null);
+		}
+	};
+
+	const toggleInvoiceSelection = (id: number) => {
+		setSelectedInvoiceIds((prev) =>
+			prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+		);
+	};
+
+	const toggleSelectAllInvoicesOnPage = (visibleIds: number[]) => {
+		setSelectedInvoiceIds((prev) => {
+			const allSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+			if (allSelected) {
+				return prev.filter((id) => !visibleIds.includes(id));
+			}
+			const next = new Set(prev);
+			visibleIds.forEach((id) => next.add(id));
+			return Array.from(next);
+		});
+	};
+
+	const handleConfirmInvoiceDownload = async (settings: PdfDownloadSettings) => {
+		if (!invoiceDownloadTarget?.id) return;
+		const targetId = invoiceDownloadTarget.id;
+		const num = invoiceDownloadTarget.invoiceNumber || `INV-${targetId}`;
+		setIsInvoiceDownloading(true);
+		try {
+			await invoiceService.downloadPdf(
+				targetId,
+				settings.paymentMode,
+				settings.additionalInfo,
+				settings.reference,
+				settings.dueDays,
+				settings.discountType,
+				settings.discountValue,
+				`Tax_Invoice_${num}.pdf`,
+				undefined,
+				true
+			);
+			setInvoices((prev) =>
+				prev.map((inv) =>
+					inv.id === targetId
+						? {
+								...inv,
+								pdfPaymentMode: settings.paymentMode,
+								pdfDueDays: settings.dueDays ? Number(settings.dueDays) : null,
+								pdfReference: settings.reference,
+								pdfDiscountType: settings.discountType || "none",
+								pdfDiscountValue:
+									settings.discountType !== "none" && settings.discountValue !== ""
+										? Number(settings.discountValue)
+										: null,
+								pdfAdditionalInfo: settings.additionalInfo,
+							}
+						: inv
+				)
+			);
+			setInvoiceDownloadTarget(null);
+			toast({ title: "Tax Invoice PDF downloaded." });
+		} catch (err: any) {
+			toast({
+				title: "Error",
+				description: err?.message || "Failed to download PDF invoice.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsInvoiceDownloading(false);
+		}
+	};
+
+	const handleBulkDownloadInvoices = async (format: "zip" | "pdf") => {
+		if (selectedInvoiceIds.length === 0) return;
+		setIsBulkDownloadingInvoices(true);
+		try {
+			await invoiceService.bulkDownloadPdf(selectedInvoiceIds, format);
+			toast({
+				title: `Downloaded ${selectedInvoiceIds.length} invoice(s).`,
+			});
+		} catch (err: any) {
+			toast({
+				title: "Error",
+				description: err?.message || "Failed to bulk download PDF invoices.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsBulkDownloadingInvoices(false);
 		}
 	};
 
@@ -599,6 +789,21 @@ export default function Estimates() {
 						</Select>
 					</div>
 
+					{/* Bulk Selection Toolbar for Quotations */}
+					{!loading && filteredEstimates.length > 0 && (
+						<BulkPdfActionBar
+							visibleIds={filteredEstimates
+								.map((e) => e.id)
+								.filter((id): id is number => typeof id === "number")}
+							selectedIds={selectedEstimateIds}
+							onToggleSelectAll={toggleSelectAllEstimates}
+							onClearSelection={() => setSelectedEstimateIds([])}
+							onBulkDownload={handleBulkDownloadEstimates}
+							isDownloading={isBulkDownloadingEstimates}
+							selectAllLabel="Select all quotations"
+						/>
+					)}
+
 					{/* Estimate List */}
 					{loading ? (
 						<div className="space-y-3">
@@ -629,10 +834,29 @@ export default function Estimates() {
 						</div>
 					) : (
 						<div className="space-y-3">
-							{filteredEstimates.map((estimate) => (
-								<Card key={estimate.id} className="hover:shadow-md transition-shadow">
+							{filteredEstimates.map((estimate) => {
+								const isSelected = typeof estimate.id === "number" && selectedEstimateIds.includes(estimate.id);
+								return (
+								<Card
+									key={estimate.id}
+									className={`hover:shadow-md transition-shadow ${
+										isSelected ? "ring-1 ring-primary/60 bg-primary/[0.02]" : ""
+									}`}
+								>
 									<CardContent className="p-4">
 										<div className="flex items-center justify-between gap-4">
+											{typeof estimate.id === "number" && (
+												<div
+													className="flex items-center shrink-0"
+													onClick={(e) => e.stopPropagation()}
+												>
+													<Checkbox
+														checked={isSelected}
+														onCheckedChange={() => toggleEstimateSelection(estimate.id!)}
+														aria-label={`Select ${estimate.title}`}
+													/>
+												</div>
+											)}
 											<div
 												className="flex items-center gap-3 flex-1 cursor-pointer min-w-0"
 												onClick={() => navigate(`/estimates/${estimate.id}`)}
@@ -694,6 +918,14 @@ export default function Estimates() {
 													<Button
 														variant="ghost"
 														size="icon"
+														onClick={() => setEstimateDownloadTarget(estimate)}
+														title="Download Quotation PDF"
+													>
+														<Download className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="icon"
 														onClick={() => {
 															setEditEstimate(estimate);
 															setIsDialogOpen(true);
@@ -716,7 +948,8 @@ export default function Estimates() {
 										</div>
 									</CardContent>
 								</Card>
-							))}
+								);
+							})}
 						</div>
 					)}
 				</>
@@ -838,6 +1071,19 @@ export default function Estimates() {
 						</Select>
 					</div>
 
+					{/* Bulk Selection Toolbar for Invoices */}
+					{!invoicesLoading && (invoices.length > 0 || selectedInvoiceIds.length > 0) && (
+						<BulkPdfActionBar
+							visibleIds={invoices.map((inv) => inv.id)}
+							selectedIds={selectedInvoiceIds}
+							onToggleSelectAll={toggleSelectAllInvoicesOnPage}
+							onClearSelection={() => setSelectedInvoiceIds([])}
+							onBulkDownload={handleBulkDownloadInvoices}
+							isDownloading={isBulkDownloadingInvoices}
+							selectAllLabel="Select all on page"
+						/>
+					)}
+
 					{/* Invoices List */}
 					{invoicesLoading ? (
 						<div className="space-y-3">
@@ -870,10 +1116,26 @@ export default function Estimates() {
 						<div className="space-y-3">
 							{invoices.map((inv) => {
 								const statusCfg = getInvoiceStatusConfig(inv.status, inv.xeroStatus);
+								const isSelected = selectedInvoiceIds.includes(inv.id);
 								return (
-									<Card key={inv.id} className="hover:shadow-md transition-shadow">
+									<Card
+										key={inv.id}
+										className={`hover:shadow-md transition-shadow ${
+											isSelected ? "ring-1 ring-primary/60 bg-primary/[0.02]" : ""
+										}`}
+									>
 										<CardContent className="p-4">
 											<div className="flex items-center justify-between gap-4">
+												<div
+													className="flex items-center shrink-0"
+													onClick={(e) => e.stopPropagation()}
+												>
+													<Checkbox
+														checked={isSelected}
+														onCheckedChange={() => toggleInvoiceSelection(inv.id)}
+														aria-label={`Select ${inv.invoiceNumber || `INV-${inv.id}`}`}
+													/>
+												</div>
 												<div
 													className="flex items-center gap-3 flex-1 cursor-pointer min-w-0"
 													onClick={() => navigate(`/invoices/${inv.id}`)}
@@ -951,29 +1213,7 @@ export default function Estimates() {
 														<Button
 															variant="ghost"
 															size="icon"
-															onClick={async () => {
-																try {
-																	toast({ title: "Downloading Tax Invoice..." });
-																	const num = inv.invoiceNumber || `INV-${inv.id}`;
-																	await invoiceService.downloadPdf(
-																		inv.id,
-																		undefined,
-																		undefined,
-																		undefined,
-																		undefined,
-																		undefined,
-																		undefined,
-																		`Tax_Invoice_${num}.pdf`
-																	);
-																	toast({ title: "Tax Invoice PDF downloaded." });
-																} catch (err: any) {
-																	toast({
-																		title: "Error",
-																		description: err?.message || "Failed to download PDF invoice.",
-																		variant: "destructive",
-																	});
-																}
-															}}
+															onClick={() => setInvoiceDownloadTarget(inv)}
 															title="Download Tax Invoice"
 														>
 															<Download className="h-4 w-4" />
@@ -1110,6 +1350,48 @@ export default function Estimates() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			{/* ── Download Quotation Settings Modal ────────────────────────────── */}
+			{estimateDownloadTarget && (
+				<PdfDownloadDialog
+					open={!!estimateDownloadTarget}
+					onOpenChange={(open) => !open && setEstimateDownloadTarget(null)}
+					type="quotation"
+					currencySymbol={
+						estimateDownloadTarget.currency === "LKR"
+							? "Rs. "
+							: estimateDownloadTarget.currency === "USD"
+							? "$"
+							: estimateDownloadTarget.currency
+							? `${estimateDownloadTarget.currency} `
+							: "LKR"
+					}
+					initialSettings={getEstimateInitialPdfSettings(estimateDownloadTarget)}
+					isDownloading={isEstimateDownloading}
+					onConfirmDownload={handleConfirmEstimateDownload}
+				/>
+			)}
+
+			{/* ── Download Tax Invoice Settings Modal ──────────────────────────── */}
+			{invoiceDownloadTarget && (
+				<PdfDownloadDialog
+					open={!!invoiceDownloadTarget}
+					onOpenChange={(open) => !open && setInvoiceDownloadTarget(null)}
+					type="invoice"
+					currencySymbol={
+						invoiceDownloadTarget.currency === "LKR"
+							? "Rs. "
+							: invoiceDownloadTarget.currency === "USD"
+							? "$"
+							: invoiceDownloadTarget.currency
+							? `${invoiceDownloadTarget.currency} `
+							: "LKR"
+					}
+					initialSettings={getInvoiceInitialPdfSettings(invoiceDownloadTarget)}
+					isDownloading={isInvoiceDownloading}
+					onConfirmDownload={handleConfirmInvoiceDownload}
+				/>
+			)}
 		</div>
 	);
 }

@@ -232,6 +232,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Invoices
     Route::get('/invoices/stats', [\App\Http\Controllers\Api\InvoiceController::class, 'stats']);
+    Route::post('invoices/bulk-download-pdf', [\App\Http\Controllers\Api\InvoiceController::class, 'bulkDownloadPdf']);
     Route::get('invoices/{invoice}/download-pdf', [\App\Http\Controllers\Api\InvoiceController::class, 'downloadPdf']);
     Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
 
@@ -260,6 +261,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/unlink', [\App\Http\Controllers\Api\ZohoMailController::class, 'unlink']);
     });
     // Estimates
+    Route::post('estimates/bulk-download-pdf', [EstimateController::class, 'bulkDownloadPdf']);
     Route::apiResource('estimates', EstimateController::class);
     Route::post('estimates/{estimate}/send', [EstimateController::class, 'send']);
     Route::post('estimates/{estimate}/approve', [EstimateController::class, 'approve']);

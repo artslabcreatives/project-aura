@@ -56,7 +56,7 @@ export const estimateService = {
 		return data;
 	},
 
-	/** Download dynamic PDF invoice map for an estimate. */
+	/** Download dynamic PDF quotation for an estimate. */
 	downloadPdf: async (
 		id: number | string,
 		paymentMode?: string,
@@ -70,15 +70,29 @@ export const estimateService = {
 			tin?: string;
 			address?: string;
 			phone?: string;
-		}
+		},
+		saveSettings = false
 	): Promise<void> => {
 		const params: Record<string, string> = {};
-		if (paymentMode) params.payment_mode = paymentMode;
-		if (additionalInfo) params.additional_info = additionalInfo;
-		if (reference) params.reference = reference;
-		if (dueDays) params.due_days = dueDays;
-		if (discountType && discountType !== 'none') params.discount_type = discountType;
-		if (discountValue !== undefined && discountValue !== '') params.discount_value = String(discountValue);
+		if (saveSettings) {
+			params.save_settings = '1';
+			params.payment_mode = paymentMode ?? '';
+			params.additional_info = additionalInfo ?? '';
+			params.reference = reference ?? '';
+			params.due_days = dueDays ?? '';
+			params.discount_type = discountType || 'none';
+			params.discount_value =
+				discountType && discountType !== 'none' && discountValue !== undefined
+					? String(discountValue)
+					: '';
+		} else {
+			if (paymentMode) params.payment_mode = paymentMode;
+			if (additionalInfo) params.additional_info = additionalInfo;
+			if (reference) params.reference = reference;
+			if (dueDays) params.due_days = dueDays;
+			if (discountType && discountType !== 'none') params.discount_type = discountType;
+			if (discountValue !== undefined && discountValue !== '') params.discount_value = String(discountValue);
+		}
 		if (purchaserDetails?.tin) params.purchaser_tin = purchaserDetails.tin;
 		if (purchaserDetails?.address) params.purchaser_address = purchaserDetails.address;
 		if (purchaserDetails?.phone) params.purchaser_phone = purchaserDetails.phone;
@@ -88,6 +102,28 @@ export const estimateService = {
 			responseType: 'blob',
 		});
 		const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+		const link = document.createElement('a');
+		link.href = url;
+		link.setAttribute('download', filename);
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		window.URL.revokeObjectURL(url);
+	},
+
+	/** Bulk download multiple estimate quotations as ZIP or combined PDF. */
+	bulkDownloadPdf: async (ids: number[], format: 'zip' | 'pdf' = 'zip'): Promise<void> => {
+		const response = await api.post(
+			'/estimates/bulk-download-pdf',
+			{ ids, format },
+			{ responseType: 'blob' }
+		);
+		const mimeType = format === 'pdf' ? 'application/pdf' : 'application/zip';
+		const disposition = response.headers?.['content-disposition'] as string | undefined;
+		const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";\n]+)"?/i);
+		const filename = match?.[1] || `Quotations.${format}`;
+
+		const url = window.URL.createObjectURL(new Blob([response.data], { type: mimeType }));
 		const link = document.createElement('a');
 		link.href = url;
 		link.setAttribute('download', filename);

@@ -366,7 +366,7 @@ class EstimateController extends Controller
     }
 
     /**
-     * Generate and download the filled PDF invoice for an estimate.
+     * Generate and download the filled PDF quotation for an estimate.
      */
     public function downloadPdf(Request $request, Estimate $estimate)
     {
@@ -380,61 +380,90 @@ class EstimateController extends Controller
         }
 
         $pdfService = app(\App\Services\InvoicePdfService::class);
-        
-        $overrides = [];
-        if ($request->has('payment_mode')) {
-            $overrides['payment_mode'] = $request->query('payment_mode');
-        }
-        if ($request->has('additional_info')) {
-            $overrides['additional_info'] = $request->query('additional_info');
-        }
-        if ($request->has('reference')) {
-            $overrides['reference'] = $request->query('reference');
-        }
-        if ($request->has('due_days')) {
-            $overrides['due_days'] = $request->query('due_days');
-        }
-        if ($request->has('discount_type')) {
-            $overrides['discount_type'] = $request->query('discount_type');
-        }
-        if ($request->has('discount_value')) {
-            $overrides['discount_value'] = $request->query('discount_value');
-        }
-        if ($request->filled('purchaser_tin')) {
-            $overrides['purchaser_tin'] = trim((string) $request->query('purchaser_tin'));
-        }
-        if ($request->filled('purchaser_address')) {
-            $overrides['purchaser_address'] = trim((string) $request->query('purchaser_address'));
-        }
-        if ($request->filled('purchaser_phone')) {
-            $overrides['purchaser_phone'] = trim((string) $request->query('purchaser_phone'));
-        }
+        $estimate->load(['client', 'items']);
+        $overrides = $pdfService->resolveAndPersistOverrides($estimate, $request);
 
-        if ($estimate->client) {
-            $clientUpdates = [];
-            if (!empty($overrides['purchaser_tin']) && $overrides['purchaser_tin'] !== $estimate->client->tax_number) {
-                $clientUpdates['tax_number'] = $overrides['purchaser_tin'];
-            }
-            if (!empty($overrides['purchaser_address']) && $overrides['purchaser_address'] !== $estimate->client->address) {
-                $clientUpdates['address'] = $overrides['purchaser_address'];
-            }
-            if (!empty($overrides['purchaser_phone']) && $overrides['purchaser_phone'] !== $estimate->client->phone) {
-                $clientUpdates['phone'] = $overrides['purchaser_phone'];
-            }
-            if (!empty($clientUpdates)) {
-                $estimate->client->update($clientUpdates);
-            }
-        }
-
-        $data = $pdfService->buildDataFromLocalEstimate($estimate, $overrides);
-
-        $pdfContent = $pdfService->generate($template, $data);
-        $filename   = 'Quotation_' . ($estimate->estimate_number ?? 'draft') . '.pdf';
+        $pdfContent = $pdfService->generateEstimatePdfContent($estimate, $template, $overrides);
+        $filename   = $pdfService->sanitizeFilename('Quotation_' . ($estimate->estimate_number ?? 'draft')) . '.pdf';
 
         return response()->streamDownload(function () use ($pdfContent) {
             echo $pdfContent;
         }, $filename, [
             'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    /**
+     * Bulk download multiple quotations as a ZIP archive or combined PDF.
+     */
+    public function bulkDownloadPdf(Request $request)
+    {
+        $validated = $request->validate([
+            'ids'    => 'required|array|min:1',
+            'ids.*'  => 'integer|exists:estimates,id',
+            'format' => 'nullable|in:zip,pdf',
+        ]);
+
+        $template = \App\Models\InvoiceTemplate::getDefault();
+        if (!$template) {
+            return response()->json(['message' => 'No active PDF invoice template found.'], 404);
+        }
+
+        if (!$template->pdf_path || !file_exists($template->absolute_pdf_path)) {
+            return response()->json(['message' => 'Template PDF file not found.'], 404);
+        }
+
+        $pdfService = app(\App\Services\InvoicePdfService::class);
+        $xeroService = app(\App\Services\XeroService::class);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['ids'])));
+        $estimates = Estimate::with(['client', 'items'])->whereIn('id', $ids)->get()->keyBy('id');
+
+        // Batch-enrich Xero contacts once across all selected estimates
+        $contactIds = $estimates->pluck('client.xero_contact_id')->filter()->unique()->values()->all();
+        if (!empty($contactIds) && $xeroService->isConnected()) {
+            $xeroService->enrichClientsByXeroContactIds($contactIds);
+        }
+
+        $format = $validated['format'] ?? 'zip';
+        $generatedFiles = [];
+
+        foreach ($ids as $id) {
+            $estimate = $estimates->get($id);
+            if (!$estimate) {
+                continue;
+            }
+            $estimate->client?->refresh();
+            $overrides = $pdfService->extractSavedOverrides($estimate);
+            $overrides['_skip_client_xero_sync'] = true;
+
+            $pdfContent = $pdfService->generateEstimatePdfContent($estimate, $template, $overrides);
+
+            $generatedFiles[] = [
+                'filename' => 'Quotation_' . ($estimate->estimate_number ?? ('draft_' . $estimate->id)) . '.pdf',
+                'content'  => $pdfContent,
+            ];
+        }
+
+        if (empty($generatedFiles)) {
+            return response()->json(['message' => 'No matching quotations found.'], 404);
+        }
+
+        $dateSuffix = now()->format('Y-m-d');
+        if ($format === 'pdf') {
+            $merged = $pdfService->mergePdfs(array_column($generatedFiles, 'content'));
+            return response()->streamDownload(function () use ($merged) {
+                echo $merged;
+            }, "Quotations_{$dateSuffix}.pdf", [
+                'Content-Type' => 'application/pdf',
+            ]);
+        }
+
+        $zipBinary = $pdfService->buildZipArchive($generatedFiles);
+        return response()->streamDownload(function () use ($zipBinary) {
+            echo $zipBinary;
+        }, "Quotations_{$dateSuffix}.zip", [
+            'Content-Type' => 'application/zip',
         ]);
     }
 }

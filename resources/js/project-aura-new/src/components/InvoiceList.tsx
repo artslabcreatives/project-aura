@@ -6,6 +6,14 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
+import { Checkbox } from './ui/checkbox';
+import { BulkPdfActionBar } from './BulkPdfActionBar';
+import {
+	PdfDownloadDialog,
+	PdfDownloadSettings,
+	getInvoiceInitialPdfSettings,
+} from './PdfDownloadDialog';
+import { useToast } from '@/hooks/use-toast';
 import {
 	FileText,
 	DollarSign,
@@ -47,6 +55,11 @@ export function InvoiceList({
 		projectId,
 		clientId,
 	});
+	const [selectedIds, setSelectedIds] = useState<number[]>([]);
+	const [downloadTarget, setDownloadTarget] = useState<Invoice | null>(null);
+	const [isDownloading, setIsDownloading] = useState(false);
+	const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+	const { toast } = useToast();
 
 	const loadInvoices = async () => {
 		try {
@@ -64,6 +77,90 @@ export function InvoiceList({
 			setError(err.response?.data?.message || 'Failed to load invoices');
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const toggleSelection = (id: number) => {
+		setSelectedIds((prev) =>
+			prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+		);
+	};
+
+	const toggleSelectAll = (visibleIds: number[]) => {
+		setSelectedIds((prev) => {
+			const allSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+			if (allSelected) {
+				return prev.filter((id) => !visibleIds.includes(id));
+			}
+			const next = new Set(prev);
+			visibleIds.forEach((id) => next.add(id));
+			return Array.from(next);
+		});
+	};
+
+	const handleConfirmDownload = async (settings: PdfDownloadSettings) => {
+		if (!downloadTarget?.id) return;
+		const targetId = downloadTarget.id;
+		const num = downloadTarget.invoiceNumber || `INV-${targetId}`;
+		setIsDownloading(true);
+		try {
+			await invoiceService.downloadPdf(
+				targetId,
+				settings.paymentMode,
+				settings.additionalInfo,
+				settings.reference,
+				settings.dueDays,
+				settings.discountType,
+				settings.discountValue,
+				`Tax_Invoice_${num}.pdf`,
+				undefined,
+				true
+			);
+			setInvoices((prev) =>
+				prev.map((inv) =>
+					inv.id === targetId
+						? {
+								...inv,
+								pdfPaymentMode: settings.paymentMode,
+								pdfDueDays: settings.dueDays ? Number(settings.dueDays) : null,
+								pdfReference: settings.reference,
+								pdfDiscountType: settings.discountType || 'none',
+								pdfDiscountValue:
+									settings.discountType !== 'none' && settings.discountValue !== ''
+										? Number(settings.discountValue)
+										: null,
+								pdfAdditionalInfo: settings.additionalInfo,
+							}
+						: inv
+				)
+			);
+			setDownloadTarget(null);
+			toast({ title: 'Tax Invoice PDF downloaded.' });
+		} catch (err: any) {
+			toast({
+				title: 'Error',
+				description: err?.message || 'Failed to download PDF invoice.',
+				variant: 'destructive',
+			});
+		} finally {
+			setIsDownloading(false);
+		}
+	};
+
+	const handleBulkDownload = async (format: 'zip' | 'pdf') => {
+		if (selectedIds.length === 0) return;
+		setIsBulkDownloading(true);
+		try {
+			await invoiceService.bulkDownloadPdf(selectedIds, format);
+			toast({ title: `Downloaded ${selectedIds.length} invoice(s).` });
+		} catch (err: any) {
+			toast({
+				title: 'Error',
+				description: err?.message || 'Failed to bulk download PDF invoices.',
+				variant: 'destructive',
+			});
+		} finally {
+			setIsBulkDownloading(false);
 		}
 	};
 
@@ -182,13 +279,36 @@ export function InvoiceList({
 					</div>
 				) : (
 					<div className="space-y-3">
-						{invoices.map((invoice) => (
+						<BulkPdfActionBar
+							visibleIds={invoices.map((inv) => inv.id)}
+							selectedIds={selectedIds}
+							onToggleSelectAll={toggleSelectAll}
+							onClearSelection={() => setSelectedIds([])}
+							onBulkDownload={handleBulkDownload}
+							isDownloading={isBulkDownloading}
+							selectAllLabel="Select all invoices"
+						/>
+						{invoices.map((invoice) => {
+							const isSelected = selectedIds.includes(invoice.id);
+							return (
 							<div
 								key={invoice.id}
-								className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+								className={`flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer ${
+									isSelected ? 'ring-1 ring-primary/60 bg-primary/[0.02]' : ''
+								}`}
 								onClick={() => onInvoiceClick?.(invoice)}
 							>
-								<div className="flex-1">
+								<div
+									className="flex items-center mr-3 shrink-0"
+									onClick={(e) => e.stopPropagation()}
+								>
+									<Checkbox
+										checked={isSelected}
+										onCheckedChange={() => toggleSelection(invoice.id)}
+										aria-label={`Select ${invoice.invoiceNumber || `INV-${invoice.id}`}`}
+									/>
+								</div>
+								<div className="flex-1 min-w-0">
 									<div className="flex items-center gap-2 mb-2">
 										<span className="font-semibold text-sm">
 											{invoice.invoiceNumber || `#${invoice.id}`}
@@ -230,7 +350,7 @@ export function InvoiceList({
 									)}
 								</div>
 
-								<div className="flex items-center gap-4 ml-4">
+								<div className="flex items-center gap-3 ml-4">
 									<div className="text-right">
 										<div className="flex items-center gap-1 text-lg font-bold">
 											<DollarSign className="h-4 w-4" />
@@ -246,8 +366,19 @@ export function InvoiceList({
 											e.stopPropagation();
 											onInvoiceClick?.(invoice);
 										}}
+										title="View"
 									>
 										<Eye className="h-4 w-4 text-primary" />
+									</div>
+									<div
+										className="p-2 rounded-full hover:bg-sky-500/10 transition-colors"
+										onClick={(e) => {
+											e.stopPropagation();
+											setDownloadTarget(invoice);
+										}}
+										title="Download Tax Invoice"
+									>
+										<Download className="h-4 w-4 text-sky-500" />
 									</div>
 									<div 
 										className="p-2 rounded-full hover:bg-amber-500/10 transition-colors"
@@ -269,10 +400,31 @@ export function InvoiceList({
 									</div>
 								</div>
 							</div>
-						))}
+							);
+						})}
 					</div>
 				)}
 			</CardContent>
+
+			{downloadTarget && (
+				<PdfDownloadDialog
+					open={!!downloadTarget}
+					onOpenChange={(open) => !open && setDownloadTarget(null)}
+					type="invoice"
+					currencySymbol={
+						downloadTarget.currency === 'LKR'
+							? 'Rs. '
+							: downloadTarget.currency === 'USD'
+							? '$'
+							: downloadTarget.currency
+							? `${downloadTarget.currency} `
+							: 'LKR'
+					}
+					initialSettings={getInvoiceInitialPdfSettings(downloadTarget)}
+					isDownloading={isDownloading}
+					onConfirmDownload={handleConfirmDownload}
+				/>
+			)}
 		</Card>
 	);
 }

@@ -33,6 +33,12 @@ class Estimate extends Model
         'tax_amount',
         'total',
         'xero_last_synced_at',
+        'pdf_payment_mode',
+        'pdf_due_days',
+        'pdf_reference',
+        'pdf_discount_type',
+        'pdf_discount_value',
+        'pdf_additional_info',
     ];
 
     protected $attributes = [
@@ -53,6 +59,8 @@ class Estimate extends Model
         'issue_date'         => 'date',
         'valid_until'        => 'date',
         'xero_last_synced_at' => 'datetime',
+        'pdf_due_days'       => 'integer',
+        'pdf_discount_value' => 'float',
     ];
 
     protected $appends = ['total_amount'];

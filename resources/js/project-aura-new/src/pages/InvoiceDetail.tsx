@@ -18,6 +18,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import {
+	PdfDownloadDialog,
+	PdfDownloadSettings,
+	getInvoiceInitialPdfSettings,
+} from "@/components/PdfDownloadDialog";
+import {
 	AlertDialog,
 	AlertDialogAction,
 	AlertDialogCancel,
@@ -27,16 +32,6 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
 	ArrowLeft,
 	Edit,
@@ -80,21 +75,6 @@ export default function InvoiceDetail() {
 
 	// Tax Invoice Download Dialog State
 	const [isPaymentModeOpen, setIsPaymentModeOpen] = useState(false);
-	const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>("Bank Transfer");
-	const [dueDays, setDueDays] = useState<string>("15");
-	const [additionalInfo, setAdditionalInfo] = useState<string>("");
-	const [referenceNumber, setReferenceNumber] = useState<string>("");
-	const [discountType, setDiscountType] = useState<string>("none");
-	const [discountValue, setDiscountValue] = useState<string>("");
-
-	useEffect(() => {
-		if (isPaymentModeOpen && invoice) {
-			// Xero invoices keep the PO number in their Reference (synced into description),
-			// so prefer it; fall back to the invoice number when there is no PO.
-			const xeroReference = invoice.xeroInvoiceId ? (invoice.description || "").trim() : "";
-			setReferenceNumber(xeroReference || invoice.invoiceNumber || invoice.description || "");
-		}
-	}, [isPaymentModeOpen, invoice]);
 
 	const fetchInvoice = async () => {
 		if (!invoiceId) return;
@@ -136,28 +116,40 @@ export default function InvoiceDetail() {
 		}
 	};
 
-	const handleDownloadPdf = async (
-		paymentMode: string,
-		additionalInfoStr?: string,
-		referenceStr?: string,
-		dueDaysStr?: string,
-		discountTypeStr?: string,
-		discountValueStr?: string
-	) => {
+	const handleDownloadPdf = async (settings: PdfDownloadSettings) => {
 		if (!invoice?.id) return;
 		setIsDownloading(true);
 		try {
 			const num = invoice.invoiceNumber || `INV-${invoice.id}`;
 			await invoiceService.downloadPdf(
 				invoice.id,
-				paymentMode,
-				additionalInfoStr,
-				referenceStr,
-				dueDaysStr,
-				discountTypeStr,
-				discountValueStr,
-				`Tax_Invoice_${num}.pdf`
+				settings.paymentMode,
+				settings.additionalInfo,
+				settings.reference,
+				settings.dueDays,
+				settings.discountType,
+				settings.discountValue,
+				`Tax_Invoice_${num}.pdf`,
+				undefined,
+				true
 			);
+			setInvoice((prev: any) =>
+				prev
+					? {
+							...prev,
+							pdfPaymentMode: settings.paymentMode,
+							pdfDueDays: settings.dueDays ? Number(settings.dueDays) : null,
+							pdfReference: settings.reference,
+							pdfDiscountType: settings.discountType || "none",
+							pdfDiscountValue:
+								settings.discountType !== "none" && settings.discountValue !== ""
+									? Number(settings.discountValue)
+									: null,
+							pdfAdditionalInfo: settings.additionalInfo,
+						}
+					: prev
+			);
+			setIsPaymentModeOpen(false);
 			toast({ title: "Tax Invoice PDF downloaded." });
 		} catch (err: any) {
 			toast({
@@ -506,121 +498,15 @@ export default function InvoiceDetail() {
 			</div>
 
 			{/* ── Payment Mode / Tax Invoice Modal ───────────────────────────── */}
-			<Dialog open={isPaymentModeOpen} onOpenChange={setIsPaymentModeOpen}>
-				<DialogContent className="sm:max-w-[425px]">
-					<DialogHeader>
-						<DialogTitle>Download Tax Invoice</DialogTitle>
-						<DialogDescription>
-							Customize payment terms and optional discount before generating the PDF invoice.
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="space-y-4 py-2">
-						<div className="space-y-2">
-							<Label htmlFor="inv-payment-mode">Mode of Payment</Label>
-							<Select value={selectedPaymentMode} onValueChange={setSelectedPaymentMode}>
-								<SelectTrigger id="inv-payment-mode">
-									<SelectValue placeholder="Select Payment Mode" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-									<SelectItem value="Cash">Cash</SelectItem>
-									<SelectItem value="Cheque">Cheque</SelectItem>
-									<SelectItem value="Credit Card">Credit Card</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-
-						<div className="space-y-2">
-							<Label htmlFor="inv-due-days">Payment Due (Days)</Label>
-							<Input
-								id="inv-due-days"
-								type="number"
-								min="0"
-								value={dueDays}
-								onChange={(e) => setDueDays(e.target.value)}
-								placeholder="15"
-							/>
-						</div>
-
-						<div className="space-y-2">
-							<Label htmlFor="inv-reference-num">Reference Number / PO Number</Label>
-							<Input
-								id="inv-reference-num"
-								value={referenceNumber}
-								onChange={(e) => setReferenceNumber(e.target.value)}
-								placeholder="e.g. PO-12345 or Ref #"
-							/>
-						</div>
-
-						<div className="grid grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label htmlFor="inv-discount-type">Discount Type</Label>
-								<Select value={discountType} onValueChange={setDiscountType}>
-									<SelectTrigger id="inv-discount-type">
-										<SelectValue placeholder="Select Type" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="none">No Discount</SelectItem>
-										<SelectItem value="percentage">Percentage (%)</SelectItem>
-										<SelectItem value="fixed">Fixed Amount ({currencySymbol})</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							{discountType !== "none" && (
-								<div className="space-y-2">
-									<Label htmlFor="inv-discount-val">
-										{discountType === "percentage" ? "Percentage (%)" : `Amount (${currencySymbol})`}
-									</Label>
-									<Input
-										id="inv-discount-val"
-										type="number"
-										min="0"
-										step={discountType === "percentage" ? "1" : "0.01"}
-										value={discountValue}
-										onChange={(e) => setDiscountValue(e.target.value)}
-										placeholder={discountType === "percentage" ? "10" : "500.00"}
-									/>
-								</div>
-							)}
-						</div>
-
-						<div className="space-y-2">
-							<Label htmlFor="inv-additional-info">Additional Notes / Terms</Label>
-							<Input
-								id="inv-additional-info"
-								value={additionalInfo}
-								onChange={(e) => setAdditionalInfo(e.target.value)}
-								placeholder="Optional additional notes"
-							/>
-						</div>
-					</div>
-
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setIsPaymentModeOpen(false)}>
-							Cancel
-						</Button>
-						<Button
-							onClick={() => {
-								setIsPaymentModeOpen(false);
-								handleDownloadPdf(
-									selectedPaymentMode,
-									additionalInfo,
-									referenceNumber,
-									dueDays,
-									discountType,
-									discountValue
-								);
-							}}
-							disabled={isDownloading}
-						>
-							<Download className="h-4 w-4 mr-2" />
-							{isDownloading ? "Downloading..." : "Download PDF"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<PdfDownloadDialog
+				open={isPaymentModeOpen}
+				onOpenChange={setIsPaymentModeOpen}
+				type="invoice"
+				currencySymbol={currencySymbol}
+				initialSettings={getInvoiceInitialPdfSettings(invoice)}
+				isDownloading={isDownloading}
+				onConfirmDownload={handleDownloadPdf}
+			/>
 
 			{/* ── Edit Dialog ────────────────────────────────────────────────── */}
 			{isEditOpen && (

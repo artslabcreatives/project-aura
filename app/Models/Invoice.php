@@ -26,6 +26,12 @@ class Invoice extends Model
         'xero_invoice_id',
         'xero_status',
         'description',
+        'pdf_payment_mode',
+        'pdf_due_days',
+        'pdf_reference',
+        'pdf_discount_type',
+        'pdf_discount_value',
+        'pdf_additional_info',
     ];
 
     protected $appends = ['invoice_document_url'];
@@ -62,6 +68,8 @@ class Invoice extends Model
         'is_physical_invoice' => 'boolean',
         'issued_at' => 'datetime',
         'due_date' => 'date',
+        'pdf_due_days' => 'integer',
+        'pdf_discount_value' => 'float',
     ];
 
     public function project(): BelongsTo

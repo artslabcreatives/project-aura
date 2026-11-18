@@ -36,6 +36,12 @@ type RawInvoice = {
 	is_physical_invoice?: boolean | number;
 	courier_tracking_number?: string;
 	courier_delivery_status?: string;
+	pdf_payment_mode?: string | null;
+	pdf_due_days?: number | null;
+	pdf_reference?: string | null;
+	pdf_discount_type?: string | null;
+	pdf_discount_value?: number | null;
+	pdf_additional_info?: string | null;
 };
 
 // Transform snake_case API response to camelCase
@@ -70,6 +76,12 @@ const transformInvoice = (raw: RawInvoice): Invoice => ({
 	isPhysicalInvoice: Boolean(raw.is_physical_invoice),
 	courierTrackingNumber: raw.courier_tracking_number,
 	courierDeliveryStatus: raw.courier_delivery_status,
+	pdfPaymentMode: raw.pdf_payment_mode,
+	pdfDueDays: raw.pdf_due_days,
+	pdfReference: raw.pdf_reference,
+	pdfDiscountType: raw.pdf_discount_type,
+	pdfDiscountValue: raw.pdf_discount_value,
+	pdfAdditionalInfo: raw.pdf_additional_info,
 });
 
 export interface InvoiceFilters {
@@ -215,21 +227,38 @@ export const invoiceService = {
 			tin?: string;
 			address?: string;
 			phone?: string;
-		}
+		},
+		saveSettings = false
 	): Promise<void> {
 		const params = new URLSearchParams();
-		if (paymentMode) params.append('payment_mode', paymentMode);
-		if (additionalInfo) params.append('additional_info', additionalInfo);
-		if (reference) params.append('reference', reference);
-		if (dueDays) params.append('due_days', dueDays);
-		if (discountType && discountType !== 'none') params.append('discount_type', discountType);
-		if (discountValue !== undefined && discountValue !== '') params.append('discount_value', String(discountValue));
+		if (saveSettings) {
+			params.append('save_settings', '1');
+			params.append('payment_mode', paymentMode ?? '');
+			params.append('additional_info', additionalInfo ?? '');
+			params.append('reference', reference ?? '');
+			params.append('due_days', dueDays ?? '');
+			params.append('discount_type', discountType || 'none');
+			params.append(
+				'discount_value',
+				discountType && discountType !== 'none' && discountValue !== undefined
+					? String(discountValue)
+					: ''
+			);
+		} else {
+			if (paymentMode) params.append('payment_mode', paymentMode);
+			if (additionalInfo) params.append('additional_info', additionalInfo);
+			if (reference) params.append('reference', reference);
+			if (dueDays) params.append('due_days', dueDays);
+			if (discountType && discountType !== 'none') params.append('discount_type', discountType);
+			if (discountValue !== undefined && discountValue !== '') params.append('discount_value', String(discountValue));
+		}
 		if (purchaserDetails?.tin) params.append('purchaser_tin', purchaserDetails.tin);
 		if (purchaserDetails?.address) params.append('purchaser_address', purchaserDetails.address);
 		if (purchaserDetails?.phone) params.append('purchaser_phone', purchaserDetails.phone);
 
 		const token = localStorage.getItem('auth_token');
-		const res = await fetch(`/api/invoices/${id}/download-pdf?${params.toString()}`, {
+		const query = params.toString();
+		const res = await fetch(`/api/invoices/${id}/download-pdf${query ? `?${query}` : ''}`, {
 			headers: {
 				...(token ? { Authorization: `Bearer ${token}` } : {}),
 				Accept: 'application/pdf',
@@ -244,6 +273,45 @@ export const invoiceService = {
 			} catch {}
 			throw new Error(errorMsg);
 		}
+
+		const blob = await res.blob();
+		const url = window.URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.setAttribute('download', filename);
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		window.URL.revokeObjectURL(url);
+	},
+
+	/**
+	 * Bulk download multiple Tax Invoices as ZIP or combined PDF
+	 */
+	async bulkDownloadPdf(ids: number[], format: 'zip' | 'pdf' = 'zip'): Promise<void> {
+		const token = localStorage.getItem('auth_token');
+		const res = await fetch('/api/invoices/bulk-download-pdf', {
+			method: 'POST',
+			headers: {
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
+				'Content-Type': 'application/json',
+				Accept: format === 'pdf' ? 'application/pdf' : 'application/zip, application/octet-stream',
+			},
+			body: JSON.stringify({ ids, format }),
+		});
+
+		if (!res.ok) {
+			let errorMsg = 'Failed to bulk download PDF invoices';
+			try {
+				const json = await res.json();
+				if (json.message) errorMsg = json.message;
+			} catch {}
+			throw new Error(errorMsg);
+		}
+
+		const disposition = res.headers.get('Content-Disposition');
+		const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";\n]+)"?/i);
+		const filename = match?.[1] || `Tax_Invoices.${format}`;
 
 		const blob = await res.blob();
 		const url = window.URL.createObjectURL(blob);

@@ -284,87 +284,104 @@ class InvoiceController extends Controller
         }
 
         $pdfService = app(\App\Services\InvoicePdfService::class);
-        $xeroService = app(\App\Services\XeroService::class);
-
-        $overrides = [];
-        if ($request->has('payment_mode')) {
-            $overrides['payment_mode'] = $request->query('payment_mode');
-        }
-        if ($request->has('additional_info')) {
-            $overrides['additional_info'] = $request->query('additional_info');
-        }
-        if ($request->has('reference')) {
-            $overrides['reference'] = $request->query('reference');
-        }
-        if ($request->has('due_days')) {
-            $overrides['due_days'] = $request->query('due_days');
-        }
-        if ($request->has('discount_type')) {
-            $overrides['discount_type'] = $request->query('discount_type');
-        }
-        if ($request->has('discount_value')) {
-            $overrides['discount_value'] = $request->query('discount_value');
-        }
-        if ($request->filled('purchaser_tin')) {
-            $overrides['purchaser_tin'] = trim((string) $request->query('purchaser_tin'));
-        }
-        if ($request->filled('purchaser_address')) {
-            $overrides['purchaser_address'] = trim((string) $request->query('purchaser_address'));
-        }
-        if ($request->filled('purchaser_phone')) {
-            $overrides['purchaser_phone'] = trim((string) $request->query('purchaser_phone'));
-        }
-
         $invoice->load(['client', 'project']);
-        if ($invoice->client) {
-            $clientUpdates = [];
-            if (!empty($overrides['purchaser_tin']) && $overrides['purchaser_tin'] !== $invoice->client->tax_number) {
-                $clientUpdates['tax_number'] = $overrides['purchaser_tin'];
-            }
-            if (!empty($overrides['purchaser_address']) && $overrides['purchaser_address'] !== $invoice->client->address) {
-                $clientUpdates['address'] = $overrides['purchaser_address'];
-            }
-            if (!empty($overrides['purchaser_phone']) && $overrides['purchaser_phone'] !== $invoice->client->phone) {
-                $clientUpdates['phone'] = $overrides['purchaser_phone'];
-            }
-            if (!empty($clientUpdates)) {
-                $invoice->client->update($clientUpdates);
-            }
-        }
+        $overrides = $pdfService->resolveAndPersistOverrides($invoice, $request);
 
-        $data = null;
-        // If it is a Xero invoice and Xero is connected, fetch fresh details from Xero
-        if ($invoice->xero_invoice_id && $xeroService->isConnected()) {
-            try {
-                $xeroInvoice = $xeroService->getInvoiceDetail($invoice->xero_invoice_id);
-                $data = $pdfService->buildDataFromXeroInvoice($xeroInvoice, $overrides);
-                if ($invoice->client) {
-                    if (empty($data['purchaser_tin']) && !empty($invoice->client->tax_number)) {
-                        $data['purchaser_tin'] = $invoice->client->tax_number;
-                    }
-                    if (empty($data['purchaser_address']) && !empty($invoice->client->address)) {
-                        $data['purchaser_address'] = $invoice->client->address;
-                    }
-                    if (empty($data['purchaser_phone']) && !empty($invoice->client->phone)) {
-                        $data['purchaser_phone'] = $invoice->client->phone;
-                    }
-                }
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Failed to fetch Xero invoice detail for PDF, falling back to local: ' . $e->getMessage());
-            }
-        }
-
-        if (!$data) {
-            $data = $pdfService->buildDataFromLocalInvoice($invoice, $overrides);
-        }
-
-        $pdfContent = $pdfService->generate($template, $data);
-        $filename   = 'Tax_Invoice_' . ($invoice->invoice_number ?? $invoice->id) . '.pdf';
+        $pdfContent = $pdfService->generateInvoicePdfContent($invoice, $template, $overrides);
+        $filename   = $pdfService->sanitizeFilename('Tax_Invoice_' . ($invoice->invoice_number ?? $invoice->id)) . '.pdf';
 
         return response()->streamDownload(function () use ($pdfContent) {
             echo $pdfContent;
         }, $filename, [
             'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    #[OA\Post(
+        path: "/invoices/bulk-download-pdf",
+        summary: "Bulk download tax invoice PDFs as ZIP or combined PDF",
+        security: [["bearerAuth" => []]],
+        tags: ["Invoices"],
+        responses: [new OA\Response(response: 200, description: "ZIP or combined PDF stream")]
+    )]
+    public function bulkDownloadPdf(Request $request)
+    {
+        $validated = $request->validate([
+            'ids'    => 'required|array|min:1',
+            'ids.*'  => 'integer|exists:invoices,id',
+            'format' => 'nullable|in:zip,pdf',
+        ]);
+
+        $template = \App\Models\InvoiceTemplate::getDefault();
+        if (!$template) {
+            return response()->json(['message' => 'No active PDF invoice template found.'], 404);
+        }
+
+        if (!$template->pdf_path || !file_exists($template->absolute_pdf_path)) {
+            return response()->json(['message' => 'Template PDF file not found.'], 404);
+        }
+
+        $pdfService = app(\App\Services\InvoicePdfService::class);
+        $xeroService = app(\App\Services\XeroService::class);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['ids'])));
+        $invoices = Invoice::with(['client', 'project'])->whereIn('id', $ids)->get()->keyBy('id');
+
+        $xeroInvoicesById = [];
+        $xeroIds = $invoices->pluck('xero_invoice_id')->filter()->values()->all();
+        if (!empty($xeroIds) && $xeroService->isConnected()) {
+            $xeroInvoicesById = $xeroService->getInvoicesBatch($xeroIds);
+        }
+
+        $localContactIds = $invoices->filter(fn ($inv) => !$inv->xero_invoice_id && $inv->client?->xero_contact_id)
+            ->pluck('client.xero_contact_id')
+            ->unique()
+            ->values()
+            ->all();
+        if (!empty($localContactIds) && $xeroService->isConnected()) {
+            $xeroService->enrichClientsByXeroContactIds($localContactIds);
+        }
+
+        $format = $validated['format'] ?? 'zip';
+        $generatedFiles = [];
+
+        foreach ($ids as $id) {
+            $invoice = $invoices->get($id);
+            if (!$invoice) {
+                continue;
+            }
+            $invoice->client?->refresh();
+            $overrides = $pdfService->extractSavedOverrides($invoice);
+            $overrides['_skip_client_xero_sync'] = true;
+
+            $preloadedXero = $invoice->xero_invoice_id ? ($xeroInvoicesById[$invoice->xero_invoice_id] ?? null) : null;
+            $pdfContent = $pdfService->generateInvoicePdfContent($invoice, $template, $overrides, $preloadedXero);
+
+            $generatedFiles[] = [
+                'filename' => 'Tax_Invoice_' . ($invoice->invoice_number ?? $invoice->id) . '.pdf',
+                'content'  => $pdfContent,
+            ];
+        }
+
+        if (empty($generatedFiles)) {
+            return response()->json(['message' => 'No matching invoices found.'], 404);
+        }
+
+        $dateSuffix = now()->format('Y-m-d');
+        if ($format === 'pdf') {
+            $merged = $pdfService->mergePdfs(array_column($generatedFiles, 'content'));
+            return response()->streamDownload(function () use ($merged) {
+                echo $merged;
+            }, "Tax_Invoices_{$dateSuffix}.pdf", [
+                'Content-Type' => 'application/pdf',
+            ]);
+        }
+
+        $zipBinary = $pdfService->buildZipArchive($generatedFiles);
+        return response()->streamDownload(function () use ($zipBinary) {
+            echo $zipBinary;
+        }, "Tax_Invoices_{$dateSuffix}.zip", [
+            'Content-Type' => 'application/zip',
         ]);
     }
 

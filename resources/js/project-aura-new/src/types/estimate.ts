@@ -31,6 +31,12 @@ export interface Estimate {
 	notes?: string;
 	project_id?: number;
 	xero_last_synced_at?: string;
+	pdf_payment_mode?: string | null;
+	pdf_due_days?: number | null;
+	pdf_reference?: string | null;
+	pdf_discount_type?: string | null;
+	pdf_discount_value?: number | null;
+	pdf_additional_info?: string | null;
 	created_at?: string;
 	updated_at?: string;
 }
