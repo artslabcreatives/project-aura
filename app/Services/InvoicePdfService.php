@@ -528,10 +528,9 @@ class InvoicePdfService
         $ssclVal = isset($data['sscl_amount']) && $data['sscl_amount'] !== ''
             ? (float) str_replace(',', '', (string) $data['sscl_amount'])
             : ($totalAfterDiscountVal * 0.025);
-        $vatBaseVal = $totalAfterDiscountVal + $ssclVal;
         $vatVal = isset($data['vat_amount']) && $data['vat_amount'] !== ''
             ? (float) str_replace(',', '', (string) $data['vat_amount'])
-            : ($vatBaseVal * 0.18);
+            : ($totalAfterDiscountVal * 0.18);
         $totalVal = $totalAfterDiscountVal + $ssclVal + $vatVal;
 
         $ssclAmountText = number_format($ssclVal, 2);
@@ -540,14 +539,8 @@ class InvoicePdfService
         $totalWithVatText = number_format($totalVal, 2);
         $totalInWordsText = $this->numberToWords($totalVal);
 
-        $vatBaseText = number_format($vatBaseVal, 2);
-
         // Check if totals block (including word amount & payment mode) fits on current page
-        if ($isQuotation) {
-            $totalsRowCount = $hasDiscount ? 7 : 5;
-        } else {
-            $totalsRowCount = $hasDiscount ? 6 : 4;
-        }
+        $totalsRowCount = $hasDiscount ? 6 : 4;
         $fullTotalsHeight = ($totalsRowCount * 8) + 4 + 8 + 8;
 
         if ($currentY + $fullTotalsHeight > 265) {
@@ -581,7 +574,7 @@ class InvoicePdfService
         };
 
         if ($isQuotation) {
-            // Quotation layout: Subtotal -> Discount -> Subtotal after Discount -> SSCL -> Subtotal with SSCL -> VAT -> TOTAL
+            // Quotation layout: Subtotal -> Discount -> Subtotal after Discount -> SSCL -> VAT -> TOTAL
             if ($hasDiscount) {
                 $drawTotalsRow('Subtotal', $grossSubtotalStr);
                 $drawTotalsRow($discountLabel, $discountAmtStr);
@@ -590,7 +583,6 @@ class InvoicePdfService
                 $drawTotalsRow('Subtotal', $grossSubtotalStr);
             }
             $drawTotalsRow('SSCL 2.5%', $ssclAmountText);
-            $drawTotalsRow('Subtotal with SSCL 2.5%', $vatBaseText);
             $drawTotalsRow("VAT {$vatRateText}", $vatAmountText);
             $drawTotalsRow('TOTAL', $totalWithVatText);
         } else {
@@ -1112,8 +1104,7 @@ class InvoicePdfService
 
         $totalAfterDiscount = max(0, $rawSubtotal - $discountAmount);
         $ssclAmount = $totalAfterDiscount * 0.025;
-        $vatBase = $totalAfterDiscount + $ssclAmount;
-        $vatAmount = $vatBase * 0.18;
+        $vatAmount = $totalAfterDiscount * 0.18;
         $totalWithVat = $totalAfterDiscount + $ssclAmount + $vatAmount;
 
         return [
